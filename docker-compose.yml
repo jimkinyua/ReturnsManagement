@@ -1,0 +1,38 @@
+services:
+  apigateway:
+    image: tntdev.azurecr.io/sasra-apigateway:test
+    container_name: apigateway
+    ports:
+      - "5000:8080"
+    depends_on:
+      - identityservice
+      - returnsservice
+    networks:
+      - microservices-network
+ 
+  identityservice:
+    image: tntdev.azurecr.io/sasra-identityservice:test
+    container_name: identityservice
+    ports:
+      - "5001:8039"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql;Database=IdentityDb;User Id=sa;Password=Your_password123;
+    networks:
+      - microservices-network
+ 
+  returnsservice:
+    image: tntdev.azurecr.io/sasra-returns:test
+    container_name: returnsservice
+    ports:
+      - "5003:8042"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql;Database=ReturnsDb;User Id=sa;Password=Your_password123;
+    networks:
+      - microservices-network
+ 
+networks:
+  microservices-network:
+    driver: nat
+ 
+volumes:
+  mssql-data:

@@ -1,0 +1,10 @@
+trigger: none  # Prevent automatic triggers
+
+stages:
+  - stage: NoOp
+    displayName: "No Operation"
+    jobs:
+      - job: SkipJob
+        displayName: "Skipping Job"
+        steps:
+          - script: echo "This is a placeholder pipeline for the main branch."

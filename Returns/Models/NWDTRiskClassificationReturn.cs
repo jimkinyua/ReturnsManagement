@@ -1,0 +1,27 @@
+﻿using Returns.Models.Common;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Returns.Models
+{
+    public class NWDTRiskClassificationReturn : FormBase
+    {
+        public string LoanType { get; set; } = null!;  // "Regular" or "Rescheduled/Renegotiated"
+        public string Classification { get; set; } = null!; // "Performing", "Watch", etc.
+        public int? NumberOfAccounts { get; set; }
+        public decimal? OutstandingLoanPortfolio { get; set; }
+        public decimal? RequiredProvision { get; set; }
+        public decimal? RequiredProvisionAmount { get; set; }
+        [ForeignKey("ReturnId")]
+        public string ReturnId { get; set; } = null!;
+        public virtual Return Return { get; set; } = null!;
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public string Period { get; set; } = null!;
+        public string Frequency { get; set; } = null!;
+        public string FilePath { get; set; } = null!;
+        public int DaysLateBy
+        {
+            get; set;
+        }
+    }
+}

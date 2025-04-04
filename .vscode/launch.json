@@ -1,0 +1,126 @@
+{
+  "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "run-all",
+      "configurations": [
+        "run-gateway",
+        "run-identity",
+        "run-complaints",
+        "run-returns",
+        "run-licensing"
+      ]
+    },
+    {
+      "name": "run-identity-complaints",
+      "configurations": ["run-identity", "run-complaints"]
+    }
+  ],
+  "configurations": [
+    {
+      "name": "run-gateway",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-gateway",
+      "program": "${workspaceFolder}/ApiGateway/bin/Debug/net8.0/ApiGateway.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/ApiGateway",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger/index.html"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "run-identity",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-identity",
+      "program": "${workspaceFolder}/IdentityService/bin/Debug/net8.0/IdentityService.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/IdentityService",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger/index.html"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "run-complaints",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-complaints",
+      "program": "${workspaceFolder}/Complaints/Presentation/WebApi/bin/Debug/net9.0/WebApi.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/Complaints/Presentation/WebApi",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/scalar"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "run-returns",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-returns",
+      "program": "${workspaceFolder}/Returns/bin/Debug/net8.0/Returns.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/Returns",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger/index.html"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    },
+    {
+      "name": "run-licensing",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build-licensing",
+      "program": "${workspaceFolder}/Licensing/bin/Debug/net8.0/Licensing.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/Licensing",
+      "stopAtEntry": false,
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+        "uriFormat": "%s/swagger/index.html"
+      },
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "sourceFileMap": {
+        "/Views": "${workspaceFolder}/Views"
+      }
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-nanoserver-1809 AS base
+WORKDIR /app
+EXPOSE 8042
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0-nanoserver-1809 AS build
+WORKDIR /src
+COPY ["Returns/Returns.csproj", "Returns/"]
+RUN dotnet restore "Returns/Returns.csproj"
+COPY . .
+WORKDIR /src/Returns
+RUN dotnet build "Returns.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "Returns.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENV ASPNETCORE_URLS=http://+:8042
+ENTRYPOINT ["dotnet", "Returns.dll"]

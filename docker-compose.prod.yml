@@ -1,0 +1,59 @@
+services:
+  apigateway:
+    image: docker.io/jimkinyua/apigateway:latest
+    container_name: apigateway
+    ports:
+      - "5000:8080"
+    depends_on:
+      - identityservice
+      - returnsservice
+      - licensingservice
+      - complaintsservice
+    networks:
+      - microservices-network
+
+  identityservice:
+    image: docker.io/jimkinyua/identityservice:latest
+    container_name: identityservice
+    ports:
+      - "5001:8039"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql;Database=IdentityDb;User Id=sa;Password=Your_password123;
+    networks:
+      - microservices-network
+
+  licensingservice:
+    image: docker.io/jimkinyua/licensingservice:latest
+    container_name: licensingservice
+    ports:
+      - "5002:8043"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql;Database=LicensingDatabaseNew1;User Id=sa;Password=Your_password123;
+    networks:
+      - microservices-network
+  complaintsservice:
+    image: docker.io/jimkinyua/complaintsservice:latest
+    container_name: complaintsservice
+    ports:
+      - "5004:8041"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql;Database=LicensingDatabaseNew1;User Id=sa;Password=Your_password123;
+    networks:
+      - microservices-network
+
+  returnsservice:
+    image: docker.io/jimkinyua/returnsservice:latest
+    container_name: returnsservice
+    ports:
+      - "5003:8042"
+    environment:
+      - ConnectionStrings__DefaultConnection=Server=mssql;Database=ReturnsDb;User Id=sa;Password=Your_password123;
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: nat
+
+volumes:
+  mssql-data:
