@@ -327,7 +327,9 @@ namespace Returns.Helpers
                     StartDate = Form1Statement.StartDate,
                     EndDate = Form1Statement.EndDate,
                     Frequency = form.Period.Name,
-                    DaysLateBy = DaysLateBy
+                    DaysLateBy = DaysLateBy,
+                    IsCurrent = true,
+                    IsAmended = false,
                 };
             }
             else
@@ -339,6 +341,8 @@ namespace Returns.Helpers
                         "Not Fond");
                 }
                 capitalAdequacy.PreviousReturnId = PreviousReturnId;
+                capitalAdequacy.IsCurrent = false;
+                capitalAdequacy.IsAmended = true;
             }
 
 

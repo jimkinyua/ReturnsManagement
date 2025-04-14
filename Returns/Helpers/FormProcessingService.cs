@@ -46,8 +46,7 @@ namespace Returns.Helpers
                     if (form == null) continue;
 
                     // Check if this form is an amendment
-                    var (isAmendment, returnId) = await IsAmendmentBasedOnReportingPeriod(
-                        upload.formFile, form, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
+                    var (isAmendment, returnId) = await IsAmendmentBasedOnReportingPeriod(upload.formFile, form, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
 
                     if (isAmendment && !string.IsNullOrEmpty(returnId))
                     {
@@ -106,9 +105,7 @@ namespace Returns.Helpers
                 {
                     if (upload.formFile == null) continue;
 
-                    var form = await _context.ReturnForms
-                        .Include(x => x.Period)
-                        .FirstOrDefaultAsync(f => f.Id == upload.FormId);
+                    var form = await _context.ReturnForms.Include(x => x.Period).FirstOrDefaultAsync(f => f.Id == upload.FormId);
 
                     if (form == null)
                     {
@@ -360,20 +357,20 @@ namespace Returns.Helpers
         }
 
 
-        private async Task<bool> CopyChildRecords(string sourceReturnId, string targetReturnId, ReturnForm form, string SaccoType)
+        private async Task<bool> CopyChildRecords(string OldReturnId, string NewReturnId, ReturnForm form, string SaccoType)
         {
             if (SaccoType == Constants.SaccoType.DepositTaking)
             {
                 if (form.IsCapitalAdequencyForm)
                 {
-                    var capitalAdequacy = await _context.CapitalAdequacies.Where(c => c.ReturnId == sourceReturnId).ToListAsync();
+                    var capitalAdequacy = await _context.CapitalAdequacies.Where(c => c.ReturnId == OldReturnId).ToListAsync();
 
                     foreach (var item in capitalAdequacy)
                     {
                         var newItem = new CapitalAdequacy
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
                             ShareCapital = item.ShareCapital,
                             StatutoryReserves = item.StatutoryReserves,
                             RetainedEarningsAccumulatedLosses = item.RetainedEarningsAccumulatedLosses,
@@ -420,7 +417,6 @@ namespace Returns.Helpers
                             Frequency = item.Frequency,
                             FilePath = item.FilePath,
                             DaysLateBy = item.DaysLateBy,
-                            IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.CapitalAdequacies.AddAsync(newItem);
@@ -431,14 +427,14 @@ namespace Returns.Helpers
 
                 if (form.IsLiquidityStatement)
                 {
-                    var liquidityReturns = await _context.LiquidityReturns.Where(l => l.ReturnId == sourceReturnId).ToListAsync();
+                    var liquidityReturns = await _context.LiquidityReturns.Where(l => l.ReturnId == OldReturnId).ToListAsync();
 
                     foreach (var item in liquidityReturns)
                     {
                         var newItem = new LiquidityReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
                             // 1. Notes and Coins
                             LocalNotesAndCoins = item.LocalNotesAndCoins,
                             ForeignNotesAndCoins = item.ForeignNotesAndCoins,
@@ -506,15 +502,15 @@ namespace Returns.Helpers
                 if (form.IsRiskClassification)
                 {
                     var riskClassifications = await _context.RiskClassifications
-                        .Where(r => r.ReturnId == sourceReturnId)
+                        .Where(r => r.ReturnId == OldReturnId)
                         .ToListAsync();
 
                     foreach (var item in riskClassifications)
                     {
                         var newItem = new RiskClassificationReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             LoanType = item.LoanType,
                             Classification = item.Classification,
@@ -541,15 +537,15 @@ namespace Returns.Helpers
                 if (form.IsInvestmentReturn)
                 {
                     var investmentReturns = await _context.InvestmentReturns
-                      .Where(i => i.ReturnId == sourceReturnId)
+                      .Where(i => i.ReturnId == OldReturnId)
                       .ToListAsync();
 
                     foreach (var item in investmentReturns)
                     {
                         var newItem = new InvestmentReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             CoreCapital = item.CoreCapital,
                             TotalAssets = item.TotalAssets,
@@ -593,15 +589,15 @@ namespace Returns.Helpers
                 if (form.IsStatementOfComprehensiveIncome)
                 {
                     var comprehensiveIncomeReturns = await _context.StatementOfComprehensiveIncomeReturns
-                      .Where(c => c.ReturnId == sourceReturnId)
+                      .Where(c => c.ReturnId == OldReturnId)
                       .ToListAsync();
 
                     foreach (var item in comprehensiveIncomeReturns)
                     {
                         var newItem = new StatementOfComprehensiveIncomeReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             InterestOnLoanPortfolio = item.InterestOnLoanPortfolio,
                             FeesAndCommissionOnLoanPortfolio = item.FeesAndCommissionOnLoanPortfolio,
@@ -651,15 +647,15 @@ namespace Returns.Helpers
                 if (form.IsStatementOfComprehensiveIncome)
                 {
                     var financialPositionReturns = await _context.StatementOfFinancialPositionReturns
-                     .Where(f => f.ReturnId == sourceReturnId)
+                     .Where(f => f.ReturnId == OldReturnId)
                      .ToListAsync();
 
                     foreach (var item in financialPositionReturns)
                     {
                         var newItem = new StatementOfFinancialPositionReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             CashInHand = item.CashInHand,
                             CashAtBank = item.CashAtBank,
@@ -726,15 +722,15 @@ namespace Returns.Helpers
                 {
 
                     var depositReturns = await _context.DepositReturns
-                        .Where(d => d.ReturnId == sourceReturnId)
+                        .Where(d => d.ReturnId == OldReturnId)
                         .ToListAsync();
 
                     foreach (var item in depositReturns)
                     {
                         var newItem = new DepositReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
                             RangeName = item.RangeName,
                             DepositType = item.DepositType,
                             NumberOfAccounts = item.NumberOfAccounts,
@@ -759,15 +755,15 @@ namespace Returns.Helpers
                 {
 
                     var otherReturns = await _context.OtherReturns
-                        .Where(o => o.ReturnId == sourceReturnId)
+                        .Where(o => o.ReturnId == OldReturnId)
                         .ToListAsync();
 
                     foreach (var item in otherReturns)
                     {
                         var newItem = new OtherReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
                             FormName = item.FormName,
                             FileUrl = item.FileUrl,
                             SaccoId = item.SaccoId,
@@ -789,15 +785,15 @@ namespace Returns.Helpers
                 if (form.IsCapitalAdequencyForm)
                 {
                     var nwdtCapitalAdequacy = await _context.NDWTCapitalAdequacyReturns
-                       .Where(c => c.ReturnId == sourceReturnId)
+                       .Where(c => c.ReturnId == OldReturnId)
                        .ToListAsync();
 
                     foreach (var item in nwdtCapitalAdequacy)
                     {
                         var newItem = new NDWTCapitalAdequacyReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
                             ShareCapital = item.ShareCapital,
                             CapitalGrants = item.CapitalGrants,
                             RetainedEarnings = item.RetainedEarnings,
@@ -855,15 +851,15 @@ namespace Returns.Helpers
                 if (form.IsRiskClassification)
                 {
                     var nwdtRiskClassification = await _context.NWDTRiskClassificationReturns
-                     .Where(r => r.ReturnId == sourceReturnId)
+                     .Where(r => r.ReturnId == OldReturnId)
                      .ToListAsync();
 
                     foreach (var item in nwdtRiskClassification)
                     {
                         var newItem = new NWDTRiskClassificationReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             // NWDT Risk Classification fields
                             LoanType = item.LoanType,
@@ -891,15 +887,15 @@ namespace Returns.Helpers
                 if (form.IsLiquidityStatement)
                 {
                     var nwdtLiquidity = await _context.NDWTLiquidityReturns
-                       .Where(l => l.ReturnId == sourceReturnId)
+                       .Where(l => l.ReturnId == OldReturnId)
                        .ToListAsync();
 
                     foreach (var item in nwdtLiquidity)
                     {
                         var newItem = new NWDTLiquidityReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             // Section 1: Notes and Coins
                             LocalNotesAndCoins = item.LocalNotesAndCoins,
@@ -956,15 +952,15 @@ namespace Returns.Helpers
                 if (form.IsDepositReturnForm)
                 {
                     var nwdtDeposit = await _context.NWDTDepositReturns
-                        .Where(d => d.ReturnId == sourceReturnId)
+                        .Where(d => d.ReturnId == OldReturnId)
                         .ToListAsync();
 
                     foreach (var item in nwdtDeposit)
                     {
                         var newItem = new NWDTDepositReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
                             // NWDT Deposit Return fields
                             RangeName = item.RangeName,
                             DepositType = item.DepositType,
@@ -989,15 +985,15 @@ namespace Returns.Helpers
                 if (form.IsInvestmentReturn)
                 {
                     var nwdtInvestment = await _context.NWDTInvestmentReturns
-                                   .Where(i => i.ReturnId == sourceReturnId)
+                                   .Where(i => i.ReturnId == OldReturnId)
                                    .ToListAsync();
 
                     foreach (var item in nwdtInvestment)
                     {
                         var newItem = new NWDTInvestmentReturn
                         {
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             // Basic financial data
                             CoreCapital = item.CoreCapital,
@@ -1054,7 +1050,7 @@ namespace Returns.Helpers
                 if (form.IsFinancialPosition)
                 {
                     var nwdtFinancialPosition = await _context.NWDTFinancialPositionReturns
-                      .Where(f => f.ReturnId == sourceReturnId)
+                      .Where(f => f.ReturnId == OldReturnId)
                       .ToListAsync();
 
                     foreach (var item in nwdtFinancialPosition)
@@ -1062,8 +1058,8 @@ namespace Returns.Helpers
                         var newItem = new NWDTFinancialPositionReturn
                         {
                             Id = Guid.NewGuid().ToString(),
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             // Cash & Cash Equivalent
                             CashInHand = item.CashInHand,
@@ -1161,7 +1157,7 @@ namespace Returns.Helpers
                 if (form.IsStatementOfComprehensiveIncome)
                 {
                     var nwdtComprehensiveIncome = await _context.NWDTComprehensiveIncomeReturns
-                       .Where(c => c.ReturnId == sourceReturnId)
+                       .Where(c => c.ReturnId == OldReturnId)
                        .ToListAsync();
 
                     foreach (var item in nwdtComprehensiveIncome)
@@ -1169,8 +1165,8 @@ namespace Returns.Helpers
                         var newItem = new NWDTComprehensiveIncomeReturn
                         {
                             Id = Guid.NewGuid().ToString(),
-                            ReturnId = targetReturnId,
-                            PreviousReturnId = sourceReturnId,
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
 
                             // Financial Income - Loans Portfolio
                             InterestOnLoanPortfolio = item.InterestOnLoanPortfolio,
@@ -1245,8 +1241,6 @@ namespace Returns.Helpers
 
             }
             return false;
-
-
         }
 
         public async Task<(bool IsAmendment, string ReturnId)> IsAmendmentBasedOnReportingPeriod(IFormFile formFile, ReturnForm form, string SaccoType, string SaccoId)
@@ -1409,7 +1403,7 @@ namespace Returns.Helpers
                 // It's an amendment if:
                 // 1. There's an existing return AND
                 // 2. The current date is after the due date
-                bool isAmendment = hasExistingReturn || DateTime.Now > dueDate;
+                bool isAmendment = hasExistingReturn; //&& DateTime.Now > dueDate;
 
                 // Only return the ReturnId if it's an amendment
                 return (isAmendment, isAmendment ? returnId : string.Empty);
