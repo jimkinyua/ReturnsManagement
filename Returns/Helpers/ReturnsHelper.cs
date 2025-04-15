@@ -1452,7 +1452,9 @@ namespace Returns.Helpers
                         FilePath = Path,
                         Period = form2A.Period,
                         Frequency = form.Period.Name,
-                        DaysLateBy = DaysLateBy
+                        DaysLateBy = DaysLateBy,
+                        IsAmended = false,
+                        IsCurrent = true
                     };
 
                 }
@@ -1465,6 +1467,8 @@ namespace Returns.Helpers
                             "Not Fond");
                     }
                     capitalAdequacy.PreviousReturnId = PreviousReturnId;
+                    capitalAdequacy.IsAmended = false;
+                    capitalAdequacy.IsCurrent = true;
                 }
 
 

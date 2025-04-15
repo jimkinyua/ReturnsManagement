@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.Drawing;
+using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Returns_Submission.DT;
 using Returns.Models;
 using Returns.Models.Data;
@@ -175,7 +176,7 @@ namespace Returns.Helpers
             return new Return
             {
                 SaccoId = sacco.SaccoId,
-                IsConsistent = isConsistent,
+                IsNotConsistent = isConsistent,
                 ConsistentErrorMessage = string.Join(", ", errors),
                 SaccoType = sacco.SaccoType,
                 SaccoName = sacco.SaccoName,
@@ -216,7 +217,7 @@ namespace Returns.Helpers
                     Year = originalReturn.Year,
                     SubmittedAt = DateTime.Now,
                     ReturnFor = originalReturn.ReturnFor,
-                    IsConsistent = isConsistent,
+                    IsNotConsistent = isConsistent,
                     ConsistentErrorMessage = string.Join(", ", consistencyErrors),
                     VersionNumber = originalReturn.VersionNumber + 1,
                     IsActiveVersion = true,
@@ -325,7 +326,7 @@ namespace Returns.Helpers
                         Year = OldReturn.Year,
                         SubmittedAt = DateTime.Now,
                         ReturnFor = OldReturn.ReturnFor,
-                        IsConsistent = OldReturn.IsConsistent,
+                        IsNotConsistent = OldReturn.IsNotConsistent,
                         ConsistentErrorMessage = OldReturn.ConsistentErrorMessage,
                         VersionNumber = OldReturn.VersionNumber + 1,
                         IsActiveVersion = true,
@@ -364,6 +365,9 @@ namespace Returns.Helpers
                 if (form.IsCapitalAdequencyForm)
                 {
                     var capitalAdequacy = await _context.CapitalAdequacies.Where(c => c.ReturnId == OldReturnId).ToListAsync();
+                    if (capitalAdequacy == null)
+                    {
+                    }
 
                     foreach (var item in capitalAdequacy)
                     {
@@ -420,6 +424,9 @@ namespace Returns.Helpers
                         };
 
                         await _context.CapitalAdequacies.AddAsync(newItem);
+                        item.IsCurrent = false;
+                        item.IsAmended = true;
+                        _context.CapitalAdequacies.Update(item);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -429,71 +436,74 @@ namespace Returns.Helpers
                 {
                     var liquidityReturns = await _context.LiquidityReturns.Where(l => l.ReturnId == OldReturnId).ToListAsync();
 
-                    foreach (var item in liquidityReturns)
+                    foreach (var OldItem in liquidityReturns)
                     {
                         var newItem = new LiquidityReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
                             // 1. Notes and Coins
-                            LocalNotesAndCoins = item.LocalNotesAndCoins,
-                            ForeignNotesAndCoins = item.ForeignNotesAndCoins,
-                            TotalNotesAndCoins = item.TotalNotesAndCoins,
+                            LocalNotesAndCoins = OldItem.LocalNotesAndCoins,
+                            ForeignNotesAndCoins = OldItem.ForeignNotesAndCoins,
+                            TotalNotesAndCoins = OldItem.TotalNotesAndCoins,
 
                             // 2. Bank Balances
-                            BalancesWithCommercialBanks = item.BalancesWithCommercialBanks,
-                            TimeDepositsWithBanksMoreThan90Days = item.TimeDepositsWithBanksMoreThan90Days,
-                            OverdraftsAndMaturedLoans = item.OverdraftsAndMaturedLoans,
-                            NetBankBalances = item.NetBankBalances,
+                            BalancesWithCommercialBanks = OldItem.BalancesWithCommercialBanks,
+                            TimeDepositsWithBanksMoreThan90Days = OldItem.TimeDepositsWithBanksMoreThan90Days,
+                            OverdraftsAndMaturedLoans = OldItem.OverdraftsAndMaturedLoans,
+                            NetBankBalances = OldItem.NetBankBalances,
 
                             // 3. Balances with Financial Institutions
-                            BalancesWithOtherSaccoSocieties = item.BalancesWithOtherSaccoSocieties,
-                            BalancesWithOtherFinancialInstitutions = item.BalancesWithOtherFinancialInstitutions,
-                            BalancesDueToOtherSaccoSocieties = item.BalancesDueToOtherSaccoSocieties,
-                            BalancesDueToFinancialInstitutions = item.BalancesDueToFinancialInstitutions,
-                            MaturedLoansFromFinancialInstitutions = item.MaturedLoansFromFinancialInstitutions,
-                            NetFinancialInstitutionBalances = item.NetFinancialInstitutionBalances,
+                            BalancesWithOtherSaccoSocieties = OldItem.BalancesWithOtherSaccoSocieties,
+                            BalancesWithOtherFinancialInstitutions = OldItem.BalancesWithOtherFinancialInstitutions,
+                            BalancesDueToOtherSaccoSocieties = OldItem.BalancesDueToOtherSaccoSocieties,
+                            BalancesDueToFinancialInstitutions = OldItem.BalancesDueToFinancialInstitutions,
+                            MaturedLoansFromFinancialInstitutions = OldItem.MaturedLoansFromFinancialInstitutions,
+                            NetFinancialInstitutionBalances = OldItem.NetFinancialInstitutionBalances,
 
                             // 4. Government Securities
-                            TreasuryBills = item.TreasuryBills,
-                            TreasuryBonds = item.TreasuryBonds,
-                            TotalGovernmentSecurities = item.TotalGovernmentSecurities,
+                            TreasuryBills = OldItem.TreasuryBills,
+                            TreasuryBonds = OldItem.TreasuryBonds,
+                            TotalGovernmentSecurities = OldItem.TotalGovernmentSecurities,
 
                             // 5. Net Liquid Assets
-                            NetLiquidAssets = item.NetLiquidAssets,
+                            NetLiquidAssets = OldItem.NetLiquidAssets,
 
                             // 6. Deposit Balances
-                            DepositsFromMembers = item.DepositsFromMembers,
-                            DepositsFromOtherSources = item.DepositsFromOtherSources,
-                            TotalDeposits = item.TotalDeposits,
-                            BalancesDueToSaccos = item.BalancesDueToSaccos,
-                            BalancesDueToBanks = item.BalancesDueToBanks,
-                            BalancesDueToOtherFinancialInst = item.BalancesDueToOtherFinancialInst,
-                            TotalDeductions = item.TotalDeductions,
-                            NetDepositLiabilities = item.NetDepositLiabilities,
+                            DepositsFromMembers = OldItem.DepositsFromMembers,
+                            DepositsFromOtherSources = OldItem.DepositsFromOtherSources,
+                            TotalDeposits = OldItem.TotalDeposits,
+                            BalancesDueToSaccos = OldItem.BalancesDueToSaccos,
+                            BalancesDueToBanks = OldItem.BalancesDueToBanks,
+                            BalancesDueToOtherFinancialInst = OldItem.BalancesDueToOtherFinancialInst,
+                            TotalDeductions = OldItem.TotalDeductions,
+                            NetDepositLiabilities = OldItem.NetDepositLiabilities,
 
                             // 7. Other Liabilities
-                            MaturedLiabilities = item.MaturedLiabilities,
-                            LiabilitiesMaturing91Days = item.LiabilitiesMaturing91Days,
-                            TotalOtherLiabilities = item.TotalOtherLiabilities,
+                            MaturedLiabilities = OldItem.MaturedLiabilities,
+                            LiabilitiesMaturing91Days = OldItem.LiabilitiesMaturing91Days,
+                            TotalOtherLiabilities = OldItem.TotalOtherLiabilities,
 
                             // 8. Liquidity Ratio
-                            TotalShortTermLiabilities = item.TotalShortTermLiabilities,
-                            LiquidityRatio = item.LiquidityRatio,
-                            MinimumLiquidityRequirement = item.MinimumLiquidityRequirement,
-                            LiquidityRatioExcessDeficit = item.LiquidityRatioExcessDeficit,
+                            TotalShortTermLiabilities = OldItem.TotalShortTermLiabilities,
+                            LiquidityRatio = OldItem.LiquidityRatio,
+                            MinimumLiquidityRequirement = OldItem.MinimumLiquidityRequirement,
+                            LiquidityRatioExcessDeficit = OldItem.LiquidityRatioExcessDeficit,
 
                             // Metadata
-                            Year = item.Year,
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            Year = OldItem.Year,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.LiquidityReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.LiquidityReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -507,7 +517,7 @@ namespace Returns.Helpers
 
                     foreach (var item in riskClassifications)
                     {
-                        var newItem = new RiskClassificationReturn
+                        var OldItem = new RiskClassificationReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -528,7 +538,10 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.RiskClassifications.AddAsync(newItem);
+                        await _context.RiskClassifications.AddAsync(OldItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.RiskClassifications.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -540,46 +553,49 @@ namespace Returns.Helpers
                       .Where(i => i.ReturnId == OldReturnId)
                       .ToListAsync();
 
-                    foreach (var item in investmentReturns)
+                    foreach (var OldItem in investmentReturns)
                     {
                         var newItem = new InvestmentReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
 
-                            CoreCapital = item.CoreCapital,
-                            TotalAssets = item.TotalAssets,
-                            TotalDeposits = item.TotalDeposits,
-                            NonEarningAssets = item.NonEarningAssets,
-                            FinancialInvestments = item.FinancialInvestments,
-                            LandAndBuildings = item.LandAndBuildings,
+                            CoreCapital = OldItem.CoreCapital,
+                            TotalAssets = OldItem.TotalAssets,
+                            TotalDeposits = OldItem.TotalDeposits,
+                            NonEarningAssets = OldItem.NonEarningAssets,
+                            FinancialInvestments = OldItem.FinancialInvestments,
+                            LandAndBuildings = OldItem.LandAndBuildings,
 
-                            LandBuildingsToTotalAssetsRatio = item.LandBuildingsToTotalAssetsRatio,
-                            MaxLandBuildingsToTotalAssetsRatio = item.MaxLandBuildingsToTotalAssetsRatio,
-                            LandBuildingsRatioExcessDeficiency = item.LandBuildingsRatioExcessDeficiency,
+                            LandBuildingsToTotalAssetsRatio = OldItem.LandBuildingsToTotalAssetsRatio,
+                            MaxLandBuildingsToTotalAssetsRatio = OldItem.MaxLandBuildingsToTotalAssetsRatio,
+                            LandBuildingsRatioExcessDeficiency = OldItem.LandBuildingsRatioExcessDeficiency,
 
-                            FinancialInvestmentsToCoreCapitalRatio = item.FinancialInvestmentsToCoreCapitalRatio,
-                            MaxFinancialInvestmentsToCoreCapitalRatio = item.MaxFinancialInvestmentsToCoreCapitalRatio,
-                            FinancialInvestmentsToCoreCapitalExcessDeficiency = item.FinancialInvestmentsToCoreCapitalExcessDeficiency,
+                            FinancialInvestmentsToCoreCapitalRatio = OldItem.FinancialInvestmentsToCoreCapitalRatio,
+                            MaxFinancialInvestmentsToCoreCapitalRatio = OldItem.MaxFinancialInvestmentsToCoreCapitalRatio,
+                            FinancialInvestmentsToCoreCapitalExcessDeficiency = OldItem.FinancialInvestmentsToCoreCapitalExcessDeficiency,
 
-                            FinancialInvestmentsToDepositsRatio = item.FinancialInvestmentsToDepositsRatio,
-                            MaxFinancialInvestmentsToDepositsRatio = item.MaxFinancialInvestmentsToDepositsRatio,
-                            FinancialInvestmentsToDepositsExcessDeficiency = item.FinancialInvestmentsToDepositsExcessDeficiency,
+                            FinancialInvestmentsToDepositsRatio = OldItem.FinancialInvestmentsToDepositsRatio,
+                            MaxFinancialInvestmentsToDepositsRatio = OldItem.MaxFinancialInvestmentsToDepositsRatio,
+                            FinancialInvestmentsToDepositsExcessDeficiency = OldItem.FinancialInvestmentsToDepositsExcessDeficiency,
 
-                            NonEarningAssetsToTotalAssetsRatio = item.NonEarningAssetsToTotalAssetsRatio,
-                            MaxNonEarningAssetsToTotalAssetsRatio = item.MaxNonEarningAssetsToTotalAssetsRatio,
-                            NonEarningAssetsRatioExcessDeficiency = item.NonEarningAssetsRatioExcessDeficiency,
+                            NonEarningAssetsToTotalAssetsRatio = OldItem.NonEarningAssetsToTotalAssetsRatio,
+                            MaxNonEarningAssetsToTotalAssetsRatio = OldItem.MaxNonEarningAssetsToTotalAssetsRatio,
+                            NonEarningAssetsRatioExcessDeficiency = OldItem.NonEarningAssetsRatioExcessDeficiency,
 
-                            Year = item.Year,
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            Year = OldItem.Year,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.InvestmentReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.InvestmentReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -592,53 +608,56 @@ namespace Returns.Helpers
                       .Where(c => c.ReturnId == OldReturnId)
                       .ToListAsync();
 
-                    foreach (var item in comprehensiveIncomeReturns)
+                    foreach (var OldItem in comprehensiveIncomeReturns)
                     {
                         var newItem = new StatementOfComprehensiveIncomeReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
 
-                            InterestOnLoanPortfolio = item.InterestOnLoanPortfolio,
-                            FeesAndCommissionOnLoanPortfolio = item.FeesAndCommissionOnLoanPortfolio,
+                            InterestOnLoanPortfolio = OldItem.InterestOnLoanPortfolio,
+                            FeesAndCommissionOnLoanPortfolio = OldItem.FeesAndCommissionOnLoanPortfolio,
 
-                            GovernmentSecurities = item.GovernmentSecurities,
-                            DepositsWithBanks = item.DepositsWithBanks,
-                            OtherInvestments = item.OtherInvestments,
-                            OtherOperatingIncome = item.OtherOperatingIncome,
+                            GovernmentSecurities = OldItem.GovernmentSecurities,
+                            DepositsWithBanks = OldItem.DepositsWithBanks,
+                            OtherInvestments = OldItem.OtherInvestments,
+                            OtherOperatingIncome = OldItem.OtherOperatingIncome,
 
-                            InterestExpenseOnDeposits = item.InterestExpenseOnDeposits,
-                            CostOfExternalBorrowings = item.CostOfExternalBorrowings,
-                            DividendExpenses = item.DividendExpenses,
-                            OtherFinancialExpense = item.OtherFinancialExpense,
-                            FeesAndCommissionExpense = item.FeesAndCommissionExpense,
-                            OtherExpense = item.OtherExpense,
+                            InterestExpenseOnDeposits = OldItem.InterestExpenseOnDeposits,
+                            CostOfExternalBorrowings = OldItem.CostOfExternalBorrowings,
+                            DividendExpenses = OldItem.DividendExpenses,
+                            OtherFinancialExpense = OldItem.OtherFinancialExpense,
+                            FeesAndCommissionExpense = OldItem.FeesAndCommissionExpense,
+                            OtherExpense = OldItem.OtherExpense,
 
-                            ProvisionForLoanLosses = item.ProvisionForLoanLosses,
-                            ValueOfLoansRecovered = item.ValueOfLoansRecovered,
+                            ProvisionForLoanLosses = OldItem.ProvisionForLoanLosses,
+                            ValueOfLoansRecovered = OldItem.ValueOfLoansRecovered,
 
-                            PersonnelExpenses = item.PersonnelExpenses,
-                            GovernanceExpenses = item.GovernanceExpenses,
-                            MarketingExpenses = item.MarketingExpenses,
-                            DepreciationAndAmortization = item.DepreciationAndAmortization,
-                            AdministrativeExpenses = item.AdministrativeExpenses,
+                            PersonnelExpenses = OldItem.PersonnelExpenses,
+                            GovernanceExpenses = OldItem.GovernanceExpenses,
+                            MarketingExpenses = OldItem.MarketingExpenses,
+                            DepreciationAndAmortization = OldItem.DepreciationAndAmortization,
+                            AdministrativeExpenses = OldItem.AdministrativeExpenses,
 
-                            NonOperatingIncome = item.NonOperatingIncome,
-                            NonOperatingExpense = item.NonOperatingExpense,
+                            NonOperatingIncome = OldItem.NonOperatingIncome,
+                            NonOperatingExpense = OldItem.NonOperatingExpense,
 
-                            Taxes = item.Taxes,
-                            Donations = item.Donations,
+                            Taxes = OldItem.Taxes,
+                            Donations = OldItem.Donations,
 
-                            Year = item.Year,
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            Year = OldItem.Year,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.StatementOfComprehensiveIncomeReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.StatementOfComprehensiveIncomeReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -650,69 +669,72 @@ namespace Returns.Helpers
                      .Where(f => f.ReturnId == OldReturnId)
                      .ToListAsync();
 
-                    foreach (var item in financialPositionReturns)
+                    foreach (var OldItem in financialPositionReturns)
                     {
                         var newItem = new StatementOfFinancialPositionReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
 
-                            CashInHand = item.CashInHand,
-                            CashAtBank = item.CashAtBank,
+                            CashInHand = OldItem.CashInHand,
+                            CashAtBank = OldItem.CashAtBank,
 
-                            PrepaymentsAndSundryReceivables = item.PrepaymentsAndSundryReceivables,
+                            PrepaymentsAndSundryReceivables = OldItem.PrepaymentsAndSundryReceivables,
 
-                            GovernmentSecurities = item.GovernmentSecurities,
-                            OtherSecurities = item.OtherSecurities,
-                            BalancesWithOtherSaccos = item.BalancesWithOtherSaccos,
-                            InvestmentsInCompanies = item.InvestmentsInCompanies,
+                            GovernmentSecurities = OldItem.GovernmentSecurities,
+                            OtherSecurities = OldItem.OtherSecurities,
+                            BalancesWithOtherSaccos = OldItem.BalancesWithOtherSaccos,
+                            InvestmentsInCompanies = OldItem.InvestmentsInCompanies,
 
-                            GrossLoanPortfolio = item.GrossLoanPortfolio,
-                            AllowanceForLoanLoss = item.AllowanceForLoanLoss,
+                            GrossLoanPortfolio = OldItem.GrossLoanPortfolio,
+                            AllowanceForLoanLoss = OldItem.AllowanceForLoanLoss,
 
-                            TaxRecoverable = item.TaxRecoverable,
-                            DeferredTaxAssets = item.DeferredTaxAssets,
-                            RetirementBenefitAssets = item.RetirementBenefitAssets,
+                            TaxRecoverable = OldItem.TaxRecoverable,
+                            DeferredTaxAssets = OldItem.DeferredTaxAssets,
+                            RetirementBenefitAssets = OldItem.RetirementBenefitAssets,
 
-                            InvestmentProperties = item.InvestmentProperties,
-                            PropertyAndEquipment = item.PropertyAndEquipment,
-                            PrepaidLeaseRentals = item.PrepaidLeaseRentals,
-                            IntangibleAssets = item.IntangibleAssets,
-                            OtherAssets = item.OtherAssets,
+                            InvestmentProperties = OldItem.InvestmentProperties,
+                            PropertyAndEquipment = OldItem.PropertyAndEquipment,
+                            PrepaidLeaseRentals = OldItem.PrepaidLeaseRentals,
+                            IntangibleAssets = OldItem.IntangibleAssets,
+                            OtherAssets = OldItem.OtherAssets,
 
-                            SavingsDeposits = item.SavingsDeposits,
-                            ShortTermDeposits = item.ShortTermDeposits,
-                            NonWithdrawableDeposits = item.NonWithdrawableDeposits,
+                            SavingsDeposits = OldItem.SavingsDeposits,
+                            ShortTermDeposits = OldItem.ShortTermDeposits,
+                            NonWithdrawableDeposits = OldItem.NonWithdrawableDeposits,
 
-                            TaxPayable = item.TaxPayable,
-                            DividendsPayable = item.DividendsPayable,
-                            DeferredTaxLiability = item.DeferredTaxLiability,
-                            RetirementBenefitsLiability = item.RetirementBenefitsLiability,
-                            OtherLiabilities = item.OtherLiabilities,
-                            ExternalBorrowings = item.ExternalBorrowings,
+                            TaxPayable = OldItem.TaxPayable,
+                            DividendsPayable = OldItem.DividendsPayable,
+                            DeferredTaxLiability = OldItem.DeferredTaxLiability,
+                            RetirementBenefitsLiability = OldItem.RetirementBenefitsLiability,
+                            OtherLiabilities = OldItem.OtherLiabilities,
+                            ExternalBorrowings = OldItem.ExternalBorrowings,
 
-                            ShareCapital = item.ShareCapital,
-                            CapitalGrants = item.CapitalGrants,
+                            ShareCapital = OldItem.ShareCapital,
+                            CapitalGrants = OldItem.CapitalGrants,
 
-                            PriorYearsRetainedEarnings = item.PriorYearsRetainedEarnings,
-                            CurrentYearSurplus = item.CurrentYearSurplus,
+                            PriorYearsRetainedEarnings = OldItem.PriorYearsRetainedEarnings,
+                            CurrentYearSurplus = OldItem.CurrentYearSurplus,
 
-                            StatutoryReserve = item.StatutoryReserve,
-                            OtherReserves = item.OtherReserves,
-                            RevaluationReserves = item.RevaluationReserves,
-                            ProposedDividends = item.ProposedDividends,
-                            AdjustmentToEquity = item.AdjustmentToEquity,
+                            StatutoryReserve = OldItem.StatutoryReserve,
+                            OtherReserves = OldItem.OtherReserves,
+                            RevaluationReserves = OldItem.RevaluationReserves,
+                            ProposedDividends = OldItem.ProposedDividends,
+                            AdjustmentToEquity = OldItem.AdjustmentToEquity,
 
-                            Year = item.Year,
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            Year = OldItem.Year,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.StatementOfFinancialPositionReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.StatementOfFinancialPositionReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -725,27 +747,30 @@ namespace Returns.Helpers
                         .Where(d => d.ReturnId == OldReturnId)
                         .ToListAsync();
 
-                    foreach (var item in depositReturns)
+                    foreach (var OldItem in depositReturns)
                     {
                         var newItem = new DepositReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
-                            RangeName = item.RangeName,
-                            DepositType = item.DepositType,
-                            NumberOfAccounts = item.NumberOfAccounts,
-                            AmountInKshs000 = item.AmountInKshs000,
+                            RangeName = OldItem.RangeName,
+                            DepositType = OldItem.DepositType,
+                            NumberOfAccounts = OldItem.NumberOfAccounts,
+                            AmountInKshs000 = OldItem.AmountInKshs000,
 
-                            Year = item.Year,
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            Year = OldItem.Year,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false
                         };
 
                         await _context.DepositReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.DepositReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -758,22 +783,25 @@ namespace Returns.Helpers
                         .Where(o => o.ReturnId == OldReturnId)
                         .ToListAsync();
 
-                    foreach (var item in otherReturns)
+                    foreach (var OldItem in otherReturns)
                     {
                         var newItem = new OtherReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
-                            FormName = item.FormName,
-                            FileUrl = item.FileUrl,
-                            SaccoId = item.SaccoId,
-                            SaccoType = item.SaccoType,
-                            SaccoName = item.SaccoName,
+                            FormName = OldItem.FormName,
+                            FileUrl = OldItem.FileUrl,
+                            SaccoId = OldItem.SaccoId,
+                            SaccoType = OldItem.SaccoType,
+                            SaccoName = OldItem.SaccoName,
 
                             IsAmended = false
                         };
 
                         await _context.OtherReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.OtherReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -844,6 +872,9 @@ namespace Returns.Helpers
                         };
 
                         await _context.NDWTCapitalAdequacyReturns.AddAsync(newItem);
+                        item.IsCurrent = false;
+                        item.IsAmended = true;
+                        _context.NDWTCapitalAdequacyReturns.Update(item);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -854,7 +885,7 @@ namespace Returns.Helpers
                      .Where(r => r.ReturnId == OldReturnId)
                      .ToListAsync();
 
-                    foreach (var item in nwdtRiskClassification)
+                    foreach (var OldItem in nwdtRiskClassification)
                     {
                         var newItem = new NWDTRiskClassificationReturn
                         {
@@ -862,24 +893,27 @@ namespace Returns.Helpers
                             PreviousReturnId = OldReturnId,
 
                             // NWDT Risk Classification fields
-                            LoanType = item.LoanType,
-                            Classification = item.Classification,
-                            NumberOfAccounts = item.NumberOfAccounts,
-                            OutstandingLoanPortfolio = item.OutstandingLoanPortfolio,
-                            RequiredProvision = item.RequiredProvision,
-                            RequiredProvisionAmount = item.RequiredProvisionAmount,
+                            LoanType = OldItem.LoanType,
+                            Classification = OldItem.Classification,
+                            NumberOfAccounts = OldItem.NumberOfAccounts,
+                            OutstandingLoanPortfolio = OldItem.OutstandingLoanPortfolio,
+                            RequiredProvision = OldItem.RequiredProvision,
+                            RequiredProvisionAmount = OldItem.RequiredProvisionAmount,
 
                             // Metadata
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Period = item.Period,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Period = OldItem.Period,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.NWDTRiskClassificationReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.NWDTRiskClassificationReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -890,7 +924,7 @@ namespace Returns.Helpers
                        .Where(l => l.ReturnId == OldReturnId)
                        .ToListAsync();
 
-                    foreach (var item in nwdtLiquidity)
+                    foreach (var OldItem in nwdtLiquidity)
                     {
                         var newItem = new NWDTLiquidityReturn
                         {
@@ -898,52 +932,55 @@ namespace Returns.Helpers
                             PreviousReturnId = OldReturnId,
 
                             // Section 1: Notes and Coins
-                            LocalNotesAndCoins = item.LocalNotesAndCoins,
-                            ForeignNotesAndCoins = item.ForeignNotesAndCoins,
+                            LocalNotesAndCoins = OldItem.LocalNotesAndCoins,
+                            ForeignNotesAndCoins = OldItem.ForeignNotesAndCoins,
 
                             // Section 2: Bank Balances
-                            BalancesWithCommercialBanks = item.BalancesWithCommercialBanks,
-                            TimeDepositsWithBanksMoreThan90Days = item.TimeDepositsWithBanksMoreThan90Days,
-                            OverdraftsAndMaturedLoans = item.OverdraftsAndMaturedLoans,
+                            BalancesWithCommercialBanks = OldItem.BalancesWithCommercialBanks,
+                            TimeDepositsWithBanksMoreThan90Days = OldItem.TimeDepositsWithBanksMoreThan90Days,
+                            OverdraftsAndMaturedLoans = OldItem.OverdraftsAndMaturedLoans,
 
                             // Section 3: Other Financial Institutions
-                            BalancesWithOtherSaccoSocieties = item.BalancesWithOtherSaccoSocieties,
-                            BalancesWithOtherFinancialInstitutions = item.BalancesWithOtherFinancialInstitutions,
-                            BalancesDueToOtherSaccoSocieties = item.BalancesDueToOtherSaccoSocieties,
-                            BalancesDueToFinancialInstitutions = item.BalancesDueToFinancialInstitutions,
-                            MaturedLoansAndAdvances = item.MaturedLoansAndAdvances,
+                            BalancesWithOtherSaccoSocieties = OldItem.BalancesWithOtherSaccoSocieties,
+                            BalancesWithOtherFinancialInstitutions = OldItem.BalancesWithOtherFinancialInstitutions,
+                            BalancesDueToOtherSaccoSocieties = OldItem.BalancesDueToOtherSaccoSocieties,
+                            BalancesDueToFinancialInstitutions = OldItem.BalancesDueToFinancialInstitutions,
+                            MaturedLoansAndAdvances = OldItem.MaturedLoansAndAdvances,
 
                             // Section 4: Government Securities
-                            TreasuryBills = item.TreasuryBills,
-                            TreasuryBondsBearerBonds = item.TreasuryBondsBearerBonds,
+                            TreasuryBills = OldItem.TreasuryBills,
+                            TreasuryBondsBearerBonds = OldItem.TreasuryBondsBearerBonds,
 
                             // Section 6: Other Liabilities
-                            MaturedLiabilities = item.MaturedLiabilities,
-                            LiabilitiesMaturing91Days = item.LiabilitiesMaturing91Days,
+                            MaturedLiabilities = OldItem.MaturedLiabilities,
+                            LiabilitiesMaturing91Days = OldItem.LiabilitiesMaturing91Days,
 
-                            StoredTotalNotesAndCoins = item.StoredTotalNotesAndCoins,
-                            StoredNetBankBalances = item.StoredNetBankBalances,
-                            StoredNetFinancialInstitutionBalances = item.StoredNetFinancialInstitutionBalances,
-                            StoredTotalBankBalances = item.StoredTotalBankBalances,
-                            StoredTotalOtherFinancialInstitutions = item.StoredTotalOtherFinancialInstitutions,
-                            StoredTotalGovernmentSecurities = item.StoredTotalGovernmentSecurities,
-                            StoredNetLiquidAssets = item.StoredNetLiquidAssets,
-                            StoredTotalOtherLiabilities = item.StoredTotalOtherLiabilities,
-                            StoredLiquidityRatio = item.StoredLiquidityRatio,
-                            StoredLiquidityRatioExcessDeficit = item.StoredLiquidityRatioExcessDeficit,
+                            StoredTotalNotesAndCoins = OldItem.StoredTotalNotesAndCoins,
+                            StoredNetBankBalances = OldItem.StoredNetBankBalances,
+                            StoredNetFinancialInstitutionBalances = OldItem.StoredNetFinancialInstitutionBalances,
+                            StoredTotalBankBalances = OldItem.StoredTotalBankBalances,
+                            StoredTotalOtherFinancialInstitutions = OldItem.StoredTotalOtherFinancialInstitutions,
+                            StoredTotalGovernmentSecurities = OldItem.StoredTotalGovernmentSecurities,
+                            StoredNetLiquidAssets = OldItem.StoredNetLiquidAssets,
+                            StoredTotalOtherLiabilities = OldItem.StoredTotalOtherLiabilities,
+                            StoredLiquidityRatio = OldItem.StoredLiquidityRatio,
+                            StoredLiquidityRatioExcessDeficit = OldItem.StoredLiquidityRatioExcessDeficit,
 
-                            MinimumRequirement = item.MinimumRequirement,
+                            MinimumRequirement = OldItem.MinimumRequirement,
 
                             // Metadata
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Period = item.Period,
-                            Frequency = item.Frequency,
-                            DaysLateBy = item.DaysLateBy,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Period = OldItem.Period,
+                            Frequency = OldItem.Frequency,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.NDWTLiquidityReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.NDWTLiquidityReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -955,28 +992,31 @@ namespace Returns.Helpers
                         .Where(d => d.ReturnId == OldReturnId)
                         .ToListAsync();
 
-                    foreach (var item in nwdtDeposit)
+                    foreach (var OldItem in nwdtDeposit)
                     {
                         var newItem = new NWDTDepositReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
                             // NWDT Deposit Return fields
-                            RangeName = item.RangeName,
-                            DepositType = item.DepositType,
-                            NumberOfAccounts = item.NumberOfAccounts,
-                            AmountInKshs000 = item.AmountInKshs000,
+                            RangeName = OldItem.RangeName,
+                            DepositType = OldItem.DepositType,
+                            NumberOfAccounts = OldItem.NumberOfAccounts,
+                            AmountInKshs000 = OldItem.AmountInKshs000,
 
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Period = item.Period,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Period = OldItem.Period,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.NWDTDepositReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.NWDTDepositReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -988,7 +1028,7 @@ namespace Returns.Helpers
                                    .Where(i => i.ReturnId == OldReturnId)
                                    .ToListAsync();
 
-                    foreach (var item in nwdtInvestment)
+                    foreach (var OldItem in nwdtInvestment)
                     {
                         var newItem = new NWDTInvestmentReturn
                         {
@@ -996,52 +1036,55 @@ namespace Returns.Helpers
                             PreviousReturnId = OldReturnId,
 
                             // Basic financial data
-                            CoreCapital = item.CoreCapital,
-                            TotalAssets = item.TotalAssets,
-                            TotalDeposits = item.TotalDeposits,
-                            NonEarningAssets = item.NonEarningAssets,
+                            CoreCapital = OldItem.CoreCapital,
+                            TotalAssets = OldItem.TotalAssets,
+                            TotalDeposits = OldItem.TotalDeposits,
+                            NonEarningAssets = OldItem.NonEarningAssets,
 
                             // Financial assets
-                            SubsidiaryRelatedEntityInvestments = item.SubsidiaryRelatedEntityInvestments,
-                            EquityInvestments = item.EquityInvestments,
-                            OtherInvestments = item.OtherInvestments,
-                            OtherAssetsLandBuildingEquipment = item.OtherAssetsLandBuildingEquipment,
-                            LandAndBuilding = item.LandAndBuilding,
+                            SubsidiaryRelatedEntityInvestments = OldItem.SubsidiaryRelatedEntityInvestments,
+                            EquityInvestments = OldItem.EquityInvestments,
+                            OtherInvestments = OldItem.OtherInvestments,
+                            OtherAssetsLandBuildingEquipment = OldItem.OtherAssetsLandBuildingEquipment,
+                            LandAndBuilding = OldItem.LandAndBuilding,
 
                             // Maximum requirements
-                            MaxLandBuildingEquipmentToTotalAssetRequirement = item.MaxLandBuildingEquipmentToTotalAssetRequirement,
-                            MaxLandBuildingToTotalAssetRequirement = item.MaxLandBuildingToTotalAssetRequirement,
-                            MaxFinancialInvestmentsToCoreCapital = item.MaxFinancialInvestmentsToCoreCapital,
-                            MaxEquityInvestmentsToTotalDeposits = item.MaxEquityInvestmentsToTotalDeposits,
-                            MaxSubsidiaryInvestmentToTotalAssets = item.MaxSubsidiaryInvestmentToTotalAssets,
-                            MaxOtherInvestmentsToCoreCapital = item.MaxOtherInvestmentsToCoreCapital,
+                            MaxLandBuildingEquipmentToTotalAssetRequirement = OldItem.MaxLandBuildingEquipmentToTotalAssetRequirement,
+                            MaxLandBuildingToTotalAssetRequirement = OldItem.MaxLandBuildingToTotalAssetRequirement,
+                            MaxFinancialInvestmentsToCoreCapital = OldItem.MaxFinancialInvestmentsToCoreCapital,
+                            MaxEquityInvestmentsToTotalDeposits = OldItem.MaxEquityInvestmentsToTotalDeposits,
+                            MaxSubsidiaryInvestmentToTotalAssets = OldItem.MaxSubsidiaryInvestmentToTotalAssets,
+                            MaxOtherInvestmentsToCoreCapital = OldItem.MaxOtherInvestmentsToCoreCapital,
 
                             // Stored calculated values
-                            StoredFinancialAssets = item.StoredFinancialAssets,
-                            StoredLandBuildingEquipmentToTotalAssetsRatio = item.StoredLandBuildingEquipmentToTotalAssetsRatio,
-                            StoredLandBuildingEquipmentExcessDeficiency = item.StoredLandBuildingEquipmentExcessDeficiency,
-                            StoredLandBuildingToTotalAssetsRatio = item.StoredLandBuildingToTotalAssetsRatio,
-                            StoredLandBuildingExcessDeficiency = item.StoredLandBuildingExcessDeficiency,
-                            StoredFinancialInvestmentsToCoreCapitalRatio = item.StoredFinancialInvestmentsToCoreCapitalRatio,
-                            StoredFinancialInvestmentsExcessDeficiency = item.StoredFinancialInvestmentsExcessDeficiency,
-                            StoredEquityInvestmentsToCoreCapitalRatio = item.StoredEquityInvestmentsToCoreCapitalRatio,
-                            StoredEquityInvestmentsExcessDeficiency = item.StoredEquityInvestmentsExcessDeficiency,
-                            StoredSubsidiaryInvestmentsToCoreCapitalRatio = item.StoredSubsidiaryInvestmentsToCoreCapitalRatio,
-                            StoredSubsidiaryInvestmentsExcessDeficiency = item.StoredSubsidiaryInvestmentsExcessDeficiency,
-                            StoredOtherInvestmentsToCoreCapitalRatio = item.StoredOtherInvestmentsToCoreCapitalRatio,
-                            StoredOtherInvestmentsExcessDeficiency = item.StoredOtherInvestmentsExcessDeficiency,
+                            StoredFinancialAssets = OldItem.StoredFinancialAssets,
+                            StoredLandBuildingEquipmentToTotalAssetsRatio = OldItem.StoredLandBuildingEquipmentToTotalAssetsRatio,
+                            StoredLandBuildingEquipmentExcessDeficiency = OldItem.StoredLandBuildingEquipmentExcessDeficiency,
+                            StoredLandBuildingToTotalAssetsRatio = OldItem.StoredLandBuildingToTotalAssetsRatio,
+                            StoredLandBuildingExcessDeficiency = OldItem.StoredLandBuildingExcessDeficiency,
+                            StoredFinancialInvestmentsToCoreCapitalRatio = OldItem.StoredFinancialInvestmentsToCoreCapitalRatio,
+                            StoredFinancialInvestmentsExcessDeficiency = OldItem.StoredFinancialInvestmentsExcessDeficiency,
+                            StoredEquityInvestmentsToCoreCapitalRatio = OldItem.StoredEquityInvestmentsToCoreCapitalRatio,
+                            StoredEquityInvestmentsExcessDeficiency = OldItem.StoredEquityInvestmentsExcessDeficiency,
+                            StoredSubsidiaryInvestmentsToCoreCapitalRatio = OldItem.StoredSubsidiaryInvestmentsToCoreCapitalRatio,
+                            StoredSubsidiaryInvestmentsExcessDeficiency = OldItem.StoredSubsidiaryInvestmentsExcessDeficiency,
+                            StoredOtherInvestmentsToCoreCapitalRatio = OldItem.StoredOtherInvestmentsToCoreCapitalRatio,
+                            StoredOtherInvestmentsExcessDeficiency = OldItem.StoredOtherInvestmentsExcessDeficiency,
 
                             // Metadata
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Period = item.Period,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Period = OldItem.Period,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.NWDTInvestmentReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.NWDTInvestmentReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -1053,7 +1096,7 @@ namespace Returns.Helpers
                       .Where(f => f.ReturnId == OldReturnId)
                       .ToListAsync();
 
-                    foreach (var item in nwdtFinancialPosition)
+                    foreach (var OldItem in nwdtFinancialPosition)
                     {
                         var newItem = new NWDTFinancialPositionReturn
                         {
@@ -1062,93 +1105,96 @@ namespace Returns.Helpers
                             PreviousReturnId = OldReturnId,
 
                             // Cash & Cash Equivalent
-                            CashInHand = item.CashInHand,
-                            CashAtBank = item.CashAtBank,
-                            StoredCashAndCashEquivalent = item.StoredCashAndCashEquivalent,
+                            CashInHand = OldItem.CashInHand,
+                            CashAtBank = OldItem.CashAtBank,
+                            StoredCashAndCashEquivalent = OldItem.StoredCashAndCashEquivalent,
 
                             // Prepayments & Sundry Receivables
-                            PrepaymentsAndSundryReceivables = item.PrepaymentsAndSundryReceivables,
+                            PrepaymentsAndSundryReceivables = OldItem.PrepaymentsAndSundryReceivables,
 
                             // Financial Investments
-                            GovernmentSecurities = item.GovernmentSecurities,
-                            PlacementInFinancialInstitutions = item.PlacementInFinancialInstitutions,
-                            CommercialPapers = item.CommercialPapers,
-                            CollectiveInvestmentSchemes = item.CollectiveInvestmentSchemes,
-                            Derivatives = item.Derivatives,
-                            EquityInvestments = item.EquityInvestments,
-                            InvestmentInCompanies = item.InvestmentInCompanies,
-                            StoredFinancialInvestments = item.StoredFinancialInvestments,
+                            GovernmentSecurities = OldItem.GovernmentSecurities,
+                            PlacementInFinancialInstitutions = OldItem.PlacementInFinancialInstitutions,
+                            CommercialPapers = OldItem.CommercialPapers,
+                            CollectiveInvestmentSchemes = OldItem.CollectiveInvestmentSchemes,
+                            Derivatives = OldItem.Derivatives,
+                            EquityInvestments = OldItem.EquityInvestments,
+                            InvestmentInCompanies = OldItem.InvestmentInCompanies,
+                            StoredFinancialInvestments = OldItem.StoredFinancialInvestments,
 
                             // Loan Portfolio
-                            GrossLoanPortfolio = item.GrossLoanPortfolio,
-                            AllowanceForLoanLoss = item.AllowanceForLoanLoss,
-                            StoredNetLoanPortfolio = item.StoredNetLoanPortfolio,
+                            GrossLoanPortfolio = OldItem.GrossLoanPortfolio,
+                            AllowanceForLoanLoss = OldItem.AllowanceForLoanLoss,
+                            StoredNetLoanPortfolio = OldItem.StoredNetLoanPortfolio,
 
                             // Accounts Receivables
-                            TaxRecoverable = item.TaxRecoverable,
-                            DeferredTaxAssets = item.DeferredTaxAssets,
-                            RetirementBenefitAssets = item.RetirementBenefitAssets,
-                            StoredAccountsReceivables = item.StoredAccountsReceivables,
+                            TaxRecoverable = OldItem.TaxRecoverable,
+                            DeferredTaxAssets = OldItem.DeferredTaxAssets,
+                            RetirementBenefitAssets = OldItem.RetirementBenefitAssets,
+                            StoredAccountsReceivables = OldItem.StoredAccountsReceivables,
 
                             // Property & Equipment & Other Assets
-                            InvestmentProperties = item.InvestmentProperties,
-                            PropertyAndEquipment = item.PropertyAndEquipment,
-                            PrepaidLeaseRentals = item.PrepaidLeaseRentals,
-                            IntangibleAssets = item.IntangibleAssets,
-                            OtherAssets = item.OtherAssets,
-                            StoredPropertyEquipmentOtherAssets = item.StoredPropertyEquipmentOtherAssets,
+                            InvestmentProperties = OldItem.InvestmentProperties,
+                            PropertyAndEquipment = OldItem.PropertyAndEquipment,
+                            PrepaidLeaseRentals = OldItem.PrepaidLeaseRentals,
+                            IntangibleAssets = OldItem.IntangibleAssets,
+                            OtherAssets = OldItem.OtherAssets,
+                            StoredPropertyEquipmentOtherAssets = OldItem.StoredPropertyEquipmentOtherAssets,
 
                             // Total Assets
-                            StoredTotalAssets = item.StoredTotalAssets,
+                            StoredTotalAssets = OldItem.StoredTotalAssets,
 
                             // LIABILITIES - Deposits
-                            NonWithdrawableDeposits = item.NonWithdrawableDeposits,
-                            StoredTotalDepositLiabilities = item.StoredTotalDepositLiabilities,
+                            NonWithdrawableDeposits = OldItem.NonWithdrawableDeposits,
+                            StoredTotalDepositLiabilities = OldItem.StoredTotalDepositLiabilities,
 
                             // Accounts Payable & Other Liabilities
-                            TaxPayable = item.TaxPayable,
-                            DividendsPayable = item.DividendsPayable,
-                            DeferredTaxLiability = item.DeferredTaxLiability,
-                            RetirementBenefitsLiability = item.RetirementBenefitsLiability,
-                            OtherLiabilities = item.OtherLiabilities,
-                            ExternalBorrowings = item.ExternalBorrowings,
-                            StoredAccountsPayableOtherLiabilities = item.StoredAccountsPayableOtherLiabilities,
+                            TaxPayable = OldItem.TaxPayable,
+                            DividendsPayable = OldItem.DividendsPayable,
+                            DeferredTaxLiability = OldItem.DeferredTaxLiability,
+                            RetirementBenefitsLiability = OldItem.RetirementBenefitsLiability,
+                            OtherLiabilities = OldItem.OtherLiabilities,
+                            ExternalBorrowings = OldItem.ExternalBorrowings,
+                            StoredAccountsPayableOtherLiabilities = OldItem.StoredAccountsPayableOtherLiabilities,
 
                             // Total Liabilities
-                            StoredTotalLiabilities = item.StoredTotalLiabilities,
+                            StoredTotalLiabilities = OldItem.StoredTotalLiabilities,
 
                             // EQUITY
-                            ShareCapital = item.ShareCapital,
-                            CapitalGrants = item.CapitalGrants,
+                            ShareCapital = OldItem.ShareCapital,
+                            CapitalGrants = OldItem.CapitalGrants,
 
                             // Retained Earnings
-                            PriorYearsRetainedEarnings = item.PriorYearsRetainedEarnings,
-                            CurrentYearSurplus = item.CurrentYearSurplus,
-                            StoredRetainedEarnings = item.StoredRetainedEarnings,
+                            PriorYearsRetainedEarnings = OldItem.PriorYearsRetainedEarnings,
+                            CurrentYearSurplus = OldItem.CurrentYearSurplus,
+                            StoredRetainedEarnings = OldItem.StoredRetainedEarnings,
 
                             // Other Equity Accounts
-                            StatutoryReserve = item.StatutoryReserve,
-                            OtherReserves = item.OtherReserves,
-                            RevaluationReserves = item.RevaluationReserves,
-                            ProposedDividends = item.ProposedDividends,
-                            AdjustmentToEquity = item.AdjustmentToEquity,
-                            StoredOtherEquityAccounts = item.StoredOtherEquityAccounts,
+                            StatutoryReserve = OldItem.StatutoryReserve,
+                            OtherReserves = OldItem.OtherReserves,
+                            RevaluationReserves = OldItem.RevaluationReserves,
+                            ProposedDividends = OldItem.ProposedDividends,
+                            AdjustmentToEquity = OldItem.AdjustmentToEquity,
+                            StoredOtherEquityAccounts = OldItem.StoredOtherEquityAccounts,
 
                             // Total Equity and Total Liabilities & Equity
-                            StoredTotalEquity = item.StoredTotalEquity,
-                            StoredTotalLiabilitiesAndEquity = item.StoredTotalLiabilitiesAndEquity,
+                            StoredTotalEquity = OldItem.StoredTotalEquity,
+                            StoredTotalLiabilitiesAndEquity = OldItem.StoredTotalLiabilitiesAndEquity,
 
                             // Metadata
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Period = item.Period,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Period = OldItem.Period,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.NWDTFinancialPositionReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.NWDTFinancialPositionReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -1160,7 +1206,7 @@ namespace Returns.Helpers
                        .Where(c => c.ReturnId == OldReturnId)
                        .ToListAsync();
 
-                    foreach (var item in nwdtComprehensiveIncome)
+                    foreach (var OldItem in nwdtComprehensiveIncome)
                     {
                         var newItem = new NWDTComprehensiveIncomeReturn
                         {
@@ -1169,70 +1215,73 @@ namespace Returns.Helpers
                             PreviousReturnId = OldReturnId,
 
                             // Financial Income - Loans Portfolio
-                            InterestOnLoanPortfolio = item.InterestOnLoanPortfolio,
-                            FeesCommissionOnLoanPortfolio = item.FeesCommissionOnLoanPortfolio,
+                            InterestOnLoanPortfolio = OldItem.InterestOnLoanPortfolio,
+                            FeesCommissionOnLoanPortfolio = OldItem.FeesCommissionOnLoanPortfolio,
 
                             // Financial Income - Investments
-                            GovernmentSecuritiesIncome = item.GovernmentSecuritiesIncome,
-                            PlacementInBanksIncome = item.PlacementInBanksIncome,
-                            CommercialPapersIncome = item.CommercialPapersIncome,
-                            CollectiveInvestmentSchemesIncome = item.CollectiveInvestmentSchemesIncome,
-                            DerivativesIncome = item.DerivativesIncome,
-                            EquityInvestmentsIncome = item.EquityInvestmentsIncome,
-                            InvestmentInCompaniesIncome = item.InvestmentInCompaniesIncome,
+                            GovernmentSecuritiesIncome = OldItem.GovernmentSecuritiesIncome,
+                            PlacementInBanksIncome = OldItem.PlacementInBanksIncome,
+                            CommercialPapersIncome = OldItem.CommercialPapersIncome,
+                            CollectiveInvestmentSchemesIncome = OldItem.CollectiveInvestmentSchemesIncome,
+                            DerivativesIncome = OldItem.DerivativesIncome,
+                            EquityInvestmentsIncome = OldItem.EquityInvestmentsIncome,
+                            InvestmentInCompaniesIncome = OldItem.InvestmentInCompaniesIncome,
 
                             // Financial Expense
-                            InterestExpenseOnDeposits = item.InterestExpenseOnDeposits,
-                            CostOfExternalBorrowings = item.CostOfExternalBorrowings,
-                            DividendExpenses = item.DividendExpenses,
-                            OtherFinancialExpense = item.OtherFinancialExpense,
-                            FeesCommissionExpense = item.FeesCommissionExpense,
-                            OtherExpense = item.OtherExpense,
+                            InterestExpenseOnDeposits = OldItem.InterestExpenseOnDeposits,
+                            CostOfExternalBorrowings = OldItem.CostOfExternalBorrowings,
+                            DividendExpenses = OldItem.DividendExpenses,
+                            OtherFinancialExpense = OldItem.OtherFinancialExpense,
+                            FeesCommissionExpense = OldItem.FeesCommissionExpense,
+                            OtherExpense = OldItem.OtherExpense,
 
                             // Loan Loss
-                            ProvisionForLoanLosses = item.ProvisionForLoanLosses,
-                            ValueOfLoansRecovered = item.ValueOfLoansRecovered,
+                            ProvisionForLoanLosses = OldItem.ProvisionForLoanLosses,
+                            ValueOfLoansRecovered = OldItem.ValueOfLoansRecovered,
 
                             // Operating Expenses
-                            PersonnelExpenses = item.PersonnelExpenses,
-                            GovernanceExpenses = item.GovernanceExpenses,
-                            MarketingExpenses = item.MarketingExpenses,
-                            DepreciationAmortizationCharges = item.DepreciationAmortizationCharges,
-                            AdministrativeExpenses = item.AdministrativeExpenses,
+                            PersonnelExpenses = OldItem.PersonnelExpenses,
+                            GovernanceExpenses = OldItem.GovernanceExpenses,
+                            MarketingExpenses = OldItem.MarketingExpenses,
+                            DepreciationAmortizationCharges = OldItem.DepreciationAmortizationCharges,
+                            AdministrativeExpenses = OldItem.AdministrativeExpenses,
 
                             // Non-Operating Income/Expense
-                            NonOperatingIncome = item.NonOperatingIncome,
-                            NonOperatingExpense = item.NonOperatingExpense,
+                            NonOperatingIncome = OldItem.NonOperatingIncome,
+                            NonOperatingExpense = OldItem.NonOperatingExpense,
 
                             // Taxes and Donations
-                            Taxes = item.Taxes,
-                            Donations = item.Donations,
+                            Taxes = OldItem.Taxes,
+                            Donations = OldItem.Donations,
 
                             // Stored calculated values
-                            StoredFinancialIncomeFromLoansPortfolio = item.StoredFinancialIncomeFromLoansPortfolio,
-                            StoredFinancialIncomeFromInvestments = item.StoredFinancialIncomeFromInvestments,
-                            StoredFinancialIncome = item.StoredFinancialIncome,
-                            StoredFinancialExpense = item.StoredFinancialExpense,
-                            StoredNetFinancialIncome = item.StoredNetFinancialIncome,
-                            StoredAllowanceForLoanLoss = item.StoredAllowanceForLoanLoss,
-                            StoredOperatingExpenses = item.StoredOperatingExpenses,
-                            StoredNetOperatingIncome = item.StoredNetOperatingIncome,
-                            StoredNetNonOperatingIncome = item.StoredNetNonOperatingIncome,
-                            StoredNetIncomeBeforeTaxes = item.StoredNetIncomeBeforeTaxes,
-                            StoredNetIncomeAfterTaxesBeforeDonations = item.StoredNetIncomeAfterTaxesBeforeDonations,
-                            StoredNetIncomeAfterTaxesAndDonations = item.StoredNetIncomeAfterTaxesAndDonations,
+                            StoredFinancialIncomeFromLoansPortfolio = OldItem.StoredFinancialIncomeFromLoansPortfolio,
+                            StoredFinancialIncomeFromInvestments = OldItem.StoredFinancialIncomeFromInvestments,
+                            StoredFinancialIncome = OldItem.StoredFinancialIncome,
+                            StoredFinancialExpense = OldItem.StoredFinancialExpense,
+                            StoredNetFinancialIncome = OldItem.StoredNetFinancialIncome,
+                            StoredAllowanceForLoanLoss = OldItem.StoredAllowanceForLoanLoss,
+                            StoredOperatingExpenses = OldItem.StoredOperatingExpenses,
+                            StoredNetOperatingIncome = OldItem.StoredNetOperatingIncome,
+                            StoredNetNonOperatingIncome = OldItem.StoredNetNonOperatingIncome,
+                            StoredNetIncomeBeforeTaxes = OldItem.StoredNetIncomeBeforeTaxes,
+                            StoredNetIncomeAfterTaxesBeforeDonations = OldItem.StoredNetIncomeAfterTaxesBeforeDonations,
+                            StoredNetIncomeAfterTaxesAndDonations = OldItem.StoredNetIncomeAfterTaxesAndDonations,
 
                             // Metadata
-                            StartDate = item.StartDate,
-                            EndDate = item.EndDate,
-                            Period = item.Period,
-                            Frequency = item.Frequency,
-                            FilePath = item.FilePath,
-                            DaysLateBy = item.DaysLateBy,
+                            StartDate = OldItem.StartDate,
+                            EndDate = OldItem.EndDate,
+                            Period = OldItem.Period,
+                            Frequency = OldItem.Frequency,
+                            FilePath = OldItem.FilePath,
+                            DaysLateBy = OldItem.DaysLateBy,
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
                         await _context.NWDTComprehensiveIncomeReturns.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.NWDTComprehensiveIncomeReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;

@@ -11,7 +11,7 @@ namespace Returns.Models
         public string SaccoName { get; set; } = "";
         public string Period { get; set; } = "";
         public string Year { get; set; } = null!;
-        public Boolean IsConsistent { get; set; } = false;
+        public Boolean IsNotConsistent { get; set; } = false;
         public string? ConsistentErrorMessage { get; set; }
 
         // TRACKING 
