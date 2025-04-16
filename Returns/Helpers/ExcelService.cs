@@ -330,10 +330,10 @@ namespace Returns.Helpers
 
         public static List<SectoralLendingRecord> ImportSectoralLendingRecords(IFormFile file, ILogger logger)
         {
-            var records = new List<SectoralLendingRecord>();
+            var Y = new List<SectoralLendingRecord>();
 
-            return records;
-            try
+            return Y;
+           /* try
             {
                 logger.LogInformation("Importing Sectoral Lending data from file: {FileName}", file.FileName);
 
@@ -433,7 +433,7 @@ namespace Returns.Helpers
             {
                 logger.LogError(ex, "Error importing Sectoral Lending data");
                 throw;
-            }
+            }*/
         }
 
 
