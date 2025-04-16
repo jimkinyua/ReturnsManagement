@@ -55,6 +55,11 @@ namespace Returns.Models.Data
         public DbSet<AdditionalInfoReponse> AdditionalInfoReponses { get; set; }
         public DbSet<ResponseAttachement> ResponseAttachements { get; set; }
 
+        public DbSet<SectoralLendingReport> SectoralLendingReports { get; set; }
+        public DbSet<EconomicSector> EconomicSectors { get; set; }
+        public DbSet<EconomicSubSector> EconomicSubSectors { get; set; }
+        public DbSet<SubSectorData> SectorData { get; set; }
+
 
     }
 

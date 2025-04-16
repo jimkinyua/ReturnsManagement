@@ -14,6 +14,7 @@ namespace Returns.Models
         public bool IsRiskClassification { get; set; } = false;
         public bool IsInvestmentReturn { get; set; } = false;
         public bool IsFinancialPosition { get; set; } = false;
+        public bool IsSectoralLending { get; set; } = false;
         public bool IsStatementOfComprehensiveIncome { get; set; } = false;
         public Boolean IsOtherForm { get; set; } = false;
         public bool IsDepositReturnForm { get; set; } = false;

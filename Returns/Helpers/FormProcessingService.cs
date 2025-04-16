@@ -1659,6 +1659,9 @@ namespace Returns.Helpers
                         case "ComprehensiveIncome":
                             await ReturnsHelper.ProcessComprehensiveIncomeForm(formFile, returnId, _logger, form);
                             break;
+                        case "SectoralLending":
+                             ExcelService.ImportSectoralLendingRecords(formFile, _logger);
+                            break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
                     }
@@ -1689,6 +1692,9 @@ namespace Returns.Helpers
                         case "ComprehensiveIncome":
                             await ReturnsHelper.ProcessForm2F(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
+                        case "SectoralLending":
+                            ExcelService.ImportSectoralLendingRecords(formFile, _logger);
+                            break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
                     }
@@ -1712,6 +1718,7 @@ namespace Returns.Helpers
             if (form.IsRiskClassification) return "RiskClassification";
             if (form.IsInvestmentReturn) return "Investment";
             if (form.IsFinancialPosition) return "FinancialPosition";
+            if (form.IsSectoralLending) return "SectoralLending";
             if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
             return null;
         }

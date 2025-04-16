@@ -4,6 +4,11 @@ using static Returns.Helpers.ExcelService.Form2CStatement;
 using System;
 using Microsoft.IdentityModel.Tokens;
 using static Returns.Helpers.ExcelService;
+using Returns.Models.Common;
+using Returns.Models;
+using Returns.DTOs.Forms;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Returns.Helpers
 {
@@ -205,6 +210,42 @@ namespace Returns.Helpers
             public List<StatementOfFinancialPositionRow> Rows { get; set; } = new List<StatementOfFinancialPositionRow>();
         }
 
+        public class EconomicSectorRow
+        {
+            public string Code { get; set; } = string.Empty;
+            public string Name { get; set; } = string.Empty;
+        }
+        public class SectoralLendingRecord
+        {
+            public string SaccoSocietyCSNumber { get; set; } = string.Empty;
+            public string Financial_Year { get; set; } = string.Empty;
+            public DateTime start_date { get; set; }
+            public DateTime end_date { get; set; }
+            public string Month { get; set; } = string.Empty;
+            public string Code { get; set; } = string.Empty;
+            public string EconomicSector { get; set; } = string.Empty;
+            public decimal LoansAndAdvancesAmount { get; set; }
+            public string CATEGORY { get; set; } = string.Empty;
+            public string SUB_CATEGORY { get; set; } = string.Empty;
+        }
+
+        public class SectoralLendingDataRow
+        {
+            public string SectorCode { get; set; } = null!;
+            public string SectorName { get; set; } = null!;
+            public decimal Amount { get; set; }
+            public SectorLevel Level { get; set; }
+            public string? ParentCode { get; set; }
+        }
+
+        public enum SectorLevel
+        {
+            MainSector = 1,
+            SubSector = 2,
+            DetailItem = 3
+        }
+
+
         public class Form2BStatement
         {
             // Form metadata
@@ -284,6 +325,132 @@ namespace Returns.Helpers
                 public string CellNumberWithAccounts { get; set; }
                 public string CellNumberWithAmount { get; set; }
             }
+        }
+
+
+        public static List<SectoralLendingRecord> ImportSectoralLendingRecords(IFormFile file, ILogger logger)
+        {
+            var records = new List<SectoralLendingRecord>();
+
+            return records;
+            try
+            {
+                logger.LogInformation("Importing Sectoral Lending data from file: {FileName}", file.FileName);
+
+                if (file == null)
+                    throw new ArgumentNullException(nameof(file), "No file was provided for processing");
+
+                if (file.Length == 0)
+                    throw new ArgumentException("The uploaded file is empty", nameof(file));
+
+                // Check file extension (only .xlsx and .xls allowed)
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                if (extension != ".xlsx" && extension != ".xls")
+                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+
+                using (var stream = new MemoryStream())
+                {
+                    file.CopyTo(stream);
+                    using (var workbook = new XLWorkbook(stream))
+                    {
+                        // Assume data is in the first worksheet (change if needed)
+                        var worksheet = workbook.Worksheets.FirstOrDefault(ws => ws.Name.Equals("Sheet 1", StringComparison.OrdinalIgnoreCase));
+                        // --- Extract Metadata (adjust cell references as needed) ---
+                        string sacco = GetCellValueOrEmpty(worksheet.Cell("B2"));
+                        string financialYear = GetCellValueOrEmpty(worksheet.Cell("B3"));
+                        DateTime? startDt = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("B4")));
+                        DateTime? endDt = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("B5")));
+
+                        if (string.IsNullOrWhiteSpace(sacco))
+                            throw new Exception("Sacco Society CS Number not found in cell B2");
+                        if (string.IsNullOrWhiteSpace(financialYear))
+                            throw new Exception("Financial Year not found in cell B3");
+                        if (!startDt.HasValue)
+                            throw new Exception("Start Date not found or invalid in cell B4");
+                        if (!endDt.HasValue)
+                            throw new Exception("End Date not found or invalid in cell B5");
+
+                        string month = startDt.Value.ToString("MMMM", CultureInfo.InvariantCulture);
+                        DateTime entryTime = DateTime.Now;
+
+                        // --- Locate the Header Row in the data section ---
+                        int headerRow = -1;
+                        int searchLimit = 20;  // search within first 20 rows
+                        for (int r = 1; r <= searchLimit; r++)
+                        {
+                            string cellVal = GetCellValueOrEmpty(worksheet.Cell(r, 2)).ToUpper();
+                            if (cellVal.Contains("Code"))
+                            {
+                                headerRow = r;
+                                break;
+                            }
+                        }
+                        if (headerRow == -1)
+                            throw new Exception("Could not locate the data header row (containing 'Code').");
+
+                        // --- Extract Data Rows ---
+                        var records = new List<SectoralLendingRecord>();
+                        int dataStartRow = headerRow + 1;
+                        int lastRow = worksheet.LastRowUsed().RowNumber();
+
+                        for (int rowNum = dataStartRow; rowNum <= lastRow; rowNum++)
+                        {
+                            var row = worksheet.Row(rowNum);
+
+                            // Read the Code from column 2; if empty, assume end of data.
+                            string code = GetCellValueOrEmpty(row.Cell(2)).Trim();
+                            if (string.IsNullOrWhiteSpace(code))
+                                break; // end the loop if code cell is blank
+
+                            string economicSector = GetCellValueOrEmpty(row.Cell(3)).Trim();
+                            decimal amount = GetDecimalOrNull(row.Cell(4)) ?? 0;
+                            string econSectorName = ExtractEconomicSectorName(economicSector);
+
+                            // Build record
+                            var record = new SectoralLendingRecord
+                            {
+                                SaccoSocietyCSNumber = sacco,
+                                Financial_Year = financialYear,
+                                start_date = startDt.Value,
+                                end_date = endDt.Value,
+                                Month = month,
+                                //Entry_Time = entryTime,
+                                Code = code,
+                                EconomicSector = economicSector,
+                                LoansAndAdvancesAmount = amount,
+                                //CATEGORY = category,
+                                //SUB_CATEGORY = subCategory
+                            };
+
+                            records.Add(record);
+                        }
+
+                        return records;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error importing Sectoral Lending data");
+                throw;
+            }
+        }
+
+
+        private static string ExtractEconomicSectorName(string combinedText)
+        {
+            if (string.IsNullOrWhiteSpace(combinedText))
+                return string.Empty;
+
+            // This regular expression matches a series of digits at the beginning,
+            // followed by one or more whitespace characters, then captures the rest of the text.
+            Regex regex = new Regex(@"^\d+\s+(?<name>.+)$");
+            Match match = regex.Match(combinedText.Trim());
+            if (match.Success)
+            {
+                return match.Groups["name"].Value.Trim();
+            }
+            return combinedText.Trim();
         }
 
 
@@ -394,6 +561,111 @@ namespace Returns.Helpers
                 throw new Exception(
                     $"Error processing Excel file '{file.FileName}': {ex.Message}");
             }
+        }
+
+     
+
+        private static List<SectoralLendingDataRow> ExtractSectoralData(IXLWorksheet worksheet, int headerRow)
+        {
+            var sectoralData = new List<SectoralLendingDataRow>();
+            int firstDataRow = headerRow + 1;
+            int lastRow = worksheet.LastRowUsed().RowNumber();
+
+            string currentMainSectorCode = string.Empty;
+            string currentSubSectorCode = string.Empty;
+
+            for (int rowNum = firstDataRow; rowNum <= lastRow; rowNum++)
+            {
+                var row = worksheet.Row(rowNum);
+
+                // Get cell values
+                string code = GetCellValueOrEmpty(row.Cell(1)).Trim();
+                string name = GetCellValueOrEmpty(row.Cell(2)).Trim();
+
+                // For main sectors, the code is in column 1 and name is in column 2
+                // For subsectors and details, both code and name are in column 2
+                string codeCell = GetCellValueOrEmpty(row.Cell(1)).Trim();
+                string nameOrCodeAndName = GetCellValueOrEmpty(row.Cell(2)).Trim();
+                //decimal amount = (row.Cell(3));
+                // Skip empty rows
+                if (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                // Determine the level and parent based on the code format
+                var level = DetermineSectorLevel(code);
+                string parentCode = null;
+
+                if (level == SectorLevel.MainSector)
+                {
+                    currentMainSectorCode = code;
+                    // Main sectors don't have parents
+                }
+                else if (level == SectorLevel.SubSector)
+                {
+                    currentSubSectorCode = code;
+                    parentCode = currentMainSectorCode;
+                }
+                else if (level == SectorLevel.DetailItem)
+                {
+                    parentCode = currentSubSectorCode;
+                }
+
+                // Create and add the data dto
+                var dataDto = new SectoralLendingDataRow
+                {
+                    SectorCode = code,
+                    SectorName = name,
+                    //Amount = (decimal)amount,
+                    Level = level,
+                    ParentCode = parentCode
+                };
+
+                sectoralData.Add(dataDto);
+            }
+
+            return sectoralData;
+        }
+
+        private static SectorLevel DetermineSectorLevel(string code)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return SectorLevel.DetailItem; // Default to detail if code is empty
+            }
+
+            // Example: "1000" is a main sector, "1100" is a subsector, "1110" is a detail item
+            if (code.Length == 4 && code.EndsWith("00"))
+            {
+                if (code.Substring(1, 3) == "000")
+                {
+                    return SectorLevel.MainSector; // e.g., 1000
+                }
+                else
+                {
+                    return SectorLevel.SubSector; // e.g., 1100, 1200
+                }
+            }
+            else
+            {
+                return SectorLevel.DetailItem; // e.g., 1110, 1120
+            }
+        }
+
+        private static int FindHeaderRow(IXLWorksheet worksheet)
+        {
+            for (int row = 1; row <= Math.Min(20, worksheet.LastRowUsed().RowNumber()); row++)
+            {
+                string cellA = GetCellValueOrEmpty(worksheet.Cell(row, 1)).ToUpper();
+                string cellB = GetCellValueOrEmpty(worksheet.Cell(row, 2)).ToUpper();
+
+                if (cellA.Contains("CODE") && (cellB.Contains("ECONOMIC") || cellB.Contains("SECTOR")))
+                {
+                    return row;
+                }
+            }
+            return -1; // Not found
         }
 
         public static Form2FStatement ImportForm2FRows(IFormFile file, ILogger logger)

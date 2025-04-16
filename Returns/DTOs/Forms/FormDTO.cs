@@ -14,6 +14,7 @@
         public Boolean IsFinancialPosition { get; set; } = false;
         public Boolean IsStatementOfComprehensiveIncome { get; set; } = false;
         public Boolean IsDepositReturnForm { get; set; } = false;
+        public Boolean IsSectoralLending { get; set; } = false;
         public Boolean IsOtherForm { get; set; } = false;
     }
 }
