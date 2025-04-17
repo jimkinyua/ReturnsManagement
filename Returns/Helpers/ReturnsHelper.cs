@@ -1,5 +1,6 @@
 ﻿using DocumentFormat.OpenXml.InkML;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Returns.Controllers;
@@ -2087,6 +2088,156 @@ namespace Returns.Helpers
             }
             await _context.StatementOfComprehensiveIncomeReturns.AddAsync(statement);
             await _context.SaveChangesAsync();
+        }
+
+        public static async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        {
+            try
+            {
+                ReturnsDbContext _context = new ReturnsDbContext();
+                var ImportedSectoralReport = ExcelService.ImportSectoralLendingReport(file, _logger);
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, ImportedSectoralReport.EndDate);
+                var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
+                string EffectiveReturnId = returnId;
+                string PreviousReturnId = string.Empty;
+                List<EconomicSectorData> econDataList = new List<EconomicSectorData>();
+
+                SectoralLendingReport? sectoralLendingReport = null!;
+                if (!IsAmendMent)
+                {
+                    sectoralLendingReport = new SectoralLendingReport
+                    {
+                        ReturnId = returnId,
+                        FilePath = FilePath,
+                        Year = ImportedSectoralReport.Year,
+                        Month = ImportedSectoralReport.Month,
+                        StartDate = ImportedSectoralReport.StartDate,
+                        EndDate = ImportedSectoralReport.EndDate,
+                        DaysLateBy = DaysLateBy,
+                        SaccoName = ImportedSectoralReport.SaccoName,
+                        SaccoId = ImportedSectoralReport.SaccoId,
+                        IsCurrent = true,
+                        IsAmended = false
+                    };
+                }
+                else
+                {
+                    // For an amendment, update the existing report.
+                    sectoralLendingReport = await _context.SectoralLendingReports.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                    if (sectoralLendingReport == null)
+                    {
+                        throw new Exception("Existing report not found for amendment.");
+                    }
+                    sectoralLendingReport.PreviousReturnId = PrevId;
+                    sectoralLendingReport.IsCurrent = true;
+                    sectoralLendingReport.IsAmended = false;
+                    sectoralLendingReport.FilePath = FilePath;
+                    sectoralLendingReport.ReturnId = EffectiveReturnId;
+                }
+
+                if (!IsAmendMent)
+                {
+                    await _context.SectoralLendingReports.AddAsync(sectoralLendingReport);
+                }
+                else
+                {
+                    _context.SectoralLendingReports.Update(sectoralLendingReport);
+                }
+                foreach (var catDto in ImportedSectoralReport.Categories)
+                {
+                    // Upsert Category: check if a Category with the same code exists.
+                    var categoryEntity = await _context.Categories.FirstOrDefaultAsync(c => c.CategoryCode == catDto.CategoryCode);
+
+                    if (categoryEntity == null)
+                    {
+                        categoryEntity = new Category
+                        {
+                            CategoryCode = catDto.CategoryCode,
+                            CategoryName = catDto.CategoryName
+                        };
+                        _context.Categories.Add(categoryEntity);
+                    }
+                    else
+                    {
+                        // Update properties if needed.
+                        categoryEntity.CategoryName = catDto.CategoryName;
+                        _context.Categories.Update(categoryEntity);
+                    }
+                    await _context.SaveChangesAsync();
+
+                    // 3. Process each SubCategoryDto within the Category.
+                    foreach (var subDto in catDto.SubCategories)
+                    {
+                        var subCategoryEntity = await _context.SubCategories
+                            .FirstOrDefaultAsync(sc => sc.Code == subDto.SubCategoryCode && sc.CategoryId == categoryEntity.Id);
+
+                        if (subCategoryEntity == null)
+                        {
+                            subCategoryEntity = new SubCategory
+                            {
+                                Code = subDto.SubCategoryCode,
+                                Name = subDto.SubCategoryName,
+                                CategoryId = categoryEntity.Id
+                            };
+                            _context.SubCategories.Add(subCategoryEntity);
+                        }
+                        else
+                        {
+                            subCategoryEntity.Name = subDto.SubCategoryName;
+                            _context.SubCategories.Update(subCategoryEntity);
+                        }
+                        await _context.SaveChangesAsync();
+
+                        // 4. Process each EconomicSectorDto within the SubCategory.
+                        foreach (var econDto in subDto.EconomicSectors)
+                        {
+                            var econEntity = await _context.EconomicSectors.FirstOrDefaultAsync(es => es.Code == econDto.EconomicSectorCode && es.SubCategoryId == subCategoryEntity.Id);
+
+                            if (econEntity == null)
+                            {
+                                econEntity = new EconomicSector
+                                {
+                                    Code = econDto.EconomicSectorCode,
+                                    Name = econDto.EconomicSectorName,
+                                    SubCategoryId = subCategoryEntity.Id
+                                };
+                                _context.EconomicSectors.Add(econEntity);
+                            }
+                            else
+                            {
+                                econEntity.Name = econDto.EconomicSectorName;
+                                _context.EconomicSectors.Update(econEntity);
+                            }
+                            await _context.SaveChangesAsync();
+
+                            // 5. Create an EconomicSectorData record for this economic sector.
+                            var econData = new EconomicSectorData
+                            {
+                                Amount = econDto.Amount,
+                                ReturnId = sectoralLendingReport.ReturnId,   
+                                IsCurrent = sectoralLendingReport.IsCurrent,
+                                PreviousReturnId = sectoralLendingReport.PreviousReturnId,
+                                IsAmended = sectoralLendingReport.IsAmended,
+                                EconomicSectorId = econEntity.Id,
+                                SectoralLendingReportId = sectoralLendingReport.Id
+                            };
+                            econDataList.Add(econData);
+                            _context.SectorData.Add(econData);
+                            await _context.SaveChangesAsync();
+
+                        }
+
+
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
+            }
+            catch (Exception Ex)
+            {
+
+                throw Ex;
+            }
         }
         public static (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriodNWDT(
             Form2AStatement? capital_adequacy_form1,

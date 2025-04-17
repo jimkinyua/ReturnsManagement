@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250416134004_RefineSectotralLendingData")]
+    partial class RefineSectotralLendingData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -452,19 +455,6 @@ namespace Returns.Migrations
                     b.Property<string>("EconomicSectorId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<bool>("IsAmended")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCurrent")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("PreviousReturnId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ReturnId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SectoralLendingReportId")
                         .IsRequired()
@@ -2106,32 +2096,9 @@ namespace Returns.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("DaysLateBy")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsAmended")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsCurrent")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Month")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PreviousReturnId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ReturnId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SaccoId")
                         .IsRequired()
@@ -2141,19 +2108,11 @@ namespace Returns.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("int");
-
                     b.Property<string>("Year")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ReturnId");
 
                     b.ToTable("SectoralLendingReports");
                 });
@@ -2728,17 +2687,6 @@ namespace Returns.Migrations
                     b.Navigation("Return");
                 });
 
-            modelBuilder.Entity("Returns.Models.SectoralLendingReport", b =>
-                {
-                    b.HasOne("Returns.Models.Return", "Returns")
-                        .WithMany("SectoralLendingReports")
-                        .HasForeignKey("ReturnId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Returns");
-                });
-
             modelBuilder.Entity("Returns.Models.StatementOfComprehensiveIncomeReturn", b =>
                 {
                     b.HasOne("Returns.Models.Return", "Return")
@@ -2840,8 +2788,6 @@ namespace Returns.Migrations
                     b.Navigation("RiskClassifications");
 
                     b.Navigation("SaccoAnalysis");
-
-                    b.Navigation("SectoralLendingReports");
 
                     b.Navigation("StatementOfComprehensiveIncomeReturns");
 

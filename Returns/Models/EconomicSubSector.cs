@@ -3,13 +3,15 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class EconomicSubSector: CommonFields
+    public class EconomicSector: CommonFields
     {
-        public string SubSectorName { get; set; } = null!;
-        public string SubSectorCode { get; set; } = null!;
-        [ForeignKey("EconomicSector")]
-        public string SectorId { get; set; } = null!;
-        public EconomicSector EconomicSector { get; set; } = null!;
-        public ICollection<SubSectorData> SubSectorData { get; set; } = new List<SubSectorData>();
+        public string Name { get; set; } = null!;
+        public string Code { get; set; } = null!;
+
+        [ForeignKey("SubCategory")]
+        public string SubCategoryId { get; set; } = null!;
+        public virtual SubCategory SubCategory { get; set; } = null!;
+        public ICollection<EconomicSectorData> SubSectorData { get; set; } = new List<EconomicSectorData>();
+
     }
 }

@@ -306,13 +306,13 @@ namespace Returns.Controllers
             {
                 return BadRequest("No attachments found. Please attach at least one form.");
             }
-
+/*
             var HasAssignedUser = await _returnAssignmentService.CheckSaccoAssignedUserAsync(loggedInSacco.SaccoId);
 
             if (!HasAssignedUser.Success)
             {
                 return BadRequest(HasAssignedUser.ErrorMessage);
-            }
+            }*/
 
             if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
             {
@@ -343,7 +343,7 @@ namespace Returns.Controllers
                     return StatusCode(500, "An error occurred while processing the forms.");
                 }
                 var ReturnDetails = _context.Returns.Find(returnId);
-                var IsAssigned = await _returnAssignmentService.AssignReturnAsync(ReturnDetails, loggedInSacco.SaccoId);
+              /*  var IsAssigned = await _returnAssignmentService.AssignReturnAsync(ReturnDetails, loggedInSacco.SaccoId);
                 if (!IsAssigned.Success)
                 {
                     _logger.LogError("Error assigning return: {ErrorMessage}", IsAssigned.ErrorMessage);
@@ -356,8 +356,8 @@ namespace Returns.Controllers
                     }
 
                     return StatusCode(500, IsAssigned.ErrorMessage);
-                }
-                await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
+                }*/
+                //await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
                 return Ok(processingMessages);
             }
             catch (Exception ex)

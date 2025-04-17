@@ -1,14 +1,23 @@
 ﻿using Returns.Models.Common;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class SectoralLendingReport: CommonFields
+    public class SectoralLendingReport: FormBase
     {
         public string SaccoId { get; set; } = null!;
+        [ForeignKey("Returns")]
+        public string ReturnId { get; set; } = null!;
         public string SaccoName { get; set; } = null!;
         public string Month { get; set; } = null!;
+        public string FilePath { get; set; } = null!;
         public string Year { get; set; } = null!;
-        public ICollection<SubSectorData> SubSectorData { get; set; } = new List<SubSectorData>();
+        public int DaysLateBy { get; set; }
+        public int Version { get; set; } = 1;
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public ICollection<EconomicSectorData> SubSectorData { get; set; } = new List<EconomicSectorData>();
+        public virtual Return Returns { get; set; } = null!;
 
     }
 }

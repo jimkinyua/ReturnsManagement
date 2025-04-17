@@ -43,7 +43,7 @@ namespace Returns.Models
 
 
         public virtual ICollection<OtherReturn> OtherReturns { get; set; } = new List<OtherReturn>();
-
+        public virtual ICollection<SectoralLendingReport> SectoralLendingReports { get; set; } = new List<SectoralLendingReport>();
 
         // Assignments 
         public virtual ICollection<ReturnsAssigment> ReturnsAssigments { get; set; } = new List<ReturnsAssigment>();

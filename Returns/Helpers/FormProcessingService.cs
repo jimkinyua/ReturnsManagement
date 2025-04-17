@@ -29,7 +29,8 @@ namespace Returns.Helpers
             string periodToUse)
         {
             var processingSummary = new List<string>();
-
+            Boolean IsAmendment = false;
+            string EffectiveReturnId = string.Empty;
             try
             {
                 // Step 1: Determine if this is a batch amendment by checking any form
@@ -47,12 +48,12 @@ namespace Returns.Helpers
                     if (form == null) continue;
 
                     // Check if this form is an amendment
-                    var (isAmendment, returnId) = await IsAmendmentBasedOnReportingPeriod(upload.formFile, form, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
+                   var AmendmentData = await IsAmendmentBasedOnReportingPeriod(upload.formFile, form, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
 
-                    if (isAmendment && !string.IsNullOrEmpty(returnId))
+                    if (AmendmentData.IsAmendment && !string.IsNullOrEmpty(AmendmentData.ReturnId))
                     {
                         isBatchAmendment = true;
-                        batchReturnId = returnId;
+                        batchReturnId = AmendmentData.ReturnId;
                         break; // We only need to find one amendment to determine it's a batch amendment
                     }
                 }
@@ -101,6 +102,9 @@ namespace Returns.Helpers
                     effectiveReturnId = newBatch.Id;
                 }
 
+                EffectiveReturnId = effectiveReturnId;
+                IsAmendment = isBatchAmendment;
+
                 // Step 3: Process each form in the batch
                 foreach (var upload in batchDTO.FormUploads)
                 {
@@ -143,6 +147,7 @@ namespace Returns.Helpers
 
                     // Process the form
                     var (isProcessed, message) = await ProcessFormAsync(
+                        IsAmendment,
                         upload.formFile,
                         form,
                         effectiveReturnId,
@@ -244,16 +249,16 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task<(bool Success, string Message)> ProcessFormAsync(IFormFile formFile, ReturnForm form, string EffectiveReturnId, string saccoId, string saccoType, string OldReturnId = "")
+        public async Task<(bool Success, string Message)> ProcessFormAsync( Boolean IsAmendment,  IFormFile formFile, ReturnForm form, string EffectiveReturnId, string saccoId, string saccoType, string OldReturnId = "")
         {
             try
             {
                 // First, check if this form should be treated as an amendment
-                var AmendmentData = await IsAmendmentBasedOnReportingPeriod(formFile, form, saccoType, saccoId);
+                //var AmendmentData = await IsAmendmentBasedOnReportingPeriod(formFile, form, saccoType, saccoId);
                 string effectiveReturnId = EffectiveReturnId;
 
                 // If it's an amendment, create a new version
-                if (AmendmentData.IsAmendment)
+                if (IsAmendment)
                 {
                     _logger.LogInformation($"Form {form.FormName} is being processed as an amendment");
 
@@ -268,15 +273,15 @@ namespace Returns.Helpers
                 }
 
                 // Process the form content
-                var (success, message) = await ProcessFormByType(formFile, form, effectiveReturnId, saccoType, AmendmentData.IsAmendment, AmendmentData.ReturnId);
+                var (success, message) = await ProcessFormByType(formFile, form, effectiveReturnId, saccoType, IsAmendment, EffectiveReturnId);
 
                 // If this was an amendment and processing succeeded, mark the form as amended
-                if (AmendmentData.IsAmendment && success)
+                if (IsAmendment && success)
                 {
                     await MarkFormAsAmended(OldReturnId, GetFormTypeFromForm(form), saccoType);
                 }
 
-                return (success, message + (AmendmentData.IsAmendment ? " (processed as amendment)" : ""));
+                return (success, message + (IsAmendment ? " (processed as amendment)" : ""));
             }
             catch (Exception ex)
             {
@@ -362,7 +367,33 @@ namespace Returns.Helpers
         {
             if (SaccoType == Constants.SaccoType.DepositTaking)
             {
-                if (form.IsCapitalAdequencyForm)
+
+                if (form.IsSectoralLending)
+                {
+                    var sectoralLending = await _context.SectorData.Where(s => s.ReturnId == OldReturnId).ToListAsync();
+                    if (sectoralLending == null)
+                    {
+                    }
+                    foreach (var OldItem in sectoralLending)
+                    {
+                        var newItem = new EconomicSectorData
+                        {
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
+                            SectoralLendingReportId = OldItem.SectoralLendingReportId,
+                            Amount = OldItem.Amount,
+                            EconomicSectorId = OldItem.EconomicSectorId,
+                        };
+                        await _context.SectorData.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.SectorData.Update(OldItem);
+                    }
+                    await _context.SaveChangesAsync();
+                    return true;
+
+                }
+               if (form.IsCapitalAdequencyForm)
                 {
                     var capitalAdequacy = await _context.CapitalAdequacies.Where(c => c.ReturnId == OldReturnId).ToListAsync();
                     if (capitalAdequacy == null)
@@ -810,6 +841,61 @@ namespace Returns.Helpers
             }
             else
             {
+                if (form.IsSectoralLending)
+                {
+                    var OldsectoralLendingReport = await _context.SectoralLendingReports.FirstOrDefaultAsync(x => x.ReturnId == OldReturnId);
+
+                    if (OldsectoralLendingReport == null)
+                    {
+                        return false;
+                    }
+
+                    OldsectoralLendingReport.IsAmended = true;
+                    OldsectoralLendingReport.IsCurrent = false;
+
+                    var sectoralLending = await _context.SectorData.Where(s => s.SectoralLendingReportId == OldsectoralLendingReport.Id).ToListAsync();
+                    if (sectoralLending == null)
+                    {
+                        return false;
+                    }
+
+                    var newSectoralLendingReport = new SectoralLendingReport
+                    {
+                        ReturnId = NewReturnId,
+                        PreviousReturnId = OldReturnId,
+                        FilePath = OldsectoralLendingReport.FilePath,
+                        Version = OldsectoralLendingReport.Version + 1,
+                        StartDate = OldsectoralLendingReport.StartDate,
+                        EndDate = OldsectoralLendingReport.EndDate,
+                        IsAmended = false,
+                        IsCurrent = true,
+                        Year = OldsectoralLendingReport.Year,
+                        Month = OldsectoralLendingReport.Month,
+                        SaccoName = OldsectoralLendingReport.SaccoName,
+                        DaysLateBy = OldsectoralLendingReport.DaysLateBy,
+                        SaccoId = OldsectoralLendingReport.SaccoId,
+                    };
+                    await _context.SectoralLendingReports.AddAsync(newSectoralLendingReport);
+                    foreach (var OldItem in sectoralLending)
+                    {
+                        var newItem = new EconomicSectorData
+                        {
+                            ReturnId = NewReturnId,
+                            PreviousReturnId = OldReturnId,
+                            SectoralLendingReportId = newSectoralLendingReport.Id,
+                            Amount = OldItem.Amount,
+                            EconomicSectorId = OldItem.EconomicSectorId,
+                        };
+                        await _context.SectorData.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.SectorData.Update(OldItem);
+                    }
+                    await _context.SaveChangesAsync();
+                    return true;
+
+                }
+
                 if (form.IsCapitalAdequencyForm)
                 {
                     var nwdtCapitalAdequacy = await _context.NDWTCapitalAdequacyReturns
@@ -1660,7 +1746,7 @@ namespace Returns.Helpers
                             await ReturnsHelper.ProcessComprehensiveIncomeForm(formFile, returnId, _logger, form);
                             break;
                         case "SectoralLending":
-                             ExcelService.ImportSectoralLendingRecords(formFile, _logger);
+                            await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
@@ -1693,7 +1779,7 @@ namespace Returns.Helpers
                             await ReturnsHelper.ProcessForm2F(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "SectoralLending":
-                            ExcelService.ImportSectoralLendingRecords(formFile, _logger);
+                           await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         default:
                             return (false, $"No processor found for form type: {formType}");

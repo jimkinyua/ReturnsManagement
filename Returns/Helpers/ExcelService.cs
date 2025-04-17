@@ -9,6 +9,7 @@ using Returns.Models;
 using Returns.DTOs.Forms;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace Returns.Helpers
 {
@@ -18,6 +19,38 @@ namespace Returns.Helpers
         public ExcelService(ILogger<ExcelService> logger)
         {
             _logger = logger;
+        }
+
+        public class SectoralLendingReportDto
+        {
+            public string SaccoId { get; set; } = string.Empty;
+            public string SaccoName { get; set; } = string.Empty;
+            public string Year { get; set; } = string.Empty;
+            public string Month { get; set; } = string.Empty;
+            public DateTime StartDate { get; set; } 
+            public DateTime EndDate { get; set; }
+            public List<CategoryDto> Categories { get; set; } = new List<CategoryDto>();
+        }
+
+        public class CategoryDto
+        {
+            public string CategoryCode { get; set; } = string.Empty;
+            public string CategoryName { get; set; } = string.Empty;
+            public List<SubCategoryDto> SubCategories { get; set; } = new List<SubCategoryDto>();
+        }
+
+        public class SubCategoryDto
+        {
+            public string SubCategoryCode { get; set; } = string.Empty;
+            public string SubCategoryName { get; set; } = string.Empty;
+            public List<EconomicSectorDto> EconomicSectors { get; set; } = new List<EconomicSectorDto>();
+        }
+
+        public class EconomicSectorDto
+        {
+            public string EconomicSectorCode { get; set; } = string.Empty;
+            public string EconomicSectorName { get; set; } = string.Empty;
+            public decimal Amount { get; set; }
         }
 
         public class CapitalAdequacyRow
@@ -328,22 +361,18 @@ namespace Returns.Helpers
         }
 
 
-        public static List<SectoralLendingRecord> ImportSectoralLendingRecords(IFormFile file, ILogger logger)
-        {
-            var Y = new List<SectoralLendingRecord>();
 
-            return Y;
-           /* try
+        public static SectoralLendingReportDto ImportSectoralLendingReport(IFormFile file, ILogger logger)
+        {
+            try
             {
                 logger.LogInformation("Importing Sectoral Lending data from file: {FileName}", file.FileName);
 
                 if (file == null)
                     throw new ArgumentNullException(nameof(file), "No file was provided for processing");
-
                 if (file.Length == 0)
                     throw new ArgumentException("The uploaded file is empty", nameof(file));
 
-                // Check file extension (only .xlsx and .xls allowed)
                 var extension = Path.GetExtension(file.FileName).ToLower();
                 if (extension != ".xlsx" && extension != ".xls")
                     throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
@@ -353,79 +382,137 @@ namespace Returns.Helpers
                     file.CopyTo(stream);
                     using (var workbook = new XLWorkbook(stream))
                     {
-                        // Assume data is in the first worksheet (change if needed)
-                        var worksheet = workbook.Worksheets.FirstOrDefault(ws => ws.Name.Equals("Sheet 1", StringComparison.OrdinalIgnoreCase));
-                        // --- Extract Metadata (adjust cell references as needed) ---
-                        string sacco = GetCellValueOrEmpty(worksheet.Cell("B2"));
-                        string financialYear = GetCellValueOrEmpty(worksheet.Cell("B3"));
-                        DateTime? startDt = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("B4")));
-                        DateTime? endDt = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("B5")));
+                        // 1. Find the correct worksheet (adjust if needed)
+                        var worksheet = workbook.Worksheets.FirstOrDefault(ws =>
+                            ws.Name.Equals("Sheet1", StringComparison.OrdinalIgnoreCase));
+                        if (worksheet == null)
+                            throw new Exception("Worksheet 'Sheet1' not found.");
 
-                        if (string.IsNullOrWhiteSpace(sacco))
-                            throw new Exception("Sacco Society CS Number not found in cell B2");
+                        // 2. Extract Metadata (adjust cell references for your file):
+                        string saccoId = GetCellValueOrEmpty(worksheet.Cell("C3"));
+                        string saccoName = GetCellValueOrEmpty(worksheet.Cell("C3"));
+                        string financialYear = GetCellValueOrEmpty(worksheet.Cell("C4"));
+                        DateTime? startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C5")));
+                        DateTime? endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6")));
+
+                        if (string.IsNullOrWhiteSpace(saccoId))
+                            throw new Exception("SaccoId not found in cell C3");
+                        if (string.IsNullOrWhiteSpace(saccoName))
+                            throw new Exception("SaccoName not found in cell C4");
                         if (string.IsNullOrWhiteSpace(financialYear))
-                            throw new Exception("Financial Year not found in cell B3");
-                        if (!startDt.HasValue)
-                            throw new Exception("Start Date not found or invalid in cell B4");
-                        if (!endDt.HasValue)
-                            throw new Exception("End Date not found or invalid in cell B5");
+                            throw new Exception("Financial Year not found in cell C5");
+                        if (!startDate.HasValue)
+                            throw new Exception("Start Date not found or invalid in cell C6");
 
-                        string month = startDt.Value.ToString("MMMM", CultureInfo.InvariantCulture);
-                        DateTime entryTime = DateTime.Now;
+                        string month = endDate.Value.ToString("MMMM", CultureInfo.InvariantCulture);
 
-                        // --- Locate the Header Row in the data section ---
+                        // 3. Locate Header Row (where column 2 says "CODE")
                         int headerRow = -1;
-                        int searchLimit = 20;  // search within first 20 rows
+                        int searchLimit = 20;
                         for (int r = 1; r <= searchLimit; r++)
                         {
                             string cellVal = GetCellValueOrEmpty(worksheet.Cell(r, 2)).ToUpper();
-                            if (cellVal.Contains("Code"))
+                            if (cellVal.Contains("CODE"))
                             {
                                 headerRow = r;
                                 break;
                             }
                         }
                         if (headerRow == -1)
-                            throw new Exception("Could not locate the data header row (containing 'Code').");
+                            throw new Exception("Could not locate the data header row (containing 'CODE').");
 
-                        // --- Extract Data Rows ---
-                        var records = new List<SectoralLendingRecord>();
+                        // Initialize the main DTO
+                        var reportDto = new SectoralLendingReportDto
+                        {
+                            SaccoId = saccoId,
+                            SaccoName = saccoName,
+                            Year = financialYear,
+                            Month = month,
+                            StartDate = startDate.Value,
+                            EndDate = endDate.Value,
+                            Categories = new List<CategoryDto>()
+                        };
+
+                        // We'll keep track of the "current" category and subcategory as we parse.
+                        CategoryDto currentCategory = null!;
+                        SubCategoryDto currentSubCategory = null!;
+
                         int dataStartRow = headerRow + 1;
                         int lastRow = worksheet.LastRowUsed().RowNumber();
 
+                        // 4. Process each data row
                         for (int rowNum = dataStartRow; rowNum <= lastRow; rowNum++)
                         {
                             var row = worksheet.Row(rowNum);
 
-                            // Read the Code from column 2; if empty, assume end of data.
-                            string code = GetCellValueOrEmpty(row.Cell(2)).Trim();
-                            if (string.IsNullOrWhiteSpace(code))
-                                break; // end the loop if code cell is blank
+                            // Column 2 => if non-empty => Category code
+                            string catCode = GetCellValueOrEmpty(row.Cell(2)).Trim();
 
-                            string economicSector = GetCellValueOrEmpty(row.Cell(3)).Trim();
+                            // Column 3 => either sub-cat or economic sector code + name combined
+                            string combinedCellValue = GetCellValueOrEmpty(row.Cell(3)).Trim();
+
+                            // Column 4 => numeric amount (only relevant for economic sectors)
                             decimal amount = GetDecimalOrNull(row.Cell(4)) ?? 0;
-                            string econSectorName = ExtractEconomicSectorName(economicSector);
 
-                            // Build record
-                            var record = new SectoralLendingRecord
+                            // CASE A: If catCode is non-empty => treat this row as a Category row
+                            // e.g. "1000 => AGRICULTURE"
+                            if (!string.IsNullOrWhiteSpace(catCode))
                             {
-                                SaccoSocietyCSNumber = sacco,
-                                Financial_Year = financialYear,
-                                start_date = startDt.Value,
-                                end_date = endDt.Value,
-                                Month = month,
-                                //Entry_Time = entryTime,
-                                Code = code,
-                                EconomicSector = economicSector,
-                                LoansAndAdvancesAmount = amount,
-                                //CATEGORY = category,
-                                //SUB_CATEGORY = subCategory
-                            };
+                                // By assumption, category codes end with "000"
+                                currentCategory = new CategoryDto
+                                {
+                                    CategoryCode = catCode,
+                                    // For the category name, let's read the "ECONOMIC SECTORS" text from column 3
+                                    CategoryName = combinedCellValue,
+                                    SubCategories = new List<SubCategoryDto>()
+                                };
+                                reportDto.Categories.Add(currentCategory);
+                                currentSubCategory = null!;
+                            }
+                            else
+                            {
+                                // CASE B: catCode is empty => this row is either a SubCategory or an EconomicSector
+                                if (string.IsNullOrWhiteSpace(combinedCellValue))
+                                {
+                                    // no data => break or continue
+                                    break;
+                                }
 
-                            records.Add(record);
-                        }
+                                // We parse out the code and name from combinedCellValue
+                                (string code, string name) = ParseCodeAndName(combinedCellValue);
 
-                        return records;
+                                if (code.EndsWith("100"))
+                                {
+                                    // => SUB-CATEGORY
+                                    currentSubCategory = new SubCategoryDto
+                                    {
+                                        SubCategoryCode = code,
+                                        SubCategoryName = name,
+                                        EconomicSectors = new List<EconomicSectorDto>()
+                                    };
+                                    if (currentCategory == null)
+                                        throw new Exception("SubCategory found without an active Category row above it.");
+                                    currentCategory.SubCategories.Add(currentSubCategory);
+                                }
+                                else
+                                {
+                                    // => ECONOMIC SECTOR
+                                    if (currentSubCategory == null)
+                                        throw new Exception("Economic Sector row found but no current SubCategory is set.");
+
+                                    // This row's code & name are for an economic sector
+                                    var econSector = new EconomicSectorDto
+                                    {
+                                        EconomicSectorCode = code,
+                                        EconomicSectorName = name,
+                                        Amount = amount
+                                    };
+                                    currentSubCategory.EconomicSectors.Add(econSector);
+                                }
+                            }
+                        } 
+
+                        return reportDto;
                     }
                 }
             }
@@ -433,10 +520,27 @@ namespace Returns.Helpers
             {
                 logger.LogError(ex, "Error importing Sectoral Lending data");
                 throw;
-            }*/
+            }
         }
 
+        private static (string code, string name) ParseCodeAndName(string combined)
+        {
+            Regex CodeNameRegex = new Regex(@"^(?<code>\d+)\s+(?<name>.+)$", RegexOptions.Compiled);
 
+            // "1100   Crop Farming" => code="1100", name="Crop Farming"
+            if (string.IsNullOrWhiteSpace(combined))
+                return (string.Empty, string.Empty);
+
+            var match = CodeNameRegex.Match(combined);
+            if (!match.Success)
+            {
+                // If it doesn't match, fallback to entire text as name
+                return (string.Empty, combined.Trim());
+            }
+            string code = match.Groups["code"].Value.Trim();
+            string name = match.Groups["name"].Value.Trim();
+            return (code, name);
+        }
         private static string ExtractEconomicSectorName(string combinedText)
         {
             if (string.IsNullOrWhiteSpace(combinedText))
