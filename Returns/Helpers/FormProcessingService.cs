@@ -370,7 +370,7 @@ namespace Returns.Helpers
 
                 if (form.IsSectoralLending)
                 {
-                    var sectoralLending = await _context.SectorData.Where(s => s.ReturnId == OldReturnId).ToListAsync();
+                    var sectoralLending = await _context.SectoralLendingData.Where(s => s.ReturnId == OldReturnId).ToListAsync();
                     if (sectoralLending == null)
                     {
                     }
@@ -379,15 +379,18 @@ namespace Returns.Helpers
                         var newItem = new EconomicSectorData
                         {
                             ReturnId = NewReturnId,
+                            Category = OldItem.Category,
+                            SubCategory = OldItem.SubCategory,
+                            EconomicSectorName = OldItem.EconomicSectorName,
                             PreviousReturnId = OldReturnId,
                             SectoralLendingReportId = OldItem.SectoralLendingReportId,
                             Amount = OldItem.Amount,
                             EconomicSectorId = OldItem.EconomicSectorId,
                         };
-                        await _context.SectorData.AddAsync(newItem);
+                        await _context.SectoralLendingData.AddAsync(newItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
-                        _context.SectorData.Update(OldItem);
+                        _context.SectoralLendingData.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -853,7 +856,7 @@ namespace Returns.Helpers
                     OldsectoralLendingReport.IsAmended = true;
                     OldsectoralLendingReport.IsCurrent = false;
 
-                    var sectoralLending = await _context.SectorData.Where(s => s.SectoralLendingReportId == OldsectoralLendingReport.Id).ToListAsync();
+                    var sectoralLending = await _context.SectoralLendingData.Where(s => s.SectoralLendingReportId == OldsectoralLendingReport.Id).ToListAsync();
                     if (sectoralLending == null)
                     {
                         return false;
@@ -881,15 +884,18 @@ namespace Returns.Helpers
                         var newItem = new EconomicSectorData
                         {
                             ReturnId = NewReturnId,
+                            Category = OldItem.Category,
+                            SubCategory = OldItem.SubCategory,
+                            EconomicSectorName = OldItem.EconomicSectorName,
                             PreviousReturnId = OldReturnId,
                             SectoralLendingReportId = newSectoralLendingReport.Id,
                             Amount = OldItem.Amount,
                             EconomicSectorId = OldItem.EconomicSectorId,
                         };
-                        await _context.SectorData.AddAsync(newItem);
+                        await _context.SectoralLendingData.AddAsync(newItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
-                        _context.SectorData.Update(OldItem);
+                        _context.SectoralLendingData.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;

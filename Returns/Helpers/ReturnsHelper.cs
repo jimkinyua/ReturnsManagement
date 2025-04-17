@@ -2214,6 +2214,9 @@ namespace Returns.Helpers
                             var econData = new EconomicSectorData
                             {
                                 Amount = econDto.Amount,
+                                Category = categoryEntity.CategoryName,
+                                SubCategory = subCategoryEntity.Name,
+                                EconomicSectorName = econEntity.Name,
                                 ReturnId = sectoralLendingReport.ReturnId,   
                                 IsCurrent = sectoralLendingReport.IsCurrent,
                                 PreviousReturnId = sectoralLendingReport.PreviousReturnId,
@@ -2222,7 +2225,7 @@ namespace Returns.Helpers
                                 SectoralLendingReportId = sectoralLendingReport.Id
                             };
                             econDataList.Add(econData);
-                            _context.SectorData.Add(econData);
+                            _context.SectoralLendingData.Add(econData);
                             await _context.SaveChangesAsync();
 
                         }

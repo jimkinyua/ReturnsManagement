@@ -12,6 +12,9 @@ namespace Returns.Models
         public decimal Amount { get; set; }
         [ForeignKey("EconomicSector")]
         public string EconomicSectorId { get; set; } = null!;
+        public string Category { get; set; } = null!;
+        public string SubCategory { get; set; } = null!;
+        public string EconomicSectorName { get; set; } = null!;
         public virtual SectoralLendingReport SectoralLendingReport { get; set; } = null!;
         public virtual EconomicSector EconomicSector { get; set; } = null!;
     }

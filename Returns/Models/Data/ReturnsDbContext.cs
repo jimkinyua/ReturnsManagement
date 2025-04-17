@@ -59,9 +59,9 @@ namespace Returns.Models.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<SubCategory> SubCategories { get; set; }
         public DbSet<EconomicSector> EconomicSectors { get; set; }
-        public DbSet<EconomicSectorData> SectorData { get; set; }
+        public DbSet<EconomicSectorData> SectoralLendingData { get; set; }
 
 
-    }
+    }   
 
 }
