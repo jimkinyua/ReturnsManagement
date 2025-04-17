@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Http;
 using static Returns.Helpers.Constants;
 using Returns.Helpers.Interfaces;
 using Returns.DTOs.Returns.Return_Assignement;
+using Returns.DTOs.Returns.Returns_Submission.NWDT;
 
 namespace Returns.Controllers
 {
@@ -511,6 +512,7 @@ namespace Returns.Controllers
                 .Include(r => r.StatementOfFinancialPositionReturns)
                 .Include(r => r.RiskClassifications)
                 .Include(r => r.InvestmentReturns)
+                .Include(r => r.SectoralLendingReports)
                 .Include(r => r.LiquidityReturns)
                 .Where(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString())
                 .AsNoTracking()
@@ -707,10 +709,44 @@ namespace Returns.Controllers
 
                 .FirstOrDefaultAsync();
 
+
             if (returnDTO == null)
             {
                 return new ReturnDetailsDTO();
             }
+
+            var  sectoralLendingReports = await _context.SectoralLendingReports
+                .Where(x => x.ReturnId == returnId)
+                .FirstOrDefaultAsync();
+
+            if (sectoralLendingReports != null)
+            {
+                SectoralLendingDTO sectoralLendingDTO = new SectoralLendingDTO
+                {
+                    StartDate = sectoralLendingReports.StartDate,
+                    EndDate = sectoralLendingReports.EndDate,
+                };
+
+                var sectoralLendingDataList = await _context.SectoralLendingData
+                   .Where(x => x.ReturnId == returnId)
+                   .ToListAsync();
+
+                sectoralLendingDataList.ForEach(x =>
+                {
+                    sectoralLendingDTO.SubSectorData.Add(new SectoralLendingDataDTO
+                    {
+                        Amount = x.Amount,
+                        Category = x.Category,
+                        SubCategory = x.SubCategory,
+                        EconomicSectorName = x.EconomicSectorName,
+                    });
+                });
+
+                returnDTO.SectoralLending = sectoralLendingDTO;
+
+            }
+
+
 
             return returnDTO;
         }
@@ -1283,6 +1319,9 @@ namespace Returns.Controllers
 
                 .ToListAsync();
 
+
+
+
             // Map the results to the DTO
             var returnDTO = new NWDTReturnDetailsDTO
             {
@@ -1569,6 +1608,37 @@ namespace Returns.Controllers
                 PreviousVersionId = returnEntity.PreviousVersionId,
                 PreviousVersionIds = ReturnsHelper.GetPreviousVersionIdsAsync(returnEntity).Result
             };
+
+            var sectoralLendingReports = await _context.SectoralLendingReports
+              .Where(x => x.ReturnId == returnId)
+              .FirstOrDefaultAsync();
+
+            if (sectoralLendingReports != null)
+            {
+                SectoralLendingDTO sectoralLendingDTO = new SectoralLendingDTO
+                {
+                    StartDate = sectoralLendingReports.StartDate,
+                    EndDate = sectoralLendingReports.EndDate,
+                };
+
+                var sectoralLendingDataList = await _context.SectoralLendingData
+                   .Where(x => x.ReturnId == returnId)
+                   .ToListAsync();
+
+                sectoralLendingDataList.ForEach(x =>
+                {
+                    sectoralLendingDTO.SubSectorData.Add(new SectoralLendingDataDTO
+                    {
+                        Amount = x.Amount,
+                        Category = x.Category,
+                        SubCategory = x.SubCategory,
+                        EconomicSectorName = x.EconomicSectorName,
+                    });
+                });
+
+                returnDTO.SectoralLending = sectoralLendingDTO;
+
+            }
 
             return Ok(returnDTO);
         }

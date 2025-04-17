@@ -1,4 +1,5 @@
 using Returns.DTOs.Returns.Returns_Submission.DT;
+using Returns.DTOs.Returns.Returns_Submission.NWDT;
 
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
@@ -29,6 +30,7 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public NWDTFinancialPositionDTO? NWDTFinancialPosition { get; set; }
         public List<NWDTDepositReturnDto> NWDTDepositReturn { get; set; } = new List<NWDTDepositReturnDto>();
         public List<OtherReturnDTO> OtherReturns { get; set; } = new List<OtherReturnDTO>();
+        public SectoralLendingDTO SectoralLending { get; set; } = new SectoralLendingDTO();
         public int VersionNumber { get; set; }
         public bool IsActiveVersion { get; set; }
         public DateTime? AmendmentDate { get; set; }

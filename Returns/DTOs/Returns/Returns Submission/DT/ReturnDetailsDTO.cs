@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Returns.DTOs.Returns.Returns_Submission.DT;
+using Returns.DTOs.Returns.Returns_Submission.NWDT;
 using Returns.DTOs.Returns_Analysis;
 using Returns.DTOs.Returns_Submission;
 using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
@@ -39,6 +40,7 @@ namespace Returns.DTOs.Returns_Submission.DT
         public FinancialPositionDTO? FinancialPosition { get; set; }
         public List<DepositReturnDto> DepositReturn { get; set; }
         public List<OtherReturnDTO> OtherReturns { get; set; } = new List<OtherReturnDTO>();
+        public SectoralLendingDTO SectoralLending { get; set; } = new SectoralLendingDTO();
 
         public int VersionNumber { get; set; }
         public bool IsActiveVersion { get; set; }
