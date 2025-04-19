@@ -1784,7 +1784,7 @@ namespace Returns.Helpers
         }
 
 
-        private async Task<(DateTime EndDate, string Year)> ExtractReportingEndDate(IFormFile formFile, ReturnForm form, string saccoType)
+        public async Task<(DateTime EndDate, string Year)> ExtractReportingEndDate(IFormFile formFile, ReturnForm form, string saccoType)
         {
             try
             {
@@ -1805,7 +1805,12 @@ namespace Returns.Helpers
                         var Year = ReportDate.Year.ToString();
                         return (formData.ReportDate, Year);
                     }
-
+                    else if (form.IsSectoralLending)
+                    {
+                        var formData = ExcelService.ImportSectoralLendingReport(formFile, _logger);
+                        var Year = formData.Year.ToString();
+                        return (formData.EndDate, Year);
+                    }
                     else if (form.IsLiquidityStatement)
                     {
                         var formData = ExcelService.ImportLiquidityStatementRows(formFile, _logger);
@@ -1851,6 +1856,12 @@ namespace Returns.Helpers
                         var ReportDate = formData.ReportDate;
                         var Year = ReportDate.Year.ToString();
                         return (formData.ReportDate, Year);
+                    }
+                    else if (form.IsSectoralLending)
+                    {
+                        var formData = ExcelService.ImportSectoralLendingReport(formFile, _logger);
+                        var Year = formData.Year.ToString();
+                        return (formData.EndDate, Year);
                     }
                     else if (form.IsLiquidityStatement)
                     {
