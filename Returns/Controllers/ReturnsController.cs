@@ -416,11 +416,11 @@ namespace Returns.Controllers
 
             var Submittedreturns = await _context.ReturnsAssigments
                 .Include(r => r.Return)
-            // .Include(r => r.Return.LiquidityReturns)
-            // .Include(r => r.Return.RiskClassifications)
-            // .Include(r => r.Return.InvestmentReturns)
-            // .Include(r => r.Return.StatementOfFinancialPositionReturns)
-            // .Include(r => r.Return.StatementOfComprehensiveIncomeReturns)
+            // .Include(r => r.Return.DTLiquidityReturns)
+            // .Include(r => r.Return.DTRiskClassificationReturns)
+            // .Include(r => r.Return.DTInvestmentReturns)
+            // .Include(r => r.Return.DTFinancialPositionReturns)
+            // .Include(r => r.Return.DTComprehensiveIncomeReturns)
             // .Include(r => r.Return.SaccoAnalysis)
             // .Include(r => r.Return.DepositReturns)
             .Where(r => r.Return.SaccoType == Constants.SaccoType.DepositTaking.ToString() && r.Return.IsActiveVersion == true)
@@ -781,22 +781,22 @@ namespace Returns.Controllers
             foreach (var returnPeriod in allReturns)
             {
                 // Retrieve necessary financial statements and data
-                var balanceSheet = await _context.StatementOfFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var incomeStatement = await _context.StatementOfComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var capitalReturn = await _context.CapitalAdequacies.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var liquidityReturn = await _context.LiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                var balanceSheet = await _context.DTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                var incomeStatement = await _context.DTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                var capitalReturn = await _context.DTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                var liquidityReturn = await _context.DTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                 var depositReturns = await _context.DepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                var riskClassificationReturn = await _context.RiskClassifications.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                var investmentReturn = await _context.InvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                var riskClassificationReturn = await _context.DTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
+                var investmentReturn = await _context.DTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
                 // Use default objects if data is missing
-                var SavedCapitalAdequacy = capitalReturn ?? new CapitalAdequacy();
-                var SavedLiquidityStatement = liquidityReturn ?? new LiquidityReturn();
+                var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
+                var SavedLiquidityStatement = liquidityReturn ?? new DTLiquidityReturn();
                 var SavedDepositReturn = depositReturns ?? new List<DepositReturn>();
-                var SavedRiskClassification = riskClassificationReturn ?? new List<RiskClassificationReturn>();
-                var SavedInvestmentReturn = investmentReturn ?? new InvestmentReturn();
-                var SavedFinancialPositionStatement = balanceSheet ?? new StatementOfFinancialPositionReturn();
-                var SavedComprehensiveStatement = incomeStatement ?? new StatementOfComprehensiveIncomeReturn();
+                var SavedRiskClassification = riskClassificationReturn ?? new List<DTRiskClassificationReturn>();
+                var SavedInvestmentReturn = investmentReturn ?? new DTInvestmentReturn();
+                var SavedFinancialPositionStatement = balanceSheet ?? new DTFinancialPositionReturn();
+                var SavedComprehensiveStatement = incomeStatement ?? new DTComprehensiveIncomeReturn();
 
                 // Create an analysis record for this period
                 var analysis = new SaccoAnalysis
@@ -937,37 +937,37 @@ namespace Returns.Controllers
                 foreach (var returnPeriod in allReturns)
                 {
                     // Fetch all required data for this return period
-                    var balanceSheet = await _context.StatementOfFinancialPositionReturns
+                    var balanceSheet = await _context.DTFinancialPositionReturns
                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
-                    var incomeStatement = await _context.StatementOfComprehensiveIncomeReturns
+                    var incomeStatement = await _context.DTComprehensiveIncomeReturns
                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
-                    var capitalReturn = await _context.CapitalAdequacies
+                    var capitalReturn = await _context.DTCapitalAdequacyReturns
                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
-                    var liquidityReturn = await _context.LiquidityReturns
+                    var liquidityReturn = await _context.DTLiquidityReturns
                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
                     var depositReturns = await _context.DepositReturns
                         .Where(x => x.ReturnId == returnPeriod.Id)
                         .ToListAsync();
 
-                    var riskClassificationReturn = await _context.RiskClassifications
+                    var riskClassificationReturn = await _context.DTRiskClassificationReturns
                         .Where(x => x.ReturnId == returnPeriod.Id)
                         .ToListAsync();
 
-                    var investmentReturn = await _context.InvestmentReturns
+                    var investmentReturn = await _context.DTInvestmentReturns
                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
                     // Use default objects if data is missing
-                    var SavedCapitalAdequacy = capitalReturn ?? new CapitalAdequacy();
-                    var SavedLiquidityStatement = liquidityReturn ?? new LiquidityReturn();
+                    var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
+                    var SavedLiquidityStatement = liquidityReturn ?? new DTLiquidityReturn();
                     var SavedDepositReturn = depositReturns ?? new List<DepositReturn>();
-                    var SavedRiskClassification = riskClassificationReturn ?? new List<RiskClassificationReturn>();
-                    var SavedInvestmentReturn = investmentReturn ?? new InvestmentReturn();
-                    var SavedFinancialPositionStatement = balanceSheet ?? new StatementOfFinancialPositionReturn();
-                    var SavedComprehensiveStatement = incomeStatement ?? new StatementOfComprehensiveIncomeReturn();
+                    var SavedRiskClassification = riskClassificationReturn ?? new List<DTRiskClassificationReturn>();
+                    var SavedInvestmentReturn = investmentReturn ?? new DTInvestmentReturn();
+                    var SavedFinancialPositionStatement = balanceSheet ?? new DTFinancialPositionReturn();
+                    var SavedComprehensiveStatement = incomeStatement ?? new DTComprehensiveIncomeReturn();
 
                     // Calculate ratios with null safety
                     decimal coreCapitalToTotalAssets = 0;
@@ -1284,7 +1284,7 @@ namespace Returns.Controllers
             }
 
             // Query related entities individually
-            var capitalAdequacy = await _context.NDWTCapitalAdequacyReturns
+            var capitalAdequacy = await _context.NWDTCapitalAdequacyReturns
                 .Where(ca => ca.ReturnId == returnId)
                                 .AsNoTracking()
 
@@ -1317,7 +1317,7 @@ namespace Returns.Controllers
                 .Where(liq => liq.ReturnId == returnId)
                 .FirstOrDefaultAsync();
 
-            var riskClassifications = await _context.RiskClassifications
+            var riskClassifications = await _context.DTRiskClassificationReturns
                 .Where(rc => rc.ReturnId == returnId)
                                 .AsNoTracking()
                 .ToListAsync();
@@ -1676,14 +1676,14 @@ namespace Returns.Controllers
                 // Retrieve necessary financial statements and data
                 var balanceSheet = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                 var incomeStatement = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var capitalReturn = await _context.NDWTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                var capitalReturn = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                 var liquidityReturn = await _context.NDWTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                 var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
                 var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
                 var investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
                 // Use default objects if data is missing
-                var SavedCapitalAdequacy = capitalReturn ?? new NDWTCapitalAdequacyReturn();
+                var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
                 var SavedLiquidityStatement = liquidityReturn ?? new NWDTLiquidityReturn();
                 var SavedDepositReturn = depositReturns ?? new List<NWDTDepositReturn>();
                 var SavedRiskClassification = riskClassificationReturn ?? new List<NWDTRiskClassificationReturn>();
@@ -1828,7 +1828,7 @@ namespace Returns.Controllers
                 {
                     var balanceSheet = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                     var incomeStatement = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var capitalReturn = await _context.NDWTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    var capitalReturn = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                     var liquidityReturn = await _context.NDWTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                     var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
                     var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
@@ -1836,7 +1836,7 @@ namespace Returns.Controllers
 
                     // Use default objects if data is missing
 
-                    var SavedCapitalAdequacy = capitalReturn ?? new NDWTCapitalAdequacyReturn();
+                    var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
                     var SavedLiquidityStatement = liquidityReturn ?? new NWDTLiquidityReturn();
                     var SavedDepositReturn = depositReturns ?? new List<NWDTDepositReturn>();
                     var SavedRiskClassification = riskClassificationReturn ?? new List<NWDTRiskClassificationReturn>();

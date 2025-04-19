@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class NDWTCapitalAdequacyReturn : FormBase
+    public class NWDTCapitalAdequacyReturn : FormBase
     {
         // Metadata
         public DateTime StartDate { get; set; }

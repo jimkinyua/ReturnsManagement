@@ -139,11 +139,11 @@ namespace Returns.Helpers
         /*   public static (bool IsCapitalAdequacyLate, bool IsLiquidityReturnLate, bool IsRiskClassificationLate, bool IsInvestmentReturnLate, bool IsStatementOfFinancialPositionLate, bool IsStatementOfComprehensiveIncomeLate, bool IsSaccoAnalysisLate, bool IsDepositReturnLate) CheckLateReturns(Return returnItem)
            {
                bool isCapitalAdequacyLate = returnItem.CapitalAdequencies.Any() && HowLate(returnItem.CapitalAdequencies.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isLiquidityReturnLate = returnItem.LiquidityReturns.Any() && HowLate(returnItem.LiquidityReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isRiskClassificationLate = returnItem.RiskClassifications.Any() && HowLate(returnItem.RiskClassifications.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isInvestmentReturnLate = returnItem.InvestmentReturns.Any() && HowLate(returnItem.InvestmentReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isStatementOfFinancialPositionLate = returnItem.StatementOfFinancialPositionReturns.Any() && HowLate(returnItem.StatementOfFinancialPositionReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isStatementOfComprehensiveIncomeLate = returnItem.StatementOfComprehensiveIncomeReturns.Any() && HowLate(returnItem.StatementOfComprehensiveIncomeReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
+               bool isLiquidityReturnLate = returnItem.DTLiquidityReturns.Any() && HowLate(returnItem.DTLiquidityReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
+               bool isRiskClassificationLate = returnItem.DTRiskClassificationReturns.Any() && HowLate(returnItem.DTRiskClassificationReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
+               bool isInvestmentReturnLate = returnItem.DTInvestmentReturns.Any() && HowLate(returnItem.DTInvestmentReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
+               bool isStatementOfFinancialPositionLate = returnItem.DTFinancialPositionReturns.Any() && HowLate(returnItem.DTFinancialPositionReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
+               bool isStatementOfComprehensiveIncomeLate = returnItem.DTComprehensiveIncomeReturns.Any() && HowLate(returnItem.DTComprehensiveIncomeReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
                bool isSaccoAnalysisLate = returnItem.SaccoAnalysis.Any() && HowLate(returnItem.SaccoAnalysis.First().CreatedAt, returnItem.ReturnFor) > 0;
                bool isDepositReturnLate = returnItem.DepositReturns.Any() && HowLate(returnItem.DepositReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
 
@@ -317,10 +317,10 @@ namespace Returns.Helpers
             var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
             string EffectiveReturnId = returnId;
             string PreviousReturnId = string.Empty;
-            CapitalAdequacy? capitalAdequacy = null;
+            DTCapitalAdequacyReturn? capitalAdequacy = null;
             if (!IsAmendMent)
             {
-                capitalAdequacy = new CapitalAdequacy
+                capitalAdequacy = new DTCapitalAdequacyReturn
                 {
                     ReturnId = returnId,
                     FilePath = Path,
@@ -335,7 +335,7 @@ namespace Returns.Helpers
             }
             else
             {
-                capitalAdequacy = await _context.CapitalAdequacies.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                capitalAdequacy = await _context.DTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
                 if (capitalAdequacy == null)
                 {
                     throw new Exception(
@@ -487,7 +487,7 @@ namespace Returns.Helpers
                         break;
                 }
             }
-            await _context.CapitalAdequacies.AddAsync(capitalAdequacy);
+            await _context.DTCapitalAdequacyReturns.AddAsync(capitalAdequacy);
             await _context.SaveChangesAsync();
         }
 
@@ -891,7 +891,7 @@ namespace Returns.Helpers
 
             var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2.EndDate);
 
-            var liquidityStatement = new LiquidityReturn
+            var liquidityStatement = new DTLiquidityReturn
             {
                 ReturnId = returnId,
                 Year = form2.Period,
@@ -968,7 +968,7 @@ namespace Returns.Helpers
                 liquidityStatement.LiquidityRatioExcessDeficit = liquidityStatement.LiquidityRatio - liquidityStatement.MinimumLiquidityRequirement;
             }
 
-            await _context.LiquidityReturns.AddAsync(liquidityStatement);
+            await _context.DTLiquidityReturns.AddAsync(liquidityStatement);
             await _context.SaveChangesAsync();
         }
 
@@ -1159,7 +1159,7 @@ namespace Returns.Helpers
 
             foreach (var row in rows)
             {
-                var riskClassification = new RiskClassificationReturn
+                var riskClassification = new DTRiskClassificationReturn
                 {
                     LoanType = row.LoanType,
                     Classification = row.Classification,
@@ -1175,7 +1175,7 @@ namespace Returns.Helpers
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy
                 };
-                await _context.RiskClassifications.AddAsync(riskClassification);
+                await _context.DTRiskClassificationReturns.AddAsync(riskClassification);
             }
             await _context.SaveChangesAsync();
         }
@@ -1193,7 +1193,7 @@ namespace Returns.Helpers
             var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form5.EndDate);
             var FilePath = await FormsHelper.SaveFileAsync(formFile, "Investment Returns");
 
-            var investmentReturn = new InvestmentReturn
+            var investmentReturn = new DTInvestmentReturn
             {
                 ReturnId = returnId,
                 Year = form5.Period,
@@ -1249,7 +1249,7 @@ namespace Returns.Helpers
                 investmentReturn.FinancialInvestmentsToDepositsExcessDeficiency = investmentReturn.FinancialInvestmentsToDepositsRatio - investmentReturn.MaxFinancialInvestmentsToDepositsRatio;
             }
 
-            await _context.InvestmentReturns.AddAsync(investmentReturn);
+            await _context.DTInvestmentReturns.AddAsync(investmentReturn);
             await _context.SaveChangesAsync();
         }
 
@@ -1411,7 +1411,7 @@ namespace Returns.Helpers
             }
             var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form6.EndDate);
             var FilePath = await FormsHelper.SaveFileAsync(formFile, "Statement of Financial Position Returns");
-            var statement = new StatementOfFinancialPositionReturn
+            var statement = new DTFinancialPositionReturn
             {
                 ReturnId = returnId,
                 Year = form6.Period,
@@ -1542,7 +1542,7 @@ namespace Returns.Helpers
                         break;
                 }
             }
-            await _context.StatementOfFinancialPositionReturns.AddAsync(statement);
+            await _context.DTFinancialPositionReturns.AddAsync(statement);
             await _context.SaveChangesAsync();
         }
 
@@ -1568,11 +1568,11 @@ namespace Returns.Helpers
                 var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2A.EndDate);
                 string EffectiveReturnId = returnId;
                 string PreviousReturnId = PrevId;
-                NDWTCapitalAdequacyReturn? capitalAdequacy = null;
+                NWDTCapitalAdequacyReturn? capitalAdequacy = null;
 
                 if (!IsAmendMent)
                 {
-                    capitalAdequacy = new NDWTCapitalAdequacyReturn
+                    capitalAdequacy = new NWDTCapitalAdequacyReturn
                     {
                         ReturnId = returnId,
                         StartDate = form2A.StartDate,
@@ -1588,7 +1588,7 @@ namespace Returns.Helpers
                 }
                 else
                 {
-                    capitalAdequacy = await _context.NDWTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                    capitalAdequacy = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
                     if (capitalAdequacy == null)
                     {
                         throw new Exception(
@@ -1705,11 +1705,11 @@ namespace Returns.Helpers
 
                 if (!IsAmendMent)
                 {
-                    await _context.NDWTCapitalAdequacyReturns.AddAsync(capitalAdequacy);
+                    await _context.NWDTCapitalAdequacyReturns.AddAsync(capitalAdequacy);
                 }
                 else
                 {
-                    _context.NDWTCapitalAdequacyReturns.Update(capitalAdequacy);
+                    _context.NWDTCapitalAdequacyReturns.Update(capitalAdequacy);
                 }
 
                 await _context.SaveChangesAsync();
@@ -2115,7 +2115,7 @@ namespace Returns.Helpers
 
             var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form7.EndDate);
             var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
-            var statement = new StatementOfComprehensiveIncomeReturn
+            var statement = new DTComprehensiveIncomeReturn
             {
                 ReturnId = returnId,
                 Year = form7.Period,
@@ -2213,7 +2213,7 @@ namespace Returns.Helpers
                         break;
                 }
             }
-            await _context.StatementOfComprehensiveIncomeReturns.AddAsync(statement);
+            await _context.DTComprehensiveIncomeReturns.AddAsync(statement);
             await _context.SaveChangesAsync();
         }
 

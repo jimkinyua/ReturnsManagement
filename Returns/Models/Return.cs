@@ -22,18 +22,18 @@ namespace Returns.Models
 
         public virtual Return? PreviousVersion { get; set; }
 
-        public virtual ICollection<CapitalAdequacy> CapitalAdequencies { get; set; } = new List<CapitalAdequacy>();
-        public virtual ICollection<LiquidityReturn> LiquidityReturns { get; set; } = new List<LiquidityReturn>();
-        public virtual ICollection<RiskClassificationReturn> RiskClassifications { get; set; } = new List<RiskClassificationReturn>();
-        public virtual ICollection<InvestmentReturn> InvestmentReturns { get; set; } = new List<InvestmentReturn>();
-        public virtual ICollection<StatementOfFinancialPositionReturn> StatementOfFinancialPositionReturns { get; set; } = new List<StatementOfFinancialPositionReturn>();
-        public virtual ICollection<StatementOfComprehensiveIncomeReturn> StatementOfComprehensiveIncomeReturns { get; set; } = new List<StatementOfComprehensiveIncomeReturn>();
+        public virtual ICollection<DTCapitalAdequacyReturn> CapitalAdequencies { get; set; } = new List<DTCapitalAdequacyReturn>();
+        public virtual ICollection<DTLiquidityReturn> LiquidityReturns { get; set; } = new List<DTLiquidityReturn>();
+        public virtual ICollection<DTRiskClassificationReturn> RiskClassifications { get; set; } = new List<DTRiskClassificationReturn>();
+        public virtual ICollection<DTInvestmentReturn> InvestmentReturns { get; set; } = new List<DTInvestmentReturn>();
+        public virtual ICollection<DTFinancialPositionReturn> StatementOfFinancialPositionReturns { get; set; } = new List<DTFinancialPositionReturn>();
+        public virtual ICollection<DTComprehensiveIncomeReturn> StatementOfComprehensiveIncomeReturns { get; set; } = new List<DTComprehensiveIncomeReturn>();
         public virtual ICollection<SaccoAnalysis> SaccoAnalysis { get; set; } = new List<SaccoAnalysis>();
         public virtual ICollection<DepositReturn> DepositReturns { get; set; } = new List<DepositReturn>();
 
 
         // NWDT
-        public virtual ICollection<NDWTCapitalAdequacyReturn> NDWTCapitalAdequacyReturns { get; set; } = new List<NDWTCapitalAdequacyReturn>();
+        public virtual ICollection<NWDTCapitalAdequacyReturn> NDWTCapitalAdequacyReturns { get; set; } = new List<NWDTCapitalAdequacyReturn>();
         public virtual ICollection<NWDTLiquidityReturn> NWDTLiquidityReturns { get; set; } = new List<NWDTLiquidityReturn>();
         public virtual ICollection<NWDTDepositReturn> NWDTDepositReturns { get; set; } = new List<NWDTDepositReturn>();
         public virtual ICollection<NWDTInvestmentReturn> NWDTInvestmentReturns { get; set; } = new List<NWDTInvestmentReturn>();

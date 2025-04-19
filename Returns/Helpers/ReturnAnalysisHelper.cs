@@ -953,7 +953,7 @@ namespace Returns.Helpers
             return comprehensiveIncomeRows?.FirstOrDefault(r => r.CellNumberWithFigures == cellRef)?.Amount ?? 0;
         }
 
-        public static decimal CalculateAdjustedCCA(CapitalAdequacy form1, StatementOfFinancialPositionReturn form6)
+        public static decimal CalculateAdjustedCCA(DTCapitalAdequacyReturn form1, DTFinancialPositionReturn form6)
         {
             decimal increasedProvisions = form6.AllowanceForLoanLoss * 1.5m;
             decimal stressedCoreCapital = form1.CoreCapital - (increasedProvisions - form6.AllowanceForLoanLoss);
@@ -961,7 +961,7 @@ namespace Returns.Helpers
             return form1.TotalAssets != 0 ? (stressedCoreCapital / form1.TotalAssets) * 100 : 0;
         }
 
-        public static decimal CalculateNwdtAdjustedCCA(NDWTCapitalAdequacyReturn form1, NWDTFinancialPositionReturn form6)
+        public static decimal CalculateNwdtAdjustedCCA(NWDTCapitalAdequacyReturn form1, NWDTFinancialPositionReturn form6)
         {
             decimal increasedProvisions = form6.AllowanceForLoanLoss * 1.5m;
             decimal stressedCoreCapital = form1.CoreCapital - (increasedProvisions - form6.AllowanceForLoanLoss);
@@ -979,7 +979,7 @@ namespace Returns.Helpers
         }
 
 
-        public static decimal CalculateNonPerformingLoans(List<RiskClassificationReturn> riskClassificationData)
+        public static decimal CalculateNonPerformingLoans(List<DTRiskClassificationReturn> riskClassificationData)
         {
             decimal nonPerformingLoans = riskClassificationData
                 .Where(r => r.Classification == "Substandard" ||
@@ -1001,7 +1001,7 @@ namespace Returns.Helpers
             return nonPerformingLoans;
         }
 
-        public static decimal CalculateRegularLoans(List<RiskClassificationReturn> riskClassificationData)
+        public static decimal CalculateRegularLoans(List<DTRiskClassificationReturn> riskClassificationData)
         {
             return riskClassificationData
                 .Where(r => r.LoanType == "Regular")
@@ -1014,14 +1014,14 @@ namespace Returns.Helpers
                 .Sum(r => r.OutstandingLoanPortfolio ?? 0);
         }
 
-        public static decimal CalculateGrossLoans(List<RiskClassificationReturn> riskClassificationData)
+        public static decimal CalculateGrossLoans(List<DTRiskClassificationReturn> riskClassificationData)
         {
             return riskClassificationData
                 .Where(r => r.LoanType == "Total")
                 .Sum(r => r.OutstandingLoanPortfolio ?? 0);
         }
 
-        public static decimal CalculateRescheduledLoans(List<RiskClassificationReturn> riskClassificationData)
+        public static decimal CalculateRescheduledLoans(List<DTRiskClassificationReturn> riskClassificationData)
         {
             return riskClassificationData
                 .Where(r => r.LoanType == "Rescheduled/Renegotiated")
@@ -1034,7 +1034,7 @@ namespace Returns.Helpers
                 .Sum(r => r.OutstandingLoanPortfolio ?? 0);
         }
 
-        public static decimal CalculateTotalLoans(List<RiskClassificationReturn> riskClassificationData)
+        public static decimal CalculateTotalLoans(List<DTRiskClassificationReturn> riskClassificationData)
         {
             return CalculateRegularLoans(riskClassificationData) +
                    CalculateRescheduledLoans(riskClassificationData);
@@ -1099,7 +1099,7 @@ namespace Returns.Helpers
         }
 
 
-        public static async Task<EarningsRatingDetails> AnalyzeEarnings(StatementOfComprehensiveIncomeReturn incomeStatement, StatementOfFinancialPositionReturn balanceSheet)
+        public static async Task<EarningsRatingDetails> AnalyzeEarnings(DTComprehensiveIncomeReturn incomeStatement, DTFinancialPositionReturn balanceSheet)
         {
             var result = new EarningsRatingDetails();
 
@@ -1205,8 +1205,8 @@ namespace Returns.Helpers
         }
 
         public static async Task<AssetQualityRatingDetails> AnalyzeAssetQuality(
-        List<RiskClassificationReturn> currentQuarterData,
-        List<RiskClassificationReturn> previousQuarterData)
+        List<DTRiskClassificationReturn> currentQuarterData,
+        List<DTRiskClassificationReturn> previousQuarterData)
         {
             var result = new AssetQualityRatingDetails();
 
@@ -1332,7 +1332,7 @@ namespace Returns.Helpers
             return 5;
         }
 
-        public static decimal CalculateWNLIQRatio(StatementOfFinancialPositionReturn balanceSheet)
+        public static decimal CalculateWNLIQRatio(DTFinancialPositionReturn balanceSheet)
         {
             var C10 = balanceSheet.TotalCashAndCashEquivalent;
             var C17 = balanceSheet.GovernmentSecurities;
@@ -1367,7 +1367,7 @@ namespace Returns.Helpers
             return (numerator / denominator);
         }
 
-        public static decimal CalculateTNLIQRatio(StatementOfFinancialPositionReturn balanceSheet)
+        public static decimal CalculateTNLIQRatio(DTFinancialPositionReturn balanceSheet)
         {
             var C10 = balanceSheet.TotalCashAndCashEquivalent;
             var C17 = balanceSheet.GovernmentSecurities;
@@ -1402,7 +1402,7 @@ namespace Returns.Helpers
             return (numerator / denominator);
         }
 
-        public static decimal CalculateEBRatio(StatementOfFinancialPositionReturn balanceSheet)
+        public static decimal CalculateEBRatio(DTFinancialPositionReturn balanceSheet)
         {
             var C53 = balanceSheet.ExternalBorrowings;
             var C38 = balanceSheet.TotalAssets;
@@ -1419,7 +1419,7 @@ namespace Returns.Helpers
 
         }
 
-        public static decimal CalculateFICCRatio(StatementOfFinancialPositionReturn balanceSheet)
+        public static decimal CalculateFICCRatio(DTFinancialPositionReturn balanceSheet)
         {
             var C19 = balanceSheet.BalancesWithOtherSaccos;
             var C20 = balanceSheet.InvestmentsInCompanies;
@@ -1452,7 +1452,7 @@ namespace Returns.Helpers
             return denominator != 0 ? (numerator / denominator) : 0;
         }
 
-        public static decimal CalculateNEARatio(StatementOfFinancialPositionReturn balanceSheet)
+        public static decimal CalculateNEARatio(DTFinancialPositionReturn balanceSheet)
         {
             var C14 = balanceSheet.PrepaymentsAndSundryReceivables;
             var C31 = balanceSheet.PropertyAndEquipment;
@@ -1481,7 +1481,7 @@ namespace Returns.Helpers
             return denominator != 0 ? (numerator / denominator) : 0;
         }
 
-        public static decimal CalculateFITDRatio(StatementOfFinancialPositionReturn balanceSheet)
+        public static decimal CalculateFITDRatio(DTFinancialPositionReturn balanceSheet)
         {
             var C19 = balanceSheet.BalancesWithOtherSaccos;
             var C20 = balanceSheet.InvestmentsInCompanies;
@@ -1510,7 +1510,7 @@ namespace Returns.Helpers
             return denominator != 0 ? (numerator / denominator) : 0;
         }
 
-        public static decimal CalculateLIQtoTARatio(StatementOfFinancialPositionReturn balanceSheet)
+        public static decimal CalculateLIQtoTARatio(DTFinancialPositionReturn balanceSheet)
         {
             // LIQ to TA = (C10 + C17) / C38
             var C10 = balanceSheet.TotalCashAndCashEquivalent;
@@ -1528,7 +1528,7 @@ namespace Returns.Helpers
         }
 
 
-        public static async Task<LiquidityRatingDetails> AnalyzeLiquidity(StatementOfFinancialPositionReturn balanceSheet)
+        public static async Task<LiquidityRatingDetails> AnalyzeLiquidity(DTFinancialPositionReturn balanceSheet)
         {
             var result = new LiquidityRatingDetails();
 
@@ -1599,7 +1599,7 @@ namespace Returns.Helpers
         }
 
 
-        public static async Task<StructureOfAssetsRatingDetails> AnalyzeStructureOfAssets(StatementOfFinancialPositionReturn balanceSheet)
+        public static async Task<StructureOfAssetsRatingDetails> AnalyzeStructureOfAssets(DTFinancialPositionReturn balanceSheet)
         {
             // Create the result object.
             var result = new StructureOfAssetsRatingDetails();

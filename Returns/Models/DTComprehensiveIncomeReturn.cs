@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class StatementOfComprehensiveIncomeReturn : FormBase
+    public class DTComprehensiveIncomeReturn : FormBase
     {
         // 1. Financial Income
         // 2. Financial Income from Loans Portfolio

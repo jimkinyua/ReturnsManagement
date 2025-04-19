@@ -31,18 +31,18 @@ namespace Returns.Models.Data
         public DbSet<Return> Returns { get; set; }
         public DbSet<DepositReturn> DepositReturns { get; set; }
         public DbSet<SaccoAnalysis> SaccoAnalysis { get; set; }
-        public DbSet<StatementOfComprehensiveIncomeReturn> StatementOfComprehensiveIncomeReturns { get; set; }
-        public DbSet<StatementOfFinancialPositionReturn> StatementOfFinancialPositionReturns { get; set; }
-        public DbSet<InvestmentReturn> InvestmentReturns { get; set; }
-        public DbSet<RiskClassificationReturn> RiskClassifications { get; set; }
-        public DbSet<LiquidityReturn> LiquidityReturns { get; set; }
-        public DbSet<CapitalAdequacy> CapitalAdequacies { get; set; }
+        public DbSet<DTComprehensiveIncomeReturn> DTComprehensiveIncomeReturns { get; set; }
+        public DbSet<DTFinancialPositionReturn> DTFinancialPositionReturns { get; set; }
+        public DbSet<DTInvestmentReturn> DTInvestmentReturns { get; set; }
+        public DbSet<DTRiskClassificationReturn> DTRiskClassificationReturns { get; set; }
+        public DbSet<DTLiquidityReturn> DTLiquidityReturns { get; set; }
+        public DbSet<DTCapitalAdequacyReturn> DTCapitalAdequacyReturns { get; set; }
         public DbSet<CamelCategory> CamelCategories { get; set; }
         public DbSet<CamelIndicator> CamelIndicators { get; set; }
         public DbSet<IndicatorRatingThreshold> IndicatorRatingThresholds { get; set; }
 
         // NWDT Return
-        public DbSet<NDWTCapitalAdequacyReturn> NDWTCapitalAdequacyReturns { get; set; }
+        public DbSet<NWDTCapitalAdequacyReturn> NWDTCapitalAdequacyReturns { get; set; }
         public DbSet<NWDTLiquidityReturn> NDWTLiquidityReturns { get; set; }
         public DbSet<NWDTDepositReturn> NWDTDepositReturns { get; set; }
         public DbSet<NWDTRiskClassificationReturn> NWDTRiskClassificationReturns { get; set; }

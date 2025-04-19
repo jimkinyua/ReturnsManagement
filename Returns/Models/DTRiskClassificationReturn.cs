@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class RiskClassificationReturn : FormBase
+    public class DTRiskClassificationReturn : FormBase
     {
         public string LoanType { get; set; } // "Regular" or "Rescheduled/Renegotiated"
         public string Classification { get; set; } // "Performing", "Watch", etc.

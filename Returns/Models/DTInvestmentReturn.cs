@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class InvestmentReturn : FormBase
+    public class DTInvestmentReturn : FormBase
     {
         public decimal CoreCapital { get; set; }
         public decimal TotalAssets { get; set; }

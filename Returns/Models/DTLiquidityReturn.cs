@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class LiquidityReturn : FormBase
+    public class DTLiquidityReturn : FormBase
     {
         // 1. Notes and Coins
         public decimal LocalNotesAndCoins { get; set; }

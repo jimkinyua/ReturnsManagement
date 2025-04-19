@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class CapitalAdequacy : FormBase
+    public class DTCapitalAdequacyReturn : FormBase
     {
 
         // CAPITAL COMPONENTS

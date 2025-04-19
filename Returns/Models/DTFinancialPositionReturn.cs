@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class StatementOfFinancialPositionReturn : FormBase
+    public class DTFinancialPositionReturn : FormBase
     {
         // ASSETS
         // 1. Cash & Cash Equivalent

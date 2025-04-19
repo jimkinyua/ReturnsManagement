@@ -487,14 +487,14 @@ namespace Returns.Helpers
                 }
                if (form.IsCapitalAdequencyForm)
                 {
-                    var capitalAdequacy = await _context.CapitalAdequacies.Where(c => c.ReturnId == OldReturnId).ToListAsync();
+                    var capitalAdequacy = await _context.DTCapitalAdequacyReturns.Where(c => c.ReturnId == OldReturnId).ToListAsync();
                     if (capitalAdequacy == null)
                     {
                     }
 
                     foreach (var item in capitalAdequacy)
                     {
-                        var newItem = new CapitalAdequacy
+                        var newItem = new DTCapitalAdequacyReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -546,10 +546,10 @@ namespace Returns.Helpers
                             DaysLateBy = item.DaysLateBy,
                         };
 
-                        await _context.CapitalAdequacies.AddAsync(newItem);
+                        await _context.DTCapitalAdequacyReturns.AddAsync(newItem);
                         item.IsCurrent = false;
                         item.IsAmended = true;
-                        _context.CapitalAdequacies.Update(item);
+                        _context.DTCapitalAdequacyReturns.Update(item);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -557,11 +557,11 @@ namespace Returns.Helpers
 
                 if (form.IsLiquidityStatement)
                 {
-                    var liquidityReturns = await _context.LiquidityReturns.Where(l => l.ReturnId == OldReturnId).ToListAsync();
+                    var liquidityReturns = await _context.DTLiquidityReturns.Where(l => l.ReturnId == OldReturnId).ToListAsync();
 
                     foreach (var OldItem in liquidityReturns)
                     {
-                        var newItem = new LiquidityReturn
+                        var newItem = new DTLiquidityReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -623,10 +623,10 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.LiquidityReturns.AddAsync(newItem);
+                        await _context.DTLiquidityReturns.AddAsync(newItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
-                        _context.LiquidityReturns.Update(OldItem);
+                        _context.DTLiquidityReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -634,13 +634,13 @@ namespace Returns.Helpers
 
                 if (form.IsRiskClassification)
                 {
-                    var riskClassifications = await _context.RiskClassifications
+                    var riskClassifications = await _context.DTRiskClassificationReturns
                         .Where(r => r.ReturnId == OldReturnId)
                         .ToListAsync();
 
                     foreach (var item in riskClassifications)
                     {
-                        var OldItem = new RiskClassificationReturn
+                        var OldItem = new DTRiskClassificationReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -661,10 +661,10 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.RiskClassifications.AddAsync(OldItem);
+                        await _context.DTRiskClassificationReturns.AddAsync(OldItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
-                        _context.RiskClassifications.Update(OldItem);
+                        _context.DTRiskClassificationReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -672,13 +672,13 @@ namespace Returns.Helpers
 
                 if (form.IsInvestmentReturn)
                 {
-                    var investmentReturns = await _context.InvestmentReturns
+                    var investmentReturns = await _context.DTInvestmentReturns
                       .Where(i => i.ReturnId == OldReturnId)
                       .ToListAsync();
 
                     foreach (var OldItem in investmentReturns)
                     {
-                        var newItem = new InvestmentReturn
+                        var newItem = new DTInvestmentReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -715,10 +715,10 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.InvestmentReturns.AddAsync(newItem);
+                        await _context.DTInvestmentReturns.AddAsync(newItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
-                        _context.InvestmentReturns.Update(OldItem);
+                        _context.DTInvestmentReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -727,13 +727,13 @@ namespace Returns.Helpers
 
                 if (form.IsStatementOfComprehensiveIncome)
                 {
-                    var comprehensiveIncomeReturns = await _context.StatementOfComprehensiveIncomeReturns
+                    var comprehensiveIncomeReturns = await _context.DTComprehensiveIncomeReturns
                       .Where(c => c.ReturnId == OldReturnId)
                       .ToListAsync();
 
                     foreach (var OldItem in comprehensiveIncomeReturns)
                     {
-                        var newItem = new StatementOfComprehensiveIncomeReturn
+                        var newItem = new DTComprehensiveIncomeReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -777,10 +777,10 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.StatementOfComprehensiveIncomeReturns.AddAsync(newItem);
+                        await _context.DTComprehensiveIncomeReturns.AddAsync(newItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
-                        _context.StatementOfComprehensiveIncomeReturns.Update(OldItem);
+                        _context.DTComprehensiveIncomeReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -788,13 +788,13 @@ namespace Returns.Helpers
 
                 if (form.IsStatementOfComprehensiveIncome)
                 {
-                    var financialPositionReturns = await _context.StatementOfFinancialPositionReturns
+                    var financialPositionReturns = await _context.DTFinancialPositionReturns
                      .Where(f => f.ReturnId == OldReturnId)
                      .ToListAsync();
 
                     foreach (var OldItem in financialPositionReturns)
                     {
-                        var newItem = new StatementOfFinancialPositionReturn
+                        var newItem = new DTFinancialPositionReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -854,10 +854,10 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.StatementOfFinancialPositionReturns.AddAsync(newItem);
+                        await _context.DTFinancialPositionReturns.AddAsync(newItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
-                        _context.StatementOfFinancialPositionReturns.Update(OldItem);
+                        _context.DTFinancialPositionReturns.Update(OldItem);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -1054,13 +1054,13 @@ namespace Returns.Helpers
 
                 if (form.IsCapitalAdequencyForm)
                 {
-                    var nwdtCapitalAdequacy = await _context.NDWTCapitalAdequacyReturns
+                    var nwdtCapitalAdequacy = await _context.NWDTCapitalAdequacyReturns
                        .Where(c => c.ReturnId == OldReturnId)
                        .ToListAsync();
 
                     foreach (var item in nwdtCapitalAdequacy)
                     {
-                        var newItem = new NDWTCapitalAdequacyReturn
+                        var newItem = new NWDTCapitalAdequacyReturn
                         {
                             ReturnId = NewReturnId,
                             PreviousReturnId = OldReturnId,
@@ -1113,10 +1113,10 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.NDWTCapitalAdequacyReturns.AddAsync(newItem);
+                        await _context.NWDTCapitalAdequacyReturns.AddAsync(newItem);
                         item.IsCurrent = false;
                         item.IsAmended = true;
-                        _context.NDWTCapitalAdequacyReturns.Update(item);
+                        _context.NWDTCapitalAdequacyReturns.Update(item);
                     }
                     await _context.SaveChangesAsync();
                     return true;
@@ -1558,7 +1558,7 @@ namespace Returns.Helpers
                     if (form.IsCapitalAdequencyForm)
                     {
                         var existingReturn = await _context
-                            .NDWTCapitalAdequacyReturns
+                            .NWDTCapitalAdequacyReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
@@ -1636,7 +1636,7 @@ namespace Returns.Helpers
                     if (form.IsCapitalAdequencyForm)
                     {
                         var existingReturn = await _context
-                            .CapitalAdequacies
+                            .DTCapitalAdequacyReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
@@ -1645,7 +1645,7 @@ namespace Returns.Helpers
                     }
                     else if (form.IsLiquidityStatement)
                     {
-                        var existingReturn = await _context.LiquidityReturns
+                        var existingReturn = await _context.DTLiquidityReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
@@ -1663,7 +1663,7 @@ namespace Returns.Helpers
                     }
                     else if (form.IsFinancialPosition)
                     {
-                        var existingReturn = await _context.StatementOfFinancialPositionReturns
+                        var existingReturn = await _context.DTFinancialPositionReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
@@ -1672,7 +1672,7 @@ namespace Returns.Helpers
                     }
                     else if (form.IsInvestmentReturn)
                     {
-                        var existingReturn = await _context.InvestmentReturns
+                        var existingReturn = await _context.DTInvestmentReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
@@ -1681,7 +1681,7 @@ namespace Returns.Helpers
                     }
                     else if (form.IsStatementOfComprehensiveIncome)
                     {
-                        var existingReturn = await _context.StatementOfComprehensiveIncomeReturns
+                        var existingReturn = await _context.DTComprehensiveIncomeReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
@@ -1690,7 +1690,7 @@ namespace Returns.Helpers
                     }
                     else if (form.IsRiskClassification)
                     {
-                        var existingReturn = await _context.RiskClassifications
+                        var existingReturn = await _context.DTRiskClassificationReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
@@ -2017,24 +2017,24 @@ namespace Returns.Helpers
                 switch (formType)
                 {
                     case "CapitalAdequacy":
-                        var capItems = await _context.CapitalAdequacies
+                        var capItems = await _context.DTCapitalAdequacyReturns
                             .Where(c => c.ReturnId == returnId)
                             .ToListAsync();
                         foreach (var item in capItems)
                         {
                             item.IsAmended = true;
-                            _context.CapitalAdequacies.Update(item);
+                            _context.DTCapitalAdequacyReturns.Update(item);
                         }
                         break;
 
                     case "Liquidity":
-                        var liqItems = await _context.LiquidityReturns
+                        var liqItems = await _context.DTLiquidityReturns
                             .Where(l => l.ReturnId == returnId)
                             .ToListAsync();
                         foreach (var item in liqItems)
                         {
                             item.IsAmended = true;
-                            _context.LiquidityReturns.Update(item);
+                            _context.DTLiquidityReturns.Update(item);
                         }
                         break;
 
@@ -2050,46 +2050,46 @@ namespace Returns.Helpers
                         break;
 
                     case "RiskClassification":
-                        var riskItems = await _context.RiskClassifications
+                        var riskItems = await _context.DTRiskClassificationReturns
                             .Where(r => r.ReturnId == returnId)
                             .ToListAsync();
                         foreach (var item in riskItems)
                         {
                             item.IsAmended = true;
-                            _context.RiskClassifications.Update(item);
+                            _context.DTRiskClassificationReturns.Update(item);
                         }
                         break;
 
                     case "Investment":
-                        var invItems = await _context.InvestmentReturns
+                        var invItems = await _context.DTInvestmentReturns
                             .Where(i => i.ReturnId == returnId)
                             .ToListAsync();
                         foreach (var item in invItems)
                         {
                             item.IsAmended = true;
-                            _context.InvestmentReturns.Update(item);
+                            _context.DTInvestmentReturns.Update(item);
                         }
                         break;
 
                     case "FinancialPosition":
-                        var fpItems = await _context.StatementOfFinancialPositionReturns
+                        var fpItems = await _context.DTFinancialPositionReturns
                             .Where(s => s.ReturnId == returnId)
                             .ToListAsync();
                         foreach (var item in fpItems)
                         {
                             item.IsAmended = true;
-                            _context.StatementOfFinancialPositionReturns.Update(item);
+                            _context.DTFinancialPositionReturns.Update(item);
                         }
                         break;
 
                     case "ComprehensiveIncome":
-                        var ciItems = await _context.StatementOfComprehensiveIncomeReturns
+                        var ciItems = await _context.DTComprehensiveIncomeReturns
                             .Where(s => s.ReturnId == returnId)
                             .ToListAsync();
                         foreach (var item in ciItems)
                         {
                             item.IsAmended = true;
-                            _context.StatementOfComprehensiveIncomeReturns.Update(item);
+                            _context.DTComprehensiveIncomeReturns.Update(item);
                         }
                         break;
                 }
@@ -2100,13 +2100,13 @@ namespace Returns.Helpers
                 switch (formType)
                 {
                     case "CapitalAdequacy":
-                        var capItems = await _context.NDWTCapitalAdequacyReturns
+                        var capItems = await _context.NWDTCapitalAdequacyReturns
                             .Where(c => c.ReturnId == returnId)
                             .ToListAsync();
                         foreach (var item in capItems)
                         {
                             item.IsAmended = true;
-                            _context.NDWTCapitalAdequacyReturns.Update(item);
+                            _context.NWDTCapitalAdequacyReturns.Update(item);
                         }
                         break;
 
