@@ -1,4 +1,5 @@
 ﻿using DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Returns_Submission.DT;
 using Returns.Models;
@@ -19,7 +20,35 @@ namespace Returns.Helpers
             _logger = logger;
         }
 
+        public  async Task<bool> ShouldConsistencyChecksBeDone(ReturnsDbContext dbContext,NewReturnDTO submissionDto)
+        {
+            // 1. collect all non-empty FormIds that the user submitted
+            var formIds = submissionDto.FormUploads
+                .Select(u => u.FormId)
+                .Where(id => !string.IsNullOrEmpty(id))
+                .ToList();
 
+            // no forms uploaded → skip consistency check
+            if (!formIds.Any())
+                return false;
+
+            // 2. fetch only those ReturnForm records
+            var forms = await dbContext.ReturnForms
+                .Where(f => formIds.Contains(f.Id))
+                .ToListAsync();
+
+            // 3. Check if all required forms are present
+            bool hasAllRequiredForms =
+                forms.Any(f => f.IsCapitalAdequencyForm) &&
+                forms.Any(f => f.IsLiquidityStatement) &&
+                forms.Any(f => f.IsRiskClassification) &&
+                forms.Any(f => f.IsInvestmentReturn) &&
+                forms.Any(f => f.IsFinancialPosition) &&
+                forms.Any(f => f.IsStatementOfComprehensiveIncome) &&
+                forms.Any(f => f.IsDepositReturnForm);
+
+            return hasAllRequiredForms;
+        }
 
         public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync(
             NewReturnDTO batchDTO,
@@ -273,7 +302,7 @@ namespace Returns.Helpers
                 }
 
                 // Process the form content
-                var (success, message) = await ProcessFormByType(formFile, form, effectiveReturnId, saccoType, IsAmendment, EffectiveReturnId);
+                var (success, message) = await ProcessFormByType(formFile, form, effectiveReturnId, saccoType, IsAmendment, OldReturnId);
 
                 // If this was an amendment and processing succeeded, mark the form as amended
                 if (IsAmendment && success)
@@ -339,7 +368,7 @@ namespace Returns.Helpers
                         PreviousVersionId = OldReturn.Id
                     };
 
-                    await _context.Returns.AddAsync(newReturn);*/
+                    await _context.Return.AddAsync(newReturn);*/
                     await _context.SaveChangesAsync();
 
                     // Copy all child records from the original return to the new one
@@ -368,7 +397,67 @@ namespace Returns.Helpers
             if (SaccoType == Constants.SaccoType.DepositTaking)
             {
 
-                if (form.IsSectoralLending)
+                if (form.IsDailyLiquidity)
+                {
+                    var existingDaily = await _context.DailyLiquidityReturns.Where(s => s.ReturnId == OldReturnId).ToListAsync();
+                    if (existingDaily.Any())
+                    {
+                        foreach (var OldItem in existingDaily)
+                        {
+                            var newItem = new DailyLiquidityReturn
+                            {
+                                ReturnId = NewReturnId,
+                                FilePath = OldItem.FilePath,
+                                ReportDate = OldItem.ReportDate,
+                                DaysLateBy = OldItem.DaysLateBy,
+                                IsCurrent = false,
+                                IsAmended = true,
+                                SACCOName = OldItem.SACCOName,
+                                CSNO = OldItem.CSNO,
+                                BankBalancesOpening = OldItem.BankBalancesOpening,
+                                ConsolidatedTreasuryCashBalancesOpening = OldItem.ConsolidatedTreasuryCashBalancesOpening,
+                                TellersBalancesOpening = OldItem.TellersBalancesOpening,
+                                MobileMoneyChannelsOpening = OldItem.MobileMoneyChannelsOpening,
+                                PlacementWithBanksOpening = OldItem.PlacementWithBanksOpening,
+                                SubTotalOpening = OldItem.SubTotalOpening,
+
+                                // Day Receipts
+                                DepositsFromMembers = OldItem.DepositsFromMembers,
+                                CashLoanRepayments = OldItem.CashLoanRepayments,
+                                OtherCashReceipts = OldItem.OtherCashReceipts,
+                                SubTotalReceipts = OldItem.SubTotalReceipts,
+                                TotalOpeningAndReceipts = OldItem.TotalOpeningAndReceipts,
+
+                                // Day Payments
+                                CashWithdrawalsByMembers = OldItem.CashWithdrawalsByMembers,
+                                CashPaymentsToMembers = OldItem.CashPaymentsToMembers,
+                                OtherCashPayments = OldItem.OtherCashPayments,
+                                SubTotalPayments = OldItem.SubTotalPayments,
+
+                                // Closing Balances
+                                BankBalancesClosing = OldItem.BankBalancesClosing,
+                                ConsolidatedTreasuryCashBalancesClosing = OldItem.ConsolidatedTreasuryCashBalancesClosing,
+                                TellersBalancesClosing = OldItem.TellersBalancesClosing,
+                                MobileMoneyChannelsClosing = OldItem.MobileMoneyChannelsClosing,
+                                PlacementWithBanksClosing = OldItem.PlacementWithBanksClosing,
+                                TotalClosingBalance = OldItem.TotalClosingBalance,
+
+                                // Deposit Liabilities
+                                BOSADeposits = OldItem.BOSADeposits,
+                                FOSADeposits = OldItem.FOSADeposits,
+                                TotalDeposits = OldItem.TotalDeposits,
+
+                                // Liquidity Ratios
+                                TotalClosingBalanceToTotalDepositsRatio = OldItem.TotalClosingBalanceToTotalDepositsRatio,
+                                TotalClosingBalanceToFOSADepositsRatio = OldItem.TotalClosingBalanceToFOSADepositsRatio,
+                            };
+                            _context.DailyLiquidityReturns.Update(newItem);
+
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+                }
+                    if (form.IsSectoralLending)
                 {
                     var sectoralLending = await _context.SectoralLendingData.Where(s => s.ReturnId == OldReturnId).ToListAsync();
                     if (sectoralLending == null)
@@ -844,6 +933,67 @@ namespace Returns.Helpers
             }
             else
             {
+                if (form.IsDailyLiquidity)
+                {
+                    var existingDaily = await _context.DailyLiquidityReturns.Where(s => s.ReturnId == OldReturnId).ToListAsync();
+                    if (existingDaily.Any())
+                    {
+                        foreach (var OldItem in existingDaily)
+                        {
+                            var newItem = new DailyLiquidityReturn
+                            {
+                                ReturnId = NewReturnId,
+                                FilePath = OldItem.FilePath,
+                                ReportDate = OldItem.ReportDate,
+                                DaysLateBy = OldItem.DaysLateBy,
+                                IsCurrent = false,
+                                IsAmended = true,
+                                SACCOName = OldItem.SACCOName,
+                                CSNO = OldItem.CSNO,
+                                BankBalancesOpening = OldItem.BankBalancesOpening,
+                                ConsolidatedTreasuryCashBalancesOpening = OldItem.ConsolidatedTreasuryCashBalancesOpening,
+                                TellersBalancesOpening = OldItem.TellersBalancesOpening,
+                                MobileMoneyChannelsOpening = OldItem.MobileMoneyChannelsOpening,
+                                PlacementWithBanksOpening = OldItem.PlacementWithBanksOpening,
+                                SubTotalOpening = OldItem.SubTotalOpening,
+
+                                // Day Receipts
+                                DepositsFromMembers = OldItem.DepositsFromMembers,
+                                CashLoanRepayments = OldItem.CashLoanRepayments,
+                                OtherCashReceipts = OldItem.OtherCashReceipts,
+                                SubTotalReceipts = OldItem.SubTotalReceipts,
+                                TotalOpeningAndReceipts = OldItem.TotalOpeningAndReceipts,
+
+                                // Day Payments
+                                CashWithdrawalsByMembers = OldItem.CashWithdrawalsByMembers,
+                                CashPaymentsToMembers = OldItem.CashPaymentsToMembers,
+                                OtherCashPayments = OldItem.OtherCashPayments,
+                                SubTotalPayments = OldItem.SubTotalPayments,
+
+                                // Closing Balances
+                                BankBalancesClosing = OldItem.BankBalancesClosing,
+                                ConsolidatedTreasuryCashBalancesClosing = OldItem.ConsolidatedTreasuryCashBalancesClosing,
+                                TellersBalancesClosing = OldItem.TellersBalancesClosing,
+                                MobileMoneyChannelsClosing = OldItem.MobileMoneyChannelsClosing,
+                                PlacementWithBanksClosing = OldItem.PlacementWithBanksClosing,
+                                TotalClosingBalance = OldItem.TotalClosingBalance,
+
+                                // Deposit Liabilities
+                                BOSADeposits = OldItem.BOSADeposits,
+                                FOSADeposits = OldItem.FOSADeposits,
+                                TotalDeposits = OldItem.TotalDeposits,
+
+                                // Liquidity Ratios
+                                TotalClosingBalanceToTotalDepositsRatio = OldItem.TotalClosingBalanceToTotalDepositsRatio,
+                                TotalClosingBalanceToFOSADepositsRatio = OldItem.TotalClosingBalanceToFOSADepositsRatio,
+                            };
+                            _context.DailyLiquidityReturns.Update(newItem);
+
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
                 if (form.IsSectoralLending)
                 {
                     var OldsectoralLendingReport = await _context.SectoralLendingReports.FirstOrDefaultAsync(x => x.ReturnId == OldReturnId);
@@ -1415,6 +1565,17 @@ namespace Returns.Helpers
                         hasExistingReturn = existingReturn != null;
                         returnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
+
+                    else if (form.IsDailyLiquidity)
+                    {
+                        var existingReturn = await _context.DailyLiquidityReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.ReportDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+
                     else if (form.IsLiquidityStatement)
                     {
                         var existingReturn = await _context.NDWTLiquidityReturns
@@ -1487,6 +1648,15 @@ namespace Returns.Helpers
                         var existingReturn = await _context.LiquidityReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsDailyLiquidity)
+                    {
+                        var existingReturn = await _context.DailyLiquidityReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.ReportDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
                         returnId = existingReturn?.Return?.Id ?? string.Empty;
@@ -1628,6 +1798,14 @@ namespace Returns.Helpers
                         var formData = ExcelService.ImportCapitalAdequacyRows(formFile, _logger);
                         return (formData.EndDate, formData.Period);
                     }
+                    else if (form.IsDailyLiquidity)
+                    {
+                        var formData = ExcelService.ImportDailyLiquidityRows(formFile, _logger);
+                        var ReportDate = formData.ReportDate;
+                        var Year = ReportDate.Year.ToString();
+                        return (formData.ReportDate, Year);
+                    }
+
                     else if (form.IsLiquidityStatement)
                     {
                         var formData = ExcelService.ImportLiquidityStatementRows(formFile, _logger);
@@ -1666,6 +1844,13 @@ namespace Returns.Helpers
                     {
                         var formData = ExcelService.ImportForm2ARows(formFile, _logger);
                         return (formData.EndDate, formData.Period);
+                    }
+                    else if (form.IsDailyLiquidity)
+                    {
+                        var formData = ExcelService.ImportDailyLiquidityRows(formFile, _logger);
+                        var ReportDate = formData.ReportDate;
+                        var Year = ReportDate.Year.ToString();
+                        return (formData.ReportDate, Year);
                     }
                     else if (form.IsLiquidityStatement)
                     {
@@ -1754,6 +1939,9 @@ namespace Returns.Helpers
                         case "SectoralLending":
                             await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
+                        case "DailyLiquidity":
+                            await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
                     }
@@ -1787,6 +1975,9 @@ namespace Returns.Helpers
                         case "SectoralLending":
                            await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
+                        case "DailyLiquidity":
+                            await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
                     }
@@ -1811,6 +2002,7 @@ namespace Returns.Helpers
             if (form.IsInvestmentReturn) return "Investment";
             if (form.IsFinancialPosition) return "FinancialPosition";
             if (form.IsSectoralLending) return "SectoralLending";
+            if(form.IsDailyLiquidity) return "DailyLiquidity";
             if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
             return null;
         }

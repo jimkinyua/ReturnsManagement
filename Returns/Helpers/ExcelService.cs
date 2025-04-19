@@ -68,6 +68,51 @@ namespace Returns.Helpers
             public List<CapitalAdequacyRow> Rows { get; set; } = new List<CapitalAdequacyRow>();
         }
 
+        public class DailyLiquidityStatement
+        {
+            public string SACCOName { get; set; } = string.Empty;
+            public string CSNO { get; set; } = string.Empty;
+            public DateTime ReportDate { get; set; }
+
+            // Opening Balances
+            public decimal BankBalancesOpening { get; set; }
+            public decimal ConsolidatedTreasuryCashBalancesOpening { get; set; }
+            public decimal TellersBalancesOpening { get; set; }
+            public decimal MobileMoneyChannelsOpening { get; set; }
+            public decimal PlacementWithBanksOpening { get; set; }
+            public decimal SubTotalOpening { get; set; }
+
+            // Day Receipts
+            public decimal DepositsFromMembers { get; set; }
+            public decimal CashLoanRepayments { get; set; }
+            public decimal OtherCashReceipts { get; set; }
+            public decimal SubTotalReceipts { get; set; }
+            public decimal TotalOpeningAndReceipts { get; set; }
+
+            // Day Payments
+            public decimal CashWithdrawalsByMembers { get; set; }
+            public decimal CashPaymentsToMembers { get; set; }
+            public decimal OtherCashPayments { get; set; }
+            public decimal SubTotalPayments { get; set; }
+
+            // Closing Balances
+            public decimal BankBalancesClosing { get; set; }
+            public decimal ConsolidatedTreasuryCashBalancesClosing { get; set; }
+            public decimal TellersBalancesClosing { get; set; }
+            public decimal MobileMoneyChannelsClosing { get; set; }
+            public decimal PlacementWithBanksClosing { get; set; }
+            public decimal TotalClosingBalance { get; set; }
+
+            // Deposit Liabilities
+            public decimal BOSADeposits { get; set; }
+            public decimal FOSADeposits { get; set; }
+            public decimal TotalDeposits { get; set; }
+
+            // Liquidity Ratios
+            public decimal TotalClosingBalanceToTotalDepositsRatio { get; set; }
+            public decimal TotalClosingBalanceToFOSADepositsRatio { get; set; }
+        }
+
 
         public class LiquidityStatementRow
         {
@@ -360,7 +405,132 @@ namespace Returns.Helpers
             }
         }
 
+        public static DailyLiquidityStatement ImportDailyLiquidityRows(IFormFile file, ILogger logger)
+        {
+            try
+            {
+                logger.LogInformation("File Name: " + file.FileName);
+                if (file == null)
+                {
+                    logger.LogError("File is null");
+                    throw new ArgumentNullException(nameof(file), "No file was provided for processing");
+                }
 
+                if (file.Length == 0)
+                {
+                    throw new ArgumentException("The uploaded file is empty", nameof(file));
+                }
+
+                // Check file extension
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                if (extension != ".xlsx" && extension != ".xls")
+                {
+                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                }
+
+                using (var stream = new MemoryStream())
+                {
+                    // Copy the file to a memory stream
+                    logger.LogInformation("Copying file to memory stream");
+                    file.CopyTo(stream);
+
+                    // This will hold our result
+                    var dailyLiquidityStatement = new DailyLiquidityStatement();
+
+                    // Open the Excel workbook
+                    using (var workbook = new XLWorkbook(stream))
+                    {
+                        logger.LogInformation("Workbook opened");
+
+                        // Get the first worksheet
+                        var worksheet = workbook.Worksheets.First();
+
+                        // Extract SACCO details and report date
+                        dailyLiquidityStatement.SACCOName = GetCellValueOrEmpty(worksheet.Cell("C5"));
+                        dailyLiquidityStatement.CSNO = GetCellValueOrEmpty(worksheet.Cell("E5"));
+                        dailyLiquidityStatement.ReportDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("E6"))) ?? DateTime.Now;
+
+                        // Opening Balances
+                        dailyLiquidityStatement.BankBalancesOpening = GetDecimalOrZero(worksheet.Cell("F8"));
+                        dailyLiquidityStatement.ConsolidatedTreasuryCashBalancesOpening = GetDecimalOrZero(worksheet.Cell("F9"));
+                        dailyLiquidityStatement.TellersBalancesOpening = GetDecimalOrZero(worksheet.Cell("F10"));
+                        dailyLiquidityStatement.MobileMoneyChannelsOpening = GetDecimalOrZero(worksheet.Cell("F11"));
+                        dailyLiquidityStatement.PlacementWithBanksOpening = GetDecimalOrZero(worksheet.Cell("F12"));
+                        dailyLiquidityStatement.SubTotalOpening = GetDecimalOrZero(worksheet.Cell("F13"));
+
+                        // Day Receipts
+                        dailyLiquidityStatement.DepositsFromMembers = GetDecimalOrZero(worksheet.Cell("F15"));
+                        dailyLiquidityStatement.CashLoanRepayments = GetDecimalOrZero(worksheet.Cell("F16"));
+                        dailyLiquidityStatement.OtherCashReceipts = GetDecimalOrZero(worksheet.Cell("F17"));
+                        dailyLiquidityStatement.SubTotalReceipts = GetDecimalOrZero(worksheet.Cell("F18"));
+                        dailyLiquidityStatement.TotalOpeningAndReceipts = GetDecimalOrZero(worksheet.Cell("F19"));
+
+                        // Day Payments
+                        dailyLiquidityStatement.CashWithdrawalsByMembers = GetDecimalOrZero(worksheet.Cell("F21"));
+                        dailyLiquidityStatement.CashPaymentsToMembers = GetDecimalOrZero(worksheet.Cell("F22"));
+                        dailyLiquidityStatement.OtherCashPayments = GetDecimalOrZero(worksheet.Cell("F23"));
+                        dailyLiquidityStatement.SubTotalPayments = GetDecimalOrZero(worksheet.Cell("F24"));
+
+                        // Closing Balances
+                        dailyLiquidityStatement.BankBalancesClosing = GetDecimalOrZero(worksheet.Cell("F26"));
+                        dailyLiquidityStatement.ConsolidatedTreasuryCashBalancesClosing = GetDecimalOrZero(worksheet.Cell("F27"));
+                        dailyLiquidityStatement.TellersBalancesClosing = GetDecimalOrZero(worksheet.Cell("F28"));
+                        dailyLiquidityStatement.MobileMoneyChannelsClosing = GetDecimalOrZero(worksheet.Cell("F29"));
+                        dailyLiquidityStatement.PlacementWithBanksClosing = GetDecimalOrZero(worksheet.Cell("F30"));
+                        dailyLiquidityStatement.TotalClosingBalance = GetDecimalOrZero(worksheet.Cell("F31"));
+
+                        // Deposit Liabilities
+                        dailyLiquidityStatement.BOSADeposits = GetDecimalOrZero(worksheet.Cell("F33"));
+                        dailyLiquidityStatement.FOSADeposits = GetDecimalOrZero(worksheet.Cell("F34"));
+                        dailyLiquidityStatement.TotalDeposits = GetDecimalOrZero(worksheet.Cell("F35"));
+
+                        // Liquidity Ratios
+                        dailyLiquidityStatement.TotalClosingBalanceToTotalDepositsRatio = GetDecimalOrZero(worksheet.Cell("F37"));
+                        dailyLiquidityStatement.TotalClosingBalanceToFOSADepositsRatio = GetDecimalOrZero(worksheet.Cell("F38"));
+
+                        return dailyLiquidityStatement;
+                    }
+                }
+            }
+            catch (ArgumentNullException ex)
+            {
+                logger.LogError(ex, "No file was provided for processing");
+                throw new ArgumentNullException("No file was provided for processing", ex);
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "Invalid file type or empty file");
+                throw new ArgumentException("Invalid file type or empty file", ex);
+            }
+            catch (FileFormatException)
+            {
+                throw new FileFormatException(
+                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
+                    "Please ensure you're uploading a valid Excel workbook.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing ImportDailyLiquidityRows");
+                throw new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+            }
+        }
+
+        private static decimal GetDecimalOrZero(IXLCell cell)
+        {
+            if (cell == null)
+                return 0;
+
+            string value = cell.GetString().Trim();
+
+            if (string.IsNullOrWhiteSpace(value) || value == "-")
+                return 0;
+
+            if (decimal.TryParse(value, out decimal result))
+                return result;
+
+            return 0;
+        }
 
         public static SectoralLendingReportDto ImportSectoralLendingReport(IFormFile file, ILogger logger)
         {

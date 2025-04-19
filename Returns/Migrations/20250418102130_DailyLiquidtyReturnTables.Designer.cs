@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250418102130_DailyLiquidtyReturnTables")]
+    partial class DailyLiquidtyReturnTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2001,9 +2004,6 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsCapitalAdequencyForm")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsDailyLiquidity")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsDepositReturnForm")

@@ -70,6 +70,7 @@ namespace Returns.Controllers
                 IsRiskClassification = createFormDTO.IsRiskClassification,
                 IsInvestmentReturn = createFormDTO.IsInvestmentReturn,
                 IsFinancialPosition = createFormDTO.IsFinancialPosition,
+                IsDailyLiquidity = createFormDTO.IsDailyLiquidity,
                 IsSectoralLending = createFormDTO.IsFinancialPosition,
                 IsStatementOfComprehensiveIncome = createFormDTO.IsStatementOfComprehensiveIncome,
                 IsDepositReturnForm = createFormDTO.IsDepositReturnForm,
@@ -88,6 +89,7 @@ namespace Returns.Controllers
                 IsRiskClassification = createFormDTO.IsRiskClassification,
                 IsInvestmentReturn = createFormDTO.IsInvestmentReturn,
                 IsFinancialPosition = createFormDTO.IsFinancialPosition,
+                IsDailyLiquidity = createFormDTO.IsDailyLiquidity,
                 IsSectoralLending = createFormDTO.IsSectoralLending,
                 IsStatementOfComprehensiveIncome = createFormDTO.IsStatementOfComprehensiveIncome,
                 IsDepositReturnForm = createFormDTO.IsDepositReturnForm,
@@ -337,6 +339,7 @@ namespace Returns.Controllers
         {
             var submit = await _context.Returns
             .Include(f => f.CapitalAdequencies)
+            .Include(f => f.DepositReturns)
             .Include(f => f.DepositReturns)
             .Include(f => f.RiskClassifications)
             .Include(f => f.InvestmentReturns)

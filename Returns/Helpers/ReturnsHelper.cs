@@ -49,7 +49,7 @@ namespace Returns.Helpers
 
             // if (previousReturn == null)
             // {
-            //     previousReturn = await _context.Returns.FindAsync(currentReturn.PreviousVersionId);
+            //     previousReturn = await _context.Return.FindAsync(currentReturn.PreviousVersionId);
             // }
 
             // if (previousReturn == null)
@@ -490,6 +490,133 @@ namespace Returns.Helpers
             await _context.CapitalAdequacies.AddAsync(capitalAdequacy);
             await _context.SaveChangesAsync();
         }
+
+        public static async Task ProcessDailyLiquidityForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
+        {
+            ReturnsDbContext _context = new ReturnsDbContext();
+
+            // Import the Excel data using the ExcelService
+            var liquidityData = ExcelService.ImportDailyLiquidityRows(file, _logger);
+            if (liquidityData == null)
+                throw new Exception("No data found in Daily Liquidity Form");
+
+            // Save the Excel file
+            var Path = await FormsHelper.SaveFileAsync(file, "Daily Liquidity Returns", "");
+            if (Path == null)
+            {
+                throw new Exception("Error saving file");
+            }
+
+            // Calculate days late
+            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, liquidityData.ReportDate);
+
+            string EffectiveReturnId = returnId;
+            string PreviousReturnId = string.Empty;
+            DailyLiquidityReturn? dailyLiquidity = null;
+
+            if (!IsAmendment)
+            {
+                // Create new record
+                dailyLiquidity = new DailyLiquidityReturn
+                {
+                    ReturnId = returnId,
+                    FilePath = Path,
+                    ReportDate = liquidityData.ReportDate,
+                    DaysLateBy = DaysLateBy,
+                    IsCurrent = true,
+                    IsAmended = false,
+                    SACCOName = liquidityData.SACCOName,
+                    CSNO = liquidityData.CSNO,
+                };
+            }
+            else
+            {
+                dailyLiquidity = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                if (dailyLiquidity == null)
+                {
+                    throw new Exception("Return not found for amendment");
+                }
+
+                // Update amendment information
+                dailyLiquidity.PreviousReturnId = PrevId;
+                dailyLiquidity.ReturnId = returnId;
+                dailyLiquidity.Version = dailyLiquidity.Version + 1;
+                dailyLiquidity.IsCurrent = true;
+                dailyLiquidity.IsAmended = false;
+                dailyLiquidity.ReportDate = liquidityData.ReportDate;
+                dailyLiquidity.FilePath = Path;
+                dailyLiquidity.DaysLateBy = DaysLateBy;
+                dailyLiquidity.DaysLateBy = DaysLateBy;
+                dailyLiquidity.SACCOName = liquidityData.SACCOName;
+                dailyLiquidity.CSNO = liquidityData.CSNO;
+    
+            }
+
+            // Opening Balances
+            dailyLiquidity.BankBalancesOpening = liquidityData.BankBalancesOpening;
+            dailyLiquidity.ConsolidatedTreasuryCashBalancesOpening = liquidityData.ConsolidatedTreasuryCashBalancesOpening;
+            dailyLiquidity.TellersBalancesOpening = liquidityData.TellersBalancesOpening;
+            dailyLiquidity.MobileMoneyChannelsOpening = liquidityData.MobileMoneyChannelsOpening;
+            dailyLiquidity.PlacementWithBanksOpening = liquidityData.PlacementWithBanksOpening;
+            dailyLiquidity.SubTotalOpening = liquidityData.SubTotalOpening;
+
+            // Day Receipts
+            dailyLiquidity.DepositsFromMembers = liquidityData.DepositsFromMembers;
+            dailyLiquidity.CashLoanRepayments = liquidityData.CashLoanRepayments;
+            dailyLiquidity.OtherCashReceipts = liquidityData.OtherCashReceipts;
+            dailyLiquidity.SubTotalReceipts = liquidityData.SubTotalReceipts;
+            dailyLiquidity.TotalOpeningAndReceipts = liquidityData.TotalOpeningAndReceipts;
+
+            // Day Payments
+            dailyLiquidity.CashWithdrawalsByMembers = liquidityData.CashWithdrawalsByMembers;
+            dailyLiquidity.CashPaymentsToMembers = liquidityData.CashPaymentsToMembers;
+            dailyLiquidity.OtherCashPayments = liquidityData.OtherCashPayments;
+            dailyLiquidity.SubTotalPayments = liquidityData.SubTotalPayments;
+
+            // Closing Balances
+            dailyLiquidity.BankBalancesClosing = liquidityData.BankBalancesClosing;
+            dailyLiquidity.ConsolidatedTreasuryCashBalancesClosing = liquidityData.ConsolidatedTreasuryCashBalancesClosing;
+            dailyLiquidity.TellersBalancesClosing = liquidityData.TellersBalancesClosing;
+            dailyLiquidity.MobileMoneyChannelsClosing = liquidityData.MobileMoneyChannelsClosing;
+            dailyLiquidity.PlacementWithBanksClosing = liquidityData.PlacementWithBanksClosing;
+            dailyLiquidity.TotalClosingBalance = liquidityData.TotalClosingBalance;
+
+            // Deposit Liabilities
+            dailyLiquidity.BOSADeposits = liquidityData.BOSADeposits;
+            dailyLiquidity.FOSADeposits = liquidityData.FOSADeposits;
+            dailyLiquidity.TotalDeposits = liquidityData.TotalDeposits;
+
+            // Liquidity Ratios
+            dailyLiquidity.TotalClosingBalanceToTotalDepositsRatio = liquidityData.TotalClosingBalanceToTotalDepositsRatio;
+            dailyLiquidity.TotalClosingBalanceToFOSADepositsRatio = liquidityData.TotalClosingBalanceToFOSADepositsRatio;
+
+            //ValidateDailyLiquidityData(dailyLiquidity, _logger);
+
+            // Save to database
+            if (IsAmendment)
+            {
+                // Mark old record as amended
+                var oldRecord = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == PrevId);
+                if (oldRecord != null)
+                {
+                    oldRecord.IsCurrent = false;
+                    oldRecord.IsAmended = true;
+                }
+            }
+
+            if (!IsAmendment)
+            {
+                await _context.DailyLiquidityReturns.AddAsync(dailyLiquidity);
+            }
+            else
+            {
+                _context.DailyLiquidityReturns.Update(dailyLiquidity);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+
 
         public static async Task<List<string>> GetMissingRequiredFormsAsync(NewReturnDTO createFormDTO, string SaccoType)
         {

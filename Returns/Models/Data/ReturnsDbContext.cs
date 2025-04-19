@@ -41,7 +41,7 @@ namespace Returns.Models.Data
         public DbSet<CamelIndicator> CamelIndicators { get; set; }
         public DbSet<IndicatorRatingThreshold> IndicatorRatingThresholds { get; set; }
 
-        // NWDT Returns
+        // NWDT Return
         public DbSet<NDWTCapitalAdequacyReturn> NDWTCapitalAdequacyReturns { get; set; }
         public DbSet<NWDTLiquidityReturn> NDWTLiquidityReturns { get; set; }
         public DbSet<NWDTDepositReturn> NWDTDepositReturns { get; set; }
@@ -60,6 +60,7 @@ namespace Returns.Models.Data
         public DbSet<SubCategory> SubCategories { get; set; }
         public DbSet<EconomicSector> EconomicSectors { get; set; }
         public DbSet<EconomicSectorData> SectoralLendingData { get; set; }
+        public DbSet<DailyLiquidityReturn> DailyLiquidityReturns { get; set; }
 
 
     }   

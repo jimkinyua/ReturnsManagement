@@ -9,7 +9,7 @@ namespace Returns.DTOs.Returns_Submission.DT
 {
     public class ReturnFormUploadDTO
     {
-        public IFormFile  formFile {  get; set; }
-        public string FormId { get; set; }
+        public IFormFile?  formFile {  get; set; }
+        public string? FormId { get; set; }
     }
 }

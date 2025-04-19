@@ -289,14 +289,14 @@ namespace Returns.Controllers
                 depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
                 financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
         }
-        // File Returns
+        // File Return
         [HttpPost("FileReturns")]
         public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
         {
             var processingSummary = new List<string>();
             var ConError = new List<string>();
             Boolean IsConsistent = true;
-            string PeriodToUse = string.Empty;
+            string PeriodToUse = "2025";
             LoggedInSacco loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
@@ -317,21 +317,30 @@ namespace Returns.Controllers
 
             if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
             {
-                var (isValid, _, ConsistencyErrors, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                if (!isValid)
+                if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
                 {
-                    ConError = ConsistencyErrors.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
+                    var (isValid, _, ConsistencyErrors, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
+                    if (!isValid)
+                    {
+                        ConError = ConsistencyErrors.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
+                    }
                 }
-                PeriodToUse = CommonPeriod;
+                
+                //PeriodToUse = CommonPeriod;
             }
             else
             {
-                var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                if (!isValid)
+
+                if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
                 {
-                    ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
+                    var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
+                    if (!isValid)
+                    {
+                        ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
+                    }
                 }
-                PeriodToUse = CommonPeriod;
+                
+                //PeriodToUse = CommonPeriod;
             }
 
             try
@@ -349,10 +358,10 @@ namespace Returns.Controllers
                   {
                       _logger.LogError("Error assigning return: {ErrorMessage}", IsAssigned.ErrorMessage);
 
-                      var returnToDelete = await _context.Returns.FindAsync(returnId);
+                      var returnToDelete = await _context.Return.FindAsync(returnId);
                       if (returnToDelete != null)
                       {
-                          _context.Returns.Remove(returnToDelete);
+                          _context.Return.Remove(returnToDelete);
                           await _context.SaveChangesAsync();
                       }
 
