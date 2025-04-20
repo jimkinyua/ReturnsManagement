@@ -319,7 +319,7 @@ namespace Returns.Controllers
 
                     if (endDate != DateTime.MinValue && !string.IsNullOrEmpty(year))
                     {
-                        if (PeriodToUse == null)
+                        if (PeriodToUse == string.Empty)
                         {
                             // First valid form sets the period
                             PeriodToUse = year;

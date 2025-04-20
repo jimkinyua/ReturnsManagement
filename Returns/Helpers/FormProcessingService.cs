@@ -490,7 +490,7 @@ namespace Returns.Helpers
                         IsCurrent = true,
                         SaccoName = ExistingInsiderLendingHeader.SaccoName,
                         DaysLateBy = ExistingInsiderLendingHeader.DaysLateBy,
-                        SaccoId = ExistingInsiderLendingHeader.SaccoId,
+                        //SaccoId = ExistingInsiderLendingHeader.SaccoId,
                     };
                     await _context.InsiderLendingHeaders.AddAsync(NewInsiderLendingHeader);
                     foreach (var OldItem in SavedLoans)
@@ -1095,7 +1095,7 @@ namespace Returns.Helpers
                         IsCurrent = true,
                         SaccoName = ExistingInsiderLendingHeader.SaccoName,
                         DaysLateBy = ExistingInsiderLendingHeader.DaysLateBy,
-                        SaccoId = ExistingInsiderLendingHeader.SaccoId,
+                        //SaccoId = ExistingInsiderLendingHeader.SaccoId,
                     };
                     await _context.InsiderLendingHeaders.AddAsync(NewInsiderLendingHeader);
                     foreach (var OldItem in SavedLoans)

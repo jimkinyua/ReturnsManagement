@@ -493,10 +493,10 @@ namespace Returns.Helpers
                         };
 
                         // Find section markers
-                        int newLoansHeaderRow = FindRowWithText(worksheet, "New loans Granted", "A");
-                        int outstandingLoansHeaderRow = FindRowWithText(worksheet, "PERFORMANCE OF INSIDER OUTSTANDING LOAN", "B");
-                        int totalNewLoansRow = FindRowWithText(worksheet, "TOTAL LOANS GRANTED FOR INSIDERS", "B");
-                        int totalOutstandingLoansRow = FindRowWithText(worksheet, "TOTAL OUTSTANDING LOANS FOR INSIDERS AS AT END OF MONTH", "B");
+                        int newLoansHeaderRow = FindRowWithText(worksheet, "New loans Granted", "C");
+                        int outstandingLoansHeaderRow = FindRowWithText(worksheet, "PERFORMANCE OF INSIDER OUTSTANDING LOAN", "C");
+                        int totalNewLoansRow = FindRowWithText(worksheet, "TOTAL LOANS GRANTED FOR INSIDERS", "C");
+                        int totalOutstandingLoansRow = FindRowWithText(worksheet, "TOTAL OUTSTANDING LOANS FOR INSIDERS AS AT END OF MONTH", "C");
 
                         // Process new loans section
                         if (newLoansHeaderRow > 0 && totalNewLoansRow > 0)
@@ -541,7 +541,7 @@ namespace Returns.Helpers
                         // Process outstanding loans section
                         if (outstandingLoansHeaderRow > 0 && totalOutstandingLoansRow > 0)
                         {
-                            int firstOutstandingLoanRow = outstandingLoansHeaderRow + 3; // Skip the header and column titles rows
+                            int firstOutstandingLoanRow = outstandingLoansHeaderRow + 1; // Skip the header and column titles rows
                             int lastOutstandingLoanRow = totalOutstandingLoansRow - 1;   // Stop before the total row
 
                             // Process outstanding loans dynamically for all rows in section
@@ -569,7 +569,7 @@ namespace Returns.Helpers
                                     RepaymentCommencementDate = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(12))).Value,
                                     RepaymentPeriod = GetCellValueOrEmpty(row.Cell(13)),
                                     OutstandingAmount = GetDecimalOrZero(row.Cell(14)),
-                                    PerfomanceCategory = GetCellValueOrEmpty(row.Cell(15)),
+                                    PerfomanceCategory = GetCellValueOrEmpty(row.Cell(15)) ?? "Not Specified",
                                     RepaymentStatus = "Existing",
                                     OtherRemarks = null
                                 };

@@ -587,7 +587,8 @@ namespace Returns.Helpers
                         RepaymentStatus = loanDTO.RepaymentStatus,
                         PreviousReturnId = PrevId,
                         IsCurrent = true,
-                        IsAmended = false
+                        IsAmended = false,
+                        ReturnId = EffectiveReturnId
                     };
 
                     loanEntities.Add(loan);
@@ -600,7 +601,7 @@ namespace Returns.Helpers
             }
             catch (Exception ex)
             {
-
+                throw ex;
                 _logger.LogError(ex, $"Error processing Form 2B for return ID: {returnId}");
 
             }
