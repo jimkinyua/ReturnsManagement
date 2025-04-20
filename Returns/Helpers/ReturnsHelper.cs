@@ -541,7 +541,7 @@ namespace Returns.Helpers
 
                     insiderLendingHeader.PreviousReturnId = PrevId;
                     insiderLendingHeader.ReturnId = returnId;
-                    insiderLendingHeader.Version = insiderLendingHeader.Version + 1;
+                    insiderLendingHeader.Version = insiderLendingHeader.Version;// + 1;
                     insiderLendingHeader.IsCurrent = true;
                     insiderLendingHeader.IsAmended = false;
                     insiderLendingHeader.StartDate = ImportedLendingReport.StartDate;
