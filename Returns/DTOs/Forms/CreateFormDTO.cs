@@ -16,6 +16,7 @@ public class CreateFormDTO : IValidatableObject
     public Boolean IsRiskClassification { get; set; } = false;
     public Boolean IsInvestmentReturn { get; set; } = false;
     public Boolean IsFinancialPosition { get; set; } = false;
+    public Boolean IsInsiderLending { get; set; } = false;
     public Boolean IsSectoralLending { get; set; } = false;
     public Boolean IsDailyLiquidity { get; set; } = false;
     public Boolean IsStatementOfComprehensiveIncome { get; set; } = false;

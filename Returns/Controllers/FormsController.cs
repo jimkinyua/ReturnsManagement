@@ -70,8 +70,9 @@ namespace Returns.Controllers
                 IsRiskClassification = createFormDTO.IsRiskClassification,
                 IsInvestmentReturn = createFormDTO.IsInvestmentReturn,
                 IsFinancialPosition = createFormDTO.IsFinancialPosition,
+                IsInsiderLending = createFormDTO.IsInsiderLending,
                 IsDailyLiquidity = createFormDTO.IsDailyLiquidity,
-                IsSectoralLending = createFormDTO.IsFinancialPosition,
+                IsSectoralLending = createFormDTO.IsSectoralLending,
                 IsStatementOfComprehensiveIncome = createFormDTO.IsStatementOfComprehensiveIncome,
                 IsDepositReturnForm = createFormDTO.IsDepositReturnForm,
                 IsOtherForm = createFormDTO.IsOtherForm
@@ -91,6 +92,7 @@ namespace Returns.Controllers
                 IsFinancialPosition = createFormDTO.IsFinancialPosition,
                 IsDailyLiquidity = createFormDTO.IsDailyLiquidity,
                 IsSectoralLending = createFormDTO.IsSectoralLending,
+                IsInsiderLending = createFormDTO.IsInsiderLending,
                 IsStatementOfComprehensiveIncome = createFormDTO.IsStatementOfComprehensiveIncome,
                 IsDepositReturnForm = createFormDTO.IsDepositReturnForm,
                 IsLiquidityStatement = createFormDTO.IsLiquidityStatement,

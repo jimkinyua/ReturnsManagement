@@ -1,9 +1,11 @@
 ﻿using DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Returns_Submission.DT;
 using Returns.Models;
 using Returns.Models.Data;
+using System.Runtime.Intrinsics.X86;
 using static Returns.Helpers.Constants;
 using static Returns.Helpers.TokenHelper;
 
@@ -457,7 +459,75 @@ namespace Returns.Helpers
                         await _context.SaveChangesAsync();
                     }
                 }
-                    if (form.IsSectoralLending)
+                if (form.IsInsiderLending)
+                {
+                    var ExistingInsiderLendingHeader = await _context.InsiderLendingHeaders.FirstOrDefaultAsync(x => x.ReturnId == OldReturnId);
+
+                    if (ExistingInsiderLendingHeader == null)
+                    {
+                        return false;
+                    }
+
+                    ExistingInsiderLendingHeader.IsAmended = true;
+                    ExistingInsiderLendingHeader.IsCurrent = false;
+
+                    var SavedLoans = await _context.InsiderLoans.Where(s => s.InsiderLendingHeaderId == ExistingInsiderLendingHeader.Id).ToListAsync();
+                    if (SavedLoans == null)
+                    {
+                        return false;
+                    }
+
+                    var NewInsiderLendingHeader = new InsiderLendingHeader
+                    {
+                        ReturnId = NewReturnId,
+                        PreviousReturnId = OldReturnId,
+                        CSNO = ExistingInsiderLendingHeader.CSNO,
+                        FilePath = ExistingInsiderLendingHeader.FilePath,
+                        Version = ExistingInsiderLendingHeader.Version + 1,
+                        StartDate = ExistingInsiderLendingHeader.StartDate,
+                        EndDate = ExistingInsiderLendingHeader.EndDate,
+                        IsAmended = false,
+                        IsCurrent = true,
+                        SaccoName = ExistingInsiderLendingHeader.SaccoName,
+                        DaysLateBy = ExistingInsiderLendingHeader.DaysLateBy,
+                        SaccoId = ExistingInsiderLendingHeader.SaccoId,
+                    };
+                    await _context.InsiderLendingHeaders.AddAsync(NewInsiderLendingHeader);
+                    foreach (var OldItem in SavedLoans)
+                    {
+                        var newItem = new InsiderLoan
+                        {
+                            ReturnId = NewReturnId,
+                            InsiderLendingHeaderId = NewInsiderLendingHeader.Id,
+                            LoanCategory = OldItem.LoanCategory,
+                            NameOfBorrower = OldItem.NameOfBorrower,
+                            MemberNumber = OldItem.MemberNumber,
+                            PositionHeld = OldItem.PositionHeld,
+                            LoanTypeName = OldItem.LoanTypeName,
+                            AmountAppliedFor = OldItem.AmountAppliedFor,
+                            AmountGranted = OldItem.AmountGranted,
+                            DateApprovedOrRatified = OldItem.DateApprovedOrRatified,
+                            AmountOfBosaDeposits = OldItem.AmountOfBosaDeposits,
+                            NatureOfSecurity = OldItem.NatureOfSecurity,
+                            RepaymentCommencementDate = OldItem.RepaymentCommencementDate,
+                            RepaymentPeriod = OldItem.RepaymentPeriod,
+                            OtherRemarks = OldItem.OtherRemarks,
+                            OutstandingAmount = OldItem.OutstandingAmount,
+                            PerfomanceCategory = OldItem.PerfomanceCategory,
+                            RepaymentStatus = OldItem.RepaymentStatus,
+                            IsCurrent = false,
+                            IsAmended = true
+                        };
+                        await _context.InsiderLoans.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.InsiderLoans.Update(OldItem);
+                    }
+                    await _context.SaveChangesAsync();
+                    return true;
+
+                }
+                if (form.IsSectoralLending)
                 {
                     var sectoralLending = await _context.SectoralLendingData.Where(s => s.ReturnId == OldReturnId).ToListAsync();
                     if (sectoralLending == null)
@@ -992,6 +1062,75 @@ namespace Returns.Helpers
                         }
                         await _context.SaveChangesAsync();
                     }
+                }
+
+                if (form.IsInsiderLending)
+                {
+                    var ExistingInsiderLendingHeader = await _context.InsiderLendingHeaders.FirstOrDefaultAsync(x => x.ReturnId == OldReturnId);
+
+                    if (ExistingInsiderLendingHeader == null)
+                    {
+                        return false;
+                    }
+
+                    ExistingInsiderLendingHeader.IsAmended = true;
+                    ExistingInsiderLendingHeader.IsCurrent = false;
+
+                    var SavedLoans = await _context.InsiderLoans.Where(s => s.InsiderLendingHeaderId == ExistingInsiderLendingHeader.Id).ToListAsync();
+                    if (SavedLoans == null)
+                    {
+                        return false;
+                    }
+
+                    var NewInsiderLendingHeader = new InsiderLendingHeader
+                    {
+                        ReturnId = NewReturnId,
+                        PreviousReturnId = OldReturnId,
+                        CSNO = ExistingInsiderLendingHeader.CSNO,
+                        FilePath = ExistingInsiderLendingHeader.FilePath,
+                        Version = ExistingInsiderLendingHeader.Version + 1,
+                        StartDate = ExistingInsiderLendingHeader    .StartDate,
+                        EndDate = ExistingInsiderLendingHeader.EndDate,
+                        IsAmended = false,
+                        IsCurrent = true,
+                        SaccoName = ExistingInsiderLendingHeader.SaccoName,
+                        DaysLateBy = ExistingInsiderLendingHeader.DaysLateBy,
+                        SaccoId = ExistingInsiderLendingHeader.SaccoId,
+                    };
+                    await _context.InsiderLendingHeaders.AddAsync(NewInsiderLendingHeader);
+                    foreach (var OldItem in SavedLoans)
+                    {
+                        var newItem = new InsiderLoan
+                        {
+                            ReturnId = NewReturnId,
+                            InsiderLendingHeaderId = NewInsiderLendingHeader.Id,
+                            LoanCategory = OldItem.LoanCategory,
+                            NameOfBorrower = OldItem.NameOfBorrower,
+                            MemberNumber = OldItem.MemberNumber,
+                            PositionHeld = OldItem.PositionHeld,
+                            LoanTypeName = OldItem.LoanTypeName,
+                            AmountAppliedFor = OldItem.AmountAppliedFor,
+                            AmountGranted = OldItem.AmountGranted,
+                            DateApprovedOrRatified = OldItem.DateApprovedOrRatified,
+                            AmountOfBosaDeposits = OldItem.AmountOfBosaDeposits,
+                            NatureOfSecurity = OldItem.NatureOfSecurity,
+                            RepaymentCommencementDate = OldItem.RepaymentCommencementDate,
+                            RepaymentPeriod = OldItem.RepaymentPeriod,
+                            OtherRemarks = OldItem.OtherRemarks,
+                            OutstandingAmount = OldItem.OutstandingAmount,
+                            PerfomanceCategory = OldItem.PerfomanceCategory,
+                            RepaymentStatus = OldItem.RepaymentStatus,
+                            IsCurrent = false,
+                            IsAmended = true
+                        };
+                        await _context.InsiderLoans.AddAsync(newItem);
+                        OldItem.IsCurrent = false;
+                        OldItem.IsAmended = true;
+                        _context.InsiderLoans.Update(OldItem);
+                    }
+                    await _context.SaveChangesAsync();
+                    return true;
+
                 }
 
                 if (form.IsSectoralLending)
@@ -1575,7 +1714,15 @@ namespace Returns.Helpers
                         hasExistingReturn = existingReturn != null;
                         returnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
+                    else if (form.IsInsiderLending)
+                    {
+                        var existingReturn = await _context.InsiderLendingHeaders
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
+                        hasExistingReturn = existingReturn != null;
+                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
                     else if (form.IsLiquidityStatement)
                     {
                         var existingReturn = await _context.NDWTLiquidityReturns
@@ -1648,6 +1795,15 @@ namespace Returns.Helpers
                         var existingReturn = await _context.DTLiquidityReturns
                             .Include(c => c.Return)
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsInsiderLending)
+                    {
+                        var existingReturn = await _context.InsiderLendingHeaders
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
                         returnId = existingReturn?.Return?.Id ?? string.Empty;
@@ -1811,6 +1967,12 @@ namespace Returns.Helpers
                         var Year = formData.Year.ToString();
                         return (formData.EndDate, Year);
                     }
+                    else if (form.IsInsiderLending)
+                    {
+                        var formData = ExcelService.ImportInsiderLendingReport(formFile, _logger);
+                        var Year = formData.Year.ToString();
+                        return (formData.EndDate, Year);
+                    }
                     else if (form.IsLiquidityStatement)
                     {
                         var formData = ExcelService.ImportLiquidityStatementRows(formFile, _logger);
@@ -1856,6 +2018,12 @@ namespace Returns.Helpers
                         var ReportDate = formData.ReportDate;
                         var Year = ReportDate.Year.ToString();
                         return (formData.ReportDate, Year);
+                    }
+                    else if (form.IsInsiderLending)
+                    {
+                        var formData = ExcelService.ImportInsiderLendingReport(formFile, _logger);
+                        var Year = formData.Year.ToString();
+                        return (formData.EndDate, Year);
                     }
                     else if (form.IsSectoralLending)
                     {
@@ -1953,6 +2121,9 @@ namespace Returns.Helpers
                         case "DailyLiquidity":
                             await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
+                        case "InsiderLending":
+                            await ReturnsHelper.ProcessInsiderLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
                     }
@@ -1989,6 +2160,9 @@ namespace Returns.Helpers
                         case "DailyLiquidity":
                             await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
+                        case "InsiderLending":
+                            await ReturnsHelper.ProcessInsiderLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
                     }
@@ -2014,6 +2188,7 @@ namespace Returns.Helpers
             if (form.IsFinancialPosition) return "FinancialPosition";
             if (form.IsSectoralLending) return "SectoralLending";
             if(form.IsDailyLiquidity) return "DailyLiquidity";
+            if(form.IsInsiderLending) return "InsiderLending";
             if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
             return null;
         }

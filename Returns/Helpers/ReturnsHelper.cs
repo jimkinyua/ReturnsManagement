@@ -491,6 +491,124 @@ namespace Returns.Helpers
             await _context.SaveChangesAsync();
         }
 
+        public static async Task ProcessInsiderLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
+        {
+            try
+            {
+                ReturnsDbContext _context = new ReturnsDbContext();
+
+                var ImportedLendingReport = ExcelService.ImportInsiderLendingReport(file, _logger);
+                if (ImportedLendingReport == null)
+                    throw new Exception("No data found in InsiderLendingReport Form");
+
+                // Save the Excel file
+                var Path = await FormsHelper.SaveFileAsync(file, "InsiderLendingReport", "");
+                if (Path == null)
+                {
+                    throw new Exception("Error saving file");
+                }
+
+                // Calculate days late
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, ImportedLendingReport.EndDate);
+
+                string EffectiveReturnId = returnId;
+                string PreviousReturnId = string.Empty;
+                InsiderLendingHeader? insiderLendingHeader = null;
+                List<InsiderLoan> loanEntities = new List<InsiderLoan>();
+
+                if (!IsAmendment)
+                {
+                    insiderLendingHeader = new InsiderLendingHeader
+                    {
+                        ReturnId = returnId,
+                        FilePath = Path,
+                        StartDate = ImportedLendingReport.StartDate,
+                        EndDate = ImportedLendingReport.EndDate,
+                        DaysLateBy = DaysLateBy,
+                        IsCurrent = true,
+                        IsAmended = false,
+                        SaccoName = ImportedLendingReport.SaccoName,
+                        CSNO = ImportedLendingReport.SaccoSocietyCsNumber,
+                    };
+                }
+                else
+                {
+                    insiderLendingHeader = await _context.InsiderLendingHeaders.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                    if (insiderLendingHeader == null)
+                    {
+                        throw new Exception("Return not found for amendment");
+                    }
+
+                    insiderLendingHeader.PreviousReturnId = PrevId;
+                    insiderLendingHeader.ReturnId = returnId;
+                    insiderLendingHeader.Version = insiderLendingHeader.Version + 1;
+                    insiderLendingHeader.IsCurrent = true;
+                    insiderLendingHeader.IsAmended = false;
+                    insiderLendingHeader.StartDate = ImportedLendingReport.StartDate;
+                    insiderLendingHeader.EndDate = ImportedLendingReport.EndDate;
+                    insiderLendingHeader.FilePath = Path;
+                    insiderLendingHeader.DaysLateBy = DaysLateBy;
+                    insiderLendingHeader.DaysLateBy = DaysLateBy;
+                    insiderLendingHeader.SaccoName = ImportedLendingReport.SaccoName;
+                    insiderLendingHeader.CSNO = ImportedLendingReport.SaccoSocietyCsNumber;
+
+                }
+
+
+                if (!IsAmendment)
+                {
+                    await _context.InsiderLendingHeaders.AddAsync(insiderLendingHeader);
+                }
+                else
+                {
+                    _context.InsiderLendingHeaders.Update(insiderLendingHeader);
+                }
+
+                foreach (var loanDTO in ImportedLendingReport.Loans)
+                {
+                    var loan = new InsiderLoan
+                    {
+                        InsiderLendingHeaderId = insiderLendingHeader.Id,
+                        LoanCategory = loanDTO.LoanCategory,
+                        NameOfBorrower = loanDTO.NameOfBorrower,
+                        MemberNumber = loanDTO.MemberNumber,
+                        PositionHeld = loanDTO.PositionHeld,
+                        LoanTypeName = loanDTO.LoanTypeName,
+                        AmountAppliedFor = loanDTO.AmountAppliedFor,
+                        AmountGranted = loanDTO.AmountGranted,
+                        DateApprovedOrRatified = loanDTO.DateApprovedOrRatified,
+                        AmountOfBosaDeposits = loanDTO.AmountOfBosaDeposits,
+                        NatureOfSecurity = loanDTO.NatureOfSecurity,
+                        RepaymentCommencementDate = loanDTO.RepaymentCommencementDate,
+                        RepaymentPeriod = loanDTO.RepaymentPeriod,
+                        OtherRemarks = loanDTO.OtherRemarks,
+                        OutstandingAmount = loanDTO.OutstandingAmount,
+                        PerfomanceCategory = loanDTO.PerfomanceCategory,
+                        RepaymentStatus = loanDTO.RepaymentStatus,
+                        PreviousReturnId = PrevId,
+                        IsCurrent = true,
+                        IsAmended = false
+                    };
+
+                    loanEntities.Add(loan);
+                    await _context.InsiderLoans.AddAsync(loan);
+                }
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Successfully processed Insider Lending Report with {loanEntities.Count} loans for return ID: {returnId}");
+
+            }
+            catch (Exception ex)
+            {
+
+                _logger.LogError(ex, $"Error processing Form 2B for return ID: {returnId}");
+
+            }
+        }
+
+
+
+
         public static async Task ProcessDailyLiquidityForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
         {
             ReturnsDbContext _context = new ReturnsDbContext();

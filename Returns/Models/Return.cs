@@ -45,6 +45,7 @@ namespace Returns.Models
         public virtual ICollection<OtherReturn> OtherReturns { get; set; } = new List<OtherReturn>();
         public virtual ICollection<SectoralLendingReport> SectoralLendingReports { get; set; } = new List<SectoralLendingReport>();
         public virtual ICollection<DailyLiquidityReturn> DailyLiquidityReturns { get; set; } = new List<DailyLiquidityReturn>();
+        public virtual ICollection<InsiderLendingHeader> InsiderLendingHeaders { get; set; } = new List<InsiderLendingHeader>();
 
         // Assignments 
         public virtual ICollection<ReturnsAssigment> ReturnsAssigments { get; set; } = new List<ReturnsAssigment>();

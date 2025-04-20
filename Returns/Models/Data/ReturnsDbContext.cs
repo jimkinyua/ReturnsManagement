@@ -61,6 +61,8 @@ namespace Returns.Models.Data
         public DbSet<EconomicSector> EconomicSectors { get; set; }
         public DbSet<EconomicSectorData> SectoralLendingData { get; set; }
         public DbSet<DailyLiquidityReturn> DailyLiquidityReturns { get; set; }
+        public DbSet<InsiderLendingHeader> InsiderLendingHeaders { get; set; }
+        public DbSet<InsiderLoan> InsiderLoans { get; set; }
 
 
     }   

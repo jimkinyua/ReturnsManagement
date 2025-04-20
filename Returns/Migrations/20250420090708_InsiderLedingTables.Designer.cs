@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250420090708_InsiderLedingTables")]
+    partial class InsiderLedingTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1245,7 +1248,7 @@ namespace Returns.Migrations
                     b.Property<string>("PreviousReturnId")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ReturnId")
+                    b.Property<string>("ReturnsId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
@@ -1265,7 +1268,7 @@ namespace Returns.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ReturnId");
+                    b.HasIndex("ReturnsId");
 
                     b.ToTable("InsiderLendingHeaders");
                 });
@@ -1345,10 +1348,6 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("RepaymentStatus")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ReturnId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -2502,9 +2501,6 @@ namespace Returns.Migrations
                     b.Property<bool>("IsFinancialPosition")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsInsiderLending")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsInvestmentReturn")
                         .HasColumnType("bit");
 
@@ -2916,7 +2912,7 @@ namespace Returns.Migrations
                 {
                     b.HasOne("Returns.Models.Return", "Return")
                         .WithMany("InsiderLendingHeaders")
-                        .HasForeignKey("ReturnId")
+                        .HasForeignKey("ReturnsId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
