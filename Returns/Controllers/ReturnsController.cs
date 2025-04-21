@@ -349,13 +349,13 @@ namespace Returns.Controllers
                 });
             }
 
-            /*
-                        var HasAssignedUser = await _returnAssignmentService.CheckSaccoAssignedUserAsync(loggedInSacco.SaccoId);
 
-                        if (!HasAssignedUser.Success)
-                        {
-                            return BadRequest(HasAssignedUser.ErrorMessage);
-                        }*/
+            var HasAssignedUser = await _returnAssignmentService.CheckSaccoAssignedUserAsync(loggedInSacco.SaccoId);
+
+            if (!HasAssignedUser.Success)
+            {
+                return BadRequest(HasAssignedUser.ErrorMessage);
+            }
 
             if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
             {
@@ -395,21 +395,21 @@ namespace Returns.Controllers
                     return StatusCode(500, "An error occurred while processing the forms.");
                 }
                 var ReturnDetails = _context.Returns.Find(returnId);
-                /*  var IsAssigned = await _returnAssignmentService.AssignReturnAsync(ReturnDetails, loggedInSacco.SaccoId);
-                  if (!IsAssigned.Success)
-                  {
-                      _logger.LogError("Error assigning return: {ErrorMessage}", IsAssigned.ErrorMessage);
+                var IsAssigned = await _returnAssignmentService.AssignReturnAsync(ReturnDetails, loggedInSacco.SaccoId);
+                if (!IsAssigned.Success)
+                {
+                    _logger.LogError("Error assigning return: {ErrorMessage}", IsAssigned.ErrorMessage);
 
-                      var returnToDelete = await _context.Return.FindAsync(returnId);
-                      if (returnToDelete != null)
-                      {
-                          _context.Return.Remove(returnToDelete);
-                          await _context.SaveChangesAsync();
-                      }
+                    var returnToDelete = await _context.Returns.FindAsync(returnId);
+                    if (returnToDelete != null)
+                    {
+                        _context.Returns.Remove(returnToDelete);
+                        await _context.SaveChangesAsync();
+                    }
 
-                      return StatusCode(500, IsAssigned.ErrorMessage);
-                  }*/
-                //await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
+                    return StatusCode(500, IsAssigned.ErrorMessage);
+                }
+                await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
                 return Ok(processingMessages);
             }
             catch (Exception ex)
@@ -448,54 +448,87 @@ namespace Returns.Controllers
         [HttpGet("GetSubmittedReturns")]
         public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedReturns()
         {
-            LoggedInSacco loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }
-
+         
             var returns = new List<SubmittedReturnDTO>();
 
-            var Submittedreturns = await _context.ReturnsAssigments
-                .Include(r => r.Return)
-            // .Include(r => r.Return.DTLiquidityReturns)
-            // .Include(r => r.Return.DTRiskClassificationReturns)
-            // .Include(r => r.Return.DTInvestmentReturns)
-            // .Include(r => r.Return.DTFinancialPositionReturns)
-            // .Include(r => r.Return.DTComprehensiveIncomeReturns)
-            // .Include(r => r.Return.SaccoAnalysis)
-            // .Include(r => r.Return.DepositReturns)
-            .Where(r => r.Return.SaccoType == Constants.SaccoType.DepositTaking.ToString() && r.Return.IsActiveVersion == true)
+            // 1. One query: get active assignments + their Returns
+            var activeAssignments = await _context.ReturnsAssigments
+                .Include(a => a.Return)
+                .Where(a =>
+                    a.Return.SaccoType == Constants.SaccoType.DepositTaking.ToString() &&
+                    a.Return.IsActiveVersion
+                )
                 .ToListAsync();
 
-            if (Submittedreturns == null || Submittedreturns.Count == 0)
+            if (!activeAssignments.Any())
             {
-                return returns;
+                return new List<SubmittedReturnDTO>();
             }
 
-            foreach (var r in Submittedreturns)
-            {
-                var isAnyLate = ReturnsHelper.CheckLateReturns(r.Return);
-                var previousVersionIds = await ReturnsHelper.GetPreviousVersionIdsAsync(r.Return);
+            // 2. Figure out exactly which Sacco+Year combinations we need version history for
+            var requiredVersionKeys = activeAssignments
+                .Select(a => (SaccoId: a.Return.SaccoId, Year: a.Return.ReturnFor.Year))
+                .Distinct()
+                .ToList();
 
-                var nw = new SubmittedReturnDTO
+            // 3. One query: pull all version‑links for every needed cohort
+            var allLinks = await _context.Returns
+                .Where(r =>
+                    r.SaccoType == Constants.SaccoType.DepositTaking.ToString() &&
+                    requiredVersionKeys.Any(c => r.SaccoId == c.SaccoId && r.ReturnFor.Year == c.Year)
+                )
+                .Select(r => new {
+                    r.Id,
+                    r.PreviousVersionId,
+                    r.SaccoId,
+                    Year = r.ReturnFor.Year
+                })
+                .ToListAsync();
+
+            // 4. Group them into a dictionary-of-dictionaries: 
+            //    { (saccoId, year) → { Id → PreviousVersionId } }
+            var linkMap = allLinks
+                .GroupBy(x => (x.SaccoId, x.Year))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.ToDictionary(x => x.Id, x => x.PreviousVersionId ?? "")
+                );
+
+            // 5. Build your DTOs in memory
+            var results = new List<SubmittedReturnDTO>(activeAssignments.Count);
+            foreach (var assignment in activeAssignments)
+            {
+                var r = assignment.Return;
+                var key = (r.SaccoId, r.ReturnFor.Year);
+                var prevMap = linkMap[key];
+
+                // walk the chain in memory
+                var chain = new List<string>();
+                var currentId = r.Id;
+                while (prevMap.TryGetValue(currentId, out var prevId)
+                       && !string.IsNullOrEmpty(prevId))
                 {
-                    Id = r.Return.Id,
-                    ReturnsFor = r.Return.ReturnFor.Year.ToString(),
-                    SaccoId = r.Return.SaccoId,
-                    IsConsistent = r.Return.IsNotConsistent,
-                    ConsistentErrorMessage = r.Return.ConsistentErrorMessage,
-                    SaccoName = r.Return.SaccoName,
-                    SubmittedAt = r.Return.SubmittedAt,
-                    LateNessStatus = isAnyLate ? "Late" : "On Time",
-                    TotalReturns = ReturnsHelper.CountPopulatedReturns(r.Return),
-                    TotalLateReturns = ReturnsHelper.CountLateReturns(r.Return),
-                    VersionNumber = r.Return.VersionNumber,
-                    PreviousVersionIds = previousVersionIds
-                };
+                    chain.Add(prevId);
+                    currentId = prevId;
+                }
 
-                returns.Add(nw);
+                results.Add(new SubmittedReturnDTO
+                {
+                    Id = r.Id,
+                    ReturnsFor = r.ReturnFor.Year.ToString(),
+                    SaccoId = r.SaccoId,
+                    IsConsistent = !r.IsNotConsistent,
+                    ConsistentErrorMessage = r.ConsistentErrorMessage,
+                    SaccoName = r.SaccoName,
+                    SubmittedAt = r.SubmittedAt,
+                    LateNessStatus = ReturnsHelper.CheckLateReturns(r) ? "Late" : "On Time",
+                    TotalReturns = ReturnsHelper.CountPopulatedReturns(r),
+                    TotalLateReturns = ReturnsHelper.CountLateReturns(r),
+                    VersionNumber = r.VersionNumber,
+                    PreviousVersionIds = chain
+                });
             }
+
 
             return returns;
         }
@@ -504,50 +537,87 @@ namespace Returns.Controllers
         [HttpGet("GetSubmittedNWDTReturns")]
         public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedNWDTReturns()
         {
-            LoggedInSacco loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }
-
-            var returns = new List<SubmittedReturnDTO>();
-
-            var Submittedreturns = await _context.ReturnsAssigments
-                .Include(r => r.Return)
-                .Where(r => r.Return.SaccoType == Constants.SaccoType.NWDT.ToString() && r.Return.IsActiveVersion == true)
+            // 1. Load all active NWDT assignments (one DB call)
+            var activeAssignments = await _context.ReturnsAssigments
+                .Include(a => a.Return)
+                .Where(a =>
+                    a.Return.SaccoType == Constants.SaccoType.NWDT.ToString() &&
+                    a.Return.IsActiveVersion
+                )
                 .ToListAsync();
-            if (Submittedreturns == null || Submittedreturns.Count == 0)
-            {
-                return returns;
-            }
 
-            foreach (var r in Submittedreturns)
-            {
-                // Check if children are late
-                var isAnyLate = ReturnsHelper.CheckLateReturnsNWDT(r.Return);
-                var previousVersionIds = await ReturnsHelper.GetPreviousVersionIdsAsync(r.Return);
+            if (!activeAssignments.Any())
+                return Ok(new List<SubmittedReturnDTO>());
 
-                var nw = new SubmittedReturnDTO
+            // 2. Figure out which Sacco+Year combinations actually need history
+            var requiredVersionKeys = activeAssignments
+                .Select(a => (SaccoId: a.Return.SaccoId, Year: a.Return.ReturnFor.Year))
+                .Distinct()
+                .ToList();
+
+            // 3. One DB call: fetch all (Id, PreviousVersionId, SaccoId, Year) for those keys
+            var allLinks = await _context.Returns
+                .Where(r =>
+                    r.SaccoType == Constants.SaccoType.NWDT.ToString() &&
+                    requiredVersionKeys.Any(key => r.SaccoId == key.SaccoId && r.ReturnFor.Year == key.Year)
+                )
+                .Select(r => new {
+                    r.Id,
+                    r.PreviousVersionId,
+                    r.SaccoId,
+                    Year = r.ReturnFor.Year
+                })
+                .ToListAsync();
+
+            // 4. Group into a map: (SaccoId,Year) → Dictionary<Id,PreviousVersionId>
+            var linkMap = allLinks
+                .GroupBy(x => (x.SaccoId, x.Year))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.ToDictionary(x => x.Id, x => x.PreviousVersionId ?? "")
+                );
+
+            // 5. Build DTOs in memory
+            var results = new List<SubmittedReturnDTO>(activeAssignments.Count);
+            foreach (var assignment in activeAssignments)
+            {
+                var r = assignment.Return;
+                var key = (r.SaccoId, r.ReturnFor.Year);
+                var prevMap = linkMap[key];
+
+                // Walk back through the version chain
+                var chain = new List<string>();
+                var currentId = r.Id;
+                while (prevMap.TryGetValue(currentId, out var prevId)
+                       && !string.IsNullOrEmpty(prevId))
                 {
-                    Id = r.Return.Id,
-                    ReturnsFor = r.Return.ReturnFor.Year.ToString(),
-                    SaccoId = r.Return.SaccoId,
-                    IsConsistent = r.Return.IsNotConsistent,
-                    ConsistentErrorMessage = r.Return.ConsistentErrorMessage,
-                    SaccoName = r.Return.SaccoName,
-                    SubmittedAt = r.Return.SubmittedAt,
-                    LateNessStatus = isAnyLate ? "Late" : "On Time",
-                    TotalReturns = ReturnsHelper.CountPopulatedReturnsNWDT(r.Return),
-                    TotalLateReturns = ReturnsHelper.CountLateReturnsNWDT(r.Return),
-                    VersionNumber = r.Return.VersionNumber,
-                    PreviousVersionIds = previousVersionIds,
-                };
+                    chain.Add(prevId);
+                    currentId = prevId;
+                }
 
-                returns.Add(nw);
+                // Check lateness once, reuse in DTO
+                var isAnyLate = ReturnsHelper.CheckLateReturnsNWDT(r);
+
+                results.Add(new SubmittedReturnDTO
+                {
+                    Id = r.Id,
+                    ReturnsFor = r.ReturnFor.Year.ToString(),
+                    SaccoId = r.SaccoId,
+                    IsConsistent = !r.IsNotConsistent,
+                    ConsistentErrorMessage = r.ConsistentErrorMessage,
+                    SaccoName = r.SaccoName,
+                    SubmittedAt = r.SubmittedAt,
+                    LateNessStatus = isAnyLate ? "Late" : "On Time",
+                    TotalReturns = ReturnsHelper.CountPopulatedReturnsNWDT(r),
+                    TotalLateReturns = ReturnsHelper.CountLateReturnsNWDT(r),
+                    VersionNumber = r.VersionNumber,
+                    PreviousVersionIds = chain
+                });
             }
 
-            return Ok(returns);
+            return Ok(results);
         }
+
 
 
 
@@ -754,8 +824,8 @@ namespace Returns.Controllers
                     VersionNumber = r.VersionNumber,
                     IsActiveVersion = r.IsActiveVersion,
                     AmendmentDate = r.AmendmentDate,
-                    PreviousVersionId = r.PreviousVersionId,
-                    // PreviousVersionIds = ReturnsHelper.GetPreviousVersionIdsAsync(r).Result
+                    //PreviousVersionId = r.PreviousVersionId,
+                    PreviousVersionIds = ReturnsHelper.GetPreviousVersionIdsAsync(r).Result
                 })
 
                 .FirstOrDefaultAsync();

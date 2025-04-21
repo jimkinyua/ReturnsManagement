@@ -34,34 +34,35 @@ namespace Returns.Helpers
 
         public static async Task<List<string>> GetPreviousVersionIdsAsync(Return returnEntity)
         {
+            // 1. Load all siblings in the same Sacco + Year cohort in one go
+            using var context = new ReturnsDbContext();
+
+            var links = await context.Returns
+                .AsNoTracking()
+                .Where(r =>
+                    r.SaccoId == returnEntity.SaccoId &&
+                    r.SaccoType == returnEntity.SaccoType &&
+                    r.ReturnFor.Year == returnEntity.ReturnFor.Year
+                )
+                .Select(r => new { r.Id, r.PreviousVersionId })
+                .ToListAsync();
+
+            // 2. Build a lookup of Id → PreviousVersionId
+            var map = links.ToDictionary(x => x.Id, x => x.PreviousVersionId);
+
+            // 3. Walk the chain in memory
             var previousIds = new List<string>();
-            var currentReturn = returnEntity;
-            ReturnsDbContext _context = new ReturnsDbContext();
+            var currentId = returnEntity.Id;
 
-            // while (!string.IsNullOrEmpty(currentReturn.PreviousVersionId))
-            // {
-            // if (currentReturn.VersionNumber == 1)
-            // {
-            //     break;
-
-            // }
-            // var previousReturn = currentReturn.PreviousVersion;
-
-            // if (previousReturn == null)
-            // {
-            //     previousReturn = await _context.Return.FindAsync(currentReturn.PreviousVersionId);
-            // }
-
-            // if (previousReturn == null)
-            // {
-            //     break;
-            // }
-
-            previousIds.Add(currentReturn.PreviousVersionId);
-            // }
+            while (map.TryGetValue(currentId, out var prevId) && !string.IsNullOrEmpty(prevId))
+            {
+                previousIds.Add(prevId);
+                currentId = prevId;
+            }
 
             return previousIds;
         }
+
 
 
         public static int CountPopulatedReturns(Return returnItem)
