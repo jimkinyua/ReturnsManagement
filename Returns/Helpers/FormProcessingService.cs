@@ -54,7 +54,7 @@ namespace Returns.Helpers
 
         public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync(
             NewReturnDTO batchDTO,
-            LoggedInSacco loggedInSacco,
+            LoggedInEntity loggedInSacco,
             bool isConsistent,
             List<string> consistencyErrors,
             string periodToUse)
@@ -207,7 +207,7 @@ namespace Returns.Helpers
             }
         }
 
-        private Return CreateNewReturn(LoggedInSacco sacco, bool isConsistent, List<string> errors, DateTime submissionDate, string periodToUse)
+        private Return CreateNewReturn(LoggedInEntity sacco, bool isConsistent, List<string> errors, DateTime submissionDate, string periodToUse)
         {
             return new Return
             {
@@ -224,7 +224,7 @@ namespace Returns.Helpers
             };
         }
 
-        public async Task<(bool Success, string NewBatchId, string Message)> HandleBatchAmendmentAsync(string batchReturnId, LoggedInSacco loggedInSacco, bool isConsistent, List<string> consistencyErrors, string periodToUse, DateTime submissionDate)
+        public async Task<(bool Success, string NewBatchId, string Message)> HandleBatchAmendmentAsync(string batchReturnId, LoggedInEntity loggedInSacco, bool isConsistent, List<string> consistencyErrors, string periodToUse, DateTime submissionDate)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
 

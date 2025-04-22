@@ -42,6 +42,8 @@ internal class Program
         builder.Services.AddTransient<IEmailService, EmailService>();
         builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();
         builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
+        builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
+
 
         var app = builder.Build();
 

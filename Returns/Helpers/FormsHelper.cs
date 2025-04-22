@@ -169,7 +169,7 @@ namespace Returns.Helpers
 
                 // Get the configured storage path from environment variable with proper handling for different path formats
                 string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
-                return "";
+                return "SAVING FILES DISABLED";
                 if (string.IsNullOrEmpty(hostStoragePath))
                 {
                     throw new Exception("HOST_STORAGE_PATH environment variable is not set.");

@@ -6,9 +6,10 @@ namespace Returns.Models
     public class ResponseAttachement: CommonFields
     {
         public string FileUrl { get; set; } = null!;
+        public string FileName { get; set; } = null!;
         [ForeignKey("AdditionalInfoReponse")]
-        public string AdditionalInfoReponseId { get; set; } = null!;
-        public AdditionalInfoReponse AdditionalInfoReponse { get; set; } = null!;
+        public string ResponseId { get; set; } = null!;
+        public virtual AdditionalInfoResponse AdditionalInfoReponse { get; set; } = null!;
 
     }
 }

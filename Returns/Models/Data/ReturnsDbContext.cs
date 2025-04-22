@@ -52,7 +52,7 @@ namespace Returns.Models.Data
         
         public DbSet<ReturnsAssigment> ReturnsAssigments { get; set; }
         public DbSet<AdditionalInformationRequest> AdditionalInformationRequests { get; set; }
-        public DbSet<AdditionalInfoReponse> AdditionalInfoReponses { get; set; }
+        public DbSet<AdditionalInfoResponse> AdditionalInfoResponses  { get; set; }
         public DbSet<ResponseAttachement> ResponseAttachements { get; set; }
 
         public DbSet<SectoralLendingReport> SectoralLendingReports { get; set; }

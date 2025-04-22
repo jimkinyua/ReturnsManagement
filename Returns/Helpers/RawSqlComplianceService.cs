@@ -13,7 +13,7 @@ namespace Returns.Helpers
 
         public RawSqlComplianceService(IConfiguration configuration, ILogger<RawSqlComplianceService> logger)
         {
-            _connectionString = configuration.GetConnectionString("IdentityDbConnection") ?? "Server=192.168.88.7\\DEV2022;Database=IdentityDb;User ID=erp;Password=Pass@7046.;Trusted_Connection=False;TrustServerCertificate=True";
+            _connectionString = configuration.GetConnectionString("IdentityDbConnection");
             _logger = logger;
         }
 
@@ -33,8 +33,8 @@ namespace Returns.Helpers
                             u.Email,
                             u.TeamName,
                             u.TeamRole
-                        FROM [IdentityDb].[dbo].[UserSaccos] us
-                        INNER JOIN [IdentityDb].[dbo].[AspNetUsers] u ON us.UserId = u.Id
+                        FROM [IdentityDatabase].[dbo].[UserSaccos] us
+                        INNER JOIN [IdentityDatabase].[dbo].[AspNetUsers] u ON us.UserId = u.Id
                         WHERE us.SaccoId = @saccoId";
 
                     using (var command = new SqlCommand(sql, connection))

@@ -1,12 +1,110 @@
-﻿using Returns.Helpers.Interfaces;
+﻿using Microsoft.EntityFrameworkCore;
+using Returns.DTOs.AdditionalInfo;
+using Returns.Helpers.Enums;
+using Returns.Helpers.Interfaces;
+using Returns.Models;
+using Returns.Models.Data;
 
 namespace Returns.Helpers
 {
     public class AdditionalInformationRequestService : IAdditionalInformationRequestService
     {
-        public Task RequestAdditionalInformationAsync(string returnId, string requestingUserId, string additionalInfoDetails)
+        private readonly IEmailService _emailSender;
+        private readonly ILogger<AdditionalInformationRequestService> _logger;
+        private readonly ReturnsDbContext _context;
+
+        public AdditionalInformationRequestService( ReturnsDbContext context, IEmailService emailSender, ILogger<AdditionalInformationRequestService> logger)
         {
-            throw new NotImplementedException();
+            _context = context;
+            _emailSender = emailSender;
+            _logger = logger;
         }
+        public async Task<AdditionalInformationRequestDto> RequestAdditionalInformationAsync(CreateAdditionalInformationRequestDto  createAdditionalInformationRequestDto, string RequestedBy)
+        {
+            var ReturnDetails = await _context.Returns.FirstOrDefaultAsync(r => r.Id == createAdditionalInformationRequestDto.ReturnId);
+            if (ReturnDetails == null)
+                throw new KeyNotFoundException("Return not found");
+
+            var entity = new AdditionalInformationRequest
+            {
+                ReturnId = createAdditionalInformationRequestDto.ReturnId,
+                Description = createAdditionalInformationRequestDto.Description,
+                RequestedBy = RequestedBy,
+                SaccoId = ReturnDetails.SaccoId,
+            };
+
+
+            _context.AdditionalInformationRequests.Add(entity);
+            await _context.SaveChangesAsync();
+            return new AdditionalInformationRequestDto
+            {
+                Id = entity.Id,
+                Description = entity.Description,
+                RequestedBy = entity.RequestedBy,
+                Status = entity.RequestStatus,
+                IsResponded = entity.IsResponded,
+                CreatedAt = entity.CreatedAt,
+                Responses = new List<AdditionalInfoResponseDto>()
+            };
+        }
+
+        public async Task<AdditionalInfoResponseDto> AddResponseAsync(CreateAdditionalInfoResponseDto dto, string RespondedBy)
+        {
+            var request = await _context.AdditionalInformationRequests.FirstOrDefaultAsync(r => r.Id == dto.Id);
+
+            if (request == null)
+                throw new KeyNotFoundException("Request not found");
+
+            var response = new AdditionalInfoResponse
+            {
+                RequestId = dto.Id,
+                RespondedBy = RespondedBy,
+                ReponseMessage = dto.ResponseMessage
+            };
+
+            _context.AdditionalInfoResponses.Add(response);
+
+            request.IsResponded = true;
+            request.RequestStatus = AdditionalInfoRequestStatus.Responded.ToString();
+            request.RespondedAt = DateTime.Now;
+            _context.AdditionalInformationRequests.Update(request);
+            await _context.SaveChangesAsync();
+
+            // are there any attachments to the response?
+            if (dto.Attachments != null && dto.Attachments.Count > 0)
+            {
+                foreach (var attachment in dto.Attachments)
+                {
+                    var FileUrl = await FormsHelper.SaveFileAsync(attachment.File, "Additional Returns", attachment.FileName);
+                    var attachmentEntity = new ResponseAttachement
+                    {
+                        ResponseId = response.Id,
+                        FileUrl = FileUrl,
+                        FileName = attachment.FileName,
+                    };
+                    _context.ResponseAttachements.Add(attachmentEntity);
+                }
+                await _context.SaveChangesAsync();
+            }
+            var SavedAttachments = await _context.ResponseAttachements
+                .Where(a => a.ResponseId == response.Id)
+                .Select(a => new AdditionalInfoAttachmentDto
+                {
+                    FileUrl = a.FileUrl,
+                    Name = a.FileName,
+                }).ToListAsync();
+
+            var resul =  new AdditionalInfoResponseDto
+            {   
+                Id = response.Id,
+                ResponseMessage = response.ReponseMessage,
+                RespondedAt = request.RespondedAt.Value,
+                RespondedBy = RespondedBy,
+                Attachments = SavedAttachments
+            };
+            return resul;
+        }
+
+     
     }
 }

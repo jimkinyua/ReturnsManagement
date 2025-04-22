@@ -138,14 +138,14 @@ namespace Returns.Helpers
 
         /*   public static (bool IsCapitalAdequacyLate, bool IsLiquidityReturnLate, bool IsRiskClassificationLate, bool IsInvestmentReturnLate, bool IsStatementOfFinancialPositionLate, bool IsStatementOfComprehensiveIncomeLate, bool IsSaccoAnalysisLate, bool IsDepositReturnLate) CheckLateReturns(Return returnItem)
            {
-               bool isCapitalAdequacyLate = returnItem.CapitalAdequencies.Any() && HowLate(returnItem.CapitalAdequencies.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isLiquidityReturnLate = returnItem.DTLiquidityReturns.Any() && HowLate(returnItem.DTLiquidityReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isRiskClassificationLate = returnItem.DTRiskClassificationReturns.Any() && HowLate(returnItem.DTRiskClassificationReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isInvestmentReturnLate = returnItem.DTInvestmentReturns.Any() && HowLate(returnItem.DTInvestmentReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isStatementOfFinancialPositionLate = returnItem.DTFinancialPositionReturns.Any() && HowLate(returnItem.DTFinancialPositionReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isStatementOfComprehensiveIncomeLate = returnItem.DTComprehensiveIncomeReturns.Any() && HowLate(returnItem.DTComprehensiveIncomeReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isSaccoAnalysisLate = returnItem.SaccoAnalysis.Any() && HowLate(returnItem.SaccoAnalysis.First().CreatedAt, returnItem.ReturnFor) > 0;
-               bool isDepositReturnLate = returnItem.DepositReturns.Any() && HowLate(returnItem.DepositReturns.First().CreatedAt, returnItem.ReturnFor) > 0;
+               bool isCapitalAdequacyLate = returnItem.CapitalAdequencies.Any() && HowLate(returnItem.CapitalAdequencies.First().RespondedAt, returnItem.ReturnFor) > 0;
+               bool isLiquidityReturnLate = returnItem.DTLiquidityReturns.Any() && HowLate(returnItem.DTLiquidityReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+               bool isRiskClassificationLate = returnItem.DTRiskClassificationReturns.Any() && HowLate(returnItem.DTRiskClassificationReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+               bool isInvestmentReturnLate = returnItem.DTInvestmentReturns.Any() && HowLate(returnItem.DTInvestmentReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+               bool isStatementOfFinancialPositionLate = returnItem.DTFinancialPositionReturns.Any() && HowLate(returnItem.DTFinancialPositionReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+               bool isStatementOfComprehensiveIncomeLate = returnItem.DTComprehensiveIncomeReturns.Any() && HowLate(returnItem.DTComprehensiveIncomeReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+               bool isSaccoAnalysisLate = returnItem.SaccoAnalysis.Any() && HowLate(returnItem.SaccoAnalysis.First().RespondedAt, returnItem.ReturnFor) > 0;
+               bool isDepositReturnLate = returnItem.DepositReturns.Any() && HowLate(returnItem.DepositReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
 
                return (isCapitalAdequacyLate, isLiquidityReturnLate, isRiskClassificationLate, isInvestmentReturnLate, isStatementOfFinancialPositionLate, isStatementOfComprehensiveIncomeLate, isSaccoAnalysisLate, isDepositReturnLate);
            }*/

@@ -18,7 +18,7 @@ namespace Returns.Helpers
             var userId = ((JwtSecurityToken)token).Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
             return userId.ToString();
         }
-        internal static LoggedInSacco GetLoggedInSaccoFromCurrentRequest(HttpRequest request)
+        internal static LoggedInEntity GetLoggedInSaccoFromCurrentRequest(HttpRequest request)
         {
             var token = ExtractTokenFromRequest(request);
             var userId = ((JwtSecurityToken)token).Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier)?.Value;
@@ -36,21 +36,23 @@ namespace Returns.Helpers
                 _ => "0" // Default or unknown type
             };
 
-            return new LoggedInSacco
+            return new LoggedInEntity
             {
                 SaccoId = SaccoId,
                 SaccoName = SaccoName,
                 SaccoType = saccoTypeId,
-                EmailAddress = EmailAddress
+                EmailAddress = EmailAddress,
+                UserId = userId
             };
         }
 
-        public class LoggedInSacco
+        public class LoggedInEntity
         {
             public string SaccoName = "";
             public string SaccoType = "";
             public string SaccoId = "";
             public string EmailAddress = "";
+            public string UserId = "";
         }
     }
 }

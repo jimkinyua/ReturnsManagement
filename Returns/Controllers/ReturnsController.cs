@@ -50,7 +50,7 @@ namespace Returns.Controllers
         {
 
 
-            LoggedInSacco loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
@@ -297,7 +297,7 @@ namespace Returns.Controllers
             var ConError = new List<string>();
             Boolean IsConsistent = true;
             string PeriodToUse = string.Empty;
-            LoggedInSacco loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
@@ -425,7 +425,7 @@ namespace Returns.Controllers
         [HttpPost("ReassignReturn")]
         public async Task<IActionResult> ReassignReturn([FromBody] ReAssignReturnDTO reAssignReturnDTO)
         {
-            LoggedInSacco loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);

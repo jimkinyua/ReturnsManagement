@@ -109,7 +109,7 @@ namespace Returns.Controllers
         {
             try
             {
-                LoggedInSacco loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
                     return StatusCode(401);

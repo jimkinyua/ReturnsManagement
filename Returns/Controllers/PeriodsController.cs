@@ -69,7 +69,7 @@ namespace Returns.Controllers
                 {
                     Id = q.Id,
                     PeriodId = q.PeriodId,
-                    CreatedAt = q.CreatedAt
+                    RespondedAt = q.RespondedAt
                 }).ToList(),
                 ReturnForms = period.ReturnForms?.Select(r => new ReturnFormDTO
                 {
@@ -86,7 +86,7 @@ namespace Returns.Controllers
                     IsStatementOfComprehensiveIncome = r.IsStatementOfComprehensiveIncome,
                     IsDepositReturnForm = r.IsDepositReturnForm,
                     PeriodId = r.PeriodId,
-                    CreatedAt = r.CreatedAt
+                    RespondedAt = r.RespondedAt
                 }).ToList()
             };
 
@@ -107,7 +107,7 @@ namespace Returns.Controllers
                 DeadlineMonth = periodDTO.Deadline != null
                     ? DateTime.ParseExact(periodDTO.Deadline.Split(' ')[0], "MMMM", CultureInfo.CurrentCulture).Month
                     : 1,
-                CreatedAt = DateTime.UtcNow
+                RespondedAt = DateTime.UtcNow
             };
 
             // Initialize list for QuarterDates
@@ -131,7 +131,7 @@ namespace Returns.Controllers
                         DeadlineMonth = period.DeadlineMonth,
                         DeadlineDay = period.DeadlineDay,
                         PeriodId = period.Id,
-                        CreatedAt = DateTime.UtcNow
+                        RespondedAt = DateTime.UtcNow
                     };
                     _context.QuarterDates.Add(quarterDate); // Explicitly track QuarterDates
                     period.QuarterDates.Add(quarterDate);
@@ -214,7 +214,7 @@ namespace Returns.Controllers
                             DeadlineMonth = period.DeadlineMonth,
                             DeadlineDay = period.DeadlineDay,
                             PeriodId = period.Id,
-                            CreatedAt = DateTime.UtcNow
+                            RespondedAt = DateTime.UtcNow
                         };
 
                         period.QuarterDates.Add(newQuarterDate);
