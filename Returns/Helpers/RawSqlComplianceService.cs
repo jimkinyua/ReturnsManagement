@@ -33,8 +33,8 @@ namespace Returns.Helpers
                             u.Email,
                             u.TeamName,
                             u.TeamRole
-                        FROM [IdentityDatabase].[dbo].[UserSaccos] us
-                        INNER JOIN [IdentityDatabase].[dbo].[AspNetUsers] u ON us.UserId = u.Id
+                        FROM [UserSaccos] us
+                        INNER JOIN [AspNetUsers] u ON us.UserId = u.Id
                         WHERE us.SaccoId = @saccoId";
 
                     using (var command = new SqlCommand(sql, connection))
