@@ -446,7 +446,7 @@ namespace Returns.Controllers
 
 
         [HttpGet("GetSubmittedReturns")]
-        public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedReturns()
+        public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedReturns() 
         {
             // 1. Load active assignments + their Returns
             var activeAssignments = await _context.ReturnsAssigments
@@ -460,49 +460,63 @@ namespace Returns.Controllers
             if (!activeAssignments.Any())
                 return Ok(new List<SubmittedReturnDTO>());
 
-            // 2. Figure out which Sacco+Year combos we need
-            var requiredVersionKeys = activeAssignments
-                .Select(a => (a.Return.SaccoId, Year: a.Return.ReturnFor.Year))
+            // 2. Get distinct SaccoId+Year pairs as separate lists
+            var saccoIds = activeAssignments
+                .Select(a => a.Return.SaccoId)
                 .Distinct()
-                .ToArray();  // materialize to array for the join
+                .ToList();
 
-            // 3. Pull all version‑links in one go via Join
-            var allLinks = await _context.Returns
+            var years = activeAssignments
+                .Select(a => a.Return.ReturnFor.Year)
+                .Distinct()
+                .ToList();
+
+            // 3. Get all relevant returns in one query
+            var allReturns = await _context.Returns
                 .Where(r => r.SaccoType == Constants.SaccoType.DepositTaking.ToString())
-                .Join(
-                    requiredVersionKeys,
-                    r => new { r.SaccoId, Year = r.ReturnFor.Year },
-                    key => new { key.SaccoId, key.Year },
-                    (r, key) => new {
-                        r.Id,
-                        r.PreviousVersionId,
-                        r.SaccoId,
-                        Year = r.ReturnFor.Year
-                    }
-                )
+                .Where(r => saccoIds.Contains(r.SaccoId))
+                .Where(r => years.Contains(r.ReturnFor.Year))
+                .Select(r => new {
+                    r.Id,
+                    r.PreviousVersionId,
+                    r.SaccoId,
+                    r.ReturnFor.Year
+                })
                 .ToListAsync();
 
-            // 4. Group into a map: (SaccoId,Year) → { Id → PreviousVersionId }
-            var linkMap = allLinks
-                .GroupBy(x => (x.SaccoId, x.Year))
+            // 4. Build a lookup for (SaccoId, Year) combinations
+            var lookup = activeAssignments
+                .Select(a => new { a.Return.SaccoId, a.Return.ReturnFor.Year })
+                .Distinct()
+                .ToList();
+
+            // 5. Filter the returns to only those we actually need
+            var filteredReturns = allReturns
+                .Where(r => lookup.Any(x => x.SaccoId == r.SaccoId && x.Year == r.Year))
+                .ToList();
+
+            // 6. Group into a map: (SaccoId,Year) → { Id → PreviousVersionId }
+            var linkMap = filteredReturns
+                .GroupBy(x => new { x.SaccoId, x.Year })
                 .ToDictionary(
-                    g => g.Key,
+                    g => (g.Key.SaccoId, g.Key.Year),
                     g => g.ToDictionary(x => x.Id, x => x.PreviousVersionId ?? "")
                 );
 
-            // 5. Build DTOs in memory
-            var results = new List<SubmittedReturnDTO>(activeAssignments.Count);
+            // 7. Build DTOs in memory
+            var results = new List<SubmittedReturnDTO>();
             foreach (var assignment in activeAssignments)
             {
                 var r = assignment.Return;
                 var key = (r.SaccoId, r.ReturnFor.Year);
-                var prevMap = linkMap[key];
+
+                if (!linkMap.TryGetValue(key, out var prevMap))
+                    continue;
 
                 // walk the chain
                 var chain = new List<string>();
                 var currentId = r.Id;
-                while (prevMap.TryGetValue(currentId, out var prevId)
-                       && !string.IsNullOrEmpty(prevId))
+                while (prevMap.TryGetValue(currentId, out var prevId) && !string.IsNullOrEmpty(prevId))
                 {
                     chain.Add(prevId);
                     currentId = prevId;
@@ -527,8 +541,6 @@ namespace Returns.Controllers
 
             return Ok(results);
         }
-
-
         [HttpGet("GetSubmittedNWDTReturns")]
         public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedNWDTReturns()
         {
@@ -545,42 +557,56 @@ namespace Returns.Controllers
                 return Ok(new List<SubmittedReturnDTO>());
 
             // 2. Figure out which Sacco+Year combos we actually need
-            var requiredVersionKeys = activeAssignments
-                .Select(a => (a.Return.SaccoId, Year: a.Return.ReturnFor.Year))
+            var requiredSaccoIds = activeAssignments
+                .Select(a => a.Return.SaccoId)
                 .Distinct()
-                .ToArray();   // materialize to array for use in Join
+                .ToList();
 
-            // 3. One DB call: join against that in‑memory array
+            var requiredYears = activeAssignments
+                .Select(a => a.Return.ReturnFor.Year)
+                .Distinct()
+                .ToList();
+
+            // 3. One DB call: get all relevant returns
             var allLinks = await _context.Returns
                 .Where(r => r.SaccoType == Constants.SaccoType.NWDT.ToString())
-                .Join(
-                    requiredVersionKeys,
-                    r => new { r.SaccoId, Year = r.ReturnFor.Year },
-                    key => new { key.SaccoId, key.Year },
-                    (r, key) => new {
-                        r.Id,
-                        r.PreviousVersionId,
-                        r.SaccoId,
-                        Year = r.ReturnFor.Year
-                    }
-                )
+                .Where(r => requiredSaccoIds.Contains(r.SaccoId))
+                .Where(r => requiredYears.Contains(r.ReturnFor.Year))
+                .Select(r => new {
+                    r.Id,
+                    r.PreviousVersionId,
+                    r.SaccoId,
+                    Year = r.ReturnFor.Year
+                })
                 .ToListAsync();
 
-            // 4. Group into a map: (SaccoId,Year) → Dictionary<Id,PreviousVersionId>
-            var linkMap = allLinks
+            // 4. Filter to only the exact (SaccoId, Year) pairs we need
+            var requiredPairs = activeAssignments
+                .Select(a => (a.Return.SaccoId, a.Return.ReturnFor.Year))
+                .Distinct()
+                .ToList();
+
+            var filteredLinks = allLinks
+                .Where(x => requiredPairs.Contains((x.SaccoId, x.Year)))
+                .ToList();
+
+            // 5. Group into a map: (SaccoId,Year) → Dictionary<Id,PreviousVersionId>
+            var linkMap = filteredLinks
                 .GroupBy(x => (x.SaccoId, x.Year))
                 .ToDictionary(
                     g => g.Key,
                     g => g.ToDictionary(x => x.Id, x => x.PreviousVersionId ?? "")
                 );
 
-            // 5. Build DTOs in memory
+            // 6. Build DTOs in memory
             var results = new List<SubmittedReturnDTO>(activeAssignments.Count);
             foreach (var assignment in activeAssignments)
             {
                 var r = assignment.Return;
                 var key = (r.SaccoId, r.ReturnFor.Year);
-                var prevMap = linkMap[key];
+
+                if (!linkMap.TryGetValue(key, out var prevMap))
+                    continue;
 
                 // walk the version chain
                 var chain = new List<string>();
@@ -613,8 +639,6 @@ namespace Returns.Controllers
 
             return Ok(results);
         }
-
-
 
         [HttpGet("GetReturnDetails/{returnId}")]
         public async Task<ActionResult<ReturnDetailsDTO>> GetReturnDetails(string returnId)
