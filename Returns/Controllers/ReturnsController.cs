@@ -544,24 +544,26 @@ namespace Returns.Controllers
             if (!activeAssignments.Any())
                 return Ok(new List<SubmittedReturnDTO>());
 
-            // 2. Figure out which Sacco+Year combinations actually need history
+            // 2. Figure out which Sacco+Year combos we actually need
             var requiredVersionKeys = activeAssignments
-                .Select(a => (SaccoId: a.Return.SaccoId, Year: a.Return.ReturnFor.Year))
+                .Select(a => (a.Return.SaccoId, Year: a.Return.ReturnFor.Year))
                 .Distinct()
-                .ToList();
+                .ToArray();   // materialize to array for use in Join
 
-            // 3. One DB call: fetch all (Id, PreviousVersionId, SaccoId, Year) for those keys
+            // 3. One DB call: join against that in‑memory array
             var allLinks = await _context.Returns
-                .Where(r =>
-                    r.SaccoType == Constants.SaccoType.NWDT.ToString() &&
-                    requiredVersionKeys.Any(key => r.SaccoId == key.SaccoId && r.ReturnFor.Year == key.Year)
+                .Where(r => r.SaccoType == Constants.SaccoType.NWDT.ToString())
+                .Join(
+                    requiredVersionKeys,
+                    r => new { r.SaccoId, Year = r.ReturnFor.Year },
+                    key => new { key.SaccoId, key.Year },
+                    (r, key) => new {
+                        r.Id,
+                        r.PreviousVersionId,
+                        r.SaccoId,
+                        Year = r.ReturnFor.Year
+                    }
                 )
-                .Select(r => new {
-                    r.Id,
-                    r.PreviousVersionId,
-                    r.SaccoId,
-                    Year = r.ReturnFor.Year
-                })
                 .ToListAsync();
 
             // 4. Group into a map: (SaccoId,Year) → Dictionary<Id,PreviousVersionId>
@@ -580,7 +582,7 @@ namespace Returns.Controllers
                 var key = (r.SaccoId, r.ReturnFor.Year);
                 var prevMap = linkMap[key];
 
-                // Walk back through the version chain
+                // walk the version chain
                 var chain = new List<string>();
                 var currentId = r.Id;
                 while (prevMap.TryGetValue(currentId, out var prevId)
@@ -590,7 +592,6 @@ namespace Returns.Controllers
                     currentId = prevId;
                 }
 
-                // Check lateness once, reuse in DTO
                 var isAnyLate = ReturnsHelper.CheckLateReturnsNWDT(r);
 
                 results.Add(new SubmittedReturnDTO
@@ -612,7 +613,6 @@ namespace Returns.Controllers
 
             return Ok(results);
         }
-
 
 
 

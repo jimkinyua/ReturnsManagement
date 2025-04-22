@@ -34,9 +34,8 @@ namespace Returns.Helpers
 
         public static async Task<List<string>> GetPreviousVersionIdsAsync(Return returnEntity)
         {
-            // 1. Load all siblings in the same Sacco + Year cohort in one go
+            // 1. Bulk load all (Id → PreviousVersionId) for this Sacco+Type+Year
             using var context = new ReturnsDbContext();
-
             var links = await context.Returns
                 .AsNoTracking()
                 .Where(r =>
@@ -47,21 +46,21 @@ namespace Returns.Helpers
                 .Select(r => new { r.Id, r.PreviousVersionId })
                 .ToListAsync();
 
-            // 2. Build a lookup of Id → PreviousVersionId
+            // 2. Build the lookup map
             var map = links.ToDictionary(x => x.Id, x => x.PreviousVersionId);
 
-            // 3. Walk the chain in memory
+            // 3. Walk the chain in a simple for‑loop
             var previousIds = new List<string>();
-            var currentId = returnEntity.Id;
-
-            while (map.TryGetValue(currentId, out var prevId) && !string.IsNullOrEmpty(prevId))
+            for (var currentId = returnEntity.Id;
+                 map.TryGetValue(currentId, out var prevId) && !string.IsNullOrEmpty(prevId);
+                 currentId = prevId!)
             {
-                previousIds.Add(prevId);
-                currentId = prevId;
+                previousIds.Add(prevId!);
             }
 
             return previousIds;
         }
+
 
 
 
