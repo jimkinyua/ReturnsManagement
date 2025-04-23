@@ -7,7 +7,7 @@ namespace Returns.Models
     {
         public int Sequence { get; set; }
         public string RoleId { get; set; } = null!;
-        public string RoleName { get; set; } = null!;
+        public string? RoleName { get; set; }
 
         [ForeignKey("WorkFlowTemplate")]
         public string WorkFlowTemplateId { get; set; } = null!;
