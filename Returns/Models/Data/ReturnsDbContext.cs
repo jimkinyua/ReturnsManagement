@@ -64,6 +64,10 @@ namespace Returns.Models.Data
         public DbSet<InsiderLendingHeader> InsiderLendingHeaders { get; set; }
         public DbSet<InsiderLoan> InsiderLoans { get; set; }
 
+        public DbSet<WorkFlowTemplate> WorkFlowTemplates { get; set; }
+        public DbSet<WorkFlowStep> WorkFlowSteps { get; set; }
+        public DbSet<ApprovalAction> ApprovalActions { get; set; }
+        public DbSet<WorkflowInstance> WorkflowInstances { get; set; }
 
     }   
 
