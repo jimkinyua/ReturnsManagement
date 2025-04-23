@@ -5,6 +5,7 @@ using Returns.Helpers;
 using Returns.Models.Data;
 using Microsoft.Extensions.Options;
 using Returns.Helpers.Interfaces;
+using Returns.Helpers.Interfaces.WorkFlow;
 
 internal class Program
 {
@@ -43,6 +44,7 @@ internal class Program
         builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();
         builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
         builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
+        builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
 
 
         var app = builder.Build();

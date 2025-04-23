@@ -10,6 +10,11 @@ namespace Returns.Helpers
     {
         private readonly ReturnsDbContext _context;
 
+        public WorkflowTemplateService(ReturnsDbContext context)
+        {
+            _context = context;
+        }
+
         public async Task<WorkflowStepDTO> AddStepToWorkflowTemplate(CreateWorkflowStepDTO dto)
         {
             var template = await _context.WorkFlowTemplates.FirstOrDefaultAsync(t => t.Id == dto.WorkTemplateId);
