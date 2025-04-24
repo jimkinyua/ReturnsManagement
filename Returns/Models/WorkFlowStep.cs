@@ -13,5 +13,6 @@ namespace Returns.Models
         public string WorkFlowTemplateId { get; set; } = null!;
         public virtual WorkFlowTemplate WorkFlowTemplate { get; set; } = null!;
         public virtual ICollection<ApprovalAction> ApprovalActions { get; set; } = new HashSet<ApprovalAction>();
+        public virtual ICollection<WorkflowInstance> WorkflowInstances { get; set; } = new HashSet<WorkflowInstance>();
     }
 }

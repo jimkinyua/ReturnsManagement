@@ -10,6 +10,7 @@ namespace Returns.Models
         public string RoleName { get; set; } = null!;
         public bool EnforcementTriggered { get; set; } = false;
         public string WorkflowTemplateId { get; set; } = null!;
+        [ForeignKey("Returns")]
         public string ReturnId { get; set; } = null!;
         public string TeamId { get; set; } = null!;
         public string UserId { get; set; } = null!;
@@ -18,6 +19,7 @@ namespace Returns.Models
         [ForeignKey("WorkFlowStep")]
         public string CurrentStepId { get; set; } = null!;
         public virtual WorkFlowStep CurrentStep { get; set; } = null!;
+        public virtual Return Return { get; set; } = null!;
 
     }
 }

@@ -1,6 +1,8 @@
 ﻿using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.WorkFlow_Engine;
+using Returns.DTOs.WorkFlowTemplate;
+using Returns.Helpers.Enums;
 using Returns.Helpers.Interfaces;
 using Returns.Models;
 using Returns.Models.Data;
@@ -18,9 +20,31 @@ namespace Returns.Helpers
             _complianceService = complianceService;
         }
 
-        public Task<WorkflowStateDto> ApproveStepAsync(string workflowId, string userId, ApproveStepRequest request)
+     
+
+        public async Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId)
         {
-            throw new NotImplementedException();
+            // Get all workflow instances where:
+            // 1. The workflow is still active (not completed/rejected)
+            // 2. The current step is assigned to this user
+            var pendingReturns = await _db.WorkflowInstances
+                .Include(w => w.CurrentStep)
+                .Include(w => w.Return)
+                .Where(w => w.Status == ApprovalStatus.Pending.ToString() && w.UserId == userId) // UserId stores current approver
+                .OrderBy(w => w.CreatedAt)
+                .Select(w => new PendingReturnDto
+                {
+                    ReturnId = w.ReturnId,
+                    SaccoId = w.Return.SaccoId,
+                    WorkFlowInstanceId = w.Id,
+                    CurrentRole = w.CurrentStep.RoleName,
+                    CurrentStep = w.CurrentStep.Sequence,
+                    SubmittedDate = w.Return.CreatedAt,
+                    Rating = w.Rating
+                })
+                .ToListAsync();
+
+            return pendingReturns;
         }
 
         public async Task<WorkflowStateDto> GetCurrentStateAsync(string returnId)
@@ -61,11 +85,11 @@ namespace Returns.Helpers
         }
 
 
-        public async Task<WorkflowStateDto> RejectStepAsync(string workflowId, string userId, RejectStepRequest request)
+        public async Task<WorkflowStateDto> RejectStepAsync(string WorkFlowInstanceId, string userId, RejectStepRequest request)
         {
             var instance = await _db.WorkflowInstances
                 .Include(w => w.CurrentStep)
-                .FirstOrDefaultAsync(w => w.Id == workflowId);
+                .FirstOrDefaultAsync(w => w.Id == WorkFlowInstanceId);
 
             if (instance == null)
                 throw new Exception("Workflow not found");

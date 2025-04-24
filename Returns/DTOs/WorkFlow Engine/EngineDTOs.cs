@@ -26,6 +26,8 @@
     public class RejectStepRequest
     {
         public string Reason { get; set; }
+        public string WorkFlowInstanceId { get; set; } = null!;
+
     }
 
     public class SubmitReturnRequest
