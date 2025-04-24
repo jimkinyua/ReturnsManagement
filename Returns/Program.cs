@@ -45,6 +45,7 @@ internal class Program
         builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
         builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
         builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
+        builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
 
 
         var app = builder.Build();

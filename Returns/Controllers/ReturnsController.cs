@@ -34,15 +34,17 @@ namespace Returns.Controllers
         private readonly FormProcessingService _formProcessor;
         private readonly IEmailService _emailService;
         private readonly IReturnAssignmentService _returnAssignmentService;
+        private readonly IWorkflowEngineService _workflowService;
 
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService)
         {
             _context = context;
             _logger = logger;
             _formProcessor = new FormProcessingService(context, logger);
             _emailService = emailService;
             _returnAssignmentService = returnAssignmentService;
+            _workflowService = workflowService;
         }
 
         [HttpPost("CheckConsistency")]
@@ -409,6 +411,9 @@ namespace Returns.Controllers
 
                     return StatusCode(500, IsAssigned.ErrorMessage);
                 }
+                // Start the WorkFlow
+                var WorkFlowResult = await _workflowService.StartWorkflowAsync(ReturnDetails, 4);
+                
                 await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
                 return Ok(processingMessages);
             }
