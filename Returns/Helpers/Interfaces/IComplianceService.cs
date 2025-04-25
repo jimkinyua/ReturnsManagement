@@ -5,8 +5,9 @@ namespace Returns.Helpers.Interfaces
     public interface IComplianceService
     {
         Task<ComplianceOfficerInfo> GetAssignedComplianceOfficer(string saccoId);
-        Task<SasraUser> GetTeamLead(string teamId);
-        Task<TeamLead> GetUserByRole(string RoleId);
+        Task<SasraUser?> GetTeamLead(string teamId);
+        Task<SasraUser?> GetUserByRole(string RoleId);
+        Task<SasraRoleDetails?> GetRoleDetails(string RoleId);
 
     }
 }

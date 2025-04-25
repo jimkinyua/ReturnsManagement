@@ -13,9 +13,9 @@
     public class WorkflowStepDto
     {
         public string StepId { get; set; }
-        public string RoleName { get; set; }
-        public string AssignedUserId { get; set; }
-        public DateTime DueDate { get; set; }
+        public string Approver { get; set; }
+        public string ApproverRole { get; set; }
+        public string ApproverUserId { get; set; }
     }
 
     public class ApproveStepRequest

@@ -56,8 +56,6 @@ namespace Returns.Controllers
                 templatePath = "";
             }
 
-
-
             var form = new ReturnForm
             {
                 FormName = createFormDTO.Name,
@@ -104,9 +102,36 @@ namespace Returns.Controllers
 
         }
 
+        // delete form
+        [HttpDelete("DeleteForm/{formId}")]
+        public async Task<ActionResult> DeleteFormAsync(string formId)
+        {
+            try
+            {
+                var form = await _context.ReturnForms.FindAsync(formId);
+                if (form == null)
+                {
+                    return NotFound();
+                }
+                // Delete the file from the server if it exists
+                if (!string.IsNullOrEmpty(form.TemplateUrl))
+                {
+                    FormsHelper.DeleteFile(form.TemplateUrl);
+                }
+                _context.ReturnForms.Remove(form);
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
         [HttpGet("FormsToSubmit")]
         public async Task<ActionResult<List<FormsToSubmitDTO>>> GetFormsToSubmit()
-        {
+            {
             try
             {
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);

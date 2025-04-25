@@ -29,11 +29,16 @@
         public string Email { get; set; } = string.Empty;
         public string TeamName { get; set; } = string.Empty;
         public string TeamRole { get; set; } = string.Empty;
-        public string TeamId { get; set; } = string.Empty;
-        public string RoleName { get; set; } = string.Empty;
+        public string RoleId { get; set; } = string.Empty;
         public string Id { get; set; } = string.Empty;
 
     }
 
+    public class SasraRoleDetails
+    {
+        public string RoleName { get; set; } = string.Empty;
+        public string RoleId { get; set; } = string.Empty;
+    }
 
-}
+
+    }

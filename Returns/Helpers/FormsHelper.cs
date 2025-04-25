@@ -210,5 +210,36 @@ namespace Returns.Helpers
             }
         }
 
+        // DeleteFile
+        public static async Task<bool> DeleteFile(string filePath)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(filePath))
+                {
+                    return false;
+                }
+                // Get the configured storage path from environment variable
+                string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
+                if (string.IsNullOrEmpty(hostStoragePath))
+                {
+                    throw new Exception("HOST_STORAGE_PATH environment variable is not set.");
+                }
+                hostStoragePath = hostStoragePath.Replace('\\', '/'); // Normalize path separators
+                var fullFilePath = Path.Combine(hostStoragePath, filePath);
+                if (File.Exists(fullFilePath))
+                {
+                    File.Delete(fullFilePath);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the exception
+                Console.WriteLine($"Error deleting file: {ex.Message}");
+            }
+            return false;
+        }
+
     }
 }
