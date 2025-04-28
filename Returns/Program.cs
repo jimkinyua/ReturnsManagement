@@ -46,6 +46,7 @@ internal class Program
         builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
         builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
         builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
+        builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
 
 
         var app = builder.Build();

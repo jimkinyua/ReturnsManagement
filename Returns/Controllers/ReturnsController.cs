@@ -35,9 +35,11 @@ namespace Returns.Controllers
         private readonly IEmailService _emailService;
         private readonly IReturnAssignmentService _returnAssignmentService;
         private readonly IWorkflowEngineService _workflowService;
+        private readonly ICamelsAnalysisService  camelsAnalysisService;
 
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService)
+
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService)
         {
             _context = context;
             _logger = logger;
@@ -45,6 +47,7 @@ namespace Returns.Controllers
             _emailService = emailService;
             _returnAssignmentService = returnAssignmentService;
             _workflowService = workflowService;
+            this.camelsAnalysisService = camelsAnalysisService;
         }
 
         [HttpPost("CheckConsistency")]
@@ -411,8 +414,8 @@ namespace Returns.Controllers
 
                     return StatusCode(500, IsAssigned.ErrorMessage);
                 }
-                // Start the WorkFlow
-                var WorkFlowResult = await _workflowService.StartWorkflowAsync(ReturnDetails, 4);
+                var ratingResult = await camelsAnalysisService.CalculateAnalysisAsync(ReturnDetails.Id, ReturnDetails.SaccoType);
+                var WorkFlowResult = await _workflowService.StartWorkflowAsync(ReturnDetails, ratingResult.OverallRating);
                 
                 await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
                 return Ok(processingMessages);
@@ -1106,136 +1109,23 @@ namespace Returns.Controllers
         [HttpGet("CalculateAnalysis/{returnId}")]
         public async Task<ActionResult<CamelsRatingsDTO>> CalculateAnalysis(string returnId)
         {
-            // Retrieve current return and historical returns
-            var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString());
-            if (currentReturn == null)
+            try
             {
-                return BadRequest("Return not found");
-            }
-
-            var historicalReturns = await _context.Returns.Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId).ToListAsync();
-            historicalReturns = historicalReturns.OrderByDescending(r => r.CreatedAt).Take(2).ToList();
-
-            // Combine current and historical returns
-            var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-            var result = new CamelsRatingsDTO { ReturnId = returnId };
-
-            // Process each return period
-            foreach (var returnPeriod in allReturns)
-            {
-                // Retrieve necessary financial statements and data
-                var balanceSheet = await _context.DTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var incomeStatement = await _context.DTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var capitalReturn = await _context.DTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var liquidityReturn = await _context.DTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var depositReturns = await _context.DepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                var riskClassificationReturn = await _context.DTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                var investmentReturn = await _context.DTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                // Use default objects if data is missing
-                var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
-                var SavedLiquidityStatement = liquidityReturn ?? new DTLiquidityReturn();
-                var SavedDepositReturn = depositReturns ?? new List<DepositReturn>();
-                var SavedRiskClassification = riskClassificationReturn ?? new List<DTRiskClassificationReturn>();
-                var SavedInvestmentReturn = investmentReturn ?? new DTInvestmentReturn();
-                var SavedFinancialPositionStatement = balanceSheet ?? new DTFinancialPositionReturn();
-                var SavedComprehensiveStatement = incomeStatement ?? new DTComprehensiveIncomeReturn();
-
-                // Create an analysis record for this period
-                var analysis = new SaccoAnalysis
+                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString());
+                if (currentReturn == null)
                 {
-                    ReturnId = returnPeriod.Id,
-                    AnalysisDate = DateTime.Now,
-                    // Capital data
-                    CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                    TotalAssets = SavedCapitalAdequacy.TotalAssets,
-                    CoreCapitalToAssetsRatio = SavedCapitalAdequacy.CoreCapitalToAssetsRatio,
-                    InstitutionalCapitalRatio = SavedCapitalAdequacy.InstitutionalCapitalToAssetsRatio,
-                    // Asset Quality data
-                    NonPerformingLoans = ReturnAnalysisHelper.CalculateNonPerformingLoans(SavedRiskClassification),
-                    TotalLoans = ReturnAnalysisHelper.CalculateTotalLoans(SavedRiskClassification),
-                    // Earnings data
-                    NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations,
-                    // Liquidity data
-                    LiquidAssets = SavedLiquidityStatement.NetLiquidAssets,
-                    TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities
-                };
+                    return BadRequest("Return not found");
+                }
 
-                var capitalAnalysisData = new CapitalAnalysisData
-                {
-                    CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                    CoreCapitalToAssetsRatio = SavedCapitalAdequacy.CoreCapitalToAssetsRatio,
-                    InstitutionalCapitalRatio = SavedCapitalAdequacy.InstitutionalCapitalToAssetsRatio,
-                    CoreCapitalToDepositsRatio = SavedCapitalAdequacy.CoreCapitalToDepositsRatio,
-                    AdjustedCCARatio = CalculateAdjustedCCA(SavedCapitalAdequacy, SavedFinancialPositionStatement)
-                };
+                var result = await camelsAnalysisService.CalculateAnalysisAsync(currentReturn.Id, currentReturn.SaccoType);
 
-                // Calculate ratings for the current period
-                var CapitalRatings = await AnalyzeCapitalWithDetails(capitalAnalysisData);
-                CapitalRatings.Period = capitalReturn.EndDate.ToString("yyyy-MM-dd");
-                result.CapitalAnalysisResults.Add(CapitalRatings);
-
-                var AssetQualityRating = await AnalyzeAssetQuality(SavedRiskClassification, SavedRiskClassification);
-                AssetQualityRating.Period = SavedRiskClassification.First().EndDate.ToString("yyyy-MM-dd");
-                result.AssetQualityRatingResults.Add(AssetQualityRating);
-
-                analysis.ManagementRating = AnalyzeManagement();
-
-                var EarningsRating = await AnalyzeEarnings(SavedComprehensiveStatement, SavedFinancialPositionStatement);
-                EarningsRating.Period = SavedFinancialPositionStatement.EndDate.ToString("yyyy-MM-dd");
-                result.EarningsRatingResults.Add(EarningsRating);
-
-                var LiquidityRating = await AnalyzeLiquidity(SavedFinancialPositionStatement);
-                LiquidityRating.Period = SavedFinancialPositionStatement.EndDate.ToString("yyyy-MM-dd");
-                result.LiquidityRatingResults.Add(LiquidityRating);
-
-                var StructureOfAssetsRating = await AnalyzeStructureOfAssets(SavedFinancialPositionStatement);
-                StructureOfAssetsRating.Period = SavedFinancialPositionStatement.EndDate.ToString("yyyy-MM-dd");
-                result.StructureOfAssetsRatingResults.Add(StructureOfAssetsRating);
-
-                // Calculate overall rating for the period and save the analysis record
-                analysis.OverallRating = CalculateOverallRating(analysis);
-                var context = new ReturnsDbContext();
-                await context.SaccoAnalysis.AddRangeAsync(analysis);
-                await context.SaveChangesAsync();
+                return Ok(result);
             }
-
-            // Pad each rating results collection with dummy objects (zero values) until each has three entries
-            while (result.CapitalAnalysisResults.Count < 3)
+            catch (Exception ex)
             {
-                result.CapitalAnalysisResults.Add(new CapitalAnalysisResult { FinalRating = 0, Period = "N/A" });
+                _logger.LogError(ex, "Error calculating CAMELS analysis");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-            while (result.AssetQualityRatingResults.Count < 3)
-            {
-                result.AssetQualityRatingResults.Add(new AssetQualityRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-            while (result.EarningsRatingResults.Count < 3)
-            {
-                result.EarningsRatingResults.Add(new EarningsRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-            while (result.LiquidityRatingResults.Count < 3)
-            {
-                result.LiquidityRatingResults.Add(new LiquidityRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-            while (result.StructureOfAssetsRatingResults.Count < 3)
-            {
-                result.StructureOfAssetsRatingResults.Add(new StructureOfAssetsRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-
-            // Recalculate the overall ratings using the first (current) period's ratings, or adjust as needed
-            result.LiquidityRating = result.LiquidityRatingResults.First().FinalRating;
-            result.CapitalRating = result.CapitalAnalysisResults.First().FinalRating;
-            result.AssetQualityRating = result.AssetQualityRatingResults.First().FinalRating;
-            result.EarningsRating = result.EarningsRatingResults.First().FinalRating;
-            result.OverallRating = CalculateOverallRating(
-                result.CapitalRating,
-                result.AssetQualityRating,
-                result.EarningsRating,
-                result.LiquidityRating
-            );
-            result.RiskLevel = DetermineRiskLevel(result.OverallRating);
-
-            return result;
         }
 
 
@@ -2001,134 +1891,24 @@ namespace Returns.Controllers
         {
             // Retrieve current return and historical returns
             var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.NWDT.ToString());
+
             if (currentReturn == null)
             {
                 return BadRequest("Return not found");
             }
 
-            var historicalReturns = await _context.Returns.Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId).ToListAsync();
-            historicalReturns = historicalReturns.OrderByDescending(r => r.CreatedAt).Take(2).ToList();
-
-            // Combine current and historical returns
-            var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-            var result = new CamelsRatingsDTO { ReturnId = returnId };
-
-            // Process each return period
-            foreach (var returnPeriod in allReturns)
+            try
             {
-                // Retrieve necessary financial statements and data
-                var balanceSheet = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var incomeStatement = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var capitalReturn = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var liquidityReturn = await _context.NDWTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                var investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                // Use default objects if data is missing
-                var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
-                var SavedLiquidityStatement = liquidityReturn ?? new NWDTLiquidityReturn();
-                var SavedDepositReturn = depositReturns ?? new List<NWDTDepositReturn>();
-                var SavedRiskClassification = riskClassificationReturn ?? new List<NWDTRiskClassificationReturn>();
-                var SavedInvestmentReturn = investmentReturn ?? new NWDTInvestmentReturn();
-                var SavedFinancialPositionStatement = balanceSheet ?? new NWDTFinancialPositionReturn();
-                var SavedComprehensiveStatement = incomeStatement ?? new NWDTComprehensiveIncomeReturn();
-
-                // Create an analysis record for this period
-                var analysis = new SaccoAnalysis
-                {
-                    ReturnId = returnPeriod.Id,
-                    AnalysisDate = DateTime.Now,
-                    // Capital data
-                    CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                    TotalAssets = SavedCapitalAdequacy.TotalAssets,
-                    CoreCapitalToAssetsRatio = SavedCapitalAdequacy.CoreCapitalToAssetsRatio,
-                    //InstitutionalCapitalRatio = SavedCapitalAdequacy.InstitutionalCapitalToAssetsRatio,
-                    // Asset Quality data
-                    NonPerformingLoans = ReturnAnalysisHelper.CalculateNwdtNonPerformingLoans(SavedRiskClassification),
-                    TotalLoans = ReturnAnalysisHelper.CalculateNwdtTotalLoans(SavedRiskClassification),
-                    // Earnings data
-                    NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations,
-                    // Liquidity data
-                    LiquidAssets = SavedLiquidityStatement.NetLiquidAssets,
-                    TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities
-                };
-
-                var capitalAnalysisData = new CapitalAnalysisData
-                {
-                    CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                    CoreCapitalToAssetsRatio = SavedCapitalAdequacy.CoreCapitalToAssetsRatio,
-                    //InstitutionalCapitalRatio = SavedCapitalAdequacy.InstitutionalCapitalToAssetsRatio,
-                    CoreCapitalToDepositsRatio = SavedCapitalAdequacy.CoreCapitalToDepositsRatio,
-                    AdjustedCCARatio = CalculateNwdtAdjustedCCA(SavedCapitalAdequacy, SavedFinancialPositionStatement)
-                };
-
-                // Calculate ratings for the current period
-                var CapitalRatings = await AnalyzeCapitalWithDetails(capitalAnalysisData);
-                CapitalRatings.Period = returnPeriod.CreatedAt.ToString("yyyy-MM-dd");
-                result.CapitalAnalysisResults.Add(CapitalRatings);
-
-                var AssetQualityRating = await AnalyzeNwdtAssetQuality(SavedRiskClassification, SavedRiskClassification);
-                AssetQualityRating.Period = returnPeriod.CreatedAt.ToString("yyyy-MM-dd");
-                result.AssetQualityRatingResults.Add(AssetQualityRating);
-
-                analysis.ManagementRating = AnalyzeManagement();
-
-                var EarningsRating = await AnalyzeNwdtEarnings(SavedComprehensiveStatement, SavedFinancialPositionStatement);
-                EarningsRating.Period = returnPeriod.CreatedAt.ToString("yyyy-MM-dd");
-                result.EarningsRatingResults.Add(EarningsRating);
-
-                var LiquidityRating = await AnalyzeNwdtLiquidity(SavedFinancialPositionStatement);
-                LiquidityRating.Period = returnPeriod.CreatedAt.ToString("yyyy-MM-dd");
-                result.LiquidityRatingResults.Add(LiquidityRating);
-
-                var StructureOfAssetsRating = await AnalyzeNwdtStructureOfAssets(SavedFinancialPositionStatement);
-                StructureOfAssetsRating.Period = returnPeriod.CreatedAt.ToString("yyyy-MM-dd");
-                result.StructureOfAssetsRatingResults.Add(StructureOfAssetsRating);
-
-                // Calculate overall rating for the period and save the analysis record
-                analysis.OverallRating = CalculateOverallRating(analysis);
-                var context = new ReturnsDbContext();
-                await context.SaccoAnalysis.AddRangeAsync(analysis);
-                await context.SaveChangesAsync();
+                var result = await camelsAnalysisService.CalculateAnalysisAsync(currentReturn.Id, currentReturn.SaccoType);
+            
+                return Ok(result);
             }
-
-            // Pad each rating results collection with dummy objects (zero values) until each has three entries
-            while (result.CapitalAnalysisResults.Count < 3)
+            catch (Exception ex)
             {
-                result.CapitalAnalysisResults.Add(new CapitalAnalysisResult { FinalRating = 0, Period = "N/A" });
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-            while (result.AssetQualityRatingResults.Count < 3)
-            {
-                result.AssetQualityRatingResults.Add(new AssetQualityRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-            while (result.EarningsRatingResults.Count < 3)
-            {
-                result.EarningsRatingResults.Add(new EarningsRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-            while (result.LiquidityRatingResults.Count < 3)
-            {
-                result.LiquidityRatingResults.Add(new LiquidityRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-            while (result.StructureOfAssetsRatingResults.Count < 3)
-            {
-                result.StructureOfAssetsRatingResults.Add(new StructureOfAssetsRatingDetails { FinalRating = 0, Period = "N/A" });
-            }
-
-            // Recalculate the overall ratings using the first (current) period's ratings, or adjust as needed
-            result.LiquidityRating = result.LiquidityRatingResults.First().FinalRating;
-            result.CapitalRating = result.CapitalAnalysisResults.First().FinalRating;
-            result.AssetQualityRating = result.AssetQualityRatingResults.First().FinalRating;
-            result.EarningsRating = result.EarningsRatingResults.First().FinalRating;
-            result.OverallRating = CalculateOverallRating(
-                result.CapitalRating,
-                result.AssetQualityRating,
-                result.EarningsRating,
-                result.LiquidityRating
-            );
-            result.RiskLevel = DetermineRiskLevel(result.OverallRating);
-
-            return result;
+        
         }
 
 
@@ -2612,13 +2392,7 @@ namespace Returns.Controllers
                 depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
                 financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
         }
-        private string DetermineRiskLevel(int rating) => rating switch
-        {
-            1 or 2 => "Low Risk",
-            3 => "Medium Risk",
-            4 or 5 => "High Risk",
-            _ => "Unknown"
-        };
+      
 
 
     }

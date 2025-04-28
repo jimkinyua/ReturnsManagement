@@ -13,11 +13,13 @@ namespace Returns.Helpers
     {
         private readonly ReturnsDbContext _db;
         private readonly IComplianceService _complianceService;
+        private readonly IEmailService _emailService;
 
-        public WorkflowEngineService(ReturnsDbContext db, IComplianceService complianceService)
+        public WorkflowEngineService(ReturnsDbContext db, IComplianceService complianceService, IEmailService emailService)
         {
             _db = db;
             _complianceService = complianceService;
+            _emailService = emailService;
         }
 
      
@@ -143,11 +145,13 @@ namespace Returns.Helpers
                 TeamId = teamId,
                 UserId = coUserId.Id,
                 RoleName = coUserId.Role,
+                Rating = Rating,
                 CurrentStepId = template.WorkFlowSteps.OrderBy(s => s.Sequence).First().Id
             };
 
             await _db.WorkflowInstances.AddAsync(instance);
             await _db.SaveChangesAsync();
+            await _emailService.SendEmailAsync(coUserId.Email, "Return Submitted", $"A new return has been submitted for your review. Return ID: {instance.Return.SaccoName}");
             return ConvertToDto(instance);
         }
 
@@ -220,13 +224,15 @@ namespace Returns.Helpers
                     instance.Status = ApprovalStatus.Pending.ToString();
 
                     await _db.SaveChangesAsync();
+                    // notify the next approver
+                    await _emailService.SendEmailAsync(nextApprover.Email, "New Approval Request", $"You have a new approval request for return ID: {instance.Return.SaccoName}");
                 }
 
                 return ConvertToDto(instance);
             }
             catch (Exception ex)
             {
-                throw new Exception($"Error approving workflow '{instance.Id}' at step '{instance.CurrentStepId}'", ex);
+                throw ;
             }
         }
 
