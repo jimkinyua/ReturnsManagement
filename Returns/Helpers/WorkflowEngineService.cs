@@ -151,69 +151,87 @@ namespace Returns.Helpers
             return ConvertToDto(instance);
         }
 
-        public async Task<WorkflowStateDto> ApproveStepAsync(ApproveStepRequestDTO approveStepRequestDTO, string userId)
+        public async Task<WorkflowStateDto> ApproveStepAsync(ApproveStepRequestDTO request, string userId)
         {
+            var instance = await _db.WorkflowInstances
+                .Include(i => i.CurrentStep)
+                .FirstOrDefaultAsync(i => i.Id == request.WorkFlowInstanceId);
+
+            if (instance == null)
+            {
+                throw new Exception($"Workflow instance '{request.WorkFlowInstanceId}' not found.");
+            }
+
+            // 2. Ensure the current user is the approver
+            if (instance.UserId != userId)
+            {
+                throw new UnauthorizedAccessException("User is not assigned to approve this step.");
+            }
+
+            // if already approved, just return existing state
+            bool alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
+                a.WorkFlowStepId == instance.CurrentStepId &&
+                a.ReturnId == instance.ReturnId &&
+                a.UserId == userId &&
+                a.Status == ApprovalStatus.Approved.ToString() 
+                );
+
+            if (alreadyApproved)
+            {
+                return ConvertToDto(instance);
+            }
+
+            // 4. Record the approval action
+            _db.ApprovalActions.Add(new ApprovalAction
+            {
+                WorkFlowStepId = instance.CurrentStepId,
+                ReturnId = instance.ReturnId,
+                UserId = userId,
+                Status = ApprovalStatus.Approved.ToString(),
+                Comment = request.Comment.Trim(),
+                CreatedAt = DateTime.UtcNow
+            });
+
             try
             {
-                var instance = await _db.WorkflowInstances
-              .Include(i => i.CurrentStep)
-              .FirstOrDefaultAsync(i => i.Id == approveStepRequestDTO.WorkFlowInstanceId);
-                if (instance == null)
-                {
-                    throw new Exception("Workflow instance not found");
-                }
-                // 1. Validate user can approve this step
-                var approver = instance.UserId; //await GetApproverForStep(instance.CurrentStep, instance.TeamId);
-                if (approver != userId)
-                {
-                    throw new UnauthorizedAccessException();
-                }
-                // 2. Log approval
-                _db.ApprovalActions.Add(new ApprovalAction
-                {
-                    WorkFlowStepId = instance.CurrentStepId,
-                    UserId = userId,
-                    ReturnId = instance.ReturnId,
-                    Status = "Approved",
-                    Comment = approveStepRequestDTO.Comment
-                });
-
+                // Determine the next step
                 var nextStep = await GetNextStepIdAsync(instance);
+
                 if (nextStep == null)
                 {
-                    throw new Exception("Next step not found");
-                }
-                var nextApprover = await GetApproverForStep(nextStep, instance.TeamId);
-                if (nextStep != null)
-                {
-                    // 3. Move to next step
-                    instance.CurrentStepId = nextStep.Id;
-                    instance.UserId = nextApprover.UserId;
+                    // workflow is complete
+                    instance.CurrentStepId = null;
+                    instance.Status = ApprovalStatus.Approved.ToString();
+
+                    await _db.SaveChangesAsync();
+                    //await NotifySacco(instance.ReturnId);
                 }
                 else
                 {
-                    // 4. Mark workflow as completed
-                    instance.CurrentStepId = null;
-                    instance.Status = "Completed";
-                    // 5. Trigger enforcement if needed
-                    if (instance.Rating >= 4)
+                    // 6b. Advance to the next step
+                    var nextApprover = await GetApproverForStep(nextStep, instance.TeamId);
+                    if (nextApprover == null)
                     {
-                        //await _enforcementService.TriggerForReturn(instance.ReturnId);
+                        throw new Exception($"No approver found for next step '{nextStep.Id}'.");
                     }
 
-                    // nOTIFY Sacco TODO
+                    instance.CurrentStepId = nextStep.Id;
+                    instance.UserId = nextApprover.UserId;
+                    instance.Status = ApprovalStatus.Pending.ToString();
+
+                    await _db.SaveChangesAsync();
                 }
 
-                _db.WorkflowInstances.Update(instance);
-                await _db.SaveChangesAsync();
                 return ConvertToDto(instance);
             }
             catch (Exception ex)
             {
-
-                throw new Exception("",ex);
+                throw new Exception($"Error approving workflow '{instance.Id}' at step '{instance.CurrentStepId}'", ex);
             }
         }
+
+
+
 
         private async Task<CommonFieldForUser?> GetApproverForStep(WorkFlowStep step, string teamId)
         {
@@ -270,113 +288,65 @@ namespace Returns.Helpers
             public string UserId { get; set; } = null!;
             public string RoleId { get; set; } = null!;
         }
-            private async Task<WorkFlowStep?> GetNextStepIdAsync(WorkflowInstance instance)
+
+        private async Task<WorkFlowStep?> GetNextStepIdAsync(WorkflowInstance instance)
         {
-            var currentStep = await _db.WorkFlowSteps.FindAsync(instance.CurrentStepId);
-            if (currentStep == null)
-            {
-                throw new Exception("Current step not found");
-            }
-
-            // Fix for CS1061: Ensure GetRoleDetails is awaited and its result is used correctly.  
-            var roleDetails = await _complianceService.GetRoleDetails(currentStep.RoleId);
-            if (roleDetails == null)
-            {
-                throw new Exception("Role details not found for the current step.");
-            }
-            var RoleOfCurrentStep = roleDetails.RoleName.Trim().ToUpper();
-
-            // Get all steps in the workflow template that are greater to this  
-            var nextSteps = await _db.WorkFlowSteps
-                .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId && s.Sequence > currentStep.Sequence)
+            // 1. Load and order every step in the template
+            var allSteps = await _db.WorkFlowSteps
+                .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId)
                 .OrderBy(s => s.Sequence)
                 .ToListAsync();
 
-
-            if (currentStep.Sequence == 1)
+            if (allSteps.Count == 0)
             {
-                // CO always goes to TeamLead next so pick the next step  
-                return nextSteps.FirstOrDefault(s => s.Sequence == nextSteps.Min(ns => ns.Sequence));
-            }
-            else if (currentStep.Sequence == 2)
-            {
-                if (instance.Rating <= 2)
-                {
-                    return null; // Auto-publish for ratings 1-2  
-                }
-                else if (instance.Rating == 3)
-                {
-                    // Rating 3 goes to Director  
-                    return nextSteps.FirstOrDefault(s => s.Sequence == nextSteps.Min(ns => ns.Sequence));
-                }
-                else // Rating 4-5  
-                {
-                    // Rating 4-5 goes to Director  
-                    return nextSteps.FirstOrDefault(s => s.Sequence == nextSteps.Min(ns => ns.Sequence));
-                }
-            }
-            else if (currentStep.Sequence ==3) 
-            {
-                if (instance.Rating == 3)
-                {
-                    // For rating 3, loop back to TeamLead for publishing  
-                    return nextSteps.FirstOrDefault(s => s.Sequence == nextSteps.Min(ns => ns.Sequence));
-                }
-                else if (instance.Rating >= 4)
-                {
-                    // For ratings 4-5, go to CEO  
-                    return nextSteps.FirstOrDefault(s => s.Sequence == nextSteps.Min(ns => ns.Sequence));
-                }
+                throw new Exception("No steps defined in this workflow template");
             }
 
+            // 2. Identify first and last steps
+            var firstStep = allSteps[0];
+            var lastStep = allSteps[allSteps.Count - 1];
 
+            // 3. Load the step we just finished
+            var current = await _db.WorkFlowSteps.FindAsync(instance.CurrentStepId);
 
+            if (current == null){
+                throw new Exception("Current step not found");
+            }
 
-            // Default: next sequential step  
-            return nextSteps.FirstOrDefault(s => s.Sequence > currentStep.Sequence);
+            // 4. HIGH-RATED RETURNS: if rating ≤ 2, we only ever run the first step
+            if (instance.Rating.HasValue && instance.Rating.Value <= 2)
+            {
+                // 4a. If we just finished the first step → end (publish)
+                if (current.Id == firstStep.Id)
+                {
+                    return null;
+                }
 
+                // 4b. If somehow we’re on any other step, treat as “done”
+                return null;
+            }
 
-            // Rating-based routing (simple if conditions)  
-            /*     if (currentStep.ApproverRole == "OFFICER")
-                 {
-                     // CO always goes to TeamLead next  
-                     var TeamLeadRoleId = await _complianceService.GetRoleIdByName("TeamLead");
+            // 5. LOW RATED Returns flow (rating > 2):
 
-                     return nextSteps.FirstOrDefault(s => s.RoleId == TeamLeadRoleId);
-                 }
-                 else if (currentStep.ApproverRole == "Team Lead")
-                 {
-                     if (instance.Rating <= 2)
-                     {
-                         return null; // Auto-publish for ratings 1-2  
-                     }
-                     else if (instance.Rating == 3)
-                     {
-                         // Rating 3 goes to Director  
-                         return nextSteps.FirstOrDefault(s => s.RoleId == roleDetails.RoleId);
-                     }
-                     else // Rating 4-5  
-                     {
-                         // Rating 4-5 goes to Director  
-                         return nextSteps.FirstOrDefault(s => s.RoleId == roleDetails.RoleId);
-                     }
-                 }
-                 else if (currentStep.ApproverRole == "Director")
-                 {
-                     if (instance.Rating == 3)
-                     {
-                         // For rating 3, loop back to TeamLead for publishing  
-                         return nextSteps.FirstOrDefault(s => s.RoleId == roleDetails.RoleId);
-                     }
-                     else if (instance.Rating >= 4)
-                     {
-                         // For ratings 4-5, go to CEO  
-                         return nextSteps.FirstOrDefault(s => s.RoleId == roleDetails.RoleId);
-                     }
-                 }*/
+            //    Find where “current” sits in the allSteps list
+            int position = allSteps.FindIndex(s => s.Id == current.Id);
 
+            if (position < 0)
+            {
+                throw new Exception("Current step is not part of the active workflow steps");
+            }
 
+            // 6. If we’re already at the last step → end (publish)
+            if (position == allSteps.Count - 1)
+            {
+                return null;
+            }
+
+            // 7. Otherwise → return the very next step in sequence
+            return allSteps[position + 1];
         }
+
+
 
         private WorkflowStateDto ConvertToDto(WorkflowInstance workflow)
         {
@@ -389,6 +359,62 @@ namespace Returns.Helpers
                 Rating = workflow.Rating
             };
         }
+
+        private bool ShouldIncludeStep(WorkFlowStep step, WorkflowInstance instance)
+        {
+            // 1. Pull out the key bits
+            int currentSeq = instance.CurrentStep?.Sequence ?? 0;
+            int rating = instance.Rating ?? 0;
+            bool enforcementReq = instance.EnforcementTriggered;
+
+            // 2. If enforcement was requested, only take the Enforcement step
+            //    immediately after the Compliance Officer (sequence == 1)
+            if (enforcementReq)
+            {
+                if (currentSeq == 1
+                    && step.RoleName.Equals("Enforcement", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+                return false;
+            }
+
+            // 3. Never go backwards
+            if (step.Sequence <= currentSeq)
+            {
+                return false;
+            }
+
+            // Only consider skipping when the rating is 1 or 2
+            if (rating == 1 || rating == 2)
+            {
+                // If this step is the Manager Compliance review, skip it
+                if (step.RoleName.Equals("Manager Compliance", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                // If this step is the CEO review, skip it
+                if (step.RoleName.Equals("CEO", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+            }
+
+            // (…other rules follow…)
+
+
+            //    Rating 3: skip CEO
+            if (rating == 3
+                && step.RoleName.Equals("CEO", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            // 5. Otherwise, include it (this covers Team Lead, Manager for 3+, CEO for 4–5, and Publisher)
+            return true;
+        }
+
 
 
     }
