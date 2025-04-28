@@ -115,11 +115,11 @@ namespace Returns.Helpers
                 UserId = userId,
                 ReturnId = instance.ReturnId,
                 Comment = request.Reason,
-                Status = "Rejected",
+                Status = ApprovalStatus.Rejected.ToString(),
                 CreatedAt = DateTime.UtcNow
             });
 
-            instance.Status = "Rejected";
+            instance.Status = ApprovalStatus.Rejected.ToString();
             instance.CurrentStepId = null;
             await _db.SaveChangesAsync();
 
@@ -359,62 +359,6 @@ namespace Returns.Helpers
                 Rating = workflow.Rating
             };
         }
-
-        private bool ShouldIncludeStep(WorkFlowStep step, WorkflowInstance instance)
-        {
-            // 1. Pull out the key bits
-            int currentSeq = instance.CurrentStep?.Sequence ?? 0;
-            int rating = instance.Rating ?? 0;
-            bool enforcementReq = instance.EnforcementTriggered;
-
-            // 2. If enforcement was requested, only take the Enforcement step
-            //    immediately after the Compliance Officer (sequence == 1)
-            if (enforcementReq)
-            {
-                if (currentSeq == 1
-                    && step.RoleName.Equals("Enforcement", StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
-                return false;
-            }
-
-            // 3. Never go backwards
-            if (step.Sequence <= currentSeq)
-            {
-                return false;
-            }
-
-            // Only consider skipping when the rating is 1 or 2
-            if (rating == 1 || rating == 2)
-            {
-                // If this step is the Manager Compliance review, skip it
-                if (step.RoleName.Equals("Manager Compliance", StringComparison.OrdinalIgnoreCase))
-                {
-                    return false;
-                }
-
-                // If this step is the CEO review, skip it
-                if (step.RoleName.Equals("CEO", StringComparison.OrdinalIgnoreCase))
-                {
-                    return false;
-                }
-            }
-
-            // (…other rules follow…)
-
-
-            //    Rating 3: skip CEO
-            if (rating == 3
-                && step.RoleName.Equals("CEO", StringComparison.OrdinalIgnoreCase))
-            {
-                return false;
-            }
-
-            // 5. Otherwise, include it (this covers Team Lead, Manager for 3+, CEO for 4–5, and Publisher)
-            return true;
-        }
-
 
 
     }
