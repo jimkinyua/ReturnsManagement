@@ -601,7 +601,7 @@ namespace Returns.Helpers
             }
             catch (Exception ex)
             {
-                throw ex;
+                throw ;
                 _logger.LogError(ex, $"Error processing Form 2B for return ID: {returnId}");
 
             }
@@ -2485,7 +2485,7 @@ namespace Returns.Helpers
             catch (Exception Ex)
             {
 
-                throw Ex;
+                throw ;
             }
         }
         public static (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriodNWDT(
