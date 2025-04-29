@@ -668,8 +668,7 @@ namespace Returns.Controllers
                 )
                 .ToListAsync();
 
-            if (!activeAssignments.Any())
-                return Ok(new List<SubmittedReturnDTO>());
+            if (!activeAssignments.Any()) return Ok(new List<SubmittedReturnDTO>());
 
             // 2. Figure out which Sacco+Year combos we actually need
             var requiredSaccoIds = activeAssignments
