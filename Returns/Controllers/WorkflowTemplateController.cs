@@ -5,7 +5,7 @@ using Returns.Helpers.Interfaces.WorkFlow;
 
 namespace Returns.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/returns")]
     [ApiController]
     public class WorkflowTemplateController : ControllerBase
     {

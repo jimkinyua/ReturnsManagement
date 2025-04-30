@@ -9,7 +9,7 @@ using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/returns")]
     [ApiController]
     public class WorkflowController : ControllerBase
     {
