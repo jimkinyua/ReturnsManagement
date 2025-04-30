@@ -108,8 +108,6 @@ namespace Returns.Controllers
             {
                 var request = await _context.AdditionalInformationRequests
                     .AsNoTracking()
-                    .Include(r => r.ReturnReponses)
-                        .ThenInclude(resp => resp.ResponseAttachements)
                     .FirstOrDefaultAsync(r => r.Id == Id);
                 if (request == null)
                 {
@@ -126,8 +124,17 @@ namespace Returns.Controllers
                     RespondedAt = request.RespondedAt,
                     Responses = new List<AdditionalInfoResponseDto>()
                 };
-                if (request.ReturnReponses != null)
+                var responses = await _context.AdditionalInfoResponses
+                    .AsNoTracking()
+                    .Include(r => r.ResponseAttachements)
+                    .Where(r => r.RequestId == Id)
+                    .ToListAsync();
+
+                if (responses.Count > 0)
                 {
+
+                    requestDto.RespondedAt = responses.Max(r => r.CreatedAt);
+                    requestDto.IsResponded = true;
                     foreach (var response in request.ReturnReponses)
                     {
                         var responseDto = new AdditionalInfoResponseDto

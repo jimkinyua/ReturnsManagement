@@ -53,8 +53,9 @@ namespace Returns.Controllers
         }
 
         [HttpGet("GetWorkFlowTemplates")]
-        public async Task<ActionResult<List<WorkflowTemplateDTO>>> GetWorkFlowTemplates(bool includeUnpublished = false)
+        public async Task<ActionResult<List<WorkflowTemplateDTO>>> GetWorkFlowTemplates()
         {
+            bool includeUnpublished = false;
             try
             {
                 var result = await _adminService.GetAllWorkflowTemplates(includeUnpublished);
