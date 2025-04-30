@@ -94,6 +94,10 @@ namespace Returns.Helpers
             }
 
             var templates = await query.ToListAsync();
+            if (templates == null || !templates.Any())
+            {
+                return new List<WorkflowTemplateDTO>();
+            }
             return templates.Select(t => ConvertToTemplateDto(t)).ToList();
         }
 
@@ -233,7 +237,7 @@ namespace Returns.Helpers
                     RoleId = s.RoleId,
                     RoleName = s.RoleName,
                     TemplateId = s.WorkFlowTemplateId,
-                }).ToList()
+                }).OrderBy(s => s.Sequence).ToList()
             };
         }
     }
