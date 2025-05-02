@@ -1847,7 +1847,7 @@ namespace Returns.Controllers
                 IsActiveVersion = returnEntity.IsActiveVersion,
                 AmendmentDate = returnEntity.AmendmentDate,
                 PreviousVersionId = returnEntity.PreviousVersionId,
-                PreviousVersionIds = ReturnsHelper.GetPreviousVersionIdsAsync(returnEntity).Result
+                PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(returnEntity).Result
             };
 
             var sectoralLendingReports = await _context.SectoralLendingReports
