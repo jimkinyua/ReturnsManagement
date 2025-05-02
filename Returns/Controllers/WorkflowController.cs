@@ -27,13 +27,13 @@ namespace Returns.Controllers
         {
             try
             {
-              /*  LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
                     return StatusCode(401);
-                }*/
+                }
 
-                var results = await _workflowService.GetPendingReturnsAsync("7ded1b0a-bca9-491e-8880-3743d4b3cae5");
+                var results = await _workflowService.GetPendingReturnsAsync(loggedInSacco.UserId);
                 return Ok(results);
             }
             catch (Exception ex)
@@ -46,16 +46,16 @@ namespace Returns.Controllers
         [HttpPost("ApproveRequest")]
         public async Task<IActionResult> ApproveRequest([FromBody] ApproveStepRequestDTO approveStepRequestDTO)
         {
-            /*LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
-            }*/
+            }
 
             try
             {
                 //var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO.WorkFlowInstanceId, loggedInSacco.UserId);
-                var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, "7ded1b0a-bca9-491e-8880-3743d4b3cae5");
+                var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, loggedInSacco.UserId);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
@@ -72,15 +72,15 @@ namespace Returns.Controllers
         [HttpPost("RejectRequest")]
         public async Task<IActionResult> RejectRequest([FromBody] RejectStepRequest rejectStepRequestDTO)
         {
-            /*LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
-            }*/
+            }
             try
             {
-                //var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, loggedInSacco.UserId, rejectStepRequestDTO);
-                var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, "7ded1b0a-bca9-491e-8880-3743d4b3cae5", rejectStepRequestDTO);
+                var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, loggedInSacco.UserId, rejectStepRequestDTO);
+                //var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, "7ded1b0a-bca9-491e-8880-3743d4b3cae5", rejectStepRequestDTO);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)

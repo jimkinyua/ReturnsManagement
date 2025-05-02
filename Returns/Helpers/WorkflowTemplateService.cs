@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.WorkFlowTemplate;
+using Returns.Helpers.Interfaces;
 using Returns.Helpers.Interfaces.WorkFlow;
 using Returns.Models;
 using Returns.Models.Data;
@@ -9,9 +10,11 @@ namespace Returns.Helpers
     public class WorkflowTemplateService: IWorkflowTemplateAdminService
     {
         private readonly ReturnsDbContext _context;
+        private readonly IComplianceService _complianceService;
 
-        public WorkflowTemplateService(ReturnsDbContext context)
+        public WorkflowTemplateService(ReturnsDbContext context, IComplianceService complianceService)
         {
+            _complianceService = complianceService;
             _context = context;
         }
 
@@ -27,9 +30,18 @@ namespace Returns.Helpers
                 throw new Exception("Cannot modify a published template");
             }
 
+            var RoleDetails = await _complianceService.GetRoleDetails(dto.RoleId);
+            if (RoleDetails == null)
+            {
+                throw new Exception("Role not assigned to this step.");
+            }
+
+            var RoleAssignedThisStep = RoleDetails.RoleName;
+
             var step = new WorkFlowStep
             {
                 Sequence = dto.Sequence,
+                RoleName = RoleDetails.RoleName,
                 RoleId = dto.RoleId,
                 WorkFlowTemplateId = dto.WorkTemplateId,
                 CreatedAt = DateTime.UtcNow
@@ -43,7 +55,7 @@ namespace Returns.Helpers
                 StepId = step.Id,
                 Sequence = step.Sequence,
                 RoleId = step.RoleId,
-                RoleName = step.RoleName,
+                RoleName = RoleDetails.RoleName,
                 TemplateId = step.WorkFlowTemplateId,
                 CreatedAt = step.CreatedAt
             };
@@ -174,10 +186,19 @@ namespace Returns.Helpers
                 .FirstOrDefaultAsync(s => s.Id == dto.StepId && s.WorkFlowTemplateId == dto.WorkTemplateId);
 
             if (step == null)
+            {
                 throw new Exception("Step not found in specified template");
+            }
+
+            var RoleDetails = await _complianceService.GetRoleDetails(dto.RoleId);
+            if (RoleDetails == null)
+            {
+                throw new Exception("Role not assigned to this step.");
+            }
 
             step.Sequence = dto.Sequence;
             step.RoleId = dto.RoleId;
+            step.RoleName = RoleDetails.RoleName;
 
             await _context.SaveChangesAsync();
 
