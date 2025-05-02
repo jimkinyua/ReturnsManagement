@@ -23,7 +23,9 @@ namespace Returns.Helpers
                 throw new Exception("Workflow template not found");
 
             if (template.IsPublished)
+            {
                 throw new Exception("Cannot modify a published template");
+            }
 
             var step = new WorkFlowStep
             {

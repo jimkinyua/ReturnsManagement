@@ -1,5 +1,6 @@
 using Returns.DTOs.Returns.Returns_Submission.DT;
 using Returns.DTOs.Returns.Returns_Submission.NWDT;
+using static Returns.Helpers.ReturnsHelper;
 
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
@@ -35,6 +36,6 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public bool IsActiveVersion { get; set; }
         public DateTime? AmendmentDate { get; set; }
         public string? PreviousVersionId { get; set; }
-        public List<string> PreviousVersionIds { get; set; } = new List<string>();
+        public List<VersionChoice> PreviousVersionIds { get; set; } = new List<VersionChoice>();
     }
 }

@@ -1058,7 +1058,7 @@ namespace Returns.Controllers
                     IsActiveVersion = r.IsActiveVersion,
                     AmendmentDate = r.AmendmentDate,
                     //PreviousVersionId = r.PreviousVersionId,
-                    PreviousVersionIds = ReturnsHelper.GetPreviousVersionIdsAsync(r).Result
+                    PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(r).Result
                 })
 
                 .FirstOrDefaultAsync();

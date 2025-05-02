@@ -22,6 +22,11 @@ namespace Returns.Helpers
             return forms.All(form => form != null);
         }
 
+        public class VersionChoice
+        {
+            public string Label { get; set; } = null!;
+            public int Value { get; set; }
+        }
         public static bool CheckLateReturns(Return returnItem)
         {
             var TotalLateReturns = CountLateReturns(returnItem);
@@ -32,33 +37,42 @@ namespace Returns.Helpers
             return false;
         }
 
-        public static async Task<List<string>> GetPreviousVersionIdsAsync(Return returnEntity)
+        public static async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync(Return returnEntity)
         {
-            // 1. Bulk load all (Id → PreviousVersionId) for this Sacco+Type+Year
-            using var context = new ReturnsDbContext();
-            var links = await context.Returns
+            using var db = new ReturnsDbContext();
+
+            // 1. Load Id → (PreviousVersionId, VersionNumber) for this Sacco+Type+Year
+            var lookups = (await db.Returns
                 .AsNoTracking()
                 .Where(r =>
                     r.SaccoId == returnEntity.SaccoId &&
                     r.SaccoType == returnEntity.SaccoType &&
-                    r.ReturnFor.Year == returnEntity.ReturnFor.Year
-                )
-                .Select(r => new { r.Id, r.PreviousVersionId })
-                .ToListAsync();
+                    r.ReturnFor.Year == returnEntity.ReturnFor.Year)
+                .Select(r => new { r.Id, r.PreviousVersionId, r.VersionNumber })
+                .ToListAsync())
+                .ToDictionary(x => x.Id);
 
-            // 2. Build the lookup map
-            var map = links.ToDictionary(x => x.Id, x => x.PreviousVersionId);
+            // 2. Walk the chain and build the dropdown list
+            var choices = new List<VersionChoice>();
 
-            // 3. Walk the chain in a simple for‑loop
-            var previousIds = new List<string>();
             for (var currentId = returnEntity.Id;
-                 map.TryGetValue(currentId, out var prevId) && !string.IsNullOrEmpty(prevId);
-                 currentId = prevId!)
+                 lookups.TryGetValue(currentId, out var node) &&
+                 !string.IsNullOrEmpty(node.PreviousVersionId);
+                 currentId = node.PreviousVersionId!)
             {
-                previousIds.Add(prevId!);
+                var prev = lookups[node.PreviousVersionId!];
+
+                choices.Add(new VersionChoice
+                {
+                    Label = $"V{prev.VersionNumber}",
+                    Value = prev.VersionNumber
+                });
             }
 
-            return previousIds;
+            // Oldest first
+            choices.Reverse();
+
+            return choices;
         }
 
 
