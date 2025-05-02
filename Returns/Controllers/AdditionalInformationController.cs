@@ -58,7 +58,7 @@ namespace Returns.Controllers
                         Responses = new List<AdditionalInfoResponseDto>()
                     };
 
-                    if (request.ReturnReponses != null)
+                    if (request.ReturnReponses.Any())
                     {
                         foreach (var response in request.ReturnReponses)
                         {
@@ -68,7 +68,6 @@ namespace Returns.Controllers
                                 RespondedBy = response.RespondedBy,
                                 ResponseMessage = response.ReponseMessage,
                                 RespondedAt = response.CreatedAt,
-                                Attachments = new List<AdditionalInfoAttachmentDto>()
                             };
 
                             // Process each attachment if they exist
@@ -122,7 +121,6 @@ namespace Returns.Controllers
                     IsResponded = request.IsResponded,
                     CreatedAt = request.CreatedAt,
                     RespondedAt = request.RespondedAt,
-                    Responses = new List<AdditionalInfoResponseDto>()
                 };
                 var responses = await _context.AdditionalInfoResponses
                     .AsNoTracking()
@@ -130,7 +128,7 @@ namespace Returns.Controllers
                     .Where(r => r.RequestId == Id)
                     .ToListAsync();
 
-                if (responses.Count > 0)
+                if (responses.Any())
                 {
 
                     requestDto.RespondedAt = responses.Max(r => r.CreatedAt);
