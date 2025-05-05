@@ -129,23 +129,30 @@ namespace Returns.Helpers
             return await GetWorkflowTemplateInternal(templateId);
         }
 
-        public async Task<bool> PublishWorkflowTemplate(string templateId)
+        public async Task<bool> PublishWorkflowTemplateAsync(string templateId)
         {
-            var template = await _context.WorkFlowTemplates.Include(t => t.WorkFlowSteps).FirstOrDefaultAsync(t => t.Id == templateId);
+            var template = await _context.WorkFlowTemplates
+                .Include(t => t.WorkFlowSteps)
+                .FirstOrDefaultAsync(t => t.Id == templateId);
 
-            if (template == null)
-            {
-                throw new Exception("Workflow template not found");
-            }
+            if (template is null)
+                throw new InvalidOperationException("Workflow template not found.");
 
             if (!template.WorkFlowSteps.Any())
-            {
-                throw new Exception("Cannot publish template without steps");
-            }
+                throw new InvalidOperationException("Cannot publish a template without steps.");
 
+            // is some other template already published?
+            var anotherPublished = await _context.WorkFlowTemplates
+                .AnyAsync(t => t.IsPublished && t.Id != templateId);
+
+            if (anotherPublished)
+                throw new InvalidOperationException("Another workflow template is already published. Unpublish it first.");
+
+            // 3. Publish this one
             template.IsPublished = true;
             return await _context.SaveChangesAsync() > 0;
         }
+
 
         public async Task<bool> RemoveStepFromWorkflowTemplate(string templateId, string stepId)
         {
