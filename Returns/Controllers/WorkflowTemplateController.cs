@@ -130,7 +130,7 @@ namespace Returns.Controllers
         }
 
         [HttpPost("AddStepToTemplate")]
-        public async Task<ActionResult<WorkflowStepDTO>> AddStepToTemplate([FromBody] CreateWorkflowStepDTO dto)
+        public async Task<ActionResult<List<WorkflowStepDTO>>> AddStepToTemplate([FromBody] List<CreateWorkflowStepDTO> dto)
         {
             try
             {
@@ -145,7 +145,7 @@ namespace Returns.Controllers
         }
 
         [HttpPost("UpdateStepInTemplate")]
-        public async Task<ActionResult<WorkflowStepDTO>> UpdateStepInTemplate([FromBody] UpdateWorkflowStepDTO dto)
+        public async Task<ActionResult<WorkflowStepDTO>> UpdateStepInTemplate([FromBody] List<UpdateWorkflowStepDTO> dto)
         {
             try
             {

@@ -10,9 +10,9 @@ namespace Returns.Helpers.Interfaces.WorkFlow
         Task<bool> DeleteWorkflowTemplate(string templateId);
         Task<bool> PublishWorkflowTemplate(string templateId);
         Task<bool> UnpublishWorkflowTemplate(string templateId);
-        Task<WorkflowStepDTO> AddStepToWorkflowTemplate(CreateWorkflowStepDTO dto);
+        Task<List<WorkflowStepDTO>> AddStepToWorkflowTemplate(List<CreateWorkflowStepDTO> dto);
         Task<bool> RemoveStepFromWorkflowTemplate(string templateId, string stepId);
-        Task<WorkflowStepDTO> UpdateStepInWorkflowTemplate(UpdateWorkflowStepDTO dto);
+        Task<List<WorkflowStepDTO>> UpdateStepInWorkflowTemplate(List<UpdateWorkflowStepDTO> dto);
         Task<WorkflowTemplateDTO> GetWorkflowTemplate(string templateId);
         Task<List<WorkflowTemplateDTO>> GetAllWorkflowTemplates(bool includeUnpublished = false);
 
