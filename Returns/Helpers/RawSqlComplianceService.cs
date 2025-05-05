@@ -33,11 +33,12 @@ namespace Returns.Helpers
                             u.Email,
                             u.TeamName,
                             u.TeamRole,
-	                        R.Name as RoleName,
-	                        u.TeamId
-                        FROM [UserSaccos] us
-                        INNER JOIN [AspNetUsers] u ON us.UserId = u.Id
-                        INNER JOIN [AspNetRoles] R ON R.Id = u .Role
+                            r.Name  AS RoleName,
+                            u.TeamId
+                        FROM UserSaccos        us
+                        JOIN AspNetUsers       u  ON u.Id = CAST(us.UserId AS nvarchar(450))
+                        JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
+                        JOIN AspNetRoles       r  ON r.Id = ur.RoleId
                         WHERE us.SaccoId = @saccoId";
 
                     using (var command = new SqlCommand(sql, connection))

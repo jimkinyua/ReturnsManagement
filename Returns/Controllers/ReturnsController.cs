@@ -1362,8 +1362,6 @@ namespace Returns.Controllers
                     }
 
 
-
-                    // Create period data
                     var periodData = new SaccoPerformanceReportDTO.PeriodData
                     {
                         PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
@@ -1375,17 +1373,23 @@ namespace Returns.Controllers
                         InstitutionalCapitalToTotalAssets = institutionalCapitalToTotalAssets,
 
                         NonPerformingLoans = CalculateNonPerformingLoans(SavedRiskClassification),
-                        NonEarningAssets = SavedFinancialPositionStatement.TotalAssets != 0
-                        ? (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
-                        + SavedFinancialPositionStatement.TotalAccountsReceivables
-                        + SavedFinancialPositionStatement.PropertyAndEquipment
-                        + SavedFinancialPositionStatement.PrepaidLeaseRentals
-                        + SavedFinancialPositionStatement.IntangibleAssets
-                        + SavedFinancialPositionStatement.OtherAssets) / SavedFinancialPositionStatement.TotalAssets
-                        : 0,
 
-                        EquityInvestmentsToDeposits = SavedFinancialPositionStatement.InvestmentsInCompanies / SavedFinancialPositionStatement.TotalDepositLiabilities,
-                        EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
+                        NonEarningAssets = SavedFinancialPositionStatement.TotalAssets != 0
+                            ? (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
+                             + SavedFinancialPositionStatement.TotalAccountsReceivables
+                             + SavedFinancialPositionStatement.PropertyAndEquipment
+                             + SavedFinancialPositionStatement.PrepaidLeaseRentals
+                             + SavedFinancialPositionStatement.IntangibleAssets
+                             + SavedFinancialPositionStatement.OtherAssets)
+                               / SavedFinancialPositionStatement.TotalAssets
+                            : 0,
+
+                        EquityInvestmentsToDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities != 0
+                            ? SavedFinancialPositionStatement.InvestmentsInCompanies
+                              / SavedFinancialPositionStatement.TotalDepositLiabilities
+                            : 0,
+
+                    EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
                         NetIncomeToAverageAssets = netIncomeToAverageAssetsRatio,
                         YieldOnGrossLoans = yieldOnGrossLoans,
                         TotalExpenseToTotalIncome = totalExpenseToTotalIncome,
