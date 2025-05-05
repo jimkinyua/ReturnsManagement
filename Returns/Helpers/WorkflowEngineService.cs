@@ -217,9 +217,8 @@ namespace Returns.Helpers
                 if (nextStep == null)
                 {
                     // workflow is complete
-                    instance.CurrentStepId = null;
+                    //instance.CurrentStepId = "Approved";
                     instance.Status = ApprovalStatus.Approved.ToString();
-                    _db.WorkflowInstances.Update(instance);
 
                     // update the return status CanReportBeViewed to be true
                     var Return = await _db.Returns.FindAsync(instance.ReturnId);
@@ -230,6 +229,7 @@ namespace Returns.Helpers
                     Return.CanReportBeViewed = true;
                     
                     _db.Returns.Update(Return);
+                    _db.WorkflowInstances.Update(instance);
                     await _db.SaveChangesAsync();
                     //await NotifySacco(instance.ReturnId);
                 }

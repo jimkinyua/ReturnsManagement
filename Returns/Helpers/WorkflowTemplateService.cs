@@ -129,7 +129,7 @@ namespace Returns.Helpers
             return await GetWorkflowTemplateInternal(templateId);
         }
 
-        public async Task<bool> PublishWorkflowTemplateAsync(string templateId)
+        public async Task<bool> PublishWorkflowTemplate(string templateId)
         {
             var template = await _context.WorkFlowTemplates
                 .Include(t => t.WorkFlowSteps)
