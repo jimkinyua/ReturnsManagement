@@ -7,7 +7,7 @@ using Returns.Models.Data;
 
 namespace Returns.Helpers
 {
-    public class WorkflowTemplateService: IWorkflowTemplateAdminService
+    public class WorkflowTemplateService : IWorkflowTemplateAdminService
     {
         private readonly ReturnsDbContext _context;
         private readonly IComplianceService _complianceService;
@@ -18,7 +18,7 @@ namespace Returns.Helpers
             _context = context;
         }
 
-        public async Task<List<WorkflowStepDTO>> AddStepsToWorkflowTemplateAsync( List<CreateWorkflowStepDTO> dtos)
+        public async Task<List<WorkflowStepDTO>> AddStepToWorkflowTemplate( List<CreateWorkflowStepDTO> dtos)
         {
             if (dtos is null || dtos.Count == 0)
                 throw new ArgumentException("No steps supplied.", nameof(dtos));
@@ -284,5 +284,7 @@ namespace Returns.Helpers
                 }).OrderBy(s => s.Sequence).ToList()
             };
         }
+
+      
     }
 }
