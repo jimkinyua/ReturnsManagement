@@ -854,6 +854,8 @@ namespace Returns.Controllers
             return Ok(results);
         }
 
+        
+
         [HttpGet("GetReturnDetails/{returnId}")]
         public async Task<ActionResult<ReturnDetailsDTO>> GetReturnDetails(string returnId)
         {
@@ -1057,6 +1059,7 @@ namespace Returns.Controllers
                     VersionNumber = r.VersionNumber,
                     IsActiveVersion = r.IsActiveVersion,
                     AmendmentDate = r.AmendmentDate,
+                    CanReportBeViewed = r.CanReportBeViewed,
                     //PreviousVersionId = r.PreviousVersionId,
                     PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(r).Result
                 })
@@ -1494,6 +1497,9 @@ namespace Returns.Controllers
             }
         }
 
+
+
+
         [HttpGet("nwdt/GetReturnDetails/{returnId}")]
         public async Task<ActionResult<NWDTReturnDetailsDTO>> GetNwdtReturnDetails(string returnId)
         {
@@ -1847,6 +1853,7 @@ namespace Returns.Controllers
                 IsActiveVersion = returnEntity.IsActiveVersion,
                 AmendmentDate = returnEntity.AmendmentDate,
                 PreviousVersionId = returnEntity.PreviousVersionId,
+                CanReportBeViewed = returnEntity.CanReportBeViewed,
                 PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(returnEntity).Result
             };
 

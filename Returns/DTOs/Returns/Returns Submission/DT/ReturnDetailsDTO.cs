@@ -44,6 +44,8 @@ namespace Returns.DTOs.Returns_Submission.DT
         public SectoralLendingDTO SectoralLending { get; set; } = new SectoralLendingDTO();
 
         public int VersionNumber { get; set; }
+        public Boolean CanReportBeViewed { get; set; } = false;
+
         public bool IsActiveVersion { get; set; }
         public DateTime? AmendmentDate { get; set; }
         public string? PreviousVersionId { get; set; }

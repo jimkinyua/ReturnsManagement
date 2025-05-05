@@ -37,11 +37,15 @@ namespace Returns.Helpers
                 .Select(w => new PendingReturnDto
                 {
                     ReturnId = w.ReturnId,
+                    IsConsistent = w.Return.IsNotConsistent,
+                    Period = w.Return.Period,
+                    SaccoType = w.Return.SaccoType,
+                    SaccoName = w.Return.SaccoName,
+                    SubmittedDate = w.Return.SubmittedAt,
                     SaccoId = w.Return.SaccoId,
                     WorkFlowInstanceId = w.Id,
                     CurrentRole = w.CurrentStep.RoleName,
                     CurrentStep = w.CurrentStep.Sequence,
-                    SubmittedDate = w.Return.CreatedAt,
                     Rating = w.Rating
                 })
                 .ToListAsync();
@@ -182,6 +186,15 @@ namespace Returns.Helpers
 
             if (alreadyApproved)
             {
+                // update return status CanReportBeViewed to be true
+                var Return = await _db.Returns.FindAsync(instance.ReturnId);
+                if (Return == null)
+                {
+                    throw new Exception("Return not found.");
+                }
+                Return.CanReportBeViewed = true;
+                _db.Returns.Update(Return);
+                await _db.SaveChangesAsync();
                 return ConvertToDto(instance);
             }
 
@@ -206,7 +219,17 @@ namespace Returns.Helpers
                     // workflow is complete
                     instance.CurrentStepId = null;
                     instance.Status = ApprovalStatus.Approved.ToString();
+                    _db.WorkflowInstances.Update(instance);
 
+                    // update the return status CanReportBeViewed to be true
+                    var Return = await _db.Returns.FindAsync(instance.ReturnId);
+                    if (Return == null)
+                    {
+                        throw new Exception("Return not found.");
+                    }
+                    Return.CanReportBeViewed = true;
+                    
+                    _db.Returns.Update(Return);
                     await _db.SaveChangesAsync();
                     //await NotifySacco(instance.ReturnId);
                 }

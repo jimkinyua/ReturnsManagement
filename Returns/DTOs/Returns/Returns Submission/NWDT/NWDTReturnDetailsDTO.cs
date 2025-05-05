@@ -36,6 +36,7 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public bool IsActiveVersion { get; set; }
         public DateTime? AmendmentDate { get; set; }
         public string? PreviousVersionId { get; set; }
+        public Boolean CanReportBeViewed { get; set; } = false;
         public List<VersionChoice> PreviousVersionIds { get; set; } = new List<VersionChoice>();
     }
 }

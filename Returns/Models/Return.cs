@@ -19,6 +19,7 @@ namespace Returns.Models
         public bool IsActiveVersion { get; set; } = true;
         public DateTime? AmendmentDate { get; set; }
         public string? PreviousVersionId { get; set; }
+        public Boolean CanReportBeViewed { get; set; } = false;
 
         public virtual Return? PreviousVersion { get; set; }
 
