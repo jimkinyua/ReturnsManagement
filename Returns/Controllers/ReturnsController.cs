@@ -54,40 +54,47 @@ namespace Returns.Controllers
         public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
         {
 
-
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+            try
             {
-                return StatusCode(401);
-            }
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return StatusCode(401);
+                }
 
-            if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                {
+                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
+                    if (!HasConsistencyBeenChecked)
+                    {
+                        return StatusCode(409, processingSummary);
+                    }
+                    if (!isValid)
+                    {
+                        return BadRequest(ConsistencyErrors);
+                    }
+                }
+                else
+                {
+                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
+                    if (!HasConsistencyBeenChecked)
+                    {
+                        return StatusCode(409, processingSummary);
+                    }
+
+                    if (!isValid)
+                    {
+                        return BadRequest(ConsistencyErrors);
+                    }
+                }
+
+                return Ok();
+            }
+            catch (Exception ex)
             {
-                var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                if (!HasConsistencyBeenChecked)
-                {
-                    return StatusCode(409, processingSummary);
-                }
-                if (!isValid)
-                {
-                    return BadRequest(ConsistencyErrors);
-                }
-            }
-            else
-            {
-                var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                if (!HasConsistencyBeenChecked)
-                {
-                    return StatusCode(409, processingSummary);
-                }
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
 
-                if (!isValid)
-                {
-                    return BadRequest(ConsistencyErrors);
-                }
             }
-
-            return Ok();
 
         }
 
