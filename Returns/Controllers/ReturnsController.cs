@@ -860,253 +860,260 @@ namespace Returns.Controllers
         [HttpGet("GetReturnDetails/{returnId}")]
         public async Task<ActionResult<ReturnDetailsDTO>> GetReturnDetails(string returnId)
         {
-            var baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
-
-            var returnDTO = await _context.Returns
-                .Include(r => r.CapitalAdequencies)
-                .Include(r => r.DepositReturns)
-                .Include(r => r.StatementOfComprehensiveIncomeReturns)
-                .Include(r => r.StatementOfFinancialPositionReturns)
-                .Include(r => r.RiskClassifications)
-                .Include(r => r.InvestmentReturns)
-                .Include(r => r.SectoralLendingReports)
-                .Include(r => r.LiquidityReturns)
-                .Where(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString())
-                .AsNoTracking()
-                .Select(r => new ReturnDetailsDTO
-                {
-                    Id = r.Id,
-                    SaccoName = r.SaccoName,
-                    IsConsistent = r.IsNotConsistent,
-                    ConsistentErrorMessage = r.ConsistentErrorMessage,
-                    SubmittedAt = r.SubmittedAt,
-
-                    CapitalAdequacyDaysLate = r.CapitalAdequencies.Any() ? r.CapitalAdequencies.First().DaysLateBy : 0,
-                    DepositReturnDaysLate = r.DepositReturns.Any() ? r.DepositReturns.First().DaysLateBy : 0,
-                    StatementOfComprehensiveIncomeDaysLate = r.StatementOfComprehensiveIncomeReturns.Any() ? r.StatementOfComprehensiveIncomeReturns.First().DaysLateBy : 0,
-                    StatementOfFinancialPositionDaysLate = r.StatementOfFinancialPositionReturns.Any() ? r.StatementOfFinancialPositionReturns.First().DaysLateBy : 0,
-                    LiquidityReturnDaysLate = r.LiquidityReturns.Any() ? r.LiquidityReturns.First().DaysLateBy : 0,
-                    RiskClassificationDaysLate = r.RiskClassifications.Any() ? r.RiskClassifications.First().DaysLateBy : 0,
-                    InvestmentReturnDaysLate = r.InvestmentReturns.Any() ? r.InvestmentReturns.First().DaysLateBy : 0,
-
-                    CapitalAdequacy = r.CapitalAdequencies.Select(ca => new CapitalAdequacyDTO
-                    {
-                        ShareCapital = ca.ShareCapital,
-                        StatutoryReserves = ca.StatutoryReserves,
-                        RetainedEarningsAccumulatedLosses = ca.RetainedEarningsAccumulatedLosses,
-                        NetSurplusAfterTaxCurrentYearToDate = ca.NetSurplusAfterTaxCurrentYearToDate,
-                        CapitalGrantsEquityInNature = ca.CapitalGrantsEquityInNature,
-                        GeneralReserves = ca.GeneralReserves,
-                        OtherReserves = ca.OtherReserves,
-                        SubTotalCoreCapital = ca.SubTotalCoreCapital,
-                        InvestmentsInSubsidiaryAndEquityInstruments = ca.InvestmentsInSubsidiaryAndEquityInstruments,
-                        OtherDeductions = ca.OtherDeductions,
-                        TotalDeductions = ca.TotalDeductions,
-                        CoreCapital = ca.CoreCapital,
-                        InstitutionalCapital = ca.InstitutionalCapital,
-                        CashLocalAndForeignCurrency = ca.CashLocalAndForeignCurrency,
-                        GovernmentSecurities = ca.GovernmentSecurities,
-                        DepositsAndBalancesAtOtherInstitutions = ca.DepositsAndBalancesAtOtherInstitutions,
-                        LoansAndAdvances = ca.LoansAndAdvances,
-                        Investments = ca.Investments,
-                        PropertyAndEquipment = ca.PropertyAndEquipment,
-                        OtherAssets = ca.OtherAssets,
-                        TotalOnBalanceSheetAssets = ca.TotalOnBalanceSheetAssets,
-                        TotalAssetsPerBalanceSheet = ca.TotalAssetsPerBalanceSheet,
-                        Difference = ca.Difference,
-                        CoreCapitalToAssetsRatio = ca.CoreCapitalToAssetsRatio,
-                        CoreCapitalToAssetsRatioExcessDeficiency = ca.CoreCapitalToAssetsRatioExcessDeficiency,
-                        InstitutionalCapitalToAssetsRatio = ca.InstitutionalCapitalToAssetsRatio,
-                        InstitutionalCapitalToAssetsRatioExcessDeficiency = ca.InstitutionalCapitalToAssetsRatioExcessDeficiency,
-                        CoreCapitalToDepositsRatio = ca.CoreCapitalToDepositsRatio,
-                        CoreCapitalToDepositsRatioExcessDeficiency = ca.CoreCapitalToDepositsRatioExcessDeficiency,
-                        FilePath = ca.FilePath
-                    }).FirstOrDefault(),
-                    DepositReturn = r.DepositReturns.Select(dr => new DepositReturnDto
-                    {
-                        RangeName = dr.RangeName,
-                        DepositType = dr.DepositType,
-                        NumberOfAccounts = dr.NumberOfAccounts,
-                        Amount = dr.AmountInKshs000,
-                        FilePath = dr.FilePath
-                    }).ToList(),
-                    IncomeStatement = r.StatementOfComprehensiveIncomeReturns.Select(income => new ComprehesiveIncomeStatementDTO
-                    {
-                        InterestOnLoanPortfolio = income.InterestOnLoanPortfolio,
-                        FeesAndCommissionOnLoanPortfolio = income.FeesAndCommissionOnLoanPortfolio,
-                        GovernmentSecurities = income.GovernmentSecurities,
-                        DepositsWithBanks = income.DepositsWithBanks,
-                        OtherInvestments = income.OtherInvestments,
-                        OtherOperatingIncome = income.OtherOperatingIncome,
-                        InterestExpenseOnDeposits = income.InterestExpenseOnDeposits,
-                        CostOfExternalBorrowings = income.CostOfExternalBorrowings,
-                        DividendExpenses = income.DividendExpenses,
-                        OtherFinancialExpense = income.OtherFinancialExpense,
-                        FeesAndCommissionExpense = income.FeesAndCommissionExpense,
-                        OtherExpense = income.OtherExpense,
-                        ProvisionForLoanLosses = income.ProvisionForLoanLosses,
-                        ValueOfLoansRecovered = income.ValueOfLoansRecovered,
-                        PersonnelExpenses = income.PersonnelExpenses,
-                        GovernanceExpenses = income.GovernanceExpenses,
-                        MarketingExpenses = income.MarketingExpenses,
-                        DepreciationAndAmortization = income.DepreciationAndAmortization,
-                        AdministrativeExpenses = income.AdministrativeExpenses,
-                        NonOperatingIncome = income.NonOperatingIncome,
-                        NonOperatingExpense = income.NonOperatingExpense,
-                        Taxes = income.Taxes,
-                        Donations = income.Donations,
-                        FilePath = income.FilePath
-                    }).FirstOrDefault(),
-                    FinancialPosition = r.StatementOfFinancialPositionReturns.Select(balance => new FinancialPositionDTO
-                    {
-                        CashInHand = balance.CashInHand,
-                        CashAtBank = balance.CashAtBank,
-                        PrepaymentsAndSundryReceivables = balance.PrepaymentsAndSundryReceivables,
-                        GovernmentSecurities = balance.GovernmentSecurities,
-                        OtherSecurities = balance.OtherSecurities,
-                        BalancesWithOtherSaccos = balance.BalancesWithOtherSaccos,
-                        InvestmentsInCompanies = balance.InvestmentsInCompanies,
-                        GrossLoanPortfolio = balance.GrossLoanPortfolio,
-                        AllowanceForLoanLoss = balance.AllowanceForLoanLoss,
-                        TaxRecoverable = balance.TaxRecoverable,
-                        DeferredTaxAssets = balance.DeferredTaxAssets,
-                        RetirementBenefitAssets = balance.RetirementBenefitAssets,
-                        InvestmentProperties = balance.InvestmentProperties,
-                        PropertyAndEquipment = balance.PropertyAndEquipment,
-                        PrepaidLeaseRentals = balance.PrepaidLeaseRentals,
-                        IntangibleAssets = balance.IntangibleAssets,
-                        OtherAssets = balance.OtherAssets,
-                        SavingsDeposits = balance.SavingsDeposits,
-                        ShortTermDeposits = balance.ShortTermDeposits,
-                        NonWithdrawableDeposits = balance.NonWithdrawableDeposits,
-                        TaxPayable = balance.TaxPayable,
-                        DividendsPayable = balance.DividendsPayable,
-                        DeferredTaxLiability = balance.DeferredTaxLiability,
-                        RetirementBenefitsLiability = balance.RetirementBenefitsLiability,
-                        OtherLiabilities = balance.OtherLiabilities,
-                        ExternalBorrowings = balance.ExternalBorrowings,
-                        ShareCapital = balance.ShareCapital,
-                        CapitalGrants = balance.CapitalGrants,
-                        PriorYearsRetainedEarnings = balance.PriorYearsRetainedEarnings,
-                        CurrentYearSurplus = balance.CurrentYearSurplus,
-                        StatutoryReserve = balance.StatutoryReserve,
-                        FilePath = balance.FilePath
-                    }).FirstOrDefault(),
-                    LiquidityStatement = r.LiquidityReturns.Select(liq => new LiquidityStatementDTO
-                    {
-                        LocalNotesAndCoins = liq.LocalNotesAndCoins,
-                        ForeignNotesAndCoins = liq.ForeignNotesAndCoins,
-                        BalancesWithCommercialBanks = liq.BalancesWithCommercialBanks,
-                        TimeDepositsWithBanksMoreThan90Days = liq.TimeDepositsWithBanksMoreThan90Days,
-                        OverdraftsAndMaturedLoans = liq.OverdraftsAndMaturedLoans,
-                        BalancesWithOtherSaccoSocieties = liq.BalancesWithOtherSaccoSocieties,
-                        BalancesWithOtherFinancialInstitutions = liq.BalancesWithOtherFinancialInstitutions,
-                        BalancesDueToOtherSaccoSocieties = liq.BalancesDueToOtherSaccoSocieties,
-                        BalancesDueToFinancialInstitutions = liq.BalancesDueToFinancialInstitutions,
-                        TreasuryBills = liq.TreasuryBills,
-                        TreasuryBonds = liq.TreasuryBonds,
-                        DepositsFromMembers = liq.DepositsFromMembers,
-                        DepositsFromOtherSources = liq.DepositsFromOtherSources,
-                        MaturedLiabilities = liq.MaturedLiabilities,
-                        LiabilitiesMaturing91Days = liq.LiabilitiesMaturing91Days,
-                        TotalNotesAndCoins = liq.TotalNotesAndCoins,
-                        TotalGovernmentSecurities = liq.TotalGovernmentSecurities,
-                        NetLiquidAssets = liq.NetLiquidAssets,
-                        TotalDeposits = liq.TotalDeposits,
-                        TotalOtherLiabilities = liq.TotalOtherLiabilities,
-                        LiquidityRatio = liq.LiquidityRatio,
-                        LiquidityRatioExcessDeficit = liq.LiquidityRatioExcessDeficit,
-                        NetFinancialInstitutionBalances = liq.NetFinancialInstitutionBalances,
-                        NetBankBalances = liq.NetBankBalances,
-                        FilePath = liq.FilePath
-                    }).FirstOrDefault(),
-                    RiskClassifications = r.RiskClassifications.Select(rc => new RiskClassificationDTO
-                    {
-                        LoanType = rc.LoanType,
-                        Classification = rc.Classification,
-                        NumberOfAccounts = rc.NumberOfAccounts,
-                        OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
-                        RequiredProvision = rc.RequiredProvision,
-                        RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                        FilePath = rc.FilePath
-                    }).ToList(),
-
-                    OtherReturns = r.OtherReturns.Select(other => new OtherReturnDTO
-                    {
-                        FormName = other.FormName,
-                        FileUrl = other.FileUrl
-
-                    }).ToList(),
-
-                    Investment = r.InvestmentReturns.Select(inv => new InvestmentReturnDTO
-                    {
-                        CoreCapital = inv.CoreCapital,
-                        TotalAssets = inv.TotalAssets,
-                        TotalDeposits = inv.TotalDeposits,
-                        NonEarningAssets = inv.NonEarningAssets,
-                        FinancialInvestments = inv.FinancialInvestments,
-                        LandAndBuildings = inv.LandAndBuildings,
-                        LandBuildingsToTotalAssetsRatio = inv.LandBuildingsToTotalAssetsRatio,
-                        LandBuildingsRatioExcessDeficiency = inv.LandBuildingsRatioExcessDeficiency,
-                        NonEarningAssetsToTotalAssetsRatio = inv.NonEarningAssetsToTotalAssetsRatio,
-                        NonEarningAssetsRatioExcessDeficiency = inv.NonEarningAssetsRatioExcessDeficiency,
-                        FinancialInvestmentsToCoreCapitalRatio = inv.FinancialInvestmentsToCoreCapitalRatio,
-                        FinancialInvestmentsToCoreCapitalExcessDeficiency = inv.FinancialInvestmentsToCoreCapitalExcessDeficiency,
-                        FinancialInvestmentsToDepositsRatio = inv.FinancialInvestmentsToDepositsRatio,
-                        FinancialInvestmentsToDepositsExcessDeficiency = inv.FinancialInvestmentsToDepositsExcessDeficiency,
-                        FilePath = inv.FilePath
-                    }).FirstOrDefault(),
-                    Year = r.Period.ToString(),
-                    VersionNumber = r.VersionNumber,
-                    IsActiveVersion = r.IsActiveVersion,
-                    AmendmentDate = r.AmendmentDate,
-                    CanReportBeViewed = r.CanReportBeViewed,
-                    //PreviousVersionId = r.PreviousVersionId,
-                    PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(r).Result
-                })
-
-                .FirstOrDefaultAsync();
-
-
-            if (returnDTO == null)
+            try
             {
-                return new ReturnDetailsDTO();
-            }
+                var baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
 
-            var  sectoralLendingReports = await _context.SectoralLendingReports
-                .Where(x => x.ReturnId == returnId)
-                .FirstOrDefaultAsync();
-
-            if (sectoralLendingReports != null)
-            {
-                SectoralLendingDTO sectoralLendingDTO = new SectoralLendingDTO
-                {
-                    StartDate = sectoralLendingReports.StartDate,
-                    EndDate = sectoralLendingReports.EndDate,
-                };
-
-                var sectoralLendingDataList = await _context.SectoralLendingData
-                   .Where(x => x.ReturnId == returnId)
-                   .ToListAsync();
-
-                sectoralLendingDataList.ForEach(x =>
-                {
-                    sectoralLendingDTO.SubSectorData.Add(new SectoralLendingDataDTO
+                var returnDTO = await _context.Returns
+                    .Include(r => r.CapitalAdequencies)
+                    .Include(r => r.DepositReturns)
+                    .Include(r => r.StatementOfComprehensiveIncomeReturns)
+                    .Include(r => r.StatementOfFinancialPositionReturns)
+                    .Include(r => r.RiskClassifications)
+                    .Include(r => r.InvestmentReturns)
+                    .Include(r => r.SectoralLendingReports)
+                    .Include(r => r.LiquidityReturns)
+                    .Where(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                    .AsNoTracking()
+                    .Select(r => new ReturnDetailsDTO
                     {
-                        Amount = x.Amount,
-                        Category = x.Category,
-                        SubCategory = x.SubCategory,
-                        EconomicSectorName = x.EconomicSectorName,
+                        Id = r.Id,
+                        SaccoName = r.SaccoName,
+                        IsConsistent = r.IsNotConsistent,
+                        ConsistentErrorMessage = r.ConsistentErrorMessage,
+                        SubmittedAt = r.SubmittedAt,
+
+                        CapitalAdequacyDaysLate = r.CapitalAdequencies.Any() ? r.CapitalAdequencies.First().DaysLateBy : 0,
+                        DepositReturnDaysLate = r.DepositReturns.Any() ? r.DepositReturns.First().DaysLateBy : 0,
+                        StatementOfComprehensiveIncomeDaysLate = r.StatementOfComprehensiveIncomeReturns.Any() ? r.StatementOfComprehensiveIncomeReturns.First().DaysLateBy : 0,
+                        StatementOfFinancialPositionDaysLate = r.StatementOfFinancialPositionReturns.Any() ? r.StatementOfFinancialPositionReturns.First().DaysLateBy : 0,
+                        LiquidityReturnDaysLate = r.LiquidityReturns.Any() ? r.LiquidityReturns.First().DaysLateBy : 0,
+                        RiskClassificationDaysLate = r.RiskClassifications.Any() ? r.RiskClassifications.First().DaysLateBy : 0,
+                        InvestmentReturnDaysLate = r.InvestmentReturns.Any() ? r.InvestmentReturns.First().DaysLateBy : 0,
+
+                        CapitalAdequacy = r.CapitalAdequencies.Select(ca => new CapitalAdequacyDTO
+                        {
+                            ShareCapital = ca.ShareCapital,
+                            StatutoryReserves = ca.StatutoryReserves,
+                            RetainedEarningsAccumulatedLosses = ca.RetainedEarningsAccumulatedLosses,
+                            NetSurplusAfterTaxCurrentYearToDate = ca.NetSurplusAfterTaxCurrentYearToDate,
+                            CapitalGrantsEquityInNature = ca.CapitalGrantsEquityInNature,
+                            GeneralReserves = ca.GeneralReserves,
+                            OtherReserves = ca.OtherReserves,
+                            SubTotalCoreCapital = ca.SubTotalCoreCapital,
+                            InvestmentsInSubsidiaryAndEquityInstruments = ca.InvestmentsInSubsidiaryAndEquityInstruments,
+                            OtherDeductions = ca.OtherDeductions,
+                            TotalDeductions = ca.TotalDeductions,
+                            CoreCapital = ca.CoreCapital,
+                            InstitutionalCapital = ca.InstitutionalCapital,
+                            CashLocalAndForeignCurrency = ca.CashLocalAndForeignCurrency,
+                            GovernmentSecurities = ca.GovernmentSecurities,
+                            DepositsAndBalancesAtOtherInstitutions = ca.DepositsAndBalancesAtOtherInstitutions,
+                            LoansAndAdvances = ca.LoansAndAdvances,
+                            Investments = ca.Investments,
+                            PropertyAndEquipment = ca.PropertyAndEquipment,
+                            OtherAssets = ca.OtherAssets,
+                            TotalOnBalanceSheetAssets = ca.TotalOnBalanceSheetAssets,
+                            TotalAssetsPerBalanceSheet = ca.TotalAssetsPerBalanceSheet,
+                            Difference = ca.Difference,
+                            CoreCapitalToAssetsRatio = ca.CoreCapitalToAssetsRatio,
+                            CoreCapitalToAssetsRatioExcessDeficiency = ca.CoreCapitalToAssetsRatioExcessDeficiency,
+                            InstitutionalCapitalToAssetsRatio = ca.InstitutionalCapitalToAssetsRatio,
+                            InstitutionalCapitalToAssetsRatioExcessDeficiency = ca.InstitutionalCapitalToAssetsRatioExcessDeficiency,
+                            CoreCapitalToDepositsRatio = ca.CoreCapitalToDepositsRatio,
+                            CoreCapitalToDepositsRatioExcessDeficiency = ca.CoreCapitalToDepositsRatioExcessDeficiency,
+                            FilePath = ca.FilePath
+                        }).FirstOrDefault(),
+                        DepositReturn = r.DepositReturns.Select(dr => new DepositReturnDto
+                        {
+                            RangeName = dr.RangeName,
+                            DepositType = dr.DepositType,
+                            NumberOfAccounts = dr.NumberOfAccounts,
+                            Amount = dr.AmountInKshs000,
+                            FilePath = dr.FilePath
+                        }).ToList(),
+                        IncomeStatement = r.StatementOfComprehensiveIncomeReturns.Select(income => new ComprehesiveIncomeStatementDTO
+                        {
+                            InterestOnLoanPortfolio = income.InterestOnLoanPortfolio,
+                            FeesAndCommissionOnLoanPortfolio = income.FeesAndCommissionOnLoanPortfolio,
+                            GovernmentSecurities = income.GovernmentSecurities,
+                            DepositsWithBanks = income.DepositsWithBanks,
+                            OtherInvestments = income.OtherInvestments,
+                            OtherOperatingIncome = income.OtherOperatingIncome,
+                            InterestExpenseOnDeposits = income.InterestExpenseOnDeposits,
+                            CostOfExternalBorrowings = income.CostOfExternalBorrowings,
+                            DividendExpenses = income.DividendExpenses,
+                            OtherFinancialExpense = income.OtherFinancialExpense,
+                            FeesAndCommissionExpense = income.FeesAndCommissionExpense,
+                            OtherExpense = income.OtherExpense,
+                            ProvisionForLoanLosses = income.ProvisionForLoanLosses,
+                            ValueOfLoansRecovered = income.ValueOfLoansRecovered,
+                            PersonnelExpenses = income.PersonnelExpenses,
+                            GovernanceExpenses = income.GovernanceExpenses,
+                            MarketingExpenses = income.MarketingExpenses,
+                            DepreciationAndAmortization = income.DepreciationAndAmortization,
+                            AdministrativeExpenses = income.AdministrativeExpenses,
+                            NonOperatingIncome = income.NonOperatingIncome,
+                            NonOperatingExpense = income.NonOperatingExpense,
+                            Taxes = income.Taxes,
+                            Donations = income.Donations,
+                            FilePath = income.FilePath
+                        }).FirstOrDefault(),
+                        FinancialPosition = r.StatementOfFinancialPositionReturns.Select(balance => new FinancialPositionDTO
+                        {
+                            CashInHand = balance.CashInHand,
+                            CashAtBank = balance.CashAtBank,
+                            PrepaymentsAndSundryReceivables = balance.PrepaymentsAndSundryReceivables,
+                            GovernmentSecurities = balance.GovernmentSecurities,
+                            OtherSecurities = balance.OtherSecurities,
+                            BalancesWithOtherSaccos = balance.BalancesWithOtherSaccos,
+                            InvestmentsInCompanies = balance.InvestmentsInCompanies,
+                            GrossLoanPortfolio = balance.GrossLoanPortfolio,
+                            AllowanceForLoanLoss = balance.AllowanceForLoanLoss,
+                            TaxRecoverable = balance.TaxRecoverable,
+                            DeferredTaxAssets = balance.DeferredTaxAssets,
+                            RetirementBenefitAssets = balance.RetirementBenefitAssets,
+                            InvestmentProperties = balance.InvestmentProperties,
+                            PropertyAndEquipment = balance.PropertyAndEquipment,
+                            PrepaidLeaseRentals = balance.PrepaidLeaseRentals,
+                            IntangibleAssets = balance.IntangibleAssets,
+                            OtherAssets = balance.OtherAssets,
+                            SavingsDeposits = balance.SavingsDeposits,
+                            ShortTermDeposits = balance.ShortTermDeposits,
+                            NonWithdrawableDeposits = balance.NonWithdrawableDeposits,
+                            TaxPayable = balance.TaxPayable,
+                            DividendsPayable = balance.DividendsPayable,
+                            DeferredTaxLiability = balance.DeferredTaxLiability,
+                            RetirementBenefitsLiability = balance.RetirementBenefitsLiability,
+                            OtherLiabilities = balance.OtherLiabilities,
+                            ExternalBorrowings = balance.ExternalBorrowings,
+                            ShareCapital = balance.ShareCapital,
+                            CapitalGrants = balance.CapitalGrants,
+                            PriorYearsRetainedEarnings = balance.PriorYearsRetainedEarnings,
+                            CurrentYearSurplus = balance.CurrentYearSurplus,
+                            StatutoryReserve = balance.StatutoryReserve,
+                            FilePath = balance.FilePath
+                        }).FirstOrDefault(),
+                        LiquidityStatement = r.LiquidityReturns.Select(liq => new LiquidityStatementDTO
+                        {
+                            LocalNotesAndCoins = liq.LocalNotesAndCoins,
+                            ForeignNotesAndCoins = liq.ForeignNotesAndCoins,
+                            BalancesWithCommercialBanks = liq.BalancesWithCommercialBanks,
+                            TimeDepositsWithBanksMoreThan90Days = liq.TimeDepositsWithBanksMoreThan90Days,
+                            OverdraftsAndMaturedLoans = liq.OverdraftsAndMaturedLoans,
+                            BalancesWithOtherSaccoSocieties = liq.BalancesWithOtherSaccoSocieties,
+                            BalancesWithOtherFinancialInstitutions = liq.BalancesWithOtherFinancialInstitutions,
+                            BalancesDueToOtherSaccoSocieties = liq.BalancesDueToOtherSaccoSocieties,
+                            BalancesDueToFinancialInstitutions = liq.BalancesDueToFinancialInstitutions,
+                            TreasuryBills = liq.TreasuryBills,
+                            TreasuryBonds = liq.TreasuryBonds,
+                            DepositsFromMembers = liq.DepositsFromMembers,
+                            DepositsFromOtherSources = liq.DepositsFromOtherSources,
+                            MaturedLiabilities = liq.MaturedLiabilities,
+                            LiabilitiesMaturing91Days = liq.LiabilitiesMaturing91Days,
+                            TotalNotesAndCoins = liq.TotalNotesAndCoins,
+                            TotalGovernmentSecurities = liq.TotalGovernmentSecurities,
+                            NetLiquidAssets = liq.NetLiquidAssets,
+                            TotalDeposits = liq.TotalDeposits,
+                            TotalOtherLiabilities = liq.TotalOtherLiabilities,
+                            LiquidityRatio = liq.LiquidityRatio,
+                            LiquidityRatioExcessDeficit = liq.LiquidityRatioExcessDeficit,
+                            NetFinancialInstitutionBalances = liq.NetFinancialInstitutionBalances,
+                            NetBankBalances = liq.NetBankBalances,
+                            FilePath = liq.FilePath
+                        }).FirstOrDefault(),
+                        RiskClassifications = r.RiskClassifications.Select(rc => new RiskClassificationDTO
+                        {
+                            LoanType = rc.LoanType,
+                            Classification = rc.Classification,
+                            NumberOfAccounts = rc.NumberOfAccounts,
+                            OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                            RequiredProvision = rc.RequiredProvision,
+                            RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                            FilePath = rc.FilePath
+                        }).ToList(),
+
+                        OtherReturns = r.OtherReturns.Select(other => new OtherReturnDTO
+                        {
+                            FormName = other.FormName,
+                            FileUrl = other.FileUrl
+
+                        }).ToList(),
+
+                        Investment = r.InvestmentReturns.Select(inv => new InvestmentReturnDTO
+                        {
+                            CoreCapital = inv.CoreCapital,
+                            TotalAssets = inv.TotalAssets,
+                            TotalDeposits = inv.TotalDeposits,
+                            NonEarningAssets = inv.NonEarningAssets,
+                            FinancialInvestments = inv.FinancialInvestments,
+                            LandAndBuildings = inv.LandAndBuildings,
+                            LandBuildingsToTotalAssetsRatio = inv.LandBuildingsToTotalAssetsRatio,
+                            LandBuildingsRatioExcessDeficiency = inv.LandBuildingsRatioExcessDeficiency,
+                            NonEarningAssetsToTotalAssetsRatio = inv.NonEarningAssetsToTotalAssetsRatio,
+                            NonEarningAssetsRatioExcessDeficiency = inv.NonEarningAssetsRatioExcessDeficiency,
+                            FinancialInvestmentsToCoreCapitalRatio = inv.FinancialInvestmentsToCoreCapitalRatio,
+                            FinancialInvestmentsToCoreCapitalExcessDeficiency = inv.FinancialInvestmentsToCoreCapitalExcessDeficiency,
+                            FinancialInvestmentsToDepositsRatio = inv.FinancialInvestmentsToDepositsRatio,
+                            FinancialInvestmentsToDepositsExcessDeficiency = inv.FinancialInvestmentsToDepositsExcessDeficiency,
+                            FilePath = inv.FilePath
+                        }).FirstOrDefault(),
+                        Year = r.Period.ToString(),
+                        VersionNumber = r.VersionNumber,
+                        IsActiveVersion = r.IsActiveVersion,
+                        AmendmentDate = r.AmendmentDate,
+                        CanReportBeViewed = r.CanReportBeViewed,
+                        //PreviousVersionId = r.PreviousVersionId,
+                        PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(r).Result
+                    })
+
+                    .FirstOrDefaultAsync();
+
+
+                if (returnDTO == null)
+                {
+                    return new ReturnDetailsDTO();
+                }
+
+                var sectoralLendingReports = await _context.SectoralLendingReports
+                    .Where(x => x.ReturnId == returnId)
+                    .FirstOrDefaultAsync();
+
+                if (sectoralLendingReports != null)
+                {
+                    SectoralLendingDTO sectoralLendingDTO = new SectoralLendingDTO
+                    {
+                        StartDate = sectoralLendingReports.StartDate,
+                        EndDate = sectoralLendingReports.EndDate,
+                    };
+
+                    var sectoralLendingDataList = await _context.SectoralLendingData
+                       .Where(x => x.ReturnId == returnId)
+                       .ToListAsync();
+
+                    sectoralLendingDataList.ForEach(x =>
+                    {
+                        sectoralLendingDTO.SubSectorData.Add(new SectoralLendingDataDTO
+                        {
+                            Amount = x.Amount,
+                            Category = x.Category,
+                            SubCategory = x.SubCategory,
+                            EconomicSectorName = x.EconomicSectorName,
+                        });
                     });
-                });
 
-                returnDTO.SectoralLending = sectoralLendingDTO;
+                    returnDTO.SectoralLending = sectoralLendingDTO;
 
+                }
+
+
+
+                return returnDTO;
             }
-
-
-
-            return returnDTO;
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
         }
 
         [HttpGet("CalculateAnalysis/{returnId}")]
@@ -1508,392 +1515,401 @@ namespace Returns.Controllers
         [HttpGet("nwdt/GetReturnDetails/{returnId}")]
         public async Task<ActionResult<NWDTReturnDetailsDTO>> GetNwdtReturnDetails(string returnId)
         {
-            var baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
-
-            // Query the main return entity
-            var returnEntity = await _context.Returns
-                .Include(r => r.NDWTCapitalAdequacyReturns)
-                .Include(r => r.NWDTDepositReturns)
-                .Include(r => r.NWDTFinancialPositionReturns)
-                .Include(r => r.NWDTComprehensiveIncomeReturns)
-                .Include(r => r.NWDTInvestmentReturns)
-                .Include(r => r.NWDTLiquidityReturns)
-                .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.NWDT.ToString());
-
-            if (returnEntity == null)
+            try
             {
-                return new NWDTReturnDetailsDTO();
-            }
+                var baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
 
-            // Query related entities individually
-            var capitalAdequacy = await _context.NWDTCapitalAdequacyReturns
-                .Where(ca => ca.ReturnId == returnId)
-                                .AsNoTracking()
+                // Query the main return entity
+                var returnEntity = await _context.Returns
+                    .Include(r => r.NDWTCapitalAdequacyReturns)
+                    .Include(r => r.NWDTDepositReturns)
+                    .Include(r => r.NWDTFinancialPositionReturns)
+                    .Include(r => r.NWDTComprehensiveIncomeReturns)
+                    .Include(r => r.NWDTInvestmentReturns)
+                    .Include(r => r.NWDTLiquidityReturns)
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.NWDT.ToString());
 
-                .FirstOrDefaultAsync();
-
-            var depositReturns = await _context.NWDTDepositReturns
-                .Where(dr => dr.ReturnId == returnId)
-                                .AsNoTracking()
-                .ToListAsync();
-
-            var financialPositionReturns = await _context.NWDTFinancialPositionReturns
-                .Where(fp => fp.ReturnId == returnId)
-                                .AsNoTracking()
-
-                .FirstOrDefaultAsync();
-
-            var comprehensiveIncomeReturns = await _context.NWDTComprehensiveIncomeReturns
-                .Where(ci => ci.ReturnId == returnId)
-                                .AsNoTracking()
-
-                .FirstOrDefaultAsync();
-
-            var investmentReturns = await _context.NWDTInvestmentReturns
-                .Where(inv => inv.ReturnId == returnId)
-                                .AsNoTracking()
-
-                .FirstOrDefaultAsync();
-
-            var liquidityReturns = await _context.NDWTLiquidityReturns
-                .Where(liq => liq.ReturnId == returnId)
-                .FirstOrDefaultAsync();
-
-            var riskClassifications = await _context.DTRiskClassificationReturns
-                .Where(rc => rc.ReturnId == returnId)
-                                .AsNoTracking()
-                .ToListAsync();
-
-            var otherReturns = await _context.OtherReturns
-                .Where(other => other.ReturnId == returnId)
-                                .AsNoTracking()
-
-                .ToListAsync();
-
-
-
-
-            // Map the results to the DTO
-            var returnDTO = new NWDTReturnDetailsDTO
-            {
-                Id = returnEntity.Id,
-                SaccoName = returnEntity.SaccoName,
-                SubmittedAt = returnEntity.SubmittedAt,
-                IsConsistent = returnEntity.IsNotConsistent,
-                ConsistentErrorMessage = returnEntity.ConsistentErrorMessage,
-                CapitalAdequacyDaysLate = capitalAdequacy?.DaysLateBy ?? 0,
-                DepositReturnDaysLate = depositReturns.Any() ? depositReturns.First().DaysLateBy : 0,
-                StatementOfComprehensiveIncomeDaysLate = comprehensiveIncomeReturns?.DaysLateBy ?? 0,
-                StatementOfFinancialPositionDaysLate = financialPositionReturns?.DaysLateBy ?? 0,
-                LiquidityReturnDaysLate = liquidityReturns?.DaysLateBy ?? 0,
-                RiskClassificationDaysLate = riskClassifications.Any() ? riskClassifications.First().DaysLateBy : 0,
-                InvestmentReturnDaysLate = investmentReturns?.DaysLateBy ?? 0,
-
-                NWDTCapitalAdequacy = capitalAdequacy != null ? new NWDTCapitalAdequacyDTO
+                if (returnEntity == null)
                 {
-                    // Core Capital Components
-                    ShareCapital = capitalAdequacy.ShareCapital,
-                    StatutoryReserves = capitalAdequacy.StatutoryReserves,
-                    RetainedEarningsAccumulatedLosses = capitalAdequacy.RetainedEarnings, // Adjusted to match entity
-                    NetSurplusAfterTaxCurrentYearToDate = capitalAdequacy.NetSurplusAfterTax, // Adjusted to match entity
-                    CapitalGrantsEquityInNature = capitalAdequacy.CapitalGrants, // Adjusted to match entity
-                    OtherReserves = capitalAdequacy.OtherReserves,
-                    SubTotalCoreCapital = capitalAdequacy.SubTotalCoreCapital,
+                    return new NWDTReturnDetailsDTO();
+                }
 
-                    // Deductions
-                    InvestmentsInSubsidiaryAndEquityInstruments = capitalAdequacy.InvestmentsInSubsidiary, // Adjusted to match entity
-                    OtherDeductions = capitalAdequacy.OtherDeductions,
-                    TotalDeductions = capitalAdequacy.TotalDeductions,
-                    CoreCapital = capitalAdequacy.CoreCapital,
+                // Query related entities individually
+                var capitalAdequacy = await _context.NWDTCapitalAdequacyReturns
+                    .Where(ca => ca.ReturnId == returnId)
+                                    .AsNoTracking()
 
-                    // Balance Sheet Assets
-                    CashLocalAndForeignCurrency = capitalAdequacy.CashLocalForeign, // Adjusted to match entity
-                    GovernmentSecurities = capitalAdequacy.GovernmentSecurities,
-                    DepositsAndBalancesAtOtherInstitutions = capitalAdequacy.DepositsBalancesAtOtherInstitutions, // Adjusted to match entity
-                    LoansAndAdvances = capitalAdequacy.LoansAndAdvances,
-                    Investments = capitalAdequacy.Investments,
-                    PropertyAndEquipment = capitalAdequacy.PropertyAndEquipment,
-                    OtherAssets = capitalAdequacy.OtherAssets,
-                    TotalOnBalanceSheetAssets = capitalAdequacy.TotalOnBalanceSheetAssets,
-                    TotalAssetsPerBalanceSheet = capitalAdequacy.TotalAssetsPerBalanceSheet,
-                    Difference = capitalAdequacy.DifferenceInAssets, // Adjusted to match entity
-                    // Ratios
-                    CoreCapitalToAssetsRatio = capitalAdequacy.CoreCapitalToAssetsRatio,
-                    CoreCapitalToAssetsRatioExcessDeficiency = capitalAdequacy.CoreCapitalToAssetsExcessDeficiency, // Adjusted to match entity
-                    CoreCapitalToDepositsRatio = capitalAdequacy.CoreCapitalToDepositsRatio,
-                    CoreCapitalToDepositsRatioExcessDeficiency = capitalAdequacy.CoreCapitalToDepositsExcessDeficiency, // Adjusted to match entity,
-                    FilePath = capitalAdequacy.FilePath
-                } : null,
-                NWDTDepositReturn = depositReturns.Select(dr => new NWDTDepositReturnDto
+                    .FirstOrDefaultAsync();
+
+                var depositReturns = await _context.NWDTDepositReturns
+                    .Where(dr => dr.ReturnId == returnId)
+                                    .AsNoTracking()
+                    .ToListAsync();
+
+                var financialPositionReturns = await _context.NWDTFinancialPositionReturns
+                    .Where(fp => fp.ReturnId == returnId)
+                                    .AsNoTracking()
+
+                    .FirstOrDefaultAsync();
+
+                var comprehensiveIncomeReturns = await _context.NWDTComprehensiveIncomeReturns
+                    .Where(ci => ci.ReturnId == returnId)
+                                    .AsNoTracking()
+
+                    .FirstOrDefaultAsync();
+
+                var investmentReturns = await _context.NWDTInvestmentReturns
+                    .Where(inv => inv.ReturnId == returnId)
+                                    .AsNoTracking()
+
+                    .FirstOrDefaultAsync();
+
+                var liquidityReturns = await _context.NDWTLiquidityReturns
+                    .Where(liq => liq.ReturnId == returnId)
+                    .FirstOrDefaultAsync();
+
+                var riskClassifications = await _context.DTRiskClassificationReturns
+                    .Where(rc => rc.ReturnId == returnId)
+                                    .AsNoTracking()
+                    .ToListAsync();
+
+                var otherReturns = await _context.OtherReturns
+                    .Where(other => other.ReturnId == returnId)
+                                    .AsNoTracking()
+
+                    .ToListAsync();
+
+
+
+
+                // Map the results to the DTO
+                var returnDTO = new NWDTReturnDetailsDTO
                 {
-                    RangeName = dr.RangeName,
-                    DepositType = dr.DepositType,
-                    NumberOfAccounts = dr.NumberOfAccounts,
-                    Amount = dr.AmountInKshs000,
-                    FilePath = dr.FilePath
-                }).ToList(),
-                NWDTIncomeStatement = comprehensiveIncomeReturns != null ? new NWDTComprehesiveIncomeStatementDTO
-                {
-                    // Financial Income
-                    InterestOnLoanPortfolio = comprehensiveIncomeReturns.InterestOnLoanPortfolio,
-                    FeesAndCommissionOnLoanPortfolio = comprehensiveIncomeReturns.FeesCommissionOnLoanPortfolio, // Adjusted to match entity
-                    TotalFinancialIncomeFromLoans = comprehensiveIncomeReturns.FinancialIncomeFromLoansPortfolio, // Added
-                    GovernmentSecurities = comprehensiveIncomeReturns.GovernmentSecuritiesIncome, // Adjusted to match entity
-                    DepositsWithBanks = comprehensiveIncomeReturns.PlacementInBanksIncome, // Adjusted to match entity
-                    OtherInvestments = comprehensiveIncomeReturns.CommercialPapersIncome + // Adjusted to match entity
-                      comprehensiveIncomeReturns.CollectiveInvestmentSchemesIncome +
-                      comprehensiveIncomeReturns.DerivativesIncome +
-                      comprehensiveIncomeReturns.EquityInvestmentsIncome +
-                      comprehensiveIncomeReturns.InvestmentInCompaniesIncome,
-                    //OtherOperatingIncome = comprehensiveIncomeReturns.OtherOperatingIncome,
-                    TotalFinancialIncomeFromInvestments = comprehensiveIncomeReturns.FinancialIncomeFromInvestments, // Added
-                    TotalFinancialIncome = comprehensiveIncomeReturns.FinancialIncome, // Added
+                    Id = returnEntity.Id,
+                    SaccoName = returnEntity.SaccoName,
+                    SubmittedAt = returnEntity.SubmittedAt,
+                    IsConsistent = returnEntity.IsNotConsistent,
+                    ConsistentErrorMessage = returnEntity.ConsistentErrorMessage,
+                    CapitalAdequacyDaysLate = capitalAdequacy?.DaysLateBy ?? 0,
+                    DepositReturnDaysLate = depositReturns.Any() ? depositReturns.First().DaysLateBy : 0,
+                    StatementOfComprehensiveIncomeDaysLate = comprehensiveIncomeReturns?.DaysLateBy ?? 0,
+                    StatementOfFinancialPositionDaysLate = financialPositionReturns?.DaysLateBy ?? 0,
+                    LiquidityReturnDaysLate = liquidityReturns?.DaysLateBy ?? 0,
+                    RiskClassificationDaysLate = riskClassifications.Any() ? riskClassifications.First().DaysLateBy : 0,
+                    InvestmentReturnDaysLate = investmentReturns?.DaysLateBy ?? 0,
 
-                    // Financial Expense
-                    InterestExpenseOnDeposits = comprehensiveIncomeReturns.InterestExpenseOnDeposits,
-                    CostOfExternalBorrowings = comprehensiveIncomeReturns.CostOfExternalBorrowings,
-                    DividendExpenses = comprehensiveIncomeReturns.DividendExpenses,
-                    OtherFinancialExpense = comprehensiveIncomeReturns.OtherFinancialExpense,
-                    FeesAndCommissionExpense = comprehensiveIncomeReturns.FeesCommissionExpense, // Adjusted to match entity
-                    OtherExpense = comprehensiveIncomeReturns.OtherExpense,
-                    TotalFinancialExpense = comprehensiveIncomeReturns.FinancialExpense, // Added
-                    NetFinancialIncome = comprehensiveIncomeReturns.NetFinancialIncome, // Added
+                    NWDTCapitalAdequacy = capitalAdequacy != null ? new NWDTCapitalAdequacyDTO
+                    {
+                        // Core Capital Components
+                        ShareCapital = capitalAdequacy.ShareCapital,
+                        StatutoryReserves = capitalAdequacy.StatutoryReserves,
+                        RetainedEarningsAccumulatedLosses = capitalAdequacy.RetainedEarnings, // Adjusted to match entity
+                        NetSurplusAfterTaxCurrentYearToDate = capitalAdequacy.NetSurplusAfterTax, // Adjusted to match entity
+                        CapitalGrantsEquityInNature = capitalAdequacy.CapitalGrants, // Adjusted to match entity
+                        OtherReserves = capitalAdequacy.OtherReserves,
+                        SubTotalCoreCapital = capitalAdequacy.SubTotalCoreCapital,
 
-                    // Loan Loss
-                    ProvisionForLoanLosses = comprehensiveIncomeReturns.ProvisionForLoanLosses,
-                    ValueOfLoansRecovered = comprehensiveIncomeReturns.ValueOfLoansRecovered,
-                    NetAllowanceForLoanLoss = comprehensiveIncomeReturns.AllowanceForLoanLoss, // Added
+                        // Deductions
+                        InvestmentsInSubsidiaryAndEquityInstruments = capitalAdequacy.InvestmentsInSubsidiary, // Adjusted to match entity
+                        OtherDeductions = capitalAdequacy.OtherDeductions,
+                        TotalDeductions = capitalAdequacy.TotalDeductions,
+                        CoreCapital = capitalAdequacy.CoreCapital,
 
-                    // Operating Expenses
-                    PersonnelExpenses = comprehensiveIncomeReturns.PersonnelExpenses,
-                    GovernanceExpenses = comprehensiveIncomeReturns.GovernanceExpenses,
-                    MarketingExpenses = comprehensiveIncomeReturns.MarketingExpenses,
-                    DepreciationAndAmortization = comprehensiveIncomeReturns.DepreciationAmortizationCharges, // Adjusted to match entity
-                    AdministrativeExpenses = comprehensiveIncomeReturns.AdministrativeExpenses,
-                    TotalOperatingExpenses = comprehensiveIncomeReturns.OperatingExpenses, // Added
-                    NetOperatingIncome = comprehensiveIncomeReturns.NetOperatingIncome, // Added
+                        // Balance Sheet Assets
+                        CashLocalAndForeignCurrency = capitalAdequacy.CashLocalForeign, // Adjusted to match entity
+                        GovernmentSecurities = capitalAdequacy.GovernmentSecurities,
+                        DepositsAndBalancesAtOtherInstitutions = capitalAdequacy.DepositsBalancesAtOtherInstitutions, // Adjusted to match entity
+                        LoansAndAdvances = capitalAdequacy.LoansAndAdvances,
+                        Investments = capitalAdequacy.Investments,
+                        PropertyAndEquipment = capitalAdequacy.PropertyAndEquipment,
+                        OtherAssets = capitalAdequacy.OtherAssets,
+                        TotalOnBalanceSheetAssets = capitalAdequacy.TotalOnBalanceSheetAssets,
+                        TotalAssetsPerBalanceSheet = capitalAdequacy.TotalAssetsPerBalanceSheet,
+                        Difference = capitalAdequacy.DifferenceInAssets, // Adjusted to match entity
+                                                                         // Ratios
+                        CoreCapitalToAssetsRatio = capitalAdequacy.CoreCapitalToAssetsRatio,
+                        CoreCapitalToAssetsRatioExcessDeficiency = capitalAdequacy.CoreCapitalToAssetsExcessDeficiency, // Adjusted to match entity
+                        CoreCapitalToDepositsRatio = capitalAdequacy.CoreCapitalToDepositsRatio,
+                        CoreCapitalToDepositsRatioExcessDeficiency = capitalAdequacy.CoreCapitalToDepositsExcessDeficiency, // Adjusted to match entity,
+                        FilePath = capitalAdequacy.FilePath
+                    } : null,
+                    NWDTDepositReturn = depositReturns.Select(dr => new NWDTDepositReturnDto
+                    {
+                        RangeName = dr.RangeName,
+                        DepositType = dr.DepositType,
+                        NumberOfAccounts = dr.NumberOfAccounts,
+                        Amount = dr.AmountInKshs000,
+                        FilePath = dr.FilePath
+                    }).ToList(),
+                    NWDTIncomeStatement = comprehensiveIncomeReturns != null ? new NWDTComprehesiveIncomeStatementDTO
+                    {
+                        // Financial Income
+                        InterestOnLoanPortfolio = comprehensiveIncomeReturns.InterestOnLoanPortfolio,
+                        FeesAndCommissionOnLoanPortfolio = comprehensiveIncomeReturns.FeesCommissionOnLoanPortfolio, // Adjusted to match entity
+                        TotalFinancialIncomeFromLoans = comprehensiveIncomeReturns.FinancialIncomeFromLoansPortfolio, // Added
+                        GovernmentSecurities = comprehensiveIncomeReturns.GovernmentSecuritiesIncome, // Adjusted to match entity
+                        DepositsWithBanks = comprehensiveIncomeReturns.PlacementInBanksIncome, // Adjusted to match entity
+                        OtherInvestments = comprehensiveIncomeReturns.CommercialPapersIncome + // Adjusted to match entity
+                          comprehensiveIncomeReturns.CollectiveInvestmentSchemesIncome +
+                          comprehensiveIncomeReturns.DerivativesIncome +
+                          comprehensiveIncomeReturns.EquityInvestmentsIncome +
+                          comprehensiveIncomeReturns.InvestmentInCompaniesIncome,
+                        //OtherOperatingIncome = comprehensiveIncomeReturns.OtherOperatingIncome,
+                        TotalFinancialIncomeFromInvestments = comprehensiveIncomeReturns.FinancialIncomeFromInvestments, // Added
+                        TotalFinancialIncome = comprehensiveIncomeReturns.FinancialIncome, // Added
 
-                    // Non-Operating Income/Expense
-                    NonOperatingIncome = comprehensiveIncomeReturns.NonOperatingIncome,
-                    NonOperatingExpense = comprehensiveIncomeReturns.NonOperatingExpense,
-                    NetNonOperatingIncome = comprehensiveIncomeReturns.NetNonOperatingIncome, // Added
+                        // Financial Expense
+                        InterestExpenseOnDeposits = comprehensiveIncomeReturns.InterestExpenseOnDeposits,
+                        CostOfExternalBorrowings = comprehensiveIncomeReturns.CostOfExternalBorrowings,
+                        DividendExpenses = comprehensiveIncomeReturns.DividendExpenses,
+                        OtherFinancialExpense = comprehensiveIncomeReturns.OtherFinancialExpense,
+                        FeesAndCommissionExpense = comprehensiveIncomeReturns.FeesCommissionExpense, // Adjusted to match entity
+                        OtherExpense = comprehensiveIncomeReturns.OtherExpense,
+                        TotalFinancialExpense = comprehensiveIncomeReturns.FinancialExpense, // Added
+                        NetFinancialIncome = comprehensiveIncomeReturns.NetFinancialIncome, // Added
 
-                    // Taxes and Donations
-                    Taxes = comprehensiveIncomeReturns.Taxes,
-                    NetIncomeBeforeTaxes = comprehensiveIncomeReturns.NetIncomeBeforeTaxes, // Added
-                    NetIncomeAfterTaxes = comprehensiveIncomeReturns.NetIncomeAfterTaxesBeforeDonations, // Adjusted to match entity
-                    Donations = comprehensiveIncomeReturns.Donations,
-                    NetIncomeAfterTaxesAndDonations = comprehensiveIncomeReturns.NetIncomeAfterTaxesAndDonations, // Added,
-                    FilePath = comprehensiveIncomeReturns.FilePath
-                } : null,
-                NWDTFinancialPosition = financialPositionReturns != null ? new NWDTFinancialPositionDTO
-                {
-                    // Cash and Cash Equivalents
-                    CashInHand = financialPositionReturns.CashInHand,
-                    CashAtBank = financialPositionReturns.CashAtBank,
-                    TotalCashAndCashEquivalent = financialPositionReturns.CashAndCashEquivalent, // Added
+                        // Loan Loss
+                        ProvisionForLoanLosses = comprehensiveIncomeReturns.ProvisionForLoanLosses,
+                        ValueOfLoansRecovered = comprehensiveIncomeReturns.ValueOfLoansRecovered,
+                        NetAllowanceForLoanLoss = comprehensiveIncomeReturns.AllowanceForLoanLoss, // Added
 
-                    // Prepayments & Sundry Receivables
-                    PrepaymentsAndSundryReceivables = financialPositionReturns.PrepaymentsAndSundryReceivables,
+                        // Operating Expenses
+                        PersonnelExpenses = comprehensiveIncomeReturns.PersonnelExpenses,
+                        GovernanceExpenses = comprehensiveIncomeReturns.GovernanceExpenses,
+                        MarketingExpenses = comprehensiveIncomeReturns.MarketingExpenses,
+                        DepreciationAndAmortization = comprehensiveIncomeReturns.DepreciationAmortizationCharges, // Adjusted to match entity
+                        AdministrativeExpenses = comprehensiveIncomeReturns.AdministrativeExpenses,
+                        TotalOperatingExpenses = comprehensiveIncomeReturns.OperatingExpenses, // Added
+                        NetOperatingIncome = comprehensiveIncomeReturns.NetOperatingIncome, // Added
 
-                    // Financial Investments
-                    GovernmentSecurities = financialPositionReturns.GovernmentSecurities,
-                    OtherSecurities = financialPositionReturns.PlacementInFinancialInstitutions + // Adjusted to match entity
-                     financialPositionReturns.CommercialPapers +
-                     financialPositionReturns.CollectiveInvestmentSchemes +
-                     financialPositionReturns.Derivatives +
-                     financialPositionReturns.EquityInvestments +
-                     financialPositionReturns.InvestmentInCompanies,
-                    BalancesWithOtherSaccos = 0, // Not present in the entity, defaulting to 0
-                    InvestmentsInCompanies = financialPositionReturns.InvestmentInCompanies, // Adjusted to match entity
-                    TotalFinancialInvestments = financialPositionReturns.FinancialInvestments, // Added
+                        // Non-Operating Income/Expense
+                        NonOperatingIncome = comprehensiveIncomeReturns.NonOperatingIncome,
+                        NonOperatingExpense = comprehensiveIncomeReturns.NonOperatingExpense,
+                        NetNonOperatingIncome = comprehensiveIncomeReturns.NetNonOperatingIncome, // Added
 
-                    // Loan Portfolio
-                    GrossLoanPortfolio = financialPositionReturns.GrossLoanPortfolio,
-                    AllowanceForLoanLoss = financialPositionReturns.AllowanceForLoanLoss,
-                    NetLoanPortfolio = financialPositionReturns.NetLoanPortfolio, // Added
+                        // Taxes and Donations
+                        Taxes = comprehensiveIncomeReturns.Taxes,
+                        NetIncomeBeforeTaxes = comprehensiveIncomeReturns.NetIncomeBeforeTaxes, // Added
+                        NetIncomeAfterTaxes = comprehensiveIncomeReturns.NetIncomeAfterTaxesBeforeDonations, // Adjusted to match entity
+                        Donations = comprehensiveIncomeReturns.Donations,
+                        NetIncomeAfterTaxesAndDonations = comprehensiveIncomeReturns.NetIncomeAfterTaxesAndDonations, // Added,
+                        FilePath = comprehensiveIncomeReturns.FilePath
+                    } : null,
+                    NWDTFinancialPosition = financialPositionReturns != null ? new NWDTFinancialPositionDTO
+                    {
+                        // Cash and Cash Equivalents
+                        CashInHand = financialPositionReturns.CashInHand,
+                        CashAtBank = financialPositionReturns.CashAtBank,
+                        TotalCashAndCashEquivalent = financialPositionReturns.CashAndCashEquivalent, // Added
 
-                    // Accounts Receivables
-                    TaxRecoverable = financialPositionReturns.TaxRecoverable,
-                    DeferredTaxAssets = financialPositionReturns.DeferredTaxAssets,
-                    RetirementBenefitAssets = financialPositionReturns.RetirementBenefitAssets,
-                    TotalAccountsReceivables = financialPositionReturns.AccountsReceivables, // Added
+                        // Prepayments & Sundry Receivables
+                        PrepaymentsAndSundryReceivables = financialPositionReturns.PrepaymentsAndSundryReceivables,
 
-                    // Property & Equipment
-                    InvestmentProperties = financialPositionReturns.InvestmentProperties,
-                    PropertyAndEquipment = financialPositionReturns.PropertyAndEquipment,
-                    PrepaidLeaseRentals = financialPositionReturns.PrepaidLeaseRentals,
-                    IntangibleAssets = financialPositionReturns.IntangibleAssets,
-                    OtherAssets = financialPositionReturns.OtherAssets,
-                    TotalPropertyAndEquipment = financialPositionReturns.PropertyEquipmentOtherAssets, // Added
+                        // Financial Investments
+                        GovernmentSecurities = financialPositionReturns.GovernmentSecurities,
+                        OtherSecurities = financialPositionReturns.PlacementInFinancialInstitutions + // Adjusted to match entity
+                         financialPositionReturns.CommercialPapers +
+                         financialPositionReturns.CollectiveInvestmentSchemes +
+                         financialPositionReturns.Derivatives +
+                         financialPositionReturns.EquityInvestments +
+                         financialPositionReturns.InvestmentInCompanies,
+                        BalancesWithOtherSaccos = 0, // Not present in the entity, defaulting to 0
+                        InvestmentsInCompanies = financialPositionReturns.InvestmentInCompanies, // Adjusted to match entity
+                        TotalFinancialInvestments = financialPositionReturns.FinancialInvestments, // Added
 
-                    // Total Assets
-                    TotalAssets = financialPositionReturns.TotalAssets, // Added
+                        // Loan Portfolio
+                        GrossLoanPortfolio = financialPositionReturns.GrossLoanPortfolio,
+                        AllowanceForLoanLoss = financialPositionReturns.AllowanceForLoanLoss,
+                        NetLoanPortfolio = financialPositionReturns.NetLoanPortfolio, // Added
 
-                    // Liabilities
-                    SavingsDeposits = 0, // Not present in the entity, defaulting to 0
-                    ShortTermDeposits = 0, // Not present in the entity, defaulting to 0
-                    NonWithdrawableDeposits = financialPositionReturns.NonWithdrawableDeposits,
-                    TotalDepositLiabilities = financialPositionReturns.TotalDepositLiabilities, // Added
+                        // Accounts Receivables
+                        TaxRecoverable = financialPositionReturns.TaxRecoverable,
+                        DeferredTaxAssets = financialPositionReturns.DeferredTaxAssets,
+                        RetirementBenefitAssets = financialPositionReturns.RetirementBenefitAssets,
+                        TotalAccountsReceivables = financialPositionReturns.AccountsReceivables, // Added
 
-                    // Accounts Payable
-                    TaxPayable = financialPositionReturns.TaxPayable,
-                    DividendsPayable = financialPositionReturns.DividendsPayable,
-                    DeferredTaxLiability = financialPositionReturns.DeferredTaxLiability,
-                    RetirementBenefitsLiability = financialPositionReturns.RetirementBenefitsLiability,
-                    OtherLiabilities = financialPositionReturns.OtherLiabilities,
-                    ExternalBorrowings = financialPositionReturns.ExternalBorrowings,
-                    TotalAccountsPayable = financialPositionReturns.AccountsPayableOtherLiabilities, // Added
+                        // Property & Equipment
+                        InvestmentProperties = financialPositionReturns.InvestmentProperties,
+                        PropertyAndEquipment = financialPositionReturns.PropertyAndEquipment,
+                        PrepaidLeaseRentals = financialPositionReturns.PrepaidLeaseRentals,
+                        IntangibleAssets = financialPositionReturns.IntangibleAssets,
+                        OtherAssets = financialPositionReturns.OtherAssets,
+                        TotalPropertyAndEquipment = financialPositionReturns.PropertyEquipmentOtherAssets, // Added
 
-                    // Total Liabilities
-                    TotalLiabilities = financialPositionReturns.TotalLiabilities, // Added
+                        // Total Assets
+                        TotalAssets = financialPositionReturns.TotalAssets, // Added
 
-                    // Equity
-                    ShareCapital = financialPositionReturns.ShareCapital,
-                    CapitalGrants = financialPositionReturns.CapitalGrants,
-                    PriorYearsRetainedEarnings = financialPositionReturns.PriorYearsRetainedEarnings,
-                    CurrentYearSurplus = financialPositionReturns.CurrentYearSurplus,
-                    TotalRetainedEarnings = financialPositionReturns.RetainedEarnings, // Added
-                    StatutoryReserve = financialPositionReturns.StatutoryReserve,
-                    OtherReserves = financialPositionReturns.OtherReserves,
-                    RevaluationReserves = financialPositionReturns.RevaluationReserves,
-                    ProposedDividends = financialPositionReturns.ProposedDividends,
-                    AdjustmentToEquity = financialPositionReturns.AdjustmentToEquity,
-                    TotalOtherEquityAccounts = financialPositionReturns.OtherEquityAccounts, // Added
-                    TotalEquity = financialPositionReturns.TotalEquity, // Added
-                    FilePath = financialPositionReturns.FilePath
-                } : null,
-                NWDTLiquidityStatement = liquidityReturns != null ? new NWDTLiquidityStatementDTO
-                {
-                    LocalNotesAndCoins = liquidityReturns.LocalNotesAndCoins,
-                    ForeignNotesAndCoins = liquidityReturns.ForeignNotesAndCoins,
-                    BalancesWithCommercialBanks = liquidityReturns.BalancesWithCommercialBanks,
-                    TimeDepositsWithBanksMoreThan90Days = liquidityReturns.TimeDepositsWithBanksMoreThan90Days,
-                    OverdraftsAndMaturedLoans = liquidityReturns.OverdraftsAndMaturedLoans,
-                    BalancesWithOtherSaccoSocieties = liquidityReturns.BalancesWithOtherSaccoSocieties,
-                    BalancesWithOtherFinancialInstitutions = liquidityReturns.BalancesWithOtherFinancialInstitutions,
-                    BalancesDueToOtherSaccoSocieties = liquidityReturns.BalancesDueToOtherSaccoSocieties,
-                    BalancesDueToFinancialInstitutions = liquidityReturns.BalancesDueToFinancialInstitutions,
-                    TreasuryBills = liquidityReturns.TreasuryBills,
-                    TreasuryBonds = liquidityReturns.TreasuryBondsBearerBonds,
-                    //DepositsFromMembers = liquidityReturns.DepositsFromMembers,
-                    //DepositsFromOtherSources = liquidityReturns.DepositsFromOtherSources,
-                    MaturedLiabilities = liquidityReturns.MaturedLiabilities,
-                    LiabilitiesMaturing91Days = liquidityReturns.LiabilitiesMaturing91Days,
-                    TotalNotesAndCoins = liquidityReturns.TotalNotesAndCoins,
-                    TotalGovernmentSecurities = liquidityReturns.TotalGovernmentSecurities,
-                    NetLiquidAssets = liquidityReturns.NetLiquidAssets,
-                    //TotalDeposits = liquidityReturns.TotalDeposits,
-                    TotalOtherLiabilities = liquidityReturns.TotalOtherLiabilities,
-                    LiquidityRatio = liquidityReturns.LiquidityRatio,
-                    LiquidityRatioExcessDeficit = liquidityReturns.LiquidityRatioExcessDeficit,
-                    NetFinancialInstitutionBalances = liquidityReturns.NetFinancialInstitutionBalances,
-                    NetBankBalances = liquidityReturns.NetBankBalances,
-                } : null,
-                NWDTRiskClassifications = riskClassifications.Select(rc => new NWDTRiskClassificationDTO
-                {
-                    LoanType = rc.LoanType,
-                    Classification = rc.Classification,
-                    NumberOfAccounts = rc.NumberOfAccounts,
-                    OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
-                    RequiredProvision = rc.RequiredProvision,
-                    RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                    FilePath = rc.FilePath
-                }).ToList(),
-                OtherReturns = otherReturns.Select(other => new OtherReturnDTO
-                {
-                    FormName = other.FormName,
-                    FileUrl = other.FileUrl
-                }).ToList(),
-                NWDTInvestment = investmentReturns != null ? new NWDTInvestmentReturnDTO
-                {
-                    CoreCapital = investmentReturns.CoreCapital,
-                    TotalAssets = investmentReturns.TotalAssets,
-                    TotalDeposits = investmentReturns.TotalDeposits,
-                    NonEarningAssets = investmentReturns.NonEarningAssets,
+                        // Liabilities
+                        SavingsDeposits = 0, // Not present in the entity, defaulting to 0
+                        ShortTermDeposits = 0, // Not present in the entity, defaulting to 0
+                        NonWithdrawableDeposits = financialPositionReturns.NonWithdrawableDeposits,
+                        TotalDepositLiabilities = financialPositionReturns.TotalDepositLiabilities, // Added
 
-                    // FinancialInvestments is calculated as FinancialAssets (sum of subsidiary, equity, and other investments)
-                    FinancialInvestments = investmentReturns.FinancialAssets,
+                        // Accounts Payable
+                        TaxPayable = financialPositionReturns.TaxPayable,
+                        DividendsPayable = financialPositionReturns.DividendsPayable,
+                        DeferredTaxLiability = financialPositionReturns.DeferredTaxLiability,
+                        RetirementBenefitsLiability = financialPositionReturns.RetirementBenefitsLiability,
+                        OtherLiabilities = financialPositionReturns.OtherLiabilities,
+                        ExternalBorrowings = financialPositionReturns.ExternalBorrowings,
+                        TotalAccountsPayable = financialPositionReturns.AccountsPayableOtherLiabilities, // Added
 
-                    // Map LandAndBuildings from the entity’s LandAndBuilding property
-                    LandAndBuildings = investmentReturns.LandAndBuilding,
+                        // Total Liabilities
+                        TotalLiabilities = financialPositionReturns.TotalLiabilities, // Added
 
-                    // Calculate Land Buildings Ratio and its excess/deficiency using the MaxLandBuildingToTotalAssetRequirement threshold
-                    LandBuildingsToTotalAssetsRatio = investmentReturns.TotalAssets > 0
-                    ? (investmentReturns.LandAndBuilding / investmentReturns.TotalAssets * 100)
-                    : 0,
-                    LandBuildingsRatioExcessDeficiency = investmentReturns.TotalAssets > 0
-                    ? ((investmentReturns.LandAndBuilding / investmentReturns.TotalAssets * 100) - (investmentReturns.MaxLandBuildingToTotalAssetRequirement * 100))
-                    : 0,
+                        // Equity
+                        ShareCapital = financialPositionReturns.ShareCapital,
+                        CapitalGrants = financialPositionReturns.CapitalGrants,
+                        PriorYearsRetainedEarnings = financialPositionReturns.PriorYearsRetainedEarnings,
+                        CurrentYearSurplus = financialPositionReturns.CurrentYearSurplus,
+                        TotalRetainedEarnings = financialPositionReturns.RetainedEarnings, // Added
+                        StatutoryReserve = financialPositionReturns.StatutoryReserve,
+                        OtherReserves = financialPositionReturns.OtherReserves,
+                        RevaluationReserves = financialPositionReturns.RevaluationReserves,
+                        ProposedDividends = financialPositionReturns.ProposedDividends,
+                        AdjustmentToEquity = financialPositionReturns.AdjustmentToEquity,
+                        TotalOtherEquityAccounts = financialPositionReturns.OtherEquityAccounts, // Added
+                        TotalEquity = financialPositionReturns.TotalEquity, // Added
+                        FilePath = financialPositionReturns.FilePath
+                    } : null,
+                    NWDTLiquidityStatement = liquidityReturns != null ? new NWDTLiquidityStatementDTO
+                    {
+                        LocalNotesAndCoins = liquidityReturns.LocalNotesAndCoins,
+                        ForeignNotesAndCoins = liquidityReturns.ForeignNotesAndCoins,
+                        BalancesWithCommercialBanks = liquidityReturns.BalancesWithCommercialBanks,
+                        TimeDepositsWithBanksMoreThan90Days = liquidityReturns.TimeDepositsWithBanksMoreThan90Days,
+                        OverdraftsAndMaturedLoans = liquidityReturns.OverdraftsAndMaturedLoans,
+                        BalancesWithOtherSaccoSocieties = liquidityReturns.BalancesWithOtherSaccoSocieties,
+                        BalancesWithOtherFinancialInstitutions = liquidityReturns.BalancesWithOtherFinancialInstitutions,
+                        BalancesDueToOtherSaccoSocieties = liquidityReturns.BalancesDueToOtherSaccoSocieties,
+                        BalancesDueToFinancialInstitutions = liquidityReturns.BalancesDueToFinancialInstitutions,
+                        TreasuryBills = liquidityReturns.TreasuryBills,
+                        TreasuryBonds = liquidityReturns.TreasuryBondsBearerBonds,
+                        //DepositsFromMembers = liquidityReturns.DepositsFromMembers,
+                        //DepositsFromOtherSources = liquidityReturns.DepositsFromOtherSources,
+                        MaturedLiabilities = liquidityReturns.MaturedLiabilities,
+                        LiabilitiesMaturing91Days = liquidityReturns.LiabilitiesMaturing91Days,
+                        TotalNotesAndCoins = liquidityReturns.TotalNotesAndCoins,
+                        TotalGovernmentSecurities = liquidityReturns.TotalGovernmentSecurities,
+                        NetLiquidAssets = liquidityReturns.NetLiquidAssets,
+                        //TotalDeposits = liquidityReturns.TotalDeposits,
+                        TotalOtherLiabilities = liquidityReturns.TotalOtherLiabilities,
+                        LiquidityRatio = liquidityReturns.LiquidityRatio,
+                        LiquidityRatioExcessDeficit = liquidityReturns.LiquidityRatioExcessDeficit,
+                        NetFinancialInstitutionBalances = liquidityReturns.NetFinancialInstitutionBalances,
+                        NetBankBalances = liquidityReturns.NetBankBalances,
+                    } : null,
+                    NWDTRiskClassifications = riskClassifications.Select(rc => new NWDTRiskClassificationDTO
+                    {
+                        LoanType = rc.LoanType,
+                        Classification = rc.Classification,
+                        NumberOfAccounts = rc.NumberOfAccounts,
+                        OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                        RequiredProvision = rc.RequiredProvision,
+                        RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                        FilePath = rc.FilePath
+                    }).ToList(),
+                    OtherReturns = otherReturns.Select(other => new OtherReturnDTO
+                    {
+                        FormName = other.FormName,
+                        FileUrl = other.FileUrl
+                    }).ToList(),
+                    NWDTInvestment = investmentReturns != null ? new NWDTInvestmentReturnDTO
+                    {
+                        CoreCapital = investmentReturns.CoreCapital,
+                        TotalAssets = investmentReturns.TotalAssets,
+                        TotalDeposits = investmentReturns.TotalDeposits,
+                        NonEarningAssets = investmentReturns.NonEarningAssets,
 
-                    // Calculate Non-Earning Assets Ratio; using the same value for excess/deficiency since no threshold is defined
-                    NonEarningAssetsToTotalAssetsRatio = investmentReturns.TotalAssets > 0
-                    ? (investmentReturns.NonEarningAssets / investmentReturns.TotalAssets * 100)
-                    : 0,
-                    NonEarningAssetsRatioExcessDeficiency = investmentReturns.TotalAssets > 0
-                    ? (investmentReturns.NonEarningAssets / investmentReturns.TotalAssets * 100)
-                    : 0,
+                        // FinancialInvestments is calculated as FinancialAssets (sum of subsidiary, equity, and other investments)
+                        FinancialInvestments = investmentReturns.FinancialAssets,
 
-                    // Calculate Financial Investments to Core Capital Ratio and its excess/deficiency using MaxFinancialInvestmentsToCoreCapital
-                    FinancialInvestmentsToCoreCapitalRatio = investmentReturns.CoreCapital > 0
-                    ? (investmentReturns.FinancialAssets / investmentReturns.CoreCapital * 100)
-                    : 0,
-                    FinancialInvestmentsToCoreCapitalExcessDeficiency = investmentReturns.CoreCapital > 0
-                    ? ((investmentReturns.FinancialAssets / investmentReturns.CoreCapital * 100) - (investmentReturns.MaxFinancialInvestmentsToCoreCapital * 100))
-                    : 0,
+                        // Map LandAndBuildings from the entity’s LandAndBuilding property
+                        LandAndBuildings = investmentReturns.LandAndBuilding,
 
-                    // Calculate Financial Investments to Deposits Ratio and its excess/deficiency using MaxEquityInvestmentsToTotalDeposits
-                    FinancialInvestmentsToDepositsRatio = investmentReturns.TotalDeposits > 0
-                    ? (investmentReturns.FinancialAssets / investmentReturns.TotalDeposits * 100)
-                    : 0,
-                    FinancialInvestmentsToDepositsExcessDeficiency = investmentReturns.TotalDeposits > 0
-                    ? ((investmentReturns.FinancialAssets / investmentReturns.TotalDeposits * 100) - (investmentReturns.MaxEquityInvestmentsToTotalDeposits * 100))
-                    : 0,
-                    FilePath = investmentReturns.FilePath
-                } : null,
+                        // Calculate Land Buildings Ratio and its excess/deficiency using the MaxLandBuildingToTotalAssetRequirement threshold
+                        LandBuildingsToTotalAssetsRatio = investmentReturns.TotalAssets > 0
+                        ? (investmentReturns.LandAndBuilding / investmentReturns.TotalAssets * 100)
+                        : 0,
+                        LandBuildingsRatioExcessDeficiency = investmentReturns.TotalAssets > 0
+                        ? ((investmentReturns.LandAndBuilding / investmentReturns.TotalAssets * 100) - (investmentReturns.MaxLandBuildingToTotalAssetRequirement * 100))
+                        : 0,
 
-                Year = returnEntity.Year.ToString(),
-                VersionNumber = returnEntity.VersionNumber,
-                IsActiveVersion = returnEntity.IsActiveVersion,
-                AmendmentDate = returnEntity.AmendmentDate,
-                PreviousVersionId = returnEntity.PreviousVersionId,
-                CanReportBeViewed = returnEntity.CanReportBeViewed,
-                PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(returnEntity).Result
-            };
+                        // Calculate Non-Earning Assets Ratio; using the same value for excess/deficiency since no threshold is defined
+                        NonEarningAssetsToTotalAssetsRatio = investmentReturns.TotalAssets > 0
+                        ? (investmentReturns.NonEarningAssets / investmentReturns.TotalAssets * 100)
+                        : 0,
+                        NonEarningAssetsRatioExcessDeficiency = investmentReturns.TotalAssets > 0
+                        ? (investmentReturns.NonEarningAssets / investmentReturns.TotalAssets * 100)
+                        : 0,
 
-            var sectoralLendingReports = await _context.SectoralLendingReports
-              .Where(x => x.ReturnId == returnId)
-              .FirstOrDefaultAsync();
+                        // Calculate Financial Investments to Core Capital Ratio and its excess/deficiency using MaxFinancialInvestmentsToCoreCapital
+                        FinancialInvestmentsToCoreCapitalRatio = investmentReturns.CoreCapital > 0
+                        ? (investmentReturns.FinancialAssets / investmentReturns.CoreCapital * 100)
+                        : 0,
+                        FinancialInvestmentsToCoreCapitalExcessDeficiency = investmentReturns.CoreCapital > 0
+                        ? ((investmentReturns.FinancialAssets / investmentReturns.CoreCapital * 100) - (investmentReturns.MaxFinancialInvestmentsToCoreCapital * 100))
+                        : 0,
 
-            if (sectoralLendingReports != null)
-            {
-                SectoralLendingDTO sectoralLendingDTO = new SectoralLendingDTO
-                {
-                    StartDate = sectoralLendingReports.StartDate,
-                    EndDate = sectoralLendingReports.EndDate,
+                        // Calculate Financial Investments to Deposits Ratio and its excess/deficiency using MaxEquityInvestmentsToTotalDeposits
+                        FinancialInvestmentsToDepositsRatio = investmentReturns.TotalDeposits > 0
+                        ? (investmentReturns.FinancialAssets / investmentReturns.TotalDeposits * 100)
+                        : 0,
+                        FinancialInvestmentsToDepositsExcessDeficiency = investmentReturns.TotalDeposits > 0
+                        ? ((investmentReturns.FinancialAssets / investmentReturns.TotalDeposits * 100) - (investmentReturns.MaxEquityInvestmentsToTotalDeposits * 100))
+                        : 0,
+                        FilePath = investmentReturns.FilePath
+                    } : null,
+
+                    Year = returnEntity.Year.ToString(),
+                    VersionNumber = returnEntity.VersionNumber,
+                    IsActiveVersion = returnEntity.IsActiveVersion,
+                    AmendmentDate = returnEntity.AmendmentDate,
+                    PreviousVersionId = returnEntity.PreviousVersionId,
+                    CanReportBeViewed = returnEntity.CanReportBeViewed,
+                    PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(returnEntity).Result
                 };
 
-                var sectoralLendingDataList = await _context.SectoralLendingData
-                   .Where(x => x.ReturnId == returnId)
-                   .ToListAsync();
+                var sectoralLendingReports = await _context.SectoralLendingReports
+                  .Where(x => x.ReturnId == returnId)
+                  .FirstOrDefaultAsync();
 
-                sectoralLendingDataList.ForEach(x =>
+                if (sectoralLendingReports != null)
                 {
-                    sectoralLendingDTO.SubSectorData.Add(new SectoralLendingDataDTO
+                    SectoralLendingDTO sectoralLendingDTO = new SectoralLendingDTO
                     {
-                        Amount = x.Amount,
-                        Category = x.Category,
-                        SubCategory = x.SubCategory,
-                        EconomicSectorName = x.EconomicSectorName,
-                    });
-                });
+                        StartDate = sectoralLendingReports.StartDate,
+                        EndDate = sectoralLendingReports.EndDate,
+                    };
 
-                returnDTO.SectoralLending = sectoralLendingDTO;
+                    var sectoralLendingDataList = await _context.SectoralLendingData
+                       .Where(x => x.ReturnId == returnId)
+                       .ToListAsync();
+
+                    sectoralLendingDataList.ForEach(x =>
+                    {
+                        sectoralLendingDTO.SubSectorData.Add(new SectoralLendingDataDTO
+                        {
+                            Amount = x.Amount,
+                            Category = x.Category,
+                            SubCategory = x.SubCategory,
+                            EconomicSectorName = x.EconomicSectorName,
+                        });
+                    });
+
+                    returnDTO.SectoralLending = sectoralLendingDTO;
+
+                }
+
+                return Ok(returnDTO);
+            }
+            catch (Exception ex)
+            {
+
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
 
             }
-
-            return Ok(returnDTO);
         }
 
         [HttpGet("nwdt/CalculateAnalysis/{returnId}")]
