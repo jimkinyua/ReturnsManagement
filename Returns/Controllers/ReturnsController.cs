@@ -92,7 +92,7 @@ namespace Returns.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+                return StatusCode(500, ex.Message.ToString());
 
             }
 
