@@ -2374,9 +2374,10 @@ namespace Returns.Controllers
                 catch (Exception ex)
                 {
                     processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
-                    throw new Exception(
+                    throw;
+                   /* new Exception(
                         $"Error processing {form.formFile.FileName}"
-                    );
+                    );*/
                 }
             }
 
