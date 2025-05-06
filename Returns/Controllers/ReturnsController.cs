@@ -52,7 +52,7 @@ namespace Returns.Controllers
 
         [HttpPost("CheckConsistency")]
         public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
-        {
+        {   
 
             try
             {
@@ -148,10 +148,10 @@ namespace Returns.Controllers
             // Process each form
             foreach (var form in createFormNWDTDTO.FormUploads)
             {
+                if (form.formFile == null) continue;
 
                 try
                 {
-                    if (form.formFile == null) continue;
 
                     ReturnForm? fm = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
                     if (fm == null)
@@ -265,9 +265,7 @@ namespace Returns.Controllers
                 catch (Exception ex)
                 {
                     processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
-                    throw new Exception(
-                        $"Error processing {form.formFile.FileName}': {ex.Message}"
-                    );
+                    throw new FileProcessingException(form.formFile.FileName, form.FormId, ex);
                 }
             }
 
@@ -303,6 +301,21 @@ namespace Returns.Controllers
                 depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
                 financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
         }
+
+        public sealed class FileProcessingException : Exception
+        {
+            public string FileName { get; }
+            public string FormId { get; }
+
+            public FileProcessingException(string fileName, string formId, Exception inner)
+                : base($"Error processing file '{fileName}' (FormId: {formId}).", inner)
+            {
+                FileName = fileName;
+                FormId = formId;
+            }
+        }
+
+
         // File Return
         [HttpPost("FileReturns")]
         public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)

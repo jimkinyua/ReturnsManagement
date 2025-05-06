@@ -19,23 +19,25 @@ namespace Returns.Helpers
             Logger.LogError(ex, ex.Message);
         }
 
-        public static List<string> HandleException(Exception ex)
+        public static List<string> HandleException(Exception ex, bool includeStackTrace = false)
         {
-            var errorMessages = new List<string>();
-            if (ex.InnerException != null)
+            if (ex == null) return new List<string> { "Unknown error." };
+
+            var messages = new List<string>();
+
+            // Walk the entire InnerException chain
+            for (var current = ex; current != null; current = current.InnerException)
             {
-                errorMessages.Add(ex.InnerException.Message);
-                if (ex.InnerException.InnerException != null)
+                messages.Add(current.Message);
+
+                if (includeStackTrace && !string.IsNullOrWhiteSpace(current.StackTrace))
                 {
-                    errorMessages.Add(ex.InnerException.InnerException.Message);
+                    if (messages.Count > 0)
+                        messages.Add(current.StackTrace.Trim());
                 }
             }
-            else
-            {
-                errorMessages.Add(ex.Message);
-            }
 
-            return errorMessages;
+            return messages;
         }
 
 
