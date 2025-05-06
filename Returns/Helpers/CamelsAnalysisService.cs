@@ -19,13 +19,25 @@ namespace Returns.Helpers
 
         public async Task<CamelsRatingsDTO> CalculateAnalysisAsync(string returnId, string saccoType)
         {
-            if (saccoType == Constants.SaccoType.DepositTaking.ToString())
-                return await CalculateDepositTakingAnalysisAsync(returnId);
+            try
+            {
+                if (saccoType == Constants.SaccoType.DepositTaking.ToString())
+                {
+                    return await CalculateDepositTakingAnalysisAsync(returnId);
+                }
 
-            if (saccoType == Constants.SaccoType.NWDT.ToString())
-                return await CalculateNwdtAnalysisAsync(returnId);
+                if (saccoType == Constants.SaccoType.NWDT.ToString())
+                {
+                    return await CalculateNwdtAnalysisAsync(returnId);
+                }
 
-            throw new ArgumentException($"Unsupported sacco type: {saccoType}", nameof(saccoType));
+                throw new ArgumentException($"Unsupported sacco type: {saccoType}", nameof(saccoType));
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
 

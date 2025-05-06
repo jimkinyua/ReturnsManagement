@@ -599,24 +599,25 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw;// new ArgumentNullException("No file was provided for processing", ex);
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw;// new ArgumentException("Invalid file type or empty file", ex);
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                throw;// new FileFormatException(
+                  /*  $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportInsiderLendingReport");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -710,24 +711,26 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw; //new ArgumentNullException("No file was provided for processing", ex);
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw; //new ArgumentException("Invalid file type or empty file", ex);
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                    /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportDailyLiquidityRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw; 
+                   /* new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -1053,15 +1056,16 @@ namespace Returns.Helpers
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;/* new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportForm2ARows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -1251,15 +1255,17 @@ namespace Returns.Helpers
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportForm2FRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -1354,15 +1360,17 @@ namespace Returns.Helpers
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing Form 2B Liquidity Statement");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -1456,24 +1464,28 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw;
+                //new ArgumentNullException("No file was provided for processing", ex);
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw;
+                //new ArgumentException("Invalid file type or empty file", ex);
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportCapitalAdequacyRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
 
 
@@ -1578,12 +1590,12 @@ namespace Returns.Helpers
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException("The Excel file appears to be corrupted or is not a valid Excel file.");
+                throw;
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing Deposit Range Data import");
-                throw new Exception($"Error processing Excel file '{file.FileName}': {ex.Message}", ex);
+                throw; // new Exception($"Error processing Excel file '{file.FileName}': {ex.Message}", ex);
             }
         }
 
@@ -1692,12 +1704,14 @@ namespace Returns.Helpers
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException("The Excel file appears to be corrupted or is not a valid Excel file.");
+                throw;
+                //new FileFormatException("The Excel file appears to be corrupted or is not a valid Excel file.");
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing Deposit Range Data import");
-                throw new Exception($"Error processing Excel file '{file.FileName}': {ex.Message}", ex);
+                throw;
+                //new Exception($"Error processing Excel file '{file.FileName}': {ex.Message}", ex);
             }
         }
 
@@ -1776,24 +1790,25 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw;
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw;
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportStatementOfComprehensiveIncomeRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw; /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -1877,24 +1892,27 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw;
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                    throw;
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                
+               /* new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportLiquidityStatementRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
 
 
@@ -2008,12 +2026,12 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw;
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw;
             }
             catch (FileFormatException)
             {
@@ -2024,8 +2042,9 @@ namespace Returns.Helpers
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportRiskClassificationRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
 
         }
@@ -2146,24 +2165,26 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                    throw;
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw;
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportRiskClassificationRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
 
         }
@@ -2238,24 +2259,26 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw;
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw;
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportInvestmentRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -2329,24 +2352,25 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                throw new ArgumentNullException("No file was provided for processing", ex);
+                throw;
             }
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                throw new ArgumentException("Invalid file type or empty file", ex);
+                throw;
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportInvestmentRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw; /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
 
 
@@ -2446,15 +2470,17 @@ namespace Returns.Helpers
             catch (FileFormatException ex)
             {
                 logger.LogError(ex, "Invalid file format");
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.", ex);
+                    "Please ensure you're uploading a valid Excel workbook.", ex);*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportFinancialPositionRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}", ex);
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}", ex);*/
             }
         }
 
@@ -2544,15 +2570,17 @@ namespace Returns.Helpers
             }
             catch (FileFormatException)
             {
-                throw new FileFormatException(
+                throw;
+                /*new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportFinancialPositionRows");
-                throw new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 

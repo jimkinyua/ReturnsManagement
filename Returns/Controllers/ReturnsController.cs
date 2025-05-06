@@ -298,100 +298,101 @@ namespace Returns.Controllers
         [HttpPost("FileReturns")]
         public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
         {
-            var processingSummary = new List<string>();
-            var ConError = new List<string>();
-            Boolean IsConsistent = true;
-            string PeriodToUse = string.Empty;
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }
-
-            
-
-            if (!ReturnsHelper.HasValidUploads(createFormDTO))
-            {
-                return BadRequest("No attachments found. Please attach at least one form.");
-            }
-            // Validate that all forms have the same reporting period
-            foreach (var upload in createFormDTO.FormUploads.Where(u => u.formFile != null && !string.IsNullOrEmpty(u.FormId)))
-            {
-                var form = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == upload.FormId);
-                if (form != null)
-                {
-                    var (endDate, year) = await _formProcessor.ExtractReportingEndDate(upload.formFile, form, loggedInSacco.SaccoType);
-
-                    if (endDate != DateTime.MinValue && !string.IsNullOrEmpty(year))
-                    {
-                        if (PeriodToUse == string.Empty)
-                        {
-                            // First valid form sets the period
-                            PeriodToUse = year;
-                        }
-                        else if (PeriodToUse != year)
-                        {
-                            // If we find a different period, flag inconsistency
-                            ConError.Add($"Form {form.FormName} has period {year} which differs from {PeriodToUse}");
-                            IsConsistent = false;
-                        }
-                    }
-                }
-            }
-
-            if (PeriodToUse == null)
-            {
-                return BadRequest("No valid reporting period found in the uploaded forms.");
-            }
-
-
-            if (!IsConsistent)
-            {
-                return BadRequest(new
-                {
-                    Message = "Inconsistent reporting periods detected across forms",
-                    Errors = ConError
-                });
-            }
-
-
-            var HasAssignedUser = await _returnAssignmentService.CheckSaccoAssignedUserAsync(loggedInSacco.SaccoId);
-
-            if (!HasAssignedUser.Success)
-            {
-                return BadRequest(HasAssignedUser.ErrorMessage);
-            }
-
-            if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
-            {
-                if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
-                {
-                    var (isValid, _, ConsistencyErrors, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                    if (!isValid)
-                    {
-                        ConError = ConsistencyErrors.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
-                    }
-                }
-                
-                //PeriodToUse = CommonPeriod;
-            }
-            else
-            {
-
-                if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
-                {
-                    var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                    if (!isValid)
-                    {
-                        ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
-                    }
-                }
-                
-                //PeriodToUse = CommonPeriod;
-            }
+         
 
             try
             {
+                var processingSummary = new List<string>();
+                var ConError = new List<string>();
+                Boolean IsConsistent = true;
+                string PeriodToUse = string.Empty;
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return StatusCode(401);
+                }
+
+
+                if (!ReturnsHelper.HasValidUploads(createFormDTO))
+                {
+                    return BadRequest("No attachments found. Please attach at least one form.");
+                }
+                // Validate that all forms have the same reporting period
+                foreach (var upload in createFormDTO.FormUploads.Where(u => u.formFile != null && !string.IsNullOrEmpty(u.FormId)))
+                {
+                    var form = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == upload.FormId);
+                    if (form != null)
+                    {
+                        var (endDate, year) = await _formProcessor.ExtractReportingEndDate(upload.formFile, form, loggedInSacco.SaccoType);
+
+                        if (endDate != DateTime.MinValue && !string.IsNullOrEmpty(year))
+                        {
+                            if (PeriodToUse == string.Empty)
+                            {
+                                // First valid form sets the period
+                                PeriodToUse = year;
+                            }
+                            else if (PeriodToUse != year)
+                            {
+                                // If we find a different period, flag inconsistency
+                                ConError.Add($"Form {form.FormName} has period {year} which differs from {PeriodToUse}");
+                                IsConsistent = false;
+                            }
+                        }
+                    }
+                }
+
+                if (PeriodToUse == null)
+                {
+                    return BadRequest("No valid reporting period found in the uploaded forms.");
+                }
+
+
+                if (!IsConsistent)
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Inconsistent reporting periods detected across forms",
+                        Errors = ConError
+                    });
+                }
+
+
+                var HasAssignedUser = await _returnAssignmentService.CheckSaccoAssignedUserAsync(loggedInSacco.SaccoId);
+
+                if (!HasAssignedUser.Success)
+                {
+                    return BadRequest(HasAssignedUser.ErrorMessage);
+                }
+
+                if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                {
+                    if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
+                    {
+                        var (isValid, _, ConsistencyErrors, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
+                        if (!isValid)
+                        {
+                            ConError = ConsistencyErrors.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
+                        }
+                    }
+
+                    //PeriodToUse = CommonPeriod;
+                }
+                else
+                {
+
+                    if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
+                    {
+                        var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
+                        if (!isValid)
+                        {
+                            ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
+                        }
+                    }
+
+                    //PeriodToUse = CommonPeriod;
+                }
+
                 var (success, returnId, processingMessages) = await _formProcessor.ProcessFormBatchAsync(createFormDTO, loggedInSacco, IsConsistent, ConError, PeriodToUse);
 
                 if (!success)

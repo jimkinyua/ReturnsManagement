@@ -276,7 +276,8 @@ namespace Returns.Helpers
             {
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error creating batch amendment");
-                return (false, string.Empty, $"Error creating batch amendment: {ex.Message}");
+                throw; // Rethrow the exception to be handled by the caller
+               // return (false, string.Empty, $"Error creating batch amendment: {ex.Message}");
             }
         }
 
@@ -317,7 +318,8 @@ namespace Returns.Helpers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error processing form '{formFile.FileName}'");
-                return (false, $"Error processing '{formFile.FileName}': {ex.Message}");
+                throw; // Rethrow the exception to be handled by the caller
+                //return (false, $"Error processing '{formFile.FileName}': {ex.Message}");
             }
         }
 
@@ -383,7 +385,8 @@ namespace Returns.Helpers
                 {
                     await transaction.RollbackAsync();
                     _logger.LogError(ex, "Error creating amendment");
-                    return (false, string.Empty, $"Error creating amendment: {ex.Message}");
+                    throw; // Rethrow the exception to be handled by the caller
+                    //return (false, string.Empty, $"Error creating amendment: {ex.Message}");
                 }
             }
             catch (Exception ex)
@@ -1879,7 +1882,8 @@ namespace Returns.Helpers
             {
                 _logger.LogWarning(ex, "Error determining if form is an amendment");
                 // Default to false if there's an error
-                return (false, string.Empty);
+                throw;
+                //return (false, string.Empty);
             }
         }
 
@@ -2068,7 +2072,8 @@ namespace Returns.Helpers
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error extracting reporting end date");
-                return (DateTime.MinValue, "");
+                throw;
+                //return (DateTime.MinValue, "");
             }
         }
 
@@ -2173,7 +2178,9 @@ namespace Returns.Helpers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in form processing");
-                return (false, $"Error in form processing: {ex.Message}");
+                throw;
+
+                //return (false, $"Error in form processing: {ex.Message}");
             }
         }
 

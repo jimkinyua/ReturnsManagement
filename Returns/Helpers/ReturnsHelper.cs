@@ -316,193 +316,201 @@ namespace Returns.Helpers
 
         public static async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            try
+            {
+                ReturnsDbContext _context = new ReturnsDbContext();
 
-            var Form1Statement = ExcelService.ImportCapitalAdequacyRows(file, _logger);
-            if (Form1Statement == null || !Form1Statement.Rows.Any())
-                throw new Exception("No data found in Capital Adequacy Form");
+                var Form1Statement = ExcelService.ImportCapitalAdequacyRows(file, _logger);
+                if (Form1Statement == null || !Form1Statement.Rows.Any())
+                    throw new Exception("No data found in Capital Adequacy Form");
 
-            // save the Excel
-            var Path = await FormsHelper.SaveFileAsync(file, "Capital Adequacy Returns", "");
-            if (Path == null)
-            {
-                throw new Exception("Error saving file");
-            }
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
-            string EffectiveReturnId = returnId;
-            string PreviousReturnId = string.Empty;
-            DTCapitalAdequacyReturn? capitalAdequacy = null;
-            if (!IsAmendMent)
-            {
-                capitalAdequacy = new DTCapitalAdequacyReturn
+                // save the Excel
+                var Path = await FormsHelper.SaveFileAsync(file, "Capital Adequacy Returns", "");
+                if (Path == null)
                 {
-                    ReturnId = returnId,
-                    FilePath = Path,
-                    Year = Form1Statement.Period,
-                    StartDate = Form1Statement.StartDate,
-                    EndDate = Form1Statement.EndDate,
-                    Frequency = form.Period.Name,
-                    DaysLateBy = DaysLateBy,
-                    IsCurrent = true,
-                    IsAmended = false,
-                };
-            }
-            else
-            {
-                capitalAdequacy = await _context.DTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
-                if (capitalAdequacy == null)
-                {
-                    throw new Exception(
-                        "Not Fond");
+                    throw new Exception("Error saving file");
                 }
-                capitalAdequacy.PreviousReturnId = PreviousReturnId;
-                capitalAdequacy.IsCurrent = false;
-                capitalAdequacy.IsAmended = true;
-            }
-
-
-            foreach (var row in Form1Statement.Rows)
-            {
-                switch (row.Index?.Trim())
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
+                string EffectiveReturnId = returnId;
+                string PreviousReturnId = string.Empty;
+                DTCapitalAdequacyReturn? capitalAdequacy = null;
+                if (!IsAmendMent)
                 {
-                    // CORE CAPITAL
-                    case "1.1.1":
-                        capitalAdequacy.ShareCapital = row.Amount ?? 0;
-                        break;
-                    case "1.1.2":
-                        capitalAdequacy.StatutoryReserves = row.Amount ?? 0;
-                        break;
-                    case "1.1.3":
-                        capitalAdequacy.RetainedEarningsAccumulatedLosses = row.Amount ?? 0;
-                        break;
-                    case "1.1.4":
-                        capitalAdequacy.NetSurplusAfterTaxCurrentYearToDate = row.Amount ?? 0;
-                        break;
-                    case "1.1.5":
-                        capitalAdequacy.CapitalGrantsEquityInNature = row.Amount ?? 0;
-                        break;
-                    case "1.1.6":
-                        capitalAdequacy.GeneralReserves = row.Amount ?? 0;
-                        break;
-                    case "1.1.7":
-                        capitalAdequacy.OtherReserves = row.Amount ?? 0;
-                        break;
-                    case "1.1.8":
-                        capitalAdequacy.SubTotalCoreCapital = row.Amount ?? 0;
-                        break;
-
-                    // DEDUCTIONS
-                    case "1.1.9":
-                        capitalAdequacy.InvestmentsInSubsidiaryAndEquityInstruments = row.Amount ?? 0;
-                        break;
-                    case "1.1.10":
-                        capitalAdequacy.OtherDeductions = row.Amount ?? 0;
-                        break;
-                    case "1.1.11":
-                        capitalAdequacy.TotalDeductions = row.Amount ?? 0;
-                        break;
-                    case "1.1.12":
-                        capitalAdequacy.CoreCapital = row.Amount ?? 0;
-                        break;
-                    case "1.1.13":
-                        capitalAdequacy.InstitutionalCapital = row.Amount ?? 0;
-                        break;
-
-                    // ON-BALANCE SHEET ASSETS
-                    case "2.1":
-                        capitalAdequacy.CashLocalAndForeignCurrency = row.Amount ?? 0;
-                        break;
-                    case "2.2":
-                        capitalAdequacy.GovernmentSecurities = row.Amount ?? 0;
-                        break;
-                    case "2.3":
-                        capitalAdequacy.DepositsAndBalancesAtOtherInstitutions = row.Amount ?? 0;
-                        break;
-                    case "2.4":
-                        capitalAdequacy.LoansAndAdvances = row.Amount ?? 0;
-                        break;
-                    case "2.5":
-                        capitalAdequacy.Investments = row.Amount ?? 0;
-                        break;
-                    case "2.6":
-                        capitalAdequacy.PropertyAndEquipment = row.Amount ?? 0;
-                        break;
-                    case "2.7":
-                        capitalAdequacy.OtherAssets = row.Amount ?? 0;
-                        break;
-                    case "2.8":
-                        capitalAdequacy.TotalOnBalanceSheetAssets = row.Amount ?? 0;
-                        break;
-
-                    case "2.9":
-                        capitalAdequacy.TotalAssetsPerBalanceSheet = row.Amount ?? 0;
-                        break;
-
-                    case "3.0":
-                        capitalAdequacy.Difference = row.Amount ?? 0;
-                        break;
-
-                    // OFF-BALANCE SHEET
-                    case "3":
-                        capitalAdequacy.TotalOffBalanceSheetAssets = row.Amount ?? 0;
-                        break;
-
-
-                    // RATIOS, ETC.
-                    case "4.1":
-                        capitalAdequacy.TotalOnBalanceSheetAssets = row.Amount ?? 0;
-                        break;
-                    case "4.2":
-                        capitalAdequacy.TotalOffBalanceSheetAssets = row.Amount ?? 0;
-                        break;
-
-                    //( 4.1 + 4.2)
-                    case "4.3":
-                        capitalAdequacy.TotalAssets = row.Amount ?? 0;
-                        break;
-
-                    case "4.4":
-                        capitalAdequacy.TotalDepositsLiabilities = row.Amount ?? 0;
-                        break;
-
-                    // 1.1.12/4.3
-                    case "4.5":
-                        capitalAdequacy.CoreCapitalToAssetsRatio = row.Amount ?? 0;
-                        break;
-
-                    case "4.7":
-                        capitalAdequacy.CoreCapitalToAssetsRatioExcessDeficiency = row.Amount ?? 0;
-                        break;
-
-                    // 1.1.13/4.3
-                    case "4.8":
-                        capitalAdequacy.InstitutionalCapitalToAssetsRatio = row.Amount ?? 0;
-                        break;
-
-                    case "4.9":
-                        capitalAdequacy.MinimumInstitutionalToAssetsRatio = row.Amount ?? 0;
-                        break;
-
-                    case "4.10":
-                        capitalAdequacy.InstitutionalCapitalToAssetsRatioExcessDeficiency = row.Amount ?? 0;
-                        break;
-
-                    // 1.1.12/4.4
-                    case "4.11":
-                        capitalAdequacy.CoreCapitalToDepositsRatio = row.Amount ?? 0;
-                        break;
-
-                    case "4.12":
-                        capitalAdequacy.MinimumCoreCapitalToDepositsRatio = row.Amount ?? 0;
-                        break;
-
-                    case "4.13":
-                        capitalAdequacy.CoreCapitalToDepositsRatioExcessDeficiency = row.Amount ?? 0;
-                        break;
+                    capitalAdequacy = new DTCapitalAdequacyReturn
+                    {
+                        ReturnId = returnId,
+                        FilePath = Path,
+                        Year = Form1Statement.Period,
+                        StartDate = Form1Statement.StartDate,
+                        EndDate = Form1Statement.EndDate,
+                        Frequency = form.Period.Name,
+                        DaysLateBy = DaysLateBy,
+                        IsCurrent = true,
+                        IsAmended = false,
+                    };
                 }
+                else
+                {
+                    capitalAdequacy = await _context.DTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                    if (capitalAdequacy == null)
+                    {
+                        throw new Exception(
+                            "Not Fond");
+                    }
+                    capitalAdequacy.PreviousReturnId = PreviousReturnId;
+                    capitalAdequacy.IsCurrent = false;
+                    capitalAdequacy.IsAmended = true;
+                }
+
+
+                foreach (var row in Form1Statement.Rows)
+                {
+                    switch (row.Index?.Trim())
+                    {
+                        // CORE CAPITAL
+                        case "1.1.1":
+                            capitalAdequacy.ShareCapital = row.Amount ?? 0;
+                            break;
+                        case "1.1.2":
+                            capitalAdequacy.StatutoryReserves = row.Amount ?? 0;
+                            break;
+                        case "1.1.3":
+                            capitalAdequacy.RetainedEarningsAccumulatedLosses = row.Amount ?? 0;
+                            break;
+                        case "1.1.4":
+                            capitalAdequacy.NetSurplusAfterTaxCurrentYearToDate = row.Amount ?? 0;
+                            break;
+                        case "1.1.5":
+                            capitalAdequacy.CapitalGrantsEquityInNature = row.Amount ?? 0;
+                            break;
+                        case "1.1.6":
+                            capitalAdequacy.GeneralReserves = row.Amount ?? 0;
+                            break;
+                        case "1.1.7":
+                            capitalAdequacy.OtherReserves = row.Amount ?? 0;
+                            break;
+                        case "1.1.8":
+                            capitalAdequacy.SubTotalCoreCapital = row.Amount ?? 0;
+                            break;
+
+                        // DEDUCTIONS
+                        case "1.1.9":
+                            capitalAdequacy.InvestmentsInSubsidiaryAndEquityInstruments = row.Amount ?? 0;
+                            break;
+                        case "1.1.10":
+                            capitalAdequacy.OtherDeductions = row.Amount ?? 0;
+                            break;
+                        case "1.1.11":
+                            capitalAdequacy.TotalDeductions = row.Amount ?? 0;
+                            break;
+                        case "1.1.12":
+                            capitalAdequacy.CoreCapital = row.Amount ?? 0;
+                            break;
+                        case "1.1.13":
+                            capitalAdequacy.InstitutionalCapital = row.Amount ?? 0;
+                            break;
+
+                        // ON-BALANCE SHEET ASSETS
+                        case "2.1":
+                            capitalAdequacy.CashLocalAndForeignCurrency = row.Amount ?? 0;
+                            break;
+                        case "2.2":
+                            capitalAdequacy.GovernmentSecurities = row.Amount ?? 0;
+                            break;
+                        case "2.3":
+                            capitalAdequacy.DepositsAndBalancesAtOtherInstitutions = row.Amount ?? 0;
+                            break;
+                        case "2.4":
+                            capitalAdequacy.LoansAndAdvances = row.Amount ?? 0;
+                            break;
+                        case "2.5":
+                            capitalAdequacy.Investments = row.Amount ?? 0;
+                            break;
+                        case "2.6":
+                            capitalAdequacy.PropertyAndEquipment = row.Amount ?? 0;
+                            break;
+                        case "2.7":
+                            capitalAdequacy.OtherAssets = row.Amount ?? 0;
+                            break;
+                        case "2.8":
+                            capitalAdequacy.TotalOnBalanceSheetAssets = row.Amount ?? 0;
+                            break;
+
+                        case "2.9":
+                            capitalAdequacy.TotalAssetsPerBalanceSheet = row.Amount ?? 0;
+                            break;
+
+                        case "3.0":
+                            capitalAdequacy.Difference = row.Amount ?? 0;
+                            break;
+
+                        // OFF-BALANCE SHEET
+                        case "3":
+                            capitalAdequacy.TotalOffBalanceSheetAssets = row.Amount ?? 0;
+                            break;
+
+
+                        // RATIOS, ETC.
+                        case "4.1":
+                            capitalAdequacy.TotalOnBalanceSheetAssets = row.Amount ?? 0;
+                            break;
+                        case "4.2":
+                            capitalAdequacy.TotalOffBalanceSheetAssets = row.Amount ?? 0;
+                            break;
+
+                        //( 4.1 + 4.2)
+                        case "4.3":
+                            capitalAdequacy.TotalAssets = row.Amount ?? 0;
+                            break;
+
+                        case "4.4":
+                            capitalAdequacy.TotalDepositsLiabilities = row.Amount ?? 0;
+                            break;
+
+                        // 1.1.12/4.3
+                        case "4.5":
+                            capitalAdequacy.CoreCapitalToAssetsRatio = row.Amount ?? 0;
+                            break;
+
+                        case "4.7":
+                            capitalAdequacy.CoreCapitalToAssetsRatioExcessDeficiency = row.Amount ?? 0;
+                            break;
+
+                        // 1.1.13/4.3
+                        case "4.8":
+                            capitalAdequacy.InstitutionalCapitalToAssetsRatio = row.Amount ?? 0;
+                            break;
+
+                        case "4.9":
+                            capitalAdequacy.MinimumInstitutionalToAssetsRatio = row.Amount ?? 0;
+                            break;
+
+                        case "4.10":
+                            capitalAdequacy.InstitutionalCapitalToAssetsRatioExcessDeficiency = row.Amount ?? 0;
+                            break;
+
+                        // 1.1.12/4.4
+                        case "4.11":
+                            capitalAdequacy.CoreCapitalToDepositsRatio = row.Amount ?? 0;
+                            break;
+
+                        case "4.12":
+                            capitalAdequacy.MinimumCoreCapitalToDepositsRatio = row.Amount ?? 0;
+                            break;
+
+                        case "4.13":
+                            capitalAdequacy.CoreCapitalToDepositsRatioExcessDeficiency = row.Amount ?? 0;
+                            break;
+                    }
+                }
+                await _context.DTCapitalAdequacyReturns.AddAsync(capitalAdequacy);
+                await _context.SaveChangesAsync();
             }
-            await _context.DTCapitalAdequacyReturns.AddAsync(capitalAdequacy);
-            await _context.SaveChangesAsync();
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
         public static async Task ProcessInsiderLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
@@ -616,7 +624,7 @@ namespace Returns.Helpers
             catch (Exception ex)
             {
                 throw ;
-                _logger.LogError(ex, $"Error processing Form 2B for return ID: {returnId}");
+                //_logger.LogError(ex, $"Error processing Form 2B for return ID: {returnId}");
 
             }
         }
@@ -626,127 +634,136 @@ namespace Returns.Helpers
 
         public static async Task ProcessDailyLiquidityForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
-
-            // Import the Excel data using the ExcelService
-            var liquidityData = ExcelService.ImportDailyLiquidityRows(file, _logger);
-            if (liquidityData == null)
-                throw new Exception("No data found in Daily Liquidity Form");
-
-            // Save the Excel file
-            var Path = await FormsHelper.SaveFileAsync(file, "Daily Liquidity Returns", "");
-            if (Path == null)
+            try
             {
-                throw new Exception("Error saving file");
-            }
 
-            // Calculate days late
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, liquidityData.ReportDate);
+                ReturnsDbContext _context = new ReturnsDbContext();
 
-            string EffectiveReturnId = returnId;
-            string PreviousReturnId = string.Empty;
-            DailyLiquidityReturn? dailyLiquidity = null;
+                // Import the Excel data using the ExcelService
+                var liquidityData = ExcelService.ImportDailyLiquidityRows(file, _logger);
+                if (liquidityData == null)
+                    throw new Exception("No data found in Daily Liquidity Form");
 
-            if (!IsAmendment)
-            {
-                // Create new record
-                dailyLiquidity = new DailyLiquidityReturn
+                // Save the Excel file
+                var Path = await FormsHelper.SaveFileAsync(file, "Daily Liquidity Returns", "");
+                if (Path == null)
                 {
-                    ReturnId = returnId,
-                    FilePath = Path,
-                    ReportDate = liquidityData.ReportDate,
-                    DaysLateBy = DaysLateBy,
-                    IsCurrent = true,
-                    IsAmended = false,
-                    SACCOName = liquidityData.SACCOName,
-                    CSNO = liquidityData.CSNO,
-                };
-            }
-            else
-            {
-                dailyLiquidity = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
-                if (dailyLiquidity == null)
-                {
-                    throw new Exception("Return not found for amendment");
+                    throw new Exception("Error saving file");
                 }
 
-                // Update amendment information
-                dailyLiquidity.PreviousReturnId = PrevId;
-                dailyLiquidity.ReturnId = returnId;
-                dailyLiquidity.Version = dailyLiquidity.Version + 1;
-                dailyLiquidity.IsCurrent = true;
-                dailyLiquidity.IsAmended = false;
-                dailyLiquidity.ReportDate = liquidityData.ReportDate;
-                dailyLiquidity.FilePath = Path;
-                dailyLiquidity.DaysLateBy = DaysLateBy;
-                dailyLiquidity.DaysLateBy = DaysLateBy;
-                dailyLiquidity.SACCOName = liquidityData.SACCOName;
-                dailyLiquidity.CSNO = liquidityData.CSNO;
-    
-            }
+                // Calculate days late
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, liquidityData.ReportDate);
 
-            // Opening Balances
-            dailyLiquidity.BankBalancesOpening = liquidityData.BankBalancesOpening;
-            dailyLiquidity.ConsolidatedTreasuryCashBalancesOpening = liquidityData.ConsolidatedTreasuryCashBalancesOpening;
-            dailyLiquidity.TellersBalancesOpening = liquidityData.TellersBalancesOpening;
-            dailyLiquidity.MobileMoneyChannelsOpening = liquidityData.MobileMoneyChannelsOpening;
-            dailyLiquidity.PlacementWithBanksOpening = liquidityData.PlacementWithBanksOpening;
-            dailyLiquidity.SubTotalOpening = liquidityData.SubTotalOpening;
+                string EffectiveReturnId = returnId;
+                string PreviousReturnId = string.Empty;
+                DailyLiquidityReturn? dailyLiquidity = null;
 
-            // Day Receipts
-            dailyLiquidity.DepositsFromMembers = liquidityData.DepositsFromMembers;
-            dailyLiquidity.CashLoanRepayments = liquidityData.CashLoanRepayments;
-            dailyLiquidity.OtherCashReceipts = liquidityData.OtherCashReceipts;
-            dailyLiquidity.SubTotalReceipts = liquidityData.SubTotalReceipts;
-            dailyLiquidity.TotalOpeningAndReceipts = liquidityData.TotalOpeningAndReceipts;
-
-            // Day Payments
-            dailyLiquidity.CashWithdrawalsByMembers = liquidityData.CashWithdrawalsByMembers;
-            dailyLiquidity.CashPaymentsToMembers = liquidityData.CashPaymentsToMembers;
-            dailyLiquidity.OtherCashPayments = liquidityData.OtherCashPayments;
-            dailyLiquidity.SubTotalPayments = liquidityData.SubTotalPayments;
-
-            // Closing Balances
-            dailyLiquidity.BankBalancesClosing = liquidityData.BankBalancesClosing;
-            dailyLiquidity.ConsolidatedTreasuryCashBalancesClosing = liquidityData.ConsolidatedTreasuryCashBalancesClosing;
-            dailyLiquidity.TellersBalancesClosing = liquidityData.TellersBalancesClosing;
-            dailyLiquidity.MobileMoneyChannelsClosing = liquidityData.MobileMoneyChannelsClosing;
-            dailyLiquidity.PlacementWithBanksClosing = liquidityData.PlacementWithBanksClosing;
-            dailyLiquidity.TotalClosingBalance = liquidityData.TotalClosingBalance;
-
-            // Deposit Liabilities
-            dailyLiquidity.BOSADeposits = liquidityData.BOSADeposits;
-            dailyLiquidity.FOSADeposits = liquidityData.FOSADeposits;
-            dailyLiquidity.TotalDeposits = liquidityData.TotalDeposits;
-
-            // Liquidity Ratios
-            dailyLiquidity.TotalClosingBalanceToTotalDepositsRatio = liquidityData.TotalClosingBalanceToTotalDepositsRatio;
-            dailyLiquidity.TotalClosingBalanceToFOSADepositsRatio = liquidityData.TotalClosingBalanceToFOSADepositsRatio;
-
-            //ValidateDailyLiquidityData(dailyLiquidity, _logger);
-
-            // Save to database
-            if (IsAmendment)
-            {
-                // Mark old record as amended
-                var oldRecord = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == PrevId);
-                if (oldRecord != null)
+                if (!IsAmendment)
                 {
-                    oldRecord.IsCurrent = false;
-                    oldRecord.IsAmended = true;
+                    // Create new record
+                    dailyLiquidity = new DailyLiquidityReturn
+                    {
+                        ReturnId = returnId,
+                        FilePath = Path,
+                        ReportDate = liquidityData.ReportDate,
+                        DaysLateBy = DaysLateBy,
+                        IsCurrent = true,
+                        IsAmended = false,
+                        SACCOName = liquidityData.SACCOName,
+                        CSNO = liquidityData.CSNO,
+                    };
                 }
-            }
+                else
+                {
+                    dailyLiquidity = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                    if (dailyLiquidity == null)
+                    {
+                        throw new Exception("Return not found for amendment");
+                    }
 
-            if (!IsAmendment)
-            {
-                await _context.DailyLiquidityReturns.AddAsync(dailyLiquidity);
-            }
-            else
-            {
-                _context.DailyLiquidityReturns.Update(dailyLiquidity);
-            }
+                    // Update amendment information
+                    dailyLiquidity.PreviousReturnId = PrevId;
+                    dailyLiquidity.ReturnId = returnId;
+                    dailyLiquidity.Version = dailyLiquidity.Version + 1;
+                    dailyLiquidity.IsCurrent = true;
+                    dailyLiquidity.IsAmended = false;
+                    dailyLiquidity.ReportDate = liquidityData.ReportDate;
+                    dailyLiquidity.FilePath = Path;
+                    dailyLiquidity.DaysLateBy = DaysLateBy;
+                    dailyLiquidity.DaysLateBy = DaysLateBy;
+                    dailyLiquidity.SACCOName = liquidityData.SACCOName;
+                    dailyLiquidity.CSNO = liquidityData.CSNO;
 
-            await _context.SaveChangesAsync();
+                }
+
+                // Opening Balances
+                dailyLiquidity.BankBalancesOpening = liquidityData.BankBalancesOpening;
+                dailyLiquidity.ConsolidatedTreasuryCashBalancesOpening = liquidityData.ConsolidatedTreasuryCashBalancesOpening;
+                dailyLiquidity.TellersBalancesOpening = liquidityData.TellersBalancesOpening;
+                dailyLiquidity.MobileMoneyChannelsOpening = liquidityData.MobileMoneyChannelsOpening;
+                dailyLiquidity.PlacementWithBanksOpening = liquidityData.PlacementWithBanksOpening;
+                dailyLiquidity.SubTotalOpening = liquidityData.SubTotalOpening;
+
+                // Day Receipts
+                dailyLiquidity.DepositsFromMembers = liquidityData.DepositsFromMembers;
+                dailyLiquidity.CashLoanRepayments = liquidityData.CashLoanRepayments;
+                dailyLiquidity.OtherCashReceipts = liquidityData.OtherCashReceipts;
+                dailyLiquidity.SubTotalReceipts = liquidityData.SubTotalReceipts;
+                dailyLiquidity.TotalOpeningAndReceipts = liquidityData.TotalOpeningAndReceipts;
+
+                // Day Payments
+                dailyLiquidity.CashWithdrawalsByMembers = liquidityData.CashWithdrawalsByMembers;
+                dailyLiquidity.CashPaymentsToMembers = liquidityData.CashPaymentsToMembers;
+                dailyLiquidity.OtherCashPayments = liquidityData.OtherCashPayments;
+                dailyLiquidity.SubTotalPayments = liquidityData.SubTotalPayments;
+
+                // Closing Balances
+                dailyLiquidity.BankBalancesClosing = liquidityData.BankBalancesClosing;
+                dailyLiquidity.ConsolidatedTreasuryCashBalancesClosing = liquidityData.ConsolidatedTreasuryCashBalancesClosing;
+                dailyLiquidity.TellersBalancesClosing = liquidityData.TellersBalancesClosing;
+                dailyLiquidity.MobileMoneyChannelsClosing = liquidityData.MobileMoneyChannelsClosing;
+                dailyLiquidity.PlacementWithBanksClosing = liquidityData.PlacementWithBanksClosing;
+                dailyLiquidity.TotalClosingBalance = liquidityData.TotalClosingBalance;
+
+                // Deposit Liabilities
+                dailyLiquidity.BOSADeposits = liquidityData.BOSADeposits;
+                dailyLiquidity.FOSADeposits = liquidityData.FOSADeposits;
+                dailyLiquidity.TotalDeposits = liquidityData.TotalDeposits;
+
+                // Liquidity Ratios
+                dailyLiquidity.TotalClosingBalanceToTotalDepositsRatio = liquidityData.TotalClosingBalanceToTotalDepositsRatio;
+                dailyLiquidity.TotalClosingBalanceToFOSADepositsRatio = liquidityData.TotalClosingBalanceToFOSADepositsRatio;
+
+                //ValidateDailyLiquidityData(dailyLiquidity, _logger);
+
+                // Save to database
+                if (IsAmendment)
+                {
+                    // Mark old record as amended
+                    var oldRecord = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == PrevId);
+                    if (oldRecord != null)
+                    {
+                        oldRecord.IsCurrent = false;
+                        oldRecord.IsAmended = true;
+                    }
+                }
+
+                if (!IsAmendment)
+                {
+                    await _context.DailyLiquidityReturns.AddAsync(dailyLiquidity);
+                }
+                else
+                {
+                    _context.DailyLiquidityReturns.Update(dailyLiquidity);
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
 
@@ -1010,131 +1027,147 @@ namespace Returns.Helpers
 
         public static async Task ProcessLiquidityForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
-
-            var form2 = ExcelService.ImportLiquidityStatementRows(formFile, _logger);
-            if (form2.Rows == null || !form2.Rows.Any())
-                throw new Exception("No data found in Liquidity Statement Form");
-
-            var Path = await FormsHelper.SaveFileAsync(formFile, "Liquidity Statement Returns");
-            if (Path == null)
+            try
             {
-                throw new Exception("Error saving file");
-            }
+                ReturnsDbContext _context = new ReturnsDbContext();
 
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2.EndDate);
+                var form2 = ExcelService.ImportLiquidityStatementRows(formFile, _logger);
+                if (form2.Rows == null || !form2.Rows.Any())
+                    throw new Exception("No data found in Liquidity Statement Form");
 
-            var liquidityStatement = new DTLiquidityReturn
-            {
-                ReturnId = returnId,
-                Year = form2.Period,
-                StartDate = form2.StartDate,
-                EndDate = form2.EndDate,
-                Frequency = form.Period.Name,
-                FilePath = Path,
-                DaysLateBy = DaysLateBy
-            };
-            foreach (var liquidityRow in form2.Rows)
-            {
-                switch (liquidityRow.Index?.Trim())
+                var Path = await FormsHelper.SaveFileAsync(formFile, "Liquidity Statement Returns");
+                if (Path == null)
                 {
-                    case "1.1":
-                        liquidityStatement.LocalNotesAndCoins = liquidityRow.Amount ?? 0;
-                        break;
-                    case "1.2":
-                        liquidityStatement.ForeignNotesAndCoins = liquidityRow.Amount ?? 0;
-                        break;
-                    case "2.1":
-                        liquidityStatement.BalancesWithCommercialBanks = liquidityRow.Amount ?? 0;
-                        break;
-                    case "2.2":
-                        liquidityStatement.TimeDepositsWithBanksMoreThan90Days = liquidityRow.Amount ?? 0;
-                        break;
-                    case "2.3":
-                        liquidityStatement.OverdraftsAndMaturedLoans = liquidityRow.Amount ?? 0;
-                        break;
-                    case "3.1":
-                        liquidityStatement.BalancesWithOtherSaccoSocieties = liquidityRow.Amount ?? 0;
-                        break;
-                    case "3.2":
-                        liquidityStatement.BalancesWithOtherFinancialInstitutions = liquidityRow.Amount ?? 0;
-                        break;
-                    case "3.3":
-                        liquidityStatement.BalancesDueToOtherSaccoSocieties = liquidityRow.Amount ?? 0;
-                        break;
-                    case "3.4":
-                        liquidityStatement.BalancesDueToFinancialInstitutions = liquidityRow.Amount ?? 0;
-                        break;
-                    case "4.1":
-                        liquidityStatement.TreasuryBills = liquidityRow.Amount ?? 0;
-                        break;
-                    case "4.2":
-                        liquidityStatement.TreasuryBonds = liquidityRow.Amount ?? 0;
-                        break;
-                    case "6.1":
-                        liquidityStatement.DepositsFromMembers = liquidityRow.Amount ?? 0;
-                        break;
-                    case "6.2":
-                        liquidityStatement.DepositsFromOtherSources = liquidityRow.Amount ?? 0;
-                        break;
-                    case "7.1":
-                        liquidityStatement.MaturedLiabilities = liquidityRow.Amount ?? 0;
-                        break;
-                    case "7.2":
-                        liquidityStatement.LiabilitiesMaturing91Days = liquidityRow.Amount ?? 0;
-                        break;
+                    throw new Exception("Error saving file");
                 }
 
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2.EndDate);
+
+                var liquidityStatement = new DTLiquidityReturn
+                {
+                    ReturnId = returnId,
+                    Year = form2.Period,
+                    StartDate = form2.StartDate,
+                    EndDate = form2.EndDate,
+                    Frequency = form.Period.Name,
+                    FilePath = Path,
+                    DaysLateBy = DaysLateBy
+                };
+                foreach (var liquidityRow in form2.Rows)
+                {
+                    switch (liquidityRow.Index?.Trim())
+                    {
+                        case "1.1":
+                            liquidityStatement.LocalNotesAndCoins = liquidityRow.Amount ?? 0;
+                            break;
+                        case "1.2":
+                            liquidityStatement.ForeignNotesAndCoins = liquidityRow.Amount ?? 0;
+                            break;
+                        case "2.1":
+                            liquidityStatement.BalancesWithCommercialBanks = liquidityRow.Amount ?? 0;
+                            break;
+                        case "2.2":
+                            liquidityStatement.TimeDepositsWithBanksMoreThan90Days = liquidityRow.Amount ?? 0;
+                            break;
+                        case "2.3":
+                            liquidityStatement.OverdraftsAndMaturedLoans = liquidityRow.Amount ?? 0;
+                            break;
+                        case "3.1":
+                            liquidityStatement.BalancesWithOtherSaccoSocieties = liquidityRow.Amount ?? 0;
+                            break;
+                        case "3.2":
+                            liquidityStatement.BalancesWithOtherFinancialInstitutions = liquidityRow.Amount ?? 0;
+                            break;
+                        case "3.3":
+                            liquidityStatement.BalancesDueToOtherSaccoSocieties = liquidityRow.Amount ?? 0;
+                            break;
+                        case "3.4":
+                            liquidityStatement.BalancesDueToFinancialInstitutions = liquidityRow.Amount ?? 0;
+                            break;
+                        case "4.1":
+                            liquidityStatement.TreasuryBills = liquidityRow.Amount ?? 0;
+                            break;
+                        case "4.2":
+                            liquidityStatement.TreasuryBonds = liquidityRow.Amount ?? 0;
+                            break;
+                        case "6.1":
+                            liquidityStatement.DepositsFromMembers = liquidityRow.Amount ?? 0;
+                            break;
+                        case "6.2":
+                            liquidityStatement.DepositsFromOtherSources = liquidityRow.Amount ?? 0;
+                            break;
+                        case "7.1":
+                            liquidityStatement.MaturedLiabilities = liquidityRow.Amount ?? 0;
+                            break;
+                        case "7.2":
+                            liquidityStatement.LiabilitiesMaturing91Days = liquidityRow.Amount ?? 0;
+                            break;
+                    }
+
+                }
+
+                // Calculate totals and ratios
+                liquidityStatement.TotalNotesAndCoins = liquidityStatement.LocalNotesAndCoins + liquidityStatement.ForeignNotesAndCoins;
+                liquidityStatement.TotalGovernmentSecurities = liquidityStatement.TreasuryBills + liquidityStatement.TreasuryBonds;
+                liquidityStatement.NetLiquidAssets = liquidityStatement.TotalNotesAndCoins + liquidityStatement.NetBankBalances +
+                                          liquidityStatement.NetFinancialInstitutionBalances + liquidityStatement.TotalGovernmentSecurities;
+
+                liquidityStatement.TotalDeposits = liquidityStatement.DepositsFromMembers + liquidityStatement.DepositsFromOtherSources;
+                liquidityStatement.TotalOtherLiabilities = liquidityStatement.MaturedLiabilities + liquidityStatement.LiabilitiesMaturing91Days;
+                if (liquidityStatement.TotalDeposits > 0)
+                {
+                    liquidityStatement.LiquidityRatio = (liquidityStatement.NetLiquidAssets / liquidityStatement.TotalDeposits) * 100;
+                    liquidityStatement.LiquidityRatioExcessDeficit = liquidityStatement.LiquidityRatio - liquidityStatement.MinimumLiquidityRequirement;
+                }
+
+                await _context.DTLiquidityReturns.AddAsync(liquidityStatement);
+                await _context.SaveChangesAsync();
             }
-
-            // Calculate totals and ratios
-            liquidityStatement.TotalNotesAndCoins = liquidityStatement.LocalNotesAndCoins + liquidityStatement.ForeignNotesAndCoins;
-            liquidityStatement.TotalGovernmentSecurities = liquidityStatement.TreasuryBills + liquidityStatement.TreasuryBonds;
-            liquidityStatement.NetLiquidAssets = liquidityStatement.TotalNotesAndCoins + liquidityStatement.NetBankBalances +
-                                      liquidityStatement.NetFinancialInstitutionBalances + liquidityStatement.TotalGovernmentSecurities;
-
-            liquidityStatement.TotalDeposits = liquidityStatement.DepositsFromMembers + liquidityStatement.DepositsFromOtherSources;
-            liquidityStatement.TotalOtherLiabilities = liquidityStatement.MaturedLiabilities + liquidityStatement.LiabilitiesMaturing91Days;
-            if (liquidityStatement.TotalDeposits > 0)
+            catch (Exception)
             {
-                liquidityStatement.LiquidityRatio = (liquidityStatement.NetLiquidAssets / liquidityStatement.TotalDeposits) * 100;
-                liquidityStatement.LiquidityRatioExcessDeficit = liquidityStatement.LiquidityRatio - liquidityStatement.MinimumLiquidityRequirement;
-            }
 
-            await _context.DTLiquidityReturns.AddAsync(liquidityStatement);
-            await _context.SaveChangesAsync();
+                throw;
+            }
         }
 
         public static async Task ProcessDepositReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
-            var form3 = ExcelService.ImportDepositRangeDataRows(formFile, _logger);
-            var rows = form3.Rows;
-            if (rows == null || !rows.Any())
-                throw new Exception("No data found in Deposit Return Form");
-
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form3.EndDate);
-            var FilePath = await FormsHelper.SaveFileAsync(formFile, "Deposit Return Forms");
-
-            foreach (var row in rows)
+            try
             {
-                var depositReturn = new DepositReturn
+                ReturnsDbContext _context = new ReturnsDbContext();
+                var form3 = ExcelService.ImportDepositRangeDataRows(formFile, _logger);
+                var rows = form3.Rows;
+                if (rows == null || !rows.Any())
+                    throw new Exception("No data found in Deposit Return Form");
+
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form3.EndDate);
+                var FilePath = await FormsHelper.SaveFileAsync(formFile, "Deposit Return Forms");
+
+                foreach (var row in rows)
                 {
-                    ReturnId = returnId,
-                    RangeName = row.RangeName,
-                    DepositType = row.DepositType,
-                    NumberOfAccounts = row.NumberOfAccounts,
-                    AmountInKshs000 = row.AmountInKshs000,
-                    Year = form3.Period,
-                    StartDate = form3.StartDate,
-                    EndDate = form3.EndDate,
-                    Frequency = form.Period.Name,
-                    FilePath = FilePath,
-                    DaysLateBy = DaysLateBy
-                };
-                await _context.DepositReturns.AddAsync(depositReturn);
+                    var depositReturn = new DepositReturn
+                    {
+                        ReturnId = returnId,
+                        RangeName = row.RangeName,
+                        DepositType = row.DepositType,
+                        NumberOfAccounts = row.NumberOfAccounts,
+                        AmountInKshs000 = row.AmountInKshs000,
+                        Year = form3.Period,
+                        StartDate = form3.StartDate,
+                        EndDate = form3.EndDate,
+                        Frequency = form.Period.Name,
+                        FilePath = FilePath,
+                        DaysLateBy = DaysLateBy
+                    };
+                    await _context.DepositReturns.AddAsync(depositReturn);
+                }
+                await _context.SaveChangesAsync();
             }
-            await _context.SaveChangesAsync();
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
 
@@ -1281,109 +1314,125 @@ namespace Returns.Helpers
 
         public static async Task ProcessRiskClassificationForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
-            var form4 = ExcelService.ImportRiskClassificationRows(formFile, _logger);
-            var rows = form4.Rows;
-            if (rows == null || !rows.Any())
-                throw new Exception("No data found in Risk Classification Form");
-
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form4.EndDate);
-            var FilePath = await FormsHelper.SaveFileAsync(formFile, "Risk Classification Returns");
-
-            foreach (var row in rows)
+            try
             {
-                var riskClassification = new DTRiskClassificationReturn
+                ReturnsDbContext _context = new ReturnsDbContext();
+                var form4 = ExcelService.ImportRiskClassificationRows(formFile, _logger);
+                var rows = form4.Rows;
+                if (rows == null || !rows.Any())
+                    throw new Exception("No data found in Risk Classification Form");
+
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form4.EndDate);
+                var FilePath = await FormsHelper.SaveFileAsync(formFile, "Risk Classification Returns");
+
+                foreach (var row in rows)
                 {
-                    LoanType = row.LoanType,
-                    Classification = row.Classification,
-                    NumberOfAccounts = row.NumberOfAccounts,
-                    OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
-                    RequiredProvision = row.RequiredProvision,
-                    RequiredProvisionAmount = row.RequiredProvisionAmount,
-                    ReturnId = returnId,
-                    Year = form4.Period,
-                    StartDate = form4.StartDate,
-                    EndDate = form4.EndDate,
-                    Frequency = form.Period.Name,
-                    FilePath = FilePath,
-                    DaysLateBy = DaysLateBy
-                };
-                await _context.DTRiskClassificationReturns.AddAsync(riskClassification);
+                    var riskClassification = new DTRiskClassificationReturn
+                    {
+                        LoanType = row.LoanType,
+                        Classification = row.Classification,
+                        NumberOfAccounts = row.NumberOfAccounts,
+                        OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
+                        RequiredProvision = row.RequiredProvision,
+                        RequiredProvisionAmount = row.RequiredProvisionAmount,
+                        ReturnId = returnId,
+                        Year = form4.Period,
+                        StartDate = form4.StartDate,
+                        EndDate = form4.EndDate,
+                        Frequency = form.Period.Name,
+                        FilePath = FilePath,
+                        DaysLateBy = DaysLateBy
+                    };
+                    await _context.DTRiskClassificationReturns.AddAsync(riskClassification);
+                }
+                await _context.SaveChangesAsync();
             }
-            await _context.SaveChangesAsync();
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
         internal static async Task ProcessInvestmentReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
-            var form5 = ExcelService.ImportInvestmentRows(formFile, _logger);
-            var rows = form5.Rows;
-            if (rows == null || !rows.Any())
+            try
             {
-                throw new Exception("No data found in Investment Return Form");
-            }
-
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form5.EndDate);
-            var FilePath = await FormsHelper.SaveFileAsync(formFile, "Investment Returns");
-
-            var investmentReturn = new DTInvestmentReturn
-            {
-                ReturnId = returnId,
-                Year = form5.Period,
-                StartDate = form5.StartDate,
-                EndDate = form5.EndDate,
-                Frequency = form.Period.Name,
-                FilePath = FilePath,
-                DaysLateBy = DaysLateBy
-            };
-            foreach (var row in rows)
-            {
-                switch (row.Index?.Trim())
+                ReturnsDbContext _context = new ReturnsDbContext();
+                var form5 = ExcelService.ImportInvestmentRows(formFile, _logger);
+                var rows = form5.Rows;
+                if (rows == null || !rows.Any())
                 {
-                    case "1.1":
-                        investmentReturn.CoreCapital = row.Amount ?? 0;
-                        break;
-                    case "1.2":
-                        investmentReturn.TotalAssets = row.Amount ?? 0;
-                        break;
-                    case "1.3":
-                        investmentReturn.TotalDeposits = row.Amount ?? 0;
-                        break;
-                    case "1.4":
-                        investmentReturn.NonEarningAssets = row.Amount ?? 0;
-                        break;
-                    case "1.5":
-                        investmentReturn.FinancialInvestments = row.Amount ?? 0;
-                        break;
-                    case "1.6":
-                        investmentReturn.LandAndBuildings = row.Amount ?? 0;
-                        break;
+                    throw new Exception("No data found in Investment Return Form");
                 }
-            }
 
-            if (investmentReturn.TotalAssets > 0)
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form5.EndDate);
+                var FilePath = await FormsHelper.SaveFileAsync(formFile, "Investment Returns");
+
+                var investmentReturn = new DTInvestmentReturn
+                {
+                    ReturnId = returnId,
+                    Year = form5.Period,
+                    StartDate = form5.StartDate,
+                    EndDate = form5.EndDate,
+                    Frequency = form.Period.Name,
+                    FilePath = FilePath,
+                    DaysLateBy = DaysLateBy
+                };
+                foreach (var row in rows)
+                {
+                    switch (row.Index?.Trim())
+                    {
+                        case "1.1":
+                            investmentReturn.CoreCapital = row.Amount ?? 0;
+                            break;
+                        case "1.2":
+                            investmentReturn.TotalAssets = row.Amount ?? 0;
+                            break;
+                        case "1.3":
+                            investmentReturn.TotalDeposits = row.Amount ?? 0;
+                            break;
+                        case "1.4":
+                            investmentReturn.NonEarningAssets = row.Amount ?? 0;
+                            break;
+                        case "1.5":
+                            investmentReturn.FinancialInvestments = row.Amount ?? 0;
+                            break;
+                        case "1.6":
+                            investmentReturn.LandAndBuildings = row.Amount ?? 0;
+                            break;
+                    }
+                }
+
+                if (investmentReturn.TotalAssets > 0)
+                {
+                    investmentReturn.LandBuildingsToTotalAssetsRatio = (investmentReturn.LandAndBuildings / investmentReturn.TotalAssets) * 100;
+                    investmentReturn.LandBuildingsRatioExcessDeficiency = investmentReturn.LandBuildingsToTotalAssetsRatio - investmentReturn.MaxLandBuildingsToTotalAssetsRatio;
+
+                    investmentReturn.NonEarningAssetsToTotalAssetsRatio = (investmentReturn.NonEarningAssets / investmentReturn.TotalAssets) * 100;
+                    investmentReturn.NonEarningAssetsRatioExcessDeficiency = investmentReturn.NonEarningAssetsToTotalAssetsRatio - investmentReturn.MaxNonEarningAssetsToTotalAssetsRatio;
+                }
+
+                if (investmentReturn.CoreCapital > 0)
+                {
+                    investmentReturn.FinancialInvestmentsToCoreCapitalRatio = (investmentReturn.FinancialInvestments / investmentReturn.CoreCapital) * 100;
+                    investmentReturn.FinancialInvestmentsToCoreCapitalExcessDeficiency = investmentReturn.FinancialInvestmentsToCoreCapitalRatio - investmentReturn.MaxFinancialInvestmentsToCoreCapitalRatio;
+                }
+
+                if (investmentReturn.TotalDeposits > 0)
+                {
+                    investmentReturn.FinancialInvestmentsToDepositsRatio = (investmentReturn.FinancialInvestments / investmentReturn.TotalDeposits) * 100;
+                    investmentReturn.FinancialInvestmentsToDepositsExcessDeficiency = investmentReturn.FinancialInvestmentsToDepositsRatio - investmentReturn.MaxFinancialInvestmentsToDepositsRatio;
+                }
+
+                await _context.DTInvestmentReturns.AddAsync(investmentReturn);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception)
             {
-                investmentReturn.LandBuildingsToTotalAssetsRatio = (investmentReturn.LandAndBuildings / investmentReturn.TotalAssets) * 100;
-                investmentReturn.LandBuildingsRatioExcessDeficiency = investmentReturn.LandBuildingsToTotalAssetsRatio - investmentReturn.MaxLandBuildingsToTotalAssetsRatio;
 
-                investmentReturn.NonEarningAssetsToTotalAssetsRatio = (investmentReturn.NonEarningAssets / investmentReturn.TotalAssets) * 100;
-                investmentReturn.NonEarningAssetsRatioExcessDeficiency = investmentReturn.NonEarningAssetsToTotalAssetsRatio - investmentReturn.MaxNonEarningAssetsToTotalAssetsRatio;
+                throw;
             }
-
-            if (investmentReturn.CoreCapital > 0)
-            {
-                investmentReturn.FinancialInvestmentsToCoreCapitalRatio = (investmentReturn.FinancialInvestments / investmentReturn.CoreCapital) * 100;
-                investmentReturn.FinancialInvestmentsToCoreCapitalExcessDeficiency = investmentReturn.FinancialInvestmentsToCoreCapitalRatio - investmentReturn.MaxFinancialInvestmentsToCoreCapitalRatio;
-            }
-
-            if (investmentReturn.TotalDeposits > 0)
-            {
-                investmentReturn.FinancialInvestmentsToDepositsRatio = (investmentReturn.FinancialInvestments / investmentReturn.TotalDeposits) * 100;
-                investmentReturn.FinancialInvestmentsToDepositsExcessDeficiency = investmentReturn.FinancialInvestmentsToDepositsRatio - investmentReturn.MaxFinancialInvestmentsToDepositsRatio;
-            }
-
-            await _context.DTInvestmentReturns.AddAsync(investmentReturn);
-            await _context.SaveChangesAsync();
         }
 
 
@@ -1534,149 +1583,157 @@ namespace Returns.Helpers
 
         public static async Task ProcessFinancialPositionForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            try
+            {
+                ReturnsDbContext _context = new ReturnsDbContext();
 
-            var form6 = ExcelService.ImportFinancialPositionRows(formFile, _logger);
-            var rows = form6.Rows;
-            if (rows == null || !rows.Any())
-            {
-                throw new Exception("No data found in Statement of Financial Position");
-            }
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form6.EndDate);
-            var FilePath = await FormsHelper.SaveFileAsync(formFile, "Statement of Financial Position Returns");
-            var statement = new DTFinancialPositionReturn
-            {
-                ReturnId = returnId,
-                Year = form6.Period,
-                StartDate = form6.StartDate,
-                EndDate = form6.EndDate,
-                Frequency = form.Period.Name,
-                FilePath = FilePath,
-                DaysLateBy = DaysLateBy
-            };
-            foreach (var row in rows)
-            {
-                switch (row.RefNumber?.Trim())
+                var form6 = ExcelService.ImportFinancialPositionRows(formFile, _logger);
+                var rows = form6.Rows;
+                if (rows == null || !rows.Any())
                 {
-                    // Cash & Cash Equivalent
-                    case "1.1":
-                        statement.CashInHand = row.Amount ?? 0;
-                        break;
-                    case "1.2":
-                        statement.CashAtBank = row.Amount ?? 0;
-                        break;
-
-                    // Prepayments & Sundry Receivables
-                    case "2":
-                        statement.PrepaymentsAndSundryReceivables = row.Amount ?? 0;
-                        break;
-
-                    // Financial Investments
-                    case "3.1":
-                        statement.GovernmentSecurities = row.Amount ?? 0;
-                        break;
-                    case "3.2":
-                        statement.OtherSecurities = row.Amount ?? 0;
-                        break;
-                    case "3.3a":
-                        statement.BalancesWithOtherSaccos = row.Amount ?? 0;
-                        break;
-                    case "3.3b":
-                        statement.InvestmentsInCompanies = row.Amount ?? 0;
-                        break;
-
-                    // Net Loan Portfolio
-                    case "4.1":
-                        statement.GrossLoanPortfolio = row.Amount ?? 0;
-                        break;
-                    case "4.2":
-                        statement.AllowanceForLoanLoss = row.Amount ?? 0;
-                        break;
-
-                    // Accounts Receivables
-                    case "5.1":
-                        statement.TaxRecoverable = row.Amount ?? 0;
-                        break;
-                    case "5.2":
-                        statement.DeferredTaxAssets = row.Amount ?? 0;
-                        break;
-                    case "5.3":
-                        statement.RetirementBenefitAssets = row.Amount ?? 0;
-                        break;
-
-                    // Property & Equipment & Other assets
-                    case "6.1":
-                        statement.InvestmentProperties = row.Amount ?? 0;
-                        break;
-                    case "6.2":
-                        statement.PropertyAndEquipment = row.Amount ?? 0;
-                        break;
-                    case "6.3":
-                        statement.PrepaidLeaseRentals = row.Amount ?? 0;
-                        break;
-                    case "6.4":
-                        statement.IntangibleAssets = row.Amount ?? 0;
-                        break;
-                    case "6.5":
-                        statement.OtherAssets = row.Amount ?? 0;
-                        break;
-
-                    // LIABILITIES
-                    case "7":
-                        statement.SavingsDeposits = row.Amount ?? 0;
-                        break;
-                    case "8":
-                        statement.ShortTermDeposits = row.Amount ?? 0;
-                        break;
-                    case "9":
-                        statement.NonWithdrawableDeposits = row.Amount ?? 0;
-                        break;
-
-                    // Accounts Payable & Other Liabilities
-                    case "10.1":
-                        statement.TaxPayable = row.Amount ?? 0;
-                        break;
-                    case "10.2":
-                        statement.DividendsPayable = row.Amount ?? 0;
-                        break;
-                    case "10.3":
-                        statement.DeferredTaxLiability = row.Amount ?? 0;
-                        break;
-                    case "10.4":
-                        statement.RetirementBenefitsLiability = row.Amount ?? 0;
-                        break;
-                    case "10.5":
-                        statement.OtherLiabilities = row.Amount ?? 0;
-                        break;
-                    case "10.6":
-                        statement.ExternalBorrowings = row.Amount ?? 0;
-                        break;
-
-                    // EQUITY
-                    case "11":
-                        statement.ShareCapital = row.Amount ?? 0;
-                        break;
-                    case "12":
-                        statement.CapitalGrants = row.Amount ?? 0;
-                        break;
-
-                    // Retained Earnings
-                    case "13.1":
-                        statement.PriorYearsRetainedEarnings = row.Amount ?? 0;
-                        break;
-                    case "13.2":
-                        statement.CurrentYearSurplus = row.Amount ?? 0;
-                        break;
-
-                    // Other Equity Accounts
-                    case "14":
-                        // This is a section total, actual values come from sub-items
-                        statement.StatutoryReserve = row.Amount ?? 0;
-                        break;
+                    throw new Exception("No data found in Statement of Financial Position");
                 }
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form6.EndDate);
+                var FilePath = await FormsHelper.SaveFileAsync(formFile, "Statement of Financial Position Returns");
+                var statement = new DTFinancialPositionReturn
+                {
+                    ReturnId = returnId,
+                    Year = form6.Period,
+                    StartDate = form6.StartDate,
+                    EndDate = form6.EndDate,
+                    Frequency = form.Period.Name,
+                    FilePath = FilePath,
+                    DaysLateBy = DaysLateBy
+                };
+                foreach (var row in rows)
+                {
+                    switch (row.RefNumber?.Trim())
+                    {
+                        // Cash & Cash Equivalent
+                        case "1.1":
+                            statement.CashInHand = row.Amount ?? 0;
+                            break;
+                        case "1.2":
+                            statement.CashAtBank = row.Amount ?? 0;
+                            break;
+
+                        // Prepayments & Sundry Receivables
+                        case "2":
+                            statement.PrepaymentsAndSundryReceivables = row.Amount ?? 0;
+                            break;
+
+                        // Financial Investments
+                        case "3.1":
+                            statement.GovernmentSecurities = row.Amount ?? 0;
+                            break;
+                        case "3.2":
+                            statement.OtherSecurities = row.Amount ?? 0;
+                            break;
+                        case "3.3a":
+                            statement.BalancesWithOtherSaccos = row.Amount ?? 0;
+                            break;
+                        case "3.3b":
+                            statement.InvestmentsInCompanies = row.Amount ?? 0;
+                            break;
+
+                        // Net Loan Portfolio
+                        case "4.1":
+                            statement.GrossLoanPortfolio = row.Amount ?? 0;
+                            break;
+                        case "4.2":
+                            statement.AllowanceForLoanLoss = row.Amount ?? 0;
+                            break;
+
+                        // Accounts Receivables
+                        case "5.1":
+                            statement.TaxRecoverable = row.Amount ?? 0;
+                            break;
+                        case "5.2":
+                            statement.DeferredTaxAssets = row.Amount ?? 0;
+                            break;
+                        case "5.3":
+                            statement.RetirementBenefitAssets = row.Amount ?? 0;
+                            break;
+
+                        // Property & Equipment & Other assets
+                        case "6.1":
+                            statement.InvestmentProperties = row.Amount ?? 0;
+                            break;
+                        case "6.2":
+                            statement.PropertyAndEquipment = row.Amount ?? 0;
+                            break;
+                        case "6.3":
+                            statement.PrepaidLeaseRentals = row.Amount ?? 0;
+                            break;
+                        case "6.4":
+                            statement.IntangibleAssets = row.Amount ?? 0;
+                            break;
+                        case "6.5":
+                            statement.OtherAssets = row.Amount ?? 0;
+                            break;
+
+                        // LIABILITIES
+                        case "7":
+                            statement.SavingsDeposits = row.Amount ?? 0;
+                            break;
+                        case "8":
+                            statement.ShortTermDeposits = row.Amount ?? 0;
+                            break;
+                        case "9":
+                            statement.NonWithdrawableDeposits = row.Amount ?? 0;
+                            break;
+
+                        // Accounts Payable & Other Liabilities
+                        case "10.1":
+                            statement.TaxPayable = row.Amount ?? 0;
+                            break;
+                        case "10.2":
+                            statement.DividendsPayable = row.Amount ?? 0;
+                            break;
+                        case "10.3":
+                            statement.DeferredTaxLiability = row.Amount ?? 0;
+                            break;
+                        case "10.4":
+                            statement.RetirementBenefitsLiability = row.Amount ?? 0;
+                            break;
+                        case "10.5":
+                            statement.OtherLiabilities = row.Amount ?? 0;
+                            break;
+                        case "10.6":
+                            statement.ExternalBorrowings = row.Amount ?? 0;
+                            break;
+
+                        // EQUITY
+                        case "11":
+                            statement.ShareCapital = row.Amount ?? 0;
+                            break;
+                        case "12":
+                            statement.CapitalGrants = row.Amount ?? 0;
+                            break;
+
+                        // Retained Earnings
+                        case "13.1":
+                            statement.PriorYearsRetainedEarnings = row.Amount ?? 0;
+                            break;
+                        case "13.2":
+                            statement.CurrentYearSurplus = row.Amount ?? 0;
+                            break;
+
+                        // Other Equity Accounts
+                        case "14":
+                            // This is a section total, actual values come from sub-items
+                            statement.StatutoryReserve = row.Amount ?? 0;
+                            break;
+                    }
+                }
+                await _context.DTFinancialPositionReturns.AddAsync(statement);
+                await _context.SaveChangesAsync();
             }
-            await _context.DTFinancialPositionReturns.AddAsync(statement);
-            await _context.SaveChangesAsync();
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
         public static async Task ProcessForm2A(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
@@ -2238,116 +2295,124 @@ namespace Returns.Helpers
 
         public static async Task ProcessComprehensiveIncomeForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
-            var form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(file, _logger);
-            var rows = form7.Rows;
-            if (rows == null || !rows.Any())
+            try
             {
-                throw new Exception("No data found in Statement of Comprehensive Income Form");
-            }
-
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form7.EndDate);
-            var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
-            var statement = new DTComprehensiveIncomeReturn
-            {
-                ReturnId = returnId,
-                Year = form7.Period,
-                StartDate = form7.StartDate,
-                EndDate = form7.EndDate,
-                Frequency = form.Period.Name,
-                FilePath = FilePath,
-                DaysLateBy = DaysLateBy
-            };
-            foreach (var row in rows)
-            {
-                switch (row.RefNumber?.Trim())
+                ReturnsDbContext _context = new ReturnsDbContext();
+                var form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(file, _logger);
+                var rows = form7.Rows;
+                if (rows == null || !rows.Any())
                 {
-                    // Financial Income from Loans Portfolio
-                    case "2.1":
-                        statement.InterestOnLoanPortfolio = row.Amount ?? 0;
-                        break;
-                    case "2.2":
-                        statement.FeesAndCommissionOnLoanPortfolio = row.Amount ?? 0;
-                        break;
-
-                    // Financial Income from Investments
-                    case "3.1":
-                        statement.GovernmentSecurities = row.Amount ?? 0;
-                        break;
-                    case "3.2":
-                        statement.DepositsWithBanks = row.Amount ?? 0;
-                        break;
-                    case "3.3":
-                        statement.OtherInvestments = row.Amount ?? 0;
-                        break;
-                    case "3.4":
-                        statement.OtherOperatingIncome = row.Amount ?? 0;
-                        break;
-
-                    // Financial Expense
-                    case "4.2":
-                        statement.InterestExpenseOnDeposits = row.Amount ?? 0;
-                        break;
-                    case "4.3":
-                        statement.CostOfExternalBorrowings = row.Amount ?? 0;
-                        break;
-                    case "4.4":
-                        statement.DividendExpenses = row.Amount ?? 0;
-                        break;
-                    case "4.5":
-                        statement.OtherFinancialExpense = row.Amount ?? 0;
-                        break;
-                    case "4.6":
-                        statement.FeesAndCommissionExpense = row.Amount ?? 0;
-                        break;
-                    case "4.7":
-                        statement.OtherExpense = row.Amount ?? 0;
-                        break;
-
-                    // Allowance for Loan Loss
-                    case "6.1":
-                        statement.ProvisionForLoanLosses = row.Amount ?? 0;
-                        break;
-                    case "6.2":
-                        statement.ValueOfLoansRecovered = row.Amount ?? 0;
-                        break;
-
-                    // Operating Expenses
-                    case "7.1":
-                        statement.PersonnelExpenses = row.Amount ?? 0;
-                        break;
-                    case "7.2":
-                        statement.GovernanceExpenses = row.Amount ?? 0;
-                        break;
-                    case "7.3":
-                        statement.MarketingExpenses = row.Amount ?? 0;
-                        break;
-                    case "7.4":
-                        statement.DepreciationAndAmortization = row.Amount ?? 0;
-                        break;
-                    case "7.5":
-                        statement.AdministrativeExpenses = row.Amount ?? 0;
-                        break;
-
-                    // Non-Operating Income/Expense
-                    case "9.1":
-                        statement.NonOperatingIncome = row.Amount ?? 0;
-                        break;
-                    case "9.2":
-                        statement.NonOperatingExpense = row.Amount ?? 0;
-                        break;
-
-                    // Taxes and Donations
-                    case "11":
-                        statement.Taxes = row.Amount ?? 0;
-                        break;
-                    case "13":
-                        statement.Donations = row.Amount ?? 0;
-                        break;
+                    throw new Exception("No data found in Statement of Comprehensive Income Form");
                 }
+
+                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form7.EndDate);
+                var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
+                var statement = new DTComprehensiveIncomeReturn
+                {
+                    ReturnId = returnId,
+                    Year = form7.Period,
+                    StartDate = form7.StartDate,
+                    EndDate = form7.EndDate,
+                    Frequency = form.Period.Name,
+                    FilePath = FilePath,
+                    DaysLateBy = DaysLateBy
+                };
+                foreach (var row in rows)
+                {
+                    switch (row.RefNumber?.Trim())
+                    {
+                        // Financial Income from Loans Portfolio
+                        case "2.1":
+                            statement.InterestOnLoanPortfolio = row.Amount ?? 0;
+                            break;
+                        case "2.2":
+                            statement.FeesAndCommissionOnLoanPortfolio = row.Amount ?? 0;
+                            break;
+
+                        // Financial Income from Investments
+                        case "3.1":
+                            statement.GovernmentSecurities = row.Amount ?? 0;
+                            break;
+                        case "3.2":
+                            statement.DepositsWithBanks = row.Amount ?? 0;
+                            break;
+                        case "3.3":
+                            statement.OtherInvestments = row.Amount ?? 0;
+                            break;
+                        case "3.4":
+                            statement.OtherOperatingIncome = row.Amount ?? 0;
+                            break;
+
+                        // Financial Expense
+                        case "4.2":
+                            statement.InterestExpenseOnDeposits = row.Amount ?? 0;
+                            break;
+                        case "4.3":
+                            statement.CostOfExternalBorrowings = row.Amount ?? 0;
+                            break;
+                        case "4.4":
+                            statement.DividendExpenses = row.Amount ?? 0;
+                            break;
+                        case "4.5":
+                            statement.OtherFinancialExpense = row.Amount ?? 0;
+                            break;
+                        case "4.6":
+                            statement.FeesAndCommissionExpense = row.Amount ?? 0;
+                            break;
+                        case "4.7":
+                            statement.OtherExpense = row.Amount ?? 0;
+                            break;
+
+                        // Allowance for Loan Loss
+                        case "6.1":
+                            statement.ProvisionForLoanLosses = row.Amount ?? 0;
+                            break;
+                        case "6.2":
+                            statement.ValueOfLoansRecovered = row.Amount ?? 0;
+                            break;
+
+                        // Operating Expenses
+                        case "7.1":
+                            statement.PersonnelExpenses = row.Amount ?? 0;
+                            break;
+                        case "7.2":
+                            statement.GovernanceExpenses = row.Amount ?? 0;
+                            break;
+                        case "7.3":
+                            statement.MarketingExpenses = row.Amount ?? 0;
+                            break;
+                        case "7.4":
+                            statement.DepreciationAndAmortization = row.Amount ?? 0;
+                            break;
+                        case "7.5":
+                            statement.AdministrativeExpenses = row.Amount ?? 0;
+                            break;
+
+                        // Non-Operating Income/Expense
+                        case "9.1":
+                            statement.NonOperatingIncome = row.Amount ?? 0;
+                            break;
+                        case "9.2":
+                            statement.NonOperatingExpense = row.Amount ?? 0;
+                            break;
+
+                        // Taxes and Donations
+                        case "11":
+                            statement.Taxes = row.Amount ?? 0;
+                            break;
+                        case "13":
+                            statement.Donations = row.Amount ?? 0;
+                            break;
+                    }
+                }
+                await _context.DTComprehensiveIncomeReturns.AddAsync(statement);
+                await _context.SaveChangesAsync();
             }
-            await _context.DTComprehensiveIncomeReturns.AddAsync(statement);
-            await _context.SaveChangesAsync();
+            catch (Exception)
+            {
+
+                throw;
+            }
         }
 
         public static async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")

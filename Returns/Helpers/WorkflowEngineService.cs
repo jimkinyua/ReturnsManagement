@@ -134,29 +134,37 @@ namespace Returns.Helpers
 
         public async Task<WorkflowStateDto> StartWorkflowAsync(Return SubmittedReturn, int Rating)
         {
-            var coUserId = await _complianceService.GetAssignedComplianceOfficer(SubmittedReturn.SaccoId);
-            var teamId = coUserId.TeamId;
-            var template = await _db.WorkFlowTemplates.Include(t => t.WorkFlowSteps).FirstOrDefaultAsync(t => t.IsPublished);
-            if (template == null)
+            try
             {
-                throw new Exception("No published workflow template found.");
+                var coUserId = await _complianceService.GetAssignedComplianceOfficer(SubmittedReturn.SaccoId);
+                var teamId = coUserId.TeamId;
+                var template = await _db.WorkFlowTemplates.Include(t => t.WorkFlowSteps).FirstOrDefaultAsync(t => t.IsPublished);
+                if (template == null)
+                {
+                    throw new Exception("No published workflow template found.");
+                }
+
+                var instance = new WorkflowInstance
+                {
+                    ReturnId = SubmittedReturn.Id,
+                    WorkflowTemplateId = template.Id,
+                    TeamId = teamId,
+                    UserId = coUserId.Id,
+                    RoleName = coUserId.Role,
+                    Rating = Rating,
+                    CurrentStepId = template.WorkFlowSteps.OrderBy(s => s.Sequence).First().Id
+                };
+
+                await _db.WorkflowInstances.AddAsync(instance);
+                await _db.SaveChangesAsync();
+                await _emailService.SendEmailAsync(coUserId.Email, "Return Submitted", $"A new return has been submitted for your review. Return ID: {instance.Return.SaccoName}");
+                return ConvertToDto(instance);
             }
-
-            var instance = new WorkflowInstance
+            catch (Exception)
             {
-                ReturnId = SubmittedReturn.Id,
-                WorkflowTemplateId = template.Id,
-                TeamId = teamId,
-                UserId = coUserId.Id,
-                RoleName = coUserId.Role,
-                Rating = Rating,
-                CurrentStepId = template.WorkFlowSteps.OrderBy(s => s.Sequence).First().Id
-            };
 
-            await _db.WorkflowInstances.AddAsync(instance);
-            await _db.SaveChangesAsync();
-            await _emailService.SendEmailAsync(coUserId.Email, "Return Submitted", $"A new return has been submitted for your review. Return ID: {instance.Return.SaccoName}");
-            return ConvertToDto(instance);
+                throw;
+            }
         }
 
         public async Task<WorkflowStateDto> ApproveStepAsync(ApproveStepRequestDTO request, string userId)
