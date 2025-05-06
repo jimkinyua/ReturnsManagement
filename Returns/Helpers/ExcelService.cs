@@ -10,6 +10,7 @@ using Returns.DTOs.Forms;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Wordprocessing;
+using System.ComponentModel.DataAnnotations;
 
 namespace Returns.Helpers
 {
@@ -459,9 +460,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                         $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                         "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                         "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -606,11 +610,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;// new ArgumentException("Invalid file type or empty file", ex);
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;// new FileFormatException(
-                  /*  $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                    throw new ValidationException(
+                      $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                      "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                      "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -639,9 +644,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                         $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                         "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                         "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -775,8 +783,8 @@ namespace Returns.Helpers
                     throw new ArgumentException("The uploaded file is empty", nameof(file));
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                if (extension != ".xlsx" )
+                    throw new ValidationException($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " + "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " + "Please save the sheet in .xlsx format and upload again.");
 
                 using (var stream = new MemoryStream())
                 {
@@ -979,9 +987,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx" )
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                        $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                        "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                        "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -1054,11 +1065,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;/* new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                throw new ValidationException(
+                     $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                     "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                     "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -1192,9 +1204,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -1253,12 +1268,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                throw new ValidationException(
+                 $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                 "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                 "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -1287,9 +1302,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -1358,12 +1376,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                throw new ValidationException(
+                   $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                   "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                   "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -1392,9 +1410,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 // var path = @"C:\Projects\SASRA\Code\src\SASRAXRBSS.Application.Shared\ExcelUpload\CapitalAdequency.xlsx";
@@ -1475,10 +1496,11 @@ namespace Returns.Helpers
             }
             catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                logger.LogError(ex, "Invalid file format");
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.");
             }
             catch (Exception ex)
             {
@@ -1509,9 +1531,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " + "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " + "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -1588,9 +1610,13 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
+                logger.LogError(ex, "Invalid file format");
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -1618,9 +1644,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " + "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " + "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -1702,10 +1728,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                //new FileFormatException("The Excel file appears to be corrupted or is not a valid Excel file.");
+                throw new ValidationException(
+                       $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                       "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                       "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -1736,9 +1764,12 @@ namespace Returns.Helpers
                 }
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx" )
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -1797,12 +1828,13 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                logger.LogError(ex, "Invalid file format");
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -1834,9 +1866,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -1899,13 +1934,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                     throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                
-               /* new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                throw new ValidationException(
+                      $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                      "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                      "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -1936,9 +1970,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -2033,11 +2070,11 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
                 throw new FileFormatException(
                     $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");
+                    "Please ensure you're uploading a valid Excel workbook.", ex);
             }
             catch (Exception ex)
             {
@@ -2068,9 +2105,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -2172,12 +2212,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                throw new ValidationException(
+                                        $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                        "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                        "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -2207,9 +2247,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -2266,12 +2309,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                throw new ValidationException(
+                     $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                     "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                     "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -2300,9 +2343,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx" )
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -2359,12 +2405,12 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                throw new ValidationException(
+                     $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                     "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                     "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -2393,7 +2439,7 @@ namespace Returns.Helpers
                 }
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx" )
                 {
                     throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
                 }
@@ -2470,10 +2516,10 @@ namespace Returns.Helpers
             catch (FileFormatException ex)
             {
                 logger.LogError(ex, "Invalid file format");
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.", ex);*/
+                throw new ValidationException(
+                     $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                     "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                     "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
@@ -2502,9 +2548,12 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" && extension != ".xls")
+                if (extension != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                   throw new ValidationException(
+                     $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                     "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                     "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -2568,12 +2617,14 @@ namespace Returns.Helpers
                 logger.LogError(ex, "Invalid file type or empty file");
                 throw;
             }
-            catch (FileFormatException)
+            catch (FileFormatException ex)
             {
-                throw;
-                /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+
+                logger.LogError(ex, "Invalid file format");
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
