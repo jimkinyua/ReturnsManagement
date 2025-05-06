@@ -67,7 +67,7 @@ namespace Returns.Controllers
                     var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
                     if (!HasConsistencyBeenChecked)
                     {
-                        return StatusCode(409, processingSummary);
+                        return StatusCode(409, string.Join(", ", processingSummary));
                     }
                     if (!isValid)
                     {
@@ -79,7 +79,7 @@ namespace Returns.Controllers
                     var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
                     if (!HasConsistencyBeenChecked)
                     {
-                        return StatusCode(409, processingSummary);
+                        return StatusCode(409, string.Join(", ", processingSummary));
                     }
 
                     if (!isValid)
