@@ -2568,93 +2568,108 @@ namespace Returns.Helpers
             }
         }
         public static (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriodNWDT(
-            Form2AStatement? capital_adequacy_form1,
-            Form2BStatement? liquidityStatement_form_2,
-            Form2CStatement? depositreturn_form_3,
-            Form2DStatement? riskClassification_form_4,
-            Form2EStatement? inverstment_return_form_5,
-            Form2GStatement? financialPositionStatement_form_6,
-            Form2FStatement? comprehensiveStatement_form7)
+           Form2AStatement? capital_adequacy_form1,
+           Form2BStatement? liquidityStatement_form_2,
+           Form2CStatement? depositreturn_form_3,
+           Form2DStatement? riskClassification_form_4,
+           Form2EStatement? inverstment_return_form_5,
+           Form2GStatement? financialPositionStatement_form_6,
+           Form2FStatement? comprehensiveStatement_form7)
         {
-            var formsToValidate = new List<(object? Form, string FormName)>
-                {
-                    (capital_adequacy_form1, "Capital Adequacy Form"),
-                    (liquidityStatement_form_2, "Liquidity Statement Form"),
-                    (depositreturn_form_3, "Deposit Return Form"),
-                    (riskClassification_form_4, "Risk Classification Form"),
-                    (inverstment_return_form_5, "Investment Return Form"),
-                    (financialPositionStatement_form_6, "Financial Position Statement Form"),
-                    (comprehensiveStatement_form7, "Comprehensive Statement Form")
-                };
-
-            // Check if any form is null
-            foreach (var (form, formName) in formsToValidate)
+            var forms = new List<(object? Form, string Name)>
             {
-                if (form == null)
-                {
-                    return (false, $"{formName} is null.", "");
-                }
-            }
-
-            // Get the period of the first form
-            var firstFormPeriod = (formsToValidate[0].Form as dynamic)?.Period;
-
-            // Check if all forms have the same period
-            foreach (var (form, formName) in formsToValidate)
-            {
-                var currentFormPeriod = (form as dynamic)?.Period;
-                if (currentFormPeriod != firstFormPeriod)
-                {
-                    return (false, $"{formName} has a different period. Expected: {firstFormPeriod}, Actual: {currentFormPeriod}", "");
-                }
-            }
-
-            // All forms have the same period, return it
-            return (true, "All forms are in the same period.", firstFormPeriod?.ToString() ?? "");
-        }
-        public static (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriod(
-        Form1Statement? capital_adequacy_form1,
-        Form2Statement? liquidityStatement_form_2,
-        Form3Statement? depositreturn_form_3,
-        Form4Statement? riskClassification_form_4,
-        Form5Statement? inverstment_return_form_5,
-        Form6Statement? financialPositionStatement_form_6,
-        Form7Statement? comprehensiveStatement_form7)
-        {
-            var formsToValidate = new List<(object? Form, string FormName)>
-            {
-                (capital_adequacy_form1, "Capital Adequacy Form"),
-                (liquidityStatement_form_2, "Liquidity Statement Form"),
-                (depositreturn_form_3, "Deposit Return Form"),
-                (riskClassification_form_4, "Risk Classification Form"),
-                (inverstment_return_form_5, "Investment Return Form"),
-                (financialPositionStatement_form_6, "Financial Position Statement Form"),
-                (comprehensiveStatement_form7, "Comprehensive Statement Form")
+                (capital_adequacy_form1,          "Capital Adequacy Form"),
+                (liquidityStatement_form_2,       "Liquidity Statement Form"),
+                (depositreturn_form_3,            "Deposit Return Form"),
+                (riskClassification_form_4,       "Risk Classification Form"),
+                (inverstment_return_form_5,       "Investment Return Form"),
+                (financialPositionStatement_form_6,"Financial Position Statement Form"),
+                (comprehensiveStatement_form7,    "Comprehensive Statement Form")
             };
 
-            // Check if any form is null
-            foreach (var (form, formName) in formsToValidate)
+            foreach (var (form, name) in forms)
             {
-                if (form == null)
+                if (form is null)
                 {
-                    return (false, $"{formName} is null.", "");
+                    return (false, $"{name} is missing.", "");
                 }
             }
+            
 
-            // Get the period of the first form
-            var firstFormPeriod = (formsToValidate[0].Form as dynamic)?.Period;
+            string? referencePeriod = null;
 
-            // Check if all forms have the same period
-            foreach (var (form, formName) in formsToValidate)
+            foreach (var (form, name) in forms)
             {
-                var currentFormPeriod = (form as dynamic)?.Period;
-                if (currentFormPeriod != firstFormPeriod)
+                var period = (form as dynamic)?.Period?.ToString()?.Trim();
+
+                if (string.IsNullOrWhiteSpace(period))
                 {
-                    return (false, $"{formName} has a different period. Expected: {firstFormPeriod}, Actual: {currentFormPeriod}", "");
+                    return (false, $"{name} has no period value. Please fill it before uploading.", "");
                 }
+
+                referencePeriod ??= period; 
+
+                if (!string.Equals(period, referencePeriod, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (false, $"{name} has a different period. Expected: {referencePeriod}, Actual: {period}", "");
+                }
+                    
             }
 
-            return (true, "All forms are in the same period.", firstFormPeriod?.ToString() ?? "");
+            // 3. All checks passed
+            return (true, "All forms are in the same period.", referencePeriod!);
         }
+
+
+        public static (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriod(
+    Form1Statement? capital_adequacy_form1,
+    Form2Statement? liquidityStatement_form_2,
+    Form3Statement? depositreturn_form_3,
+    Form4Statement? riskClassification_form_4,
+    Form5Statement? inverstment_return_form_5,
+    Form6Statement? financialPositionStatement_form_6,
+    Form7Statement? comprehensiveStatement_form7)
+        {
+            var formsToValidate = new List<(object? Form, string FormName)>
+    {
+        (capital_adequacy_form1,       "Capital Adequacy Form"),
+        (liquidityStatement_form_2,    "Liquidity Statement Form"),
+        (depositreturn_form_3,         "Deposit Return Form"),
+        (riskClassification_form_4,    "Risk Classification Form"),
+        (inverstment_return_form_5,    "Investment Return Form"),
+        (financialPositionStatement_form_6,"Financial Position Statement Form"),
+        (comprehensiveStatement_form7, "Comprehensive Statement Form")
+    };
+
+            foreach (var (form, name) in formsToValidate)
+            {
+                if (form is null)
+                    return (false, $"{name} is missing.", "");
+            }
+
+            string? referencePeriod = null;
+
+            foreach (var (form, name) in formsToValidate)
+            {
+                var period = (form as dynamic)?.Period?.ToString()?.Trim();
+
+                if (string.IsNullOrWhiteSpace(period))
+                {
+                    return (false, $"{name} has no period value. Please fill it before uploading.", "");
+                }
+
+                referencePeriod ??= period;      // first non-blank period becomes the reference
+
+                if (!string.Equals(period, referencePeriod, StringComparison.OrdinalIgnoreCase))
+                {
+                    return (false, $"{name} has a different period. Expected: {referencePeriod}, Actual: {period}","");
+                }
+                    
+            }
+
+            return (true, "All forms are in the same period.", referencePeriod!);
+        }
+
+
     }
 }
