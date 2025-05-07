@@ -1,10 +1,428 @@
-trigger: none  # Prevent automatic triggers
-
+trigger:
+  branches:
+   include:
+     - develop
+     
+variables:
+ - name: ACR_NAME
+   value: tntdev.azurecr.io
+ - name: IMAGE_NAME
+   value: $(ACR_NAME)/sasra-returns
+ - name: IMAGE_TAG
+   value: dev
+ - name: DOCKER_COMPOSE_PATH
+   value: "F:\\Downloads\\sasra-compose-files\\compose.yml"
+ # Explicitly disable BuildKit for Windows containers
+ - name: DOCKER_BUILDKIT
+   value: 0
+   
 stages:
-  - stage: NoOp
-    displayName: "No Operation"
-    jobs:
-      - job: SkipJob
-        displayName: "Skipping Job"
-        steps:
-          - script: echo "This is a placeholder pipeline for the main branch."
+ - stage: Build
+   displayName: "Build Docker Image"
+   jobs:
+     - job: BuildImage
+       displayName: "Build & Push Image"
+       pool: 
+         name: Agile-Selfhosted-SASRA-Pool
+       steps:
+         - checkout: self
+           fetchDepth: 1
+           
+         # Create a proper .dockerignore file for faster context upload
+         - task: PowerShell@2
+           displayName: "Create .dockerignore"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $dockerignoreContent = @"
+               **/.git
+               **/.vs
+               **/.vscode
+               **/bin
+               **/obj
+               **/node_modules
+               **/*.user
+               **/*.suo
+               **/TestResults
+               **/.gitignore
+               **/.github
+               **/*.md
+               "@
+               
+               Set-Content -Path "$(Build.SourcesDirectory)/.dockerignore" -Value $dockerignoreContent
+               Write-Host "Created .dockerignore file"
+           
+         - task: PowerShell@2
+           displayName: "Configure Docker for Performance"
+           inputs:
+             targetType: 'inline'
+             script: |
+               # Check if Docker daemon config exists
+               $configPath = "$env:ProgramData\docker\config\daemon.json"
+               if (Test-Path $configPath) {
+                 $config = Get-Content $configPath | ConvertFrom-Json
+               } else {
+                 # Create new config file
+                 $config = [PSCustomObject]@{}
+               }
+               
+               # Configure for better performance
+               $needsRestart = $false
+               
+               # Set max concurrent downloads
+               if (-not ($config.PSObject.Properties.Name -contains "max-concurrent-downloads") -or ($config."max-concurrent-downloads" -lt 10)) {
+                 $config.PSObject.Properties.Remove('max-concurrent-downloads')
+                 $config | Add-Member -Name 'max-concurrent-downloads' -Value 10 -MemberType NoteProperty
+                 $needsRestart = $true
+               }
+               
+               # Add storage-opts if not present
+               if (-not ($config.PSObject.Properties.Name -contains "storage-opts")) {
+                 $config | Add-Member -Name 'storage-opts' -Value @("size=120GB") -MemberType NoteProperty
+                 $needsRestart = $true
+               }
+               
+               # Save changes if needed
+               if ($needsRestart) {
+                 Write-Host "Updating Docker configuration for better performance"
+                 $config | ConvertTo-Json -Depth 10 | Set-Content $configPath
+                 
+                 try {
+                   Write-Host "Restarting Docker service"
+                   Restart-Service docker
+                   Start-Sleep -Seconds 5
+                 } catch {
+                   Write-Warning "Failed to restart Docker service. You may need to manually restart it later."
+                 }
+               } else {
+                 Write-Host "Docker is already configured optimally"
+               }
+               
+         # Make sure NuGet packages directory exists before using the Cache task
+         - task: PowerShell@2
+           displayName: "Ensure NuGet cache directory exists"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $nugetPackagesDir = "$(Pipeline.Workspace)\.nuget\packages"
+               if (-not (Test-Path $nugetPackagesDir)) {
+                   Write-Host "Creating NuGet packages directory: $nugetPackagesDir"
+                   New-Item -Path $nugetPackagesDir -ItemType Directory -Force
+               } else {
+                   Write-Host "NuGet packages directory already exists: $nugetPackagesDir"
+               }
+               
+         # Modified Cache task
+         - task: Cache@2
+           displayName: "Cache NuGet packages"
+           inputs:
+             key: 'nuget | "$(Agent.OS)" | **/Returns.csproj'
+             restoreKeys: |
+               nuget | "$(Agent.OS)"
+             path: '$(Pipeline.Workspace)/.nuget/packages'
+             cacheHitVar: 'CACHE_RESTORED'
+           continueOnError: true  # Allow pipeline to continue if cache fails
+             
+         - task: PowerShell@2
+           displayName: "Clean Docker Environment"
+           inputs:
+             targetType: 'inline'
+             script: |
+               try {
+                 docker image rm "$(IMAGE_NAME):$(IMAGE_TAG)" -f
+                 Write-Host "Removed existing image"
+               } catch {
+                 Write-Host "No image to remove or failed to remove"
+               }
+               # Only prune dangling images to save time
+               docker image prune -f
+               
+         - task: Docker@2
+           displayName: "Login to Azure Container Registry"
+           inputs:
+             command: login
+             containerRegistry: "ACR_sasra_svc"
+             
+         - task: PowerShell@2
+           displayName: "Pull Base Images in Parallel"
+           inputs:
+             targetType: 'inline'
+             script: |
+               # Explicitly pull the base images first
+               Write-Host "Pre-pulling base images..."
+               Start-Process -FilePath "docker" -ArgumentList "pull", "mcr.microsoft.com/dotnet/aspnet:8.0-nanoserver-ltsc2022" -NoNewWindow
+               Start-Process -FilePath "docker" -ArgumentList "pull", "mcr.microsoft.com/dotnet/sdk:8.0-nanoserver-ltsc2022" -NoNewWindow
+               
+               # Wait a bit for pulls to complete
+               Write-Host "Waiting for image pulls to complete..."
+               Start-Sleep -Seconds 10
+               
+         - task: PowerShell@2
+           displayName: "Build Docker Image"
+           inputs:
+             targetType: 'inline'
+             script: |
+               # Ensure BuildKit is disabled for Windows container compatibility
+               $env:DOCKER_BUILDKIT = 0
+               
+               # Set environment variables for .NET
+               $env:DOTNET_CLI_TELEMETRY_OPTOUT = 1
+               $env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = 1
+               $env:NUGET_XMLDOC_MODE = "skip"
+               
+               # Build with optimal performance settings
+               Write-Host "Starting Docker build..."
+               docker build `
+                 -f "$(Build.SourcesDirectory)/Returns/Dockerfile" `
+                 -t "$(IMAGE_NAME):$(IMAGE_TAG)" `
+                 --memory 8g `
+                 --cpu-quota 200000 `
+                 "$(Build.SourcesDirectory)"
+                 
+               # Exit if build failed
+               if ($LASTEXITCODE -ne 0) { 
+                 Write-Host "Docker build failed with exit code $LASTEXITCODE"
+                 exit $LASTEXITCODE 
+               }
+               
+               Write-Host "Pushing image to container registry..."
+               docker push "$(IMAGE_NAME):$(IMAGE_TAG)"
+               
+               # Exit if push failed
+               if ($LASTEXITCODE -ne 0) { 
+                 Write-Host "Docker push failed with exit code $LASTEXITCODE"
+                 exit $LASTEXITCODE 
+               }
+               
+               Write-Host "Build and push completed successfully"
+
+ # Deploy stage 
+ - stage: Deploy
+   displayName: "Deploy to Windows Server"
+   dependsOn: Build
+   jobs:
+     - job: DeployToServer
+       displayName: "Deploy Using Docker Compose"
+       pool:
+         name: Agile-Selfhosted-SASRA-Pool
+       steps:
+         - task: Docker@2
+           displayName: "Login to Azure Container Registry"
+           inputs:
+             command: login
+             containerRegistry: "ACR_sasra_svc"
+
+         - task: PowerShell@2
+           displayName: "Check Docker Compose File Exists"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
+               
+               if (Test-Path $dockerComposePath) {
+                 Write-Host "Docker Compose file found at: $dockerComposePath"
+               } else {
+                 Write-Error "Docker Compose file not found at: $dockerComposePath"
+                 Write-Host "Current path: $PWD"
+                 Write-Host "Contents of $(Split-Path $dockerComposePath):"
+                 Get-ChildItem -Path (Split-Path $dockerComposePath) -ErrorAction SilentlyContinue
+                 exit 1
+               }
+
+         - task: PowerShell@2
+           displayName: "Update Compose File for External Network"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
+               
+               try {
+                 # Read compose file content
+                 $composeContent = Get-Content $dockerComposePath -Raw -ErrorAction Stop
+                 
+                 # Check if networks section already has external: true
+                 if ($composeContent -match "microservices-network:\s*\n\s*external:\s*true") {
+                   Write-Host "Network already configured as external - no changes needed"
+                 } else {
+                   # Update network configuration to use external network
+                   $networkPattern = "networks:\s*\n\s*microservices-network:(\s*\n\s*driver:\s*nat)?"
+                   $networkReplacement = "networks:`n  microservices-network:`n    external: true"
+                   
+                   if ($composeContent -match $networkPattern) {
+                     Write-Host "Updating network configuration to use external network"
+                     $newContent = $composeContent -replace $networkPattern, $networkReplacement
+                     Set-Content $dockerComposePath $newContent -ErrorAction Stop
+                     Write-Host "Network configuration updated successfully"
+                   } else {
+                     Write-Host "Warning: Could not find network configuration pattern to update"
+                   }
+                 }
+                 
+                 # Update image reference to latest build
+                 $composeContent = Get-Content $dockerComposePath -Raw -ErrorAction Stop
+                 $imagePattern = "tntdev\.azurecr\.io/sasra-returns:.*"
+                 if ($composeContent -match $imagePattern) {
+                   Write-Host "Found image reference to update"
+                   $newContent = $composeContent -replace $imagePattern, "$(IMAGE_NAME):$(IMAGE_TAG)"
+                   Set-Content $dockerComposePath $newContent -ErrorAction Stop
+                   Write-Host "Image reference updated successfully"
+                 } else {
+                   Write-Host "Warning: Image reference pattern not found in compose file"
+                 }
+                 
+                 # Display the updated compose file for verification
+                 Write-Host "Updated compose file content:"
+                 Get-Content $dockerComposePath | ForEach-Object { Write-Host "  $_" }
+               }
+               catch {
+                 Write-Error "Error updating compose file: $_"
+                 exit 1
+               }
+
+         - task: PowerShell@2
+           displayName: "Pull Latest Image"
+           inputs:
+             targetType: 'inline'
+             script: |
+               # Pull latest image
+               Write-Host "Pulling latest image: $(IMAGE_NAME):$(IMAGE_TAG)"
+               docker pull "$(IMAGE_NAME):$(IMAGE_TAG)"
+               
+               if ($LASTEXITCODE -ne 0) { 
+                 Write-Error "Failed to pull image, exit code: $LASTEXITCODE"
+                 exit $LASTEXITCODE 
+               }
+               
+               Write-Host "Image pulled successfully"
+
+         - task: PowerShell@2
+           displayName: "Prepare Docker Network Environment"
+           inputs:
+             targetType: 'inline'
+             errorActionPreference: 'continue'
+             failOnStderr: false
+             script: |
+               # First clean up any existing networks with the same name
+               Write-Host "Cleaning up Docker networks..."
+               
+               # Try to disconnect containers first
+               $networkNames = @("microservices-network", "sasra-compose-files_microservices-network")
+               
+               foreach ($network in $networkNames) {
+                 # Check if network exists
+                 $networkExists = docker network ls --filter "name=$network" --format "{{.Name}}"
+                 
+                 if ($networkExists) {
+                   Write-Host "Found network: $network - disconnecting containers"
+                   
+                   # Get containers connected to this network and disconnect them
+                   $containers = docker network inspect $network -f "{{range .Containers}}{{.Name}} {{end}}" 2>$null
+                   
+                   if ($containers) {
+                     $containerArray = $containers -split " " | Where-Object { $_ }
+                     foreach ($container in $containerArray) {
+                       Write-Host "Disconnecting $container from $network"
+                       docker network disconnect -f $network $container 2>$null
+                     }
+                   }
+                   
+                   # Try to remove the network
+                   Write-Host "Removing network: $network"
+                   docker network rm $network 2>$null
+                 }
+               }
+               
+               # Prune networks as a final cleanup
+               Write-Host "Pruning unused networks"
+               docker network prune -f
+               
+               # Create the microservices-network network
+               Write-Host "Creating microservices-network network with NAT driver"
+               docker network create -d nat microservices-network 2>$null
+               
+               # Check if network was created successfully
+               $networkExists = docker network ls --filter "name=microservices-network" --format "{{.Name}}"
+               if ($networkExists) {
+                 Write-Host "Successfully created/verified microservices-network"
+               } else {
+                 Write-Host "Warning: Could not create microservices-network network"
+               }
+               
+               Write-Host "Network preparation completed"
+               exit 0
+
+         - task: PowerShell@2
+           displayName: "Deploy Application"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
+               
+               try {
+                 # First verify the external network exists
+                 $networkExists = docker network ls --filter "name=microservices-network" --format "{{.Name}}"
+                 if (-not $networkExists) {
+                   Write-Host "Creating microservices-network..."
+                   docker network create -d nat microservices-network
+                   if ($LASTEXITCODE -ne 0) {
+                     Write-Error "Failed to create network, exit code: $LASTEXITCODE"
+                     exit $LASTEXITCODE
+                   }
+                 } else {
+                   Write-Host "External network microservices-network already exists"
+                 }
+               
+                 # Check if docker-compose exists
+                 $dockerComposeVersion = docker-compose version
+                 Write-Host "Docker Compose version: $dockerComposeVersion"
+                 
+                 # Pull all images first (this happens with no service disruption)
+                 Write-Host "Pulling all updated images..."
+                 docker-compose -f "$dockerComposePath" pull
+                 
+                 # Stop existing services
+                 Write-Host "Stopping existing services..."
+                 docker-compose -f "$dockerComposePath" down --remove-orphans
+                 if ($LASTEXITCODE -ne 0) {
+                   Write-Warning "Warning: docker-compose down returned exit code $LASTEXITCODE, continuing anyway"
+                 }
+                 
+                 # Start services with updated configuration
+                 Write-Host "Starting services with updated configuration..."
+                 docker-compose -f "$dockerComposePath" up -d
+                 if ($LASTEXITCODE -ne 0) {
+                   Write-Error "Failed to start services, exit code: $LASTEXITCODE"
+                   # Show docker-compose logs for troubleshooting
+                   Write-Host "Docker Compose logs:"
+                   docker-compose -f "$dockerComposePath" logs
+                   exit $LASTEXITCODE
+                 }
+                 
+                 # Quick verification
+                 Write-Host "Waiting for services to stabilize..."
+                 Start-Sleep -Seconds 15
+                 
+                 Write-Host "Current running containers:"
+                 docker ps
+                 
+                 # Define service names for verification
+                 $serviceNames = @("complaintsservice", "returnsservice", "identityservice", "licensingservice", "apigateway")
+                 
+                 # Check each service
+                 foreach ($service in $serviceNames) {
+                   Write-Host "Checking $service status..."
+                   $containerRunning = docker ps --filter "name=$service" --format "{{.Names}}"
+                   if ($containerRunning) {
+                     Write-Host "Service $service is running. Showing logs:"
+                     docker logs $service --tail 20
+                   } else {
+                     Write-Warning "Service $service is not running!"
+                   }
+                 }
+                 
+                 Write-Host "Deployment completed successfully"
+               }
+               catch {
+                 Write-Error "Error during deployment: $_"
+                 exit 1
+               }
