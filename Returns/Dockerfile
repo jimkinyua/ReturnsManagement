@@ -3,21 +3,33 @@ WORKDIR /app
 EXPOSE 8042
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0-nanoserver-ltsc2022 AS build
-WORKDIR /src
-COPY ["Returns/Returns.csproj", "Returns/"]
-RUN dotnet restore "Returns/Returns.csproj"
-COPY . .
-WORKDIR "/src/Returns"
-RUN dotnet build "Returns.csproj" -c Release -o /app/build
+# Set environment variables to speed up .NET build
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
+ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+ENV NUGET_XMLDOC_MODE=skip
 
+WORKDIR /src
+# Copy only the project file first to leverage layer caching
+COPY ["Returns/Returns.csproj", "Returns/"]
+# Restore with minimal verbosity
+RUN dotnet restore "Returns/Returns.csproj" --verbosity minimal
+
+# Now copy everything else
+COPY . .
+WORKDIR /src/Returns
+# Build with optimizations
+RUN dotnet build "Returns.csproj" -c Release -o /app/build --verbosity minimal
 
 FROM build AS publish
-RUN dotnet publish "Returns.csproj" -c Release -o /app/publish
+# Publish with rebuild to ensure all necessary files are created
+RUN dotnet publish "Returns.csproj" -c Release -o /app/publish --verbosity minimal
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENV ASPNETCORE_URLS=http://+:8042
+# Set development environment
+ENV ASPNETCORE_ENVIRONMENT=Development
 #ENV Variable for Where Documents are stored in the Host
 ENV HOST_STORAGE_PATH="C:\\inetpub\\wwwroot\\RBSS\\Uploads"
 ENTRYPOINT ["dotnet", "Returns.dll"]
