@@ -134,6 +134,7 @@ namespace Returns.Helpers
 
         public async Task<WorkflowStateDto> StartWorkflowAsync(Return SubmittedReturn, int Rating)
         {
+            using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
                 var coUserId = await _complianceService.GetAssignedComplianceOfficer(SubmittedReturn.SaccoId);
@@ -157,75 +158,86 @@ namespace Returns.Helpers
 
                 await _db.WorkflowInstances.AddAsync(instance);
                 await _db.SaveChangesAsync();
-                await _emailService.SendEmailAsync(coUserId.Email, "Return Submitted", $"A new return has been submitted for your review. Return ID: {instance.Return.SaccoName}");
+
+                await transaction.CommitAsync();
+
+                try
+                {
+                    await _emailService.SendEmailAsync(coUserId.Email, "Return Submitted", $"A new return has been submitted for your review. Return ID: {instance.Return.SaccoName}");
+                }
+                catch
+                {
+                    // Email failure shouldn't fail the whole operation
+                }
+
                 return ConvertToDto(instance);
             }
             catch (Exception)
             {
-
+                await transaction.RollbackAsync();
                 throw;
             }
         }
 
         public async Task<WorkflowStateDto> ApproveStepAsync(ApproveStepRequestDTO request, string userId)
         {
-            var instance = await _db.WorkflowInstances
-                .Include(i => i.CurrentStep)
-                .FirstOrDefaultAsync(i => i.Id == request.WorkFlowInstanceId);
-
-            if (instance == null)
-            {
-                throw new Exception($"Workflow instance '{request.WorkFlowInstanceId}' not found.");
-            }
-
-            // 2. Ensure the current user is the approver
-            if (instance.UserId != userId)
-            {
-                throw new UnauthorizedAccessException("User is not assigned to approve this step.");
-            }
-
-            // if already approved, just return existing state
-            bool alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
-                a.WorkFlowStepId == instance.CurrentStepId &&
-                a.ReturnId == instance.ReturnId &&
-                a.UserId == userId &&
-                a.Status == ApprovalStatus.Approved.ToString() 
-                );
-
-            if (alreadyApproved)
-            {
-                // update return status CanReportBeViewed to be true
-                var Return = await _db.Returns.FindAsync(instance.ReturnId);
-                if (Return == null)
-                {
-                    throw new Exception("Return not found.");
-                }
-                Return.CanReportBeViewed = true;
-                _db.Returns.Update(Return);
-                await _db.SaveChangesAsync();
-                return ConvertToDto(instance);
-            }
-
-            // 4. Record the approval action
-            _db.ApprovalActions.Add(new ApprovalAction
-            {
-                WorkFlowStepId = instance.CurrentStepId,
-                ReturnId = instance.ReturnId,
-                UserId = userId,
-                Status = ApprovalStatus.Approved.ToString(),
-                Comment = request.Comment.Trim(),
-                CreatedAt = DateTime.UtcNow
-            });
-
+            using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
+                var instance = await _db.WorkflowInstances
+                    .Include(i => i.CurrentStep)
+                    .FirstOrDefaultAsync(i => i.Id == request.WorkFlowInstanceId);
+
+                if (instance == null)
+                {
+                    throw new Exception($"Workflow instance '{request.WorkFlowInstanceId}' not found.");
+                }
+
+                // 2. Ensure the current user is the approver
+                if (instance.UserId != userId)
+                {
+                    throw new UnauthorizedAccessException("User is not assigned to approve this step.");
+                }
+
+                // if already approved, just return existing state
+                bool alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
+                    a.WorkFlowStepId == instance.CurrentStepId &&
+                    a.ReturnId == instance.ReturnId &&
+                    a.UserId == userId &&
+                    a.Status == ApprovalStatus.Approved.ToString()
+                    );
+
+                if (alreadyApproved)
+                {
+                    // update return status CanReportBeViewed to be true
+                    var Return = await _db.Returns.FindAsync(instance.ReturnId);
+                    if (Return == null)
+                    {
+                        throw new Exception("Return not found.");
+                    }
+                    Return.CanReportBeViewed = true;
+                    _db.Returns.Update(Return);
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    return ConvertToDto(instance);
+                }
+
+                _db.ApprovalActions.Add(new ApprovalAction
+                {
+                    WorkFlowStepId = instance.CurrentStepId,
+                    ReturnId = instance.ReturnId,
+                    UserId = userId,
+                    Status = ApprovalStatus.Approved.ToString(),
+                    Comment = request.Comment.Trim(),
+                    CreatedAt = DateTime.UtcNow
+                });
+
                 // Determine the next step
                 var nextStep = await GetNextStepIdAsync(instance);
 
                 if (nextStep == null)
                 {
                     // workflow is complete
-                    //instance.CurrentStepId = "Approved";
                     instance.Status = ApprovalStatus.Approved.ToString();
 
                     // update the return status CanReportBeViewed to be true
@@ -235,11 +247,20 @@ namespace Returns.Helpers
                         throw new Exception("Return not found.");
                     }
                     Return.CanReportBeViewed = true;
-                    
+
                     _db.Returns.Update(Return);
                     _db.WorkflowInstances.Update(instance);
                     await _db.SaveChangesAsync();
-                    //await NotifySacco(instance.ReturnId);
+                    await transaction.CommitAsync();
+
+                    try
+                    {
+                        //await NotifySacco(instance.ReturnId);
+                    }
+                    catch
+                    {
+                        // Notification failure shouldn't fail the operation
+                    }
                 }
                 else
                 {
@@ -255,19 +276,26 @@ namespace Returns.Helpers
                     instance.Status = ApprovalStatus.Pending.ToString();
 
                     await _db.SaveChangesAsync();
-                    // notify the next approver
-                    //await _emailService.SendEmailAsync(nextApprover.Email, "New Approval Request", $"You have a new approval request for return ID: {instance.Return.SaccoName}");
+                    await transaction.CommitAsync();
+
+                    try
+                    {
+                        await _emailService.SendEmailAsync(nextApprover.Email, "New Approval Request", $"You have a new approval request for Sacco: {instance.Return.SaccoName}");
+                    }
+                    catch
+                    {
+                        // Email failure shouldn't fail the operation
+                    }
                 }
 
                 return ConvertToDto(instance);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                throw ;
+                await transaction.RollbackAsync();
+                throw;
             }
         }
-
-
 
 
         private async Task<CommonFieldForUser?> GetApproverForStep(WorkFlowStep step, string teamId)
