@@ -256,7 +256,7 @@ namespace Returns.Helpers
 
                     await _db.SaveChangesAsync();
                     // notify the next approver
-                    await _emailService.SendEmailAsync(nextApprover.Email, "New Approval Request", $"You have a new approval request for return ID: {instance.Return.SaccoName}");
+                    //await _emailService.SendEmailAsync(nextApprover.Email, "New Approval Request", $"You have a new approval request for return ID: {instance.Return.SaccoName}");
                 }
 
                 return ConvertToDto(instance);

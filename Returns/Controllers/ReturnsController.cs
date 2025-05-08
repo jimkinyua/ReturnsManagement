@@ -22,6 +22,9 @@ using static Returns.Helpers.Constants;
 using Returns.Helpers.Interfaces;
 using Returns.DTOs.Returns.Return_Assignement;
 using Returns.DTOs.Returns.Returns_Submission.NWDT;
+using Microsoft.AspNetCore.Http.HttpResults;
+using QuestPDF.Infrastructure;
+using QuestPDF.Fluent;
 
 namespace Returns.Controllers
 {
@@ -294,6 +297,10 @@ namespace Returns.Controllers
                 if (!isValid)
                 {
                     ConsistencyErrors.AddRange(validationResult.ValidationErrors);
+                    IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                    var pdfBytes = report.GeneratePdf();
+                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
+
                 }
             }
 
@@ -2432,6 +2439,10 @@ namespace Returns.Controllers
                 if (!isValid)
                 {
                     ConsistencyErrors.AddRange(validationResult.ValidationErrors);
+                    IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                    var pdfBytes = report.GeneratePdf();
+                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
+
                 }
             }
 

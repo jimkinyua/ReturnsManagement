@@ -494,10 +494,10 @@ namespace Returns.Helpers
                         Category = "Capital Mismatch",
                         Description = "Share Capital Mismatch",
                         Details = new Dictionary<string, string>
-        {
-            { "Form 1 (D10)", shareCapitalForm1.ToString("C") },
-            { "Form 6 (C57)", shareCapitalForm6.ToString("C") }
-        }
+                        {
+                            { "Form 1 (D10)", shareCapitalForm1.ToString("C") },
+                            { "Form 6 (C57)", shareCapitalForm6.ToString("C") }
+                        }
                     });
                     result.IsValid = false;
                 }
@@ -513,10 +513,10 @@ namespace Returns.Helpers
                         Category = "Capital Mismatch",
                         Description = "Core Capital Mismatch",
                         Details = new Dictionary<string, string>
-        {
-            { "Form 1 (D22)", coreCapitalForm1.ToString("C") },
-            { "Form 5 (C8)", coreCapitalForm5.ToString("C") }
-        }
+                        {
+                            { "Form 1 (D22)", coreCapitalForm1.ToString("C") },
+                            { "Form 5 (C8)", coreCapitalForm5.ToString("C") }
+                        }
                     });
                     result.IsValid = false;
                 }
@@ -532,10 +532,10 @@ namespace Returns.Helpers
                         Category = "Capital Mismatch",
                         Description = "Statutory Reserves Mismatch",
                         Details = new Dictionary<string, string>
-        {
-            { "Form 1 (D11)", statutoryReservesForm1.ToString("C") },
-            { "Form 6 (C65)", statutoryReservesForm6.ToString("C") }
-        }
+                        {
+                            { "Form 1 (D11)", statutoryReservesForm1.ToString("C") },
+                            { "Form 6 (C65)", statutoryReservesForm6.ToString("C") }
+                        }
                     });
                     result.IsValid = false;
                 }
@@ -551,10 +551,10 @@ namespace Returns.Helpers
                         Category = "Capital Mismatch",
                         Description = "Retained Earnings Mismatch",
                         Details = new Dictionary<string, string>
-        {
-            { "Form 1 (D12)", retainedEarningsForm1.ToString("C") },
-            { "Form 6 (C60)", retainedEarningsForm6.ToString("C") }
-        }
+                            {
+                                { "Form 1 (D12)", retainedEarningsForm1.ToString("C") },
+                                { "Form 6 (C60)", retainedEarningsForm6.ToString("C") }
+                            }
                     });
                     result.IsValid = false;
                 }
