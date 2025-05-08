@@ -29,27 +29,44 @@ namespace Returns.Helpers
         }
 
 
-        private static int GetRating(decimal actualValue, IEnumerable<IndicatorRatingThreshold> thresholds, bool higherIsBetter)
+        private static int GetRating(decimal actualValue,IEnumerable<IndicatorRatingThreshold> thresholds,bool higherIsBetter)
         {
-            foreach (var t in thresholds)  
+            var ordered = thresholds.OrderBy(t => t.RatingLevel).ToList();
+            if (ordered.Count == 0)
             {
-                if (higherIsBetter)
+                return 5;
+            }
+
+            int worstLevel = 5; //ordered.Max(t => t.RatingLevel); 
+
+            if (higherIsBetter)
+            {
+                // strict ‘>’ → equality slides to the next (worse) band
+                foreach (var t in ordered)
                 {
-                    if (actualValue >= t.ThresholdValue)
+                    if (actualValue > t.ThresholdValue)
                     {
+                        // If the actual value is greater than the threshold, return the rating level
                         return t.RatingLevel;
                     }
-                }
-                else
+                } 
+            }
+            else
+            {
+                // strict ‘<’
+                foreach (var t in ordered)
                 {
-                    if (actualValue <= t.ThresholdValue)
+                    if (actualValue < t.ThresholdValue)
                     {
+                        // If the actual value is less than the threshold, return the rating level
                         return t.RatingLevel;
-                    } 
+                    }
+
                 }
             }
-            // If no thresholds matched, return the worst rating
-            return thresholds.Max(t => t.RatingLevel);
+
+            // Fell through every band ➜ assign the worst level present
+            return worstLevel;
         }
     }
     }
