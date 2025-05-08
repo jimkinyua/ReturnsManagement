@@ -135,7 +135,7 @@ namespace Returns.Helpers
 
                     var aqRatings = await AnalyzeAssetQuality(riskList, riskList);
                     aqRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
-                    dto.AssetQualityRatingResults.Add(aqRatings);
+                    dto.AssetQualityRatingResults.Add(aqRatings);   
 
                     dto.ManagementRating = AnalyzeManagement();
 
