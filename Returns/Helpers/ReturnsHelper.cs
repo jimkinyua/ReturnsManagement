@@ -260,6 +260,179 @@ namespace Returns.Helpers
             return createFormDTO.FormUploads != null && createFormDTO.FormUploads.Any(f => f.formFile != null);
         }
 
+        public static DateTime GetDueDate(ReturnForm form, DateTime reportingPeriodEndDate)
+        {
+            if (reportingPeriodEndDate == DateTime.MinValue)
+            {
+                return DateTime.MinValue;
+            }
+
+            var periodName = form.Period.Name;
+
+            switch (periodName)
+            {
+                case "Daily":
+                    // Daily returns are due at the end of the next day
+                    return reportingPeriodEndDate.AddDays(1);
+
+                case "Monthly":
+                    // Monthly returns are due by the 15th of the following month
+                    return new DateTime(
+                        reportingPeriodEndDate.AddMonths(1).Year,
+                        reportingPeriodEndDate.AddMonths(1).Month,
+                        15
+                    );
+
+                case "Quarterly":
+                    // Quarterly returns are due by the 15th of the first month of the next quarter
+                    return new DateTime(
+                        reportingPeriodEndDate.AddDays(1).Year,
+                        reportingPeriodEndDate.AddDays(1).Month,
+                        15
+                    );
+
+                case "Annual":
+                    // Annual returns are due by January 15th of the following year
+                    return new DateTime(reportingPeriodEndDate.Year + 1, 1, 15);
+
+                case "Semi-Annual":
+                    // Semi-annual returns are due by the 15th of the month following the half-year
+                    if (reportingPeriodEndDate.Month == 6)
+                    {
+                        // First half due by July 15th
+                        return new DateTime(reportingPeriodEndDate.Year, 7, 15);
+                    }
+                    else
+                    {
+                        // Second half due by January 15th of next year
+                        return new DateTime(reportingPeriodEndDate.Year + 1, 1, 15);
+                    }
+
+                case "Bi-Monthly":
+                    // Bi-monthly returns are due on the 1st or 15th
+                    if (reportingPeriodEndDate.Day == 14)
+                    {
+                        // First half of month due on the 15th
+                        return new DateTime(reportingPeriodEndDate.Year, reportingPeriodEndDate.Month, 15);
+                    }
+                    else
+                    {
+                        // Second half of month due on the 1st of the next month
+                        return new DateTime(
+                            reportingPeriodEndDate.AddMonths(1).Year,
+                            reportingPeriodEndDate.AddMonths(1).Month,
+                            1
+                        );
+                    }
+
+                default:
+                    return DateTime.MaxValue;
+            }
+        }
+
+        public static (DateTime start, DateTime end) GetReportingPeriod(ReturnForm form, DateTime currentDate)
+        {
+            var periodName = form.Period.Name;
+
+            switch (periodName)
+            {
+                case "Daily":
+                    // For daily, the reporting period is the previous day
+                    DateTime previousDay = currentDate.AddDays(-1);
+                    return (previousDay, previousDay);
+
+                case "Monthly":
+                    // For monthly, we're reporting on the previous month
+                    DateTime previousMonth = currentDate.AddMonths(-1);
+                    return (
+                        new DateTime(previousMonth.Year, previousMonth.Month, 1),
+                        new DateTime(
+                            previousMonth.Year,
+                            previousMonth.Month,
+                            DateTime.DaysInMonth(previousMonth.Year, previousMonth.Month)
+                        )
+                    );
+
+                case "Quarterly":
+                    // For quarterly, we're reporting on the previous quarter
+                    int currentQuarter = (currentDate.Month - 1) / 3 + 1;
+                    int previousQuarter = currentQuarter == 1 ? 4 : currentQuarter - 1;
+                    int previousQuarterYear = currentQuarter == 1 ? currentDate.Year - 1 : currentDate.Year;
+
+                    int startMonth = ((previousQuarter - 1) * 3) + 1;
+                    int endMonth = previousQuarter * 3;
+
+                    return (
+                        new DateTime(previousQuarterYear, startMonth, 1),
+                        new DateTime(
+                            previousQuarterYear,
+                            endMonth,
+                            DateTime.DaysInMonth(previousQuarterYear, endMonth)
+                        )
+                    );
+
+                case "Annual":
+                    // For annual, we're reporting on the previous year
+                    return (
+                        new DateTime(currentDate.Year - 1, 1, 1),
+                        new DateTime(currentDate.Year - 1, 12, 31)
+                    );
+
+                case "Semi-Annual":
+                    // For semi-annual, we're reporting on the previous half-year
+                    if (currentDate.Month == 1)
+                    {
+                        // January: reporting on July-December of previous year
+                        return (
+                            new DateTime(currentDate.Year - 1, 7, 1),
+                            new DateTime(currentDate.Year - 1, 12, 31)
+                        );
+                    }
+                    else if (currentDate.Month == 7)
+                    {
+                        // July: reporting on January-June of current year
+                        return (
+                            new DateTime(currentDate.Year, 1, 1),
+                            new DateTime(currentDate.Year, 6, 30)
+                        );
+                    }
+                    else
+                    {
+                        // Not a due month for semi-annual returns
+                        return (DateTime.MinValue, DateTime.MinValue);
+                    }
+
+                case "Bi-Monthly":
+                    // For bi-monthly, determine which half of the month we're in
+                    if (currentDate.Day == 1)
+                    {
+                        // On the 1st, we're reporting on the second half of the previous month
+                        DateTime prevMonth = currentDate.AddMonths(-1);
+                        int daysInPrevMonth = DateTime.DaysInMonth(prevMonth.Year, prevMonth.Month);
+
+                        return (
+                            new DateTime(prevMonth.Year, prevMonth.Month, 16),
+                            new DateTime(prevMonth.Year, prevMonth.Month, daysInPrevMonth)
+                        );
+                    }
+                    else if (currentDate.Day == 15)
+                    {
+                        // On the 15th, we're reporting on the first half of the current month
+                        return (
+                            new DateTime(currentDate.Year, currentDate.Month, 1),
+                            new DateTime(currentDate.Year, currentDate.Month, 14)
+                        );
+                    }
+                    else
+                    {
+                        // Not a due day for bi-monthly returns
+                        return (DateTime.MinValue, DateTime.MinValue);
+                    }
+
+                default:
+                    return (DateTime.MinValue, DateTime.MinValue);
+            }
+        }
 
         public static bool IsFormDueForSubmission(ReturnForm form, DateTime currentDate)
         {

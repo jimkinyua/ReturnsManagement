@@ -152,9 +152,9 @@ namespace Returns.Controllers
                 {
                     if (ReturnsHelper.IsFormDueForSubmission(form, requestDate))
                     {
-                        (DateTime reportingStartDate, DateTime reportingEndDate) = GetReportingPeriod(form, requestDate);
+                        (DateTime reportingStartDate, DateTime reportingEndDate) = ReturnsHelper.GetReportingPeriod(form, requestDate);
 
-                        DateTime dueDate = GetDueDate(form, reportingEndDate);
+                        DateTime dueDate = ReturnsHelper.GetDueDate(form, reportingEndDate);
 
                         var formDto = new FormsToSubmitDTO
                         {

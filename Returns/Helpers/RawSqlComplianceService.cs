@@ -73,6 +73,125 @@ namespace Returns.Helpers
             }
         }
 
+
+        public async Task<List<Sacco>> GetAllSaccosAsync()
+        {
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    string sql = @"
+                SELECT  
+                    [Id],
+                    [SaccoName],
+                    [OfficialSaccoEmail],
+                    [ContactNumber],
+                    [Kra_Pin],
+                    [SaccoType],
+                    [IsApproved],
+                    [AuthorizedRepresentative],
+                    [ApprovedAt],
+                    [CooperativeSocietyNo],
+                    [TeamId],
+                    [TeamName]
+                FROM [IdentityDatabase].[dbo].[Saccos]";
+
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            var saccos = new List<Sacco>();
+                            while (await reader.ReadAsync())
+                            {
+                                var sacco = new Sacco
+                                {
+                                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                                    SaccoName = reader["SaccoName"]?.ToString() ?? string.Empty,
+                                    OfficialSaccoEmail = reader["OfficialSaccoEmail"]?.ToString() ?? string.Empty,
+                                    ContactNumber = reader["ContactNumber"]?.ToString() ?? string.Empty,
+                                    KraPin = reader["Kra_Pin"]?.ToString() ?? string.Empty,
+                                    SaccoType = reader["SaccoType"]?.ToString() ?? string.Empty,
+                                    IsApproved = reader["IsApproved"] as bool? ?? false,
+                                    AuthorizedRepresentative = reader["AuthorizedRepresentative"]?.ToString() ?? string.Empty,
+                                    ApprovedAt = reader["ApprovedAt"] as DateTime?,
+                                    CooperativeSocietyNo = reader["CooperativeSocietyNo"]?.ToString() ?? string.Empty,
+                                    TeamId = reader["TeamId"]?.ToString() ?? string.Empty,
+                                    TeamName = reader["TeamName"]?.ToString() ?? string.Empty
+                                };
+                                saccos.Add(sacco);
+                            }
+                            return saccos;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all Saccos");
+                return new List<Sacco>();
+            }
+        }
+
+        public async Task<Sacco> GetSaccoByIdAsync(string saccoId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    await connection.OpenAsync();
+                    string sql = @"
+                SELECT 
+                    [Id],
+                    [SaccoName],
+                    [OfficialSaccoEmail],
+                    [ContactNumber],
+                    [Kra_Pin],
+                    [SaccoType],
+                    [IsApproved],
+                    [AuthorizedRepresentative],
+                    [ApprovedAt],
+                    [CooperativeSocietyNo],
+                    [TeamId],
+                    [TeamName]
+                FROM [IdentityDatabase].[dbo].[Saccos]
+                WHERE Id = @saccoId";
+
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        command.Parameters.Add(new SqlParameter("@saccoId", SqlDbType.NVarChar) { Value = saccoId });
+
+                        using (var reader = await command.ExecuteReaderAsync())
+                        {
+                            if (await reader.ReadAsync())
+                            {
+                                return new Sacco
+                                {
+                                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                                    SaccoName = reader["SaccoName"]?.ToString() ?? string.Empty,
+                                    OfficialSaccoEmail = reader["OfficialSaccoEmail"]?.ToString() ?? string.Empty,
+                                    ContactNumber = reader["ContactNumber"]?.ToString() ?? string.Empty,
+                                    KraPin = reader["Kra_Pin"]?.ToString() ?? string.Empty,
+                                    SaccoType = reader["SaccoType"]?.ToString() ?? string.Empty,
+                                    IsApproved = reader["IsApproved"] as bool? ?? false,
+                                    AuthorizedRepresentative = reader["AuthorizedRepresentative"]?.ToString() ?? string.Empty,
+                                    ApprovedAt = reader["ApprovedAt"] as DateTime?,
+                                    CooperativeSocietyNo = reader["CooperativeSocietyNo"]?.ToString() ?? string.Empty,
+                                    TeamId = reader["TeamId"]?.ToString() ?? string.Empty,
+                                    TeamName = reader["TeamName"]?.ToString() ?? string.Empty
+                                };
+                            }
+                            return null; // Return null if no sacco found
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving Sacco with ID {SaccoId}", saccoId);
+                throw; // Re-throw the exception to let the caller handle it
+            }
+        }
         public Task<SasraUser?> GetTeamLead(string teamId)
         {
             try

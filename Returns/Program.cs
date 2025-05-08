@@ -6,9 +6,14 @@ using Returns.Models.Data;
 using Microsoft.Extensions.Options;
 using Returns.Helpers.Interfaces;
 using Returns.Helpers.Interfaces.WorkFlow;
+using Hangfire;
+using Hangfire.SqlServer;
+using Hangfire.Dashboard;
+using Returns.Helpers.Reminders;
 
 internal class Program
 {
+    [Obsolete]
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -49,9 +54,47 @@ internal class Program
         builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
 
 
+
+        builder.Services.AddHangfire(cfg =>
+        {
+            cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+               .UseSimpleAssemblyNameTypeSerializer()
+               .UseRecommendedSerializerSettings()
+               .UseSqlServerStorage(
+                    builder.Configuration.GetConnectionString("ReturnsDbConnection"),
+                    new SqlServerStorageOptions
+                    {
+                        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+                        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+                        QueuePollInterval = TimeSpan.FromSeconds(15),
+                        UseRecommendedIsolationLevel = true,
+                        DisableGlobalLocks = true
+                    });
+        });
+
+
+        builder.Services.AddHangfireServer();
+
+       
+
+
         var app = builder.Build();
 
+        app.UseHangfireDashboard("/hangfire", new DashboardOptions
+        {
+            Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
+        });
+
+        // Fire at 09:00 on the 5th–31st of every month
+        RecurringJob.AddOrUpdate<ReturnsReminderService>(
+            "returns-reminder",
+            job => job.SendRemindersAsync(CancellationToken.None),
+            "0 9 5-31 * *",     
+            queue: "reminders");
+
         app.UseCors(CORS_SPECIFICATIONS);
+
+
 
         app.UseSwagger();
         app.UseSwaggerUI();

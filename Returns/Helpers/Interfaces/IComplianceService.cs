@@ -8,6 +8,7 @@ namespace Returns.Helpers.Interfaces
         Task<SasraUser?> GetTeamLead(string teamId);
         Task<SasraUser?> GetUserByRole(string RoleId);
         Task<SasraRoleDetails?> GetRoleDetails(string RoleId);
-
+        Task<List<Sacco>> GetAllSaccosAsync();
+        Task<Sacco> GetSaccoByIdAsync(string saccoId);
     }
 }

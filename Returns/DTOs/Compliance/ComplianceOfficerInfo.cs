@@ -40,5 +40,20 @@
         public string RoleId { get; set; } = string.Empty;
     }
 
-
+    public class Sacco
+    {
+        public string Id { get; set; }
+        public string SaccoName { get; set; }
+        public string OfficialSaccoEmail { get; set; }
+        public string ContactNumber { get; set; }
+        public string KraPin { get; set; }
+        public string SaccoType { get; set; }
+        public bool IsApproved { get; set; }
+        public string AuthorizedRepresentative { get; set; }
+        public DateTime? ApprovedAt { get; set; }
+        public string CooperativeSocietyNo { get; set; }
+        public string TeamId { get; set; }
+        public string TeamName { get; set; }
     }
+
+}
