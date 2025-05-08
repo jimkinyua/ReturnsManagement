@@ -214,7 +214,8 @@ namespace Returns.Helpers
   
         public static async Task<string?> SaveReportAsync( byte[] bytes,string folder,string? fileName = null,string extension = ".pdf",CancellationToken ct = default)
             {
-                if (bytes is null || bytes.Length == 0)
+            return "SAVING FILES DISABLED";
+            if (bytes is null || bytes.Length == 0)
                 {
                     return null;
                 }
