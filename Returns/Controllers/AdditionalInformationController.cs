@@ -32,8 +32,6 @@ namespace Returns.Controllers
                 var requests = await _context.AdditionalInformationRequests
                     .AsNoTracking()
                     .Include(r => r.ReturnReponses)
-                        .ThenInclude(resp => resp.ResponseAttachements)
-                    //.Where(r => r.ReturnId == returnId)
                     .OrderBy(r => r.CreatedAt)
                     .ToListAsync();
 
@@ -57,10 +55,94 @@ namespace Returns.Controllers
                         RespondedAt = request.RespondedAt,
                         Responses = new List<AdditionalInfoResponseDto>()
                     };
-
-                    if (request.ReturnReponses.Any())
+                    var responses = await _context.AdditionalInfoResponses
+                        .Include(r => r.ResponseAttachements)
+                        .Where(x=>x.RequestId == request.Id).ToListAsync();
+                    if (responses.Any())
                     {
-                        foreach (var response in request.ReturnReponses)
+                        foreach (var response in responses)
+                        {
+                            var responseDto = new AdditionalInfoResponseDto
+                            {
+                                Id = response.Id,
+                                RespondedBy = response.RespondedBy,
+                                ResponseMessage = response.ReponseMessage,
+                                RespondedAt = response.CreatedAt,
+                            };
+
+                            // Process each attachment if they exist
+                            if (response.ResponseAttachements != null)
+                            {
+                                foreach (var attachment in response.ResponseAttachements)
+                                {
+                                    responseDto.Attachments.Add(new AdditionalInfoAttachmentDto
+                                    {
+                                        FileUrl = attachment.FileUrl
+                                    });
+                                }
+                            }
+
+                            requestDto.Responses.Add(responseDto);
+                        }
+                    }
+
+                    resultDtos.Add(requestDto);
+                }
+
+                // 5. Return successful response
+                return Ok(resultDtos);
+            }
+            catch (Exception ex)
+            {
+                // 6. Handle errors gracefully
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    ex.Message);
+            }
+        }
+
+
+        [HttpGet("AdditionalInformationRequestsForReturn/{ReturnId}")]
+        public async Task<ActionResult<IEnumerable<AdditionalInformationRequestDto>>> AdditionalInformationRequestsForReturn(string ReturnId)
+        {
+            if (string.IsNullOrEmpty(ReturnId))
+            {
+                return BadRequest("ReturnId cannot be null or empty.");
+            }
+            try
+            {
+                var requests = await _context.AdditionalInformationRequests
+                    .AsNoTracking()
+                    .Include(r => r.ReturnReponses)
+                    .OrderBy(r => r.CreatedAt)
+                    .Where(x=>x.ReturnId == ReturnId)
+                    .ToListAsync();
+
+                if (requests == null || requests.Count == 0)
+                {
+                    return Ok(new List<AdditionalInformationRequestDto>());
+                }
+
+                var resultDtos = new List<AdditionalInformationRequestDto>();
+
+                foreach (var request in requests)
+                {
+                    AdditionalInformationRequestDto requestDto = new AdditionalInformationRequestDto
+                    {
+                        Id = request.Id,
+                        Description = request.Description,
+                        RequestedBy = request.RequestedBy,
+                        Status = request.RequestStatus,
+                        IsResponded = request.IsResponded,
+                        CreatedAt = request.CreatedAt,
+                        RespondedAt = request.RespondedAt,
+                        Responses = new List<AdditionalInfoResponseDto>()
+                    };
+                    var responses = await _context.AdditionalInfoResponses
+                        .Include(r => r.ResponseAttachements)
+                        .Where(x => x.RequestId == request.Id).ToListAsync();
+                    if (responses.Any())
+                    {
+                        foreach (var response in responses)
                         {
                             var responseDto = new AdditionalInfoResponseDto
                             {

@@ -364,7 +364,7 @@ namespace Returns.Controllers
                             else if (PeriodToUse != year)
                             {
                                 // If we find a different period, flag inconsistency
-                                ConError.Add($"Form {form.FormName} has period {year} which differs from {PeriodToUse}");
+                                ConError.Add($"Form {form.FormName} has period {year} which differs from {PeriodToUse}. Are you using the Correct template? ");
                                 IsConsistent = false;
                             }
                         }
