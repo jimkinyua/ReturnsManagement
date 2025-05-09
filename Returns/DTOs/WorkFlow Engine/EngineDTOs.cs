@@ -18,7 +18,17 @@
         public string ApproverUserId { get; set; }
     }
 
-    public class ApproveStepRequest
+   
+    public class CommentDetails
+    {
+        public string Comment { get; set; }
+        public string UserId { get; set; }
+        public string ApproverName { get; set; }
+        public string Status { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+        public class ApproveStepRequest
     {
         public string Comment { get; set; }
     }

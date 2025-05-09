@@ -94,6 +94,37 @@ namespace Returns.Helpers
             };
         }
 
+        public async Task<List<CommentDetails>> GetComments(string ReturnId)
+        {
+            List <CommentDetails> commentDetails = new List<CommentDetails>();
+            var comments = await _db.ApprovalActions.Where(c => c.ReturnId == ReturnId).ToListAsync();
+           if (comments == null)
+            {
+               return commentDetails;
+            }
+            foreach (var comment in comments)
+            {
+                var UserDetails = await  _complianceService.GetUserById(comment.UserId);
+                var Name = string.Empty;
+                if (UserDetails == null)
+                {
+                }
+                else
+                {
+                    Name = UserDetails.FullName;
+                }
+                commentDetails.Add(new CommentDetails
+                {
+                    Comment = comment.Comment,
+                    UserId = comment.UserId,
+                    ApproverName = Name,
+                    Status = comment.Status,
+                    CreatedAt = comment.CreatedAt
+                });
+            }
+            return commentDetails;
+        }
+
 
         public async Task<WorkflowStateDto> RejectStepAsync(string WorkFlowInstanceId, string userId, RejectStepRequest request)
         {
@@ -184,6 +215,7 @@ namespace Returns.Helpers
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
+
                 var instance = await _db.WorkflowInstances
                     .Include(i => i.CurrentStep)
                     .FirstOrDefaultAsync(i => i.Id == request.WorkFlowInstanceId);
@@ -192,7 +224,11 @@ namespace Returns.Helpers
                 {
                     throw new Exception($"Workflow instance '{request.WorkFlowInstanceId}' not found.");
                 }
-
+                var ReturnToApprove = await _db.Returns.FindAsync(instance.ReturnId);
+                if (ReturnToApprove == null)
+                {
+                    throw new Exception("Return not found.");
+                }
                 // 2. Ensure the current user is the approver
                 if (instance.UserId != userId)
                 {
@@ -241,21 +277,17 @@ namespace Returns.Helpers
                     instance.Status = ApprovalStatus.Approved.ToString();
 
                     // update the return status CanReportBeViewed to be true
-                    var Return = await _db.Returns.FindAsync(instance.ReturnId);
-                    if (Return == null)
-                    {
-                        throw new Exception("Return not found.");
-                    }
-                    Return.CanReportBeViewed = true;
+                    
+                    ReturnToApprove.CanReportBeViewed = true;
 
-                    _db.Returns.Update(Return);
+                    _db.Returns.Update(ReturnToApprove);
                     _db.WorkflowInstances.Update(instance);
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
 
                     try
                     {
-                        //await NotifySacco(instance.ReturnId);
+                         NotifySacco(instance.ReturnId);
                     }
                     catch
                     {
@@ -280,7 +312,7 @@ namespace Returns.Helpers
 
                     try
                     {
-                        await _emailService.SendEmailAsync(nextApprover.Email, "New Approval Request", $"You have a new approval request for Sacco: {instance.Return.SaccoName}");
+                        await _emailService.SendEmailAsync(nextApprover.Email, "New Approval Request", $"You have a new approval request for Sacco: {ReturnToApprove.SaccoName}");
                     }
                     catch
                     {
@@ -295,6 +327,19 @@ namespace Returns.Helpers
                 await transaction.RollbackAsync();
                 throw;
             }
+        }
+
+        private void NotifySacco(string SaccoId)
+        {
+            var SaccoDetails = _complianceService.GetSaccoByIdAsync(SaccoId).Result;
+            if (SaccoDetails == null)
+            {
+                throw new Exception("Sacco not found.");
+            }
+            var email = SaccoDetails.OfficialSaccoEmail;
+            var subject = "Return Approved";
+            var message = $"Your return has been approved";
+            _emailService.SendEmailAsync(email, subject, message);
         }
 
 

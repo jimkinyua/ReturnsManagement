@@ -12,5 +12,6 @@ namespace Returns.Helpers
         Task<WorkflowStateDto> RejectStepAsync(string workflowId, string userId, RejectStepRequest request);
         Task<WorkflowStateDto> GetCurrentStateAsync(string returnId);
         Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId);
+        Task<List<CommentDetails>> GetComments(string StepId);
     }
 }

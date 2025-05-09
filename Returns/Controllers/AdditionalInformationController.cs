@@ -216,8 +216,6 @@ namespace Returns.Controllers
                 {
                     return NotFound();
                 }
-                // Send email notification to the user or sacco
-                await _emailSender.SendEmailAsync(loggedPerson.EmailAddress, "Response to Additional Information Request", "You have a new response to your request for additional information.");
                 return Ok(result);
             }
             catch (Exception ex)

@@ -240,6 +240,57 @@ namespace Returns.Helpers
             }
         }
 
+        public Task<SasraUser?> GetUserById(string UserId)
+        {
+            try
+            {
+                using (var connection = new SqlConnection(_connectionString))
+                {
+                    connection.Open();
+                    string sql = @"  
+                        SELECT TOP 1 u.Id
+                        ,[FullName]
+                        ,[LastName]
+                        ,[FirstName]
+                        ,[Email]
+                        ,[TeamName]
+                        ,[TeamRole]
+                          FROM [IdentityDatabase].[dbo].[AspNetUsers] as u
+                          JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
+                          JOIN AspNetRoles   r  ON r.Id = ur.RoleId
+                          WHERE u.Id = @UserId
+                      ";
+                    using (var command = new SqlCommand(sql, connection))
+                    {
+                        command.Parameters.Add(new SqlParameter("@UserId", SqlDbType.NVarChar) { Value = UserId });
+                        using (var reader = command.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                var officer = new SasraUser
+                                {
+                                    Id = reader["Id"]?.ToString() ?? string.Empty,
+                                    FullName = reader["FullName"]?.ToString() ?? string.Empty,
+                                    Email = reader["Email"]?.ToString() ?? string.Empty,
+                                    RoleId = reader["RoleId"]?.ToString() ?? string.Empty,
+                                    TeamName= reader["TeamName"]?.ToString() ?? string.Empty,
+                                    TeamRole = reader["TeamRole"]?.ToString() ?? string.Empty,
+                                };
+                                return Task.FromResult<SasraUser?>(officer);
+                            }
+                            return Task.FromResult<SasraUser?>(null);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving team lead for User ID {TeamId}", UserId);
+                return Task.FromResult<SasraUser?>(null);
+            }
+        }
+
+
         public Task<SasraUser?> GetUserByRole(string RoleId)
         {
             try

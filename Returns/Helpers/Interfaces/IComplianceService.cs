@@ -7,6 +7,7 @@ namespace Returns.Helpers.Interfaces
         Task<ComplianceOfficerInfo> GetAssignedComplianceOfficer(string saccoId);
         Task<SasraUser?> GetTeamLead(string teamId);
         Task<SasraUser?> GetUserByRole(string RoleId);
+        Task<SasraUser?> GetUserById(string UserId);
         Task<SasraRoleDetails?> GetRoleDetails(string RoleId);
         Task<List<Sacco>> GetAllSaccosAsync();
         Task<Sacco> GetSaccoByIdAsync(string saccoId);

@@ -12,12 +12,14 @@ namespace Returns.Helpers
         private readonly IEmailService _emailSender;
         private readonly ILogger<AdditionalInformationRequestService> _logger;
         private readonly ReturnsDbContext _context;
+        private readonly IComplianceService _complianceService;
 
-        public AdditionalInformationRequestService( ReturnsDbContext context, IEmailService emailSender, ILogger<AdditionalInformationRequestService> logger)
+        public AdditionalInformationRequestService( ReturnsDbContext context, IEmailService emailSender, ILogger<AdditionalInformationRequestService> logger, IComplianceService complianceService)
         {
             _context = context;
             _emailSender = emailSender;
             _logger = logger;
+            _complianceService = complianceService;
         }
         public async Task<AdditionalInformationRequestDto> RequestAdditionalInformationAsync(CreateAdditionalInformationRequestDto  createAdditionalInformationRequestDto, string RequestedBy)
         {
@@ -50,61 +52,100 @@ namespace Returns.Helpers
 
         public async Task<AdditionalInfoResponseDto> AddResponseAsync(CreateAdditionalInfoResponseDto dto, string RespondedBy)
         {
-            var request = await _context.AdditionalInformationRequests.FirstOrDefaultAsync(r => r.Id == dto.Id);
-
-            if (request == null)
-                throw new KeyNotFoundException("Request not found");
-
-            var response = new AdditionalInfoResponse
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                RequestId = dto.Id,
-                RespondedBy = RespondedBy,
-                ReponseMessage = dto.ResponseMessage
-            };
+                var request = await _context.AdditionalInformationRequests.FirstOrDefaultAsync(r => r.Id == dto.Id);
 
-            _context.AdditionalInfoResponses.Add(response);
-
-            request.IsResponded = true;
-            request.RequestStatus = AdditionalInfoRequestStatus.Responded.ToString();
-            request.RespondedAt = DateTime.Now;
-            _context.AdditionalInformationRequests.Update(request);
-            await _context.SaveChangesAsync();
-
-            // are there any attachments to the response?
-            if (dto.Attachments != null && dto.Attachments.Count > 0)
-            {
-                foreach (var attachment in dto.Attachments)
+                if (request == null)
                 {
-                    var FileUrl = await FormsHelper.SaveFileAsync(attachment.File, "Additional Returns", attachment.FileName);
-                    var attachmentEntity = new ResponseAttachement
-                    {
-                        ResponseId = response.Id,
-                        FileUrl = FileUrl,
-                        FileName = attachment.FileName,
-                    };
-                    _context.ResponseAttachements.Add(attachmentEntity);
+                    throw new KeyNotFoundException("Request not found");
                 }
-                await _context.SaveChangesAsync();
-            }
-            var SavedAttachments = await _context.ResponseAttachements
-                .Where(a => a.ResponseId == response.Id)
-                .Select(a => new AdditionalInfoAttachmentDto
-                {
-                    FileUrl = a.FileUrl,
-                    Name = a.FileName,
-                }).ToListAsync();
 
-            var resul =  new AdditionalInfoResponseDto
-            {   
-                Id = response.Id,
-                ResponseMessage = response.ReponseMessage,
-                RespondedAt = request.RespondedAt.Value,
-                RespondedBy = RespondedBy,
-                Attachments = SavedAttachments
-            };
-            return resul;
+                var response = new AdditionalInfoResponse
+                {
+                    RequestId = dto.Id,
+                    RespondedBy = RespondedBy,
+                    ReponseMessage = dto.ResponseMessage
+                };
+
+                _context.AdditionalInfoResponses.Add(response);
+
+                request.IsResponded = true;
+                request.RequestStatus = AdditionalInfoRequestStatus.Responded.ToString();
+                request.RespondedAt = DateTime.Now;
+                _context.AdditionalInformationRequests.Update(request);
+                await _context.SaveChangesAsync();
+
+                // Handle attachments if any
+                if (dto.Attachments != null && dto.Attachments.Count > 0)
+                {
+                    foreach (var attachment in dto.Attachments)
+                    {
+                        var FileUrl = await FormsHelper.SaveFileAsync(attachment.File, "Additional Returns", attachment.FileName);
+                        var attachmentEntity = new ResponseAttachement
+                        {
+                            ResponseId = response.Id,
+                            FileUrl = FileUrl,
+                            FileName = attachment.FileName,
+                        };
+                        _context.ResponseAttachements.Add(attachmentEntity);
+                    }
+                    await _context.SaveChangesAsync();
+                }
+
+                await transaction.CommitAsync();
+
+                // Retrieve saved attachments for the response
+                var SavedAttachments = await _context.ResponseAttachements
+                    .Where(a => a.ResponseId == response.Id)
+                    .Select(a => new AdditionalInfoAttachmentDto
+                    {
+                        FileUrl = a.FileUrl,
+                        Name = a.FileName,
+                    }).ToListAsync();
+
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await NotifySasraUser(request.RequestedBy);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send email notification to user {UserId}", request.RequestedBy);
+                    }
+                });
+
+                return new AdditionalInfoResponseDto
+                {
+                    Id = response.Id,
+                    ResponseMessage = response.ReponseMessage,
+                    RespondedAt = request.RespondedAt.Value,
+                    RespondedBy = RespondedBy,
+                    Attachments = SavedAttachments
+                };
+            }
+            catch (Exception)
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
-     
+        private async Task NotifySasraUser(string UserId)
+        {
+            var SasrsUser = await _complianceService.GetUserById(UserId);
+            if (SasrsUser == null)
+            {
+                throw new Exception("Sacco not found.");
+            }
+            var email = SasrsUser.Email;
+            var subject = "Additional Info Response Received";
+            var message = "Your additional information request has been responded to.";
+            await _emailSender.SendEmailAsync(email, subject, message);
+        }
+
+
     }
 }

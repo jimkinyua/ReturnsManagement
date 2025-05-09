@@ -43,19 +43,35 @@ namespace Returns.Controllers
             }
         }
 
+
+        [HttpGet("ApprovalRequestComments/{ReturnId}")]
+        public async Task<ActionResult<List<CommentDetails>>> ApprovalRequestComments(string ReturnId)
+        {
+            try
+            {
+                var results = await _workflowService.GetComments(ReturnId);
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch pending returns");
+                return StatusCode(500, ex.Message);
+            }
+        }
+
         [HttpPost("ApproveRequest")]
         public async Task<IActionResult> ApproveRequest([FromBody] ApproveStepRequestDTO approveStepRequestDTO)
         {
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            /*LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
-            }
+            }*/
 
             try
             {
                 //var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO.WorkFlowInstanceId, loggedInSacco.UserId);
-                var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, loggedInSacco.UserId);
+                var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, "83c53482-724a-428c-b31a-110bde88fe18");
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
