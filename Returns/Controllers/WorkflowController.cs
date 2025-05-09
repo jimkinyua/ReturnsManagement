@@ -62,16 +62,16 @@ namespace Returns.Controllers
         [HttpPost("ApproveRequest")]
         public async Task<IActionResult> ApproveRequest([FromBody] ApproveStepRequestDTO approveStepRequestDTO)
         {
-            /*LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
-            }*/
+            }
 
             try
             {
                 //var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO.WorkFlowInstanceId, loggedInSacco.UserId);
-                var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, "83c53482-724a-428c-b31a-110bde88fe18");
+                var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, loggedInSacco.UserId);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
