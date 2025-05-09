@@ -25,6 +25,7 @@ using Returns.DTOs.Returns.Returns_Submission.NWDT;
 using Microsoft.AspNetCore.Http.HttpResults;
 using QuestPDF.Infrastructure;
 using QuestPDF.Fluent;
+using System.ComponentModel.DataAnnotations;
 
 namespace Returns.Controllers
 {
@@ -74,6 +75,25 @@ namespace Returns.Controllers
                     }
                     if (!isValid)
                     {
+                        string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
+               
+                        _ = _emailService
+                        .SendEmailAsync(
+                            "james@mailinator.com",
+                            "Validation Report - Consistency Errors",
+                            htmlReport)
+                        .ContinueWith(t =>
+                        {
+                            if (t.IsFaulted)
+                            {
+                                _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                            }
+                            else
+                            {
+                                _logger.LogInformation("Validation-report email sent successfully.");
+                            }
+                        }, TaskContinuationOptions.OnlyOnRanToCompletion);
+
                         return BadRequest(ConsistencyErrors);
                     }
                 }
@@ -415,6 +435,9 @@ namespace Returns.Controllers
                         var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
                         if (!isValid)
                         {
+                            // notify of sacco via mail 
+                            // send email to sacco
+                            _emailService
                             ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
                         }
                     }
@@ -426,8 +449,7 @@ namespace Returns.Controllers
 
                 if (!success)
                 {
-                    _logger.LogError("Error processing form batch");
-                    return StatusCode(500, "An error occurred while processing the forms.");
+                    return StatusCode(409, string.Join(", ", processingMessages));
                 }
                 var ReturnDetails = _context.Returns.Find(returnId);
                 var IsAssigned = await _returnAssignmentService.AssignReturnAsync(ReturnDetails, loggedInSacco.SaccoId);
