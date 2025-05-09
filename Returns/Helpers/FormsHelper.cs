@@ -169,7 +169,7 @@ namespace Returns.Helpers
 
                 // Get the configured storage path from environment variable with proper handling for different path formats
                 string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
-                //return "SAVING FILES DISABLED";
+                return "SAVING FILES DISABLED";
                 if (string.IsNullOrEmpty(hostStoragePath))
                 {
                     throw new Exception("HOST_STORAGE_PATH environment variable is not set.");
@@ -214,7 +214,7 @@ namespace Returns.Helpers
   
         public static async Task<string?> SaveReportAsync( byte[] bytes,string folder,string? fileName = null,string extension = ".pdf",CancellationToken ct = default)
             {
-            return "SAVING FILES DISABLED";
+            //return "SAVING FILES DISABLED";
             if (bytes is null || bytes.Length == 0)
                 {
                     return null;
