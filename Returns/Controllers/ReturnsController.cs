@@ -435,9 +435,7 @@ namespace Returns.Controllers
                         var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
                         if (!isValid)
                         {
-                            // notify of sacco via mail 
-                            // send email to sacco
-                            _emailService
+                    
                             ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
                         }
                     }
