@@ -10,6 +10,7 @@ using Hangfire;
 using Hangfire.SqlServer;
 using Hangfire.Dashboard;
 using Returns.Helpers.Reminders;
+using System.Globalization;
 
 internal class Program
 {
@@ -17,6 +18,8 @@ internal class Program
     private static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+
+        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo("en-KE");
 
         var connectionString = builder.Configuration.GetConnectionString("ReturnsDbConnection");
 
