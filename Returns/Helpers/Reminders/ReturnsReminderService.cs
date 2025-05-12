@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.UI.Services;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Returns.DTOs.Forms;
 using Returns.Helpers.Interfaces;
@@ -12,11 +11,11 @@ namespace Returns.Helpers.Reminders
     public class ReturnsReminderService
     {
         private readonly ReturnsDbContext _context;
-        private readonly IEmailSender _mail;
+        private readonly IEmailService _mail;
         private readonly ILogger<ReturnsReminderService> _log;
         private readonly IComplianceService complianceService;
 
-        public ReturnsReminderService( ReturnsDbContext db, IEmailSender mail, ILogger<ReturnsReminderService> log, IComplianceService complianceService)
+        public ReturnsReminderService( ReturnsDbContext db, IEmailService mail, ILogger<ReturnsReminderService> log, IComplianceService complianceService)
         {
             _context = db;
             _mail = mail;
