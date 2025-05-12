@@ -76,7 +76,8 @@ namespace Returns.Controllers
                     if (!isValid)
                     {
                         string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
-               
+                        var pdfReport = ReportsHelper.GeneratePdfReport(ConsistencyErrors, CommonPeriod);
+
                         _ = _emailService
                         .SendEmailAsync(
                             "james@mailinator.com",
@@ -93,6 +94,26 @@ namespace Returns.Controllers
                                 _logger.LogInformation("Validation-report email sent successfully.");
                             }
                         }, TaskContinuationOptions.OnlyOnRanToCompletion);
+
+
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                await _emailService.SendEmailWithAttachmentAsync(
+                                    "james@mailinator.com",
+                                    "Validation Report (PDF) - Consistency Errors",
+                                    htmlReport,               // you can reuse the HTML body
+                                    pdfReport,                // the PDF bytes
+                                    $"ValidationReport_{CommonPeriod}.pdf"
+                                );
+                                _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                            }
+                        });
 
                         return BadRequest(ConsistencyErrors);
                     }
@@ -2458,8 +2479,9 @@ namespace Returns.Controllers
                 isValid = validationResult.IsValid;
                 if (!isValid)
                 {
+                    QuestPDF.Settings.License = LicenseType.Community;
                     ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                  /*  IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                    /*IDocument report = new ConsistencyReport(validationResult, "Test", "System");
                     var pdfBytes = report.GeneratePdf();
                     await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");*/
 
