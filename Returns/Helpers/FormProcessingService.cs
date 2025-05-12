@@ -65,7 +65,7 @@ namespace Returns.Helpers
             try
             {
                 // Step 1: Determine if this is a batch amendment by checking any form
-                string batchReturnId = null;
+                string ExistingReturnId = null;
                 bool isBatchAmendment = false;
 
                 foreach (var upload in batchDTO.FormUploads)
@@ -84,7 +84,7 @@ namespace Returns.Helpers
                     if (AmendmentData.IsAmendment && !string.IsNullOrEmpty(AmendmentData.ReturnId))
                     {
                         isBatchAmendment = true;
-                        batchReturnId = AmendmentData.ReturnId;
+                        ExistingReturnId = AmendmentData.ReturnId;
                         break; // We only need to find one amendment to determine it's a batch amendment
                     }
                 }
@@ -92,10 +92,10 @@ namespace Returns.Helpers
                 // Step 2: Handle the batch (either new or amendment)
                 string effectiveReturnId;
 
-                if (isBatchAmendment && !string.IsNullOrEmpty(batchReturnId))
+                if (isBatchAmendment && !string.IsNullOrEmpty(ExistingReturnId))
                 {
                     // This is a batch amendment - create a new version of the batch
-                    var (amendmentSuccess, newBatchId, message) = await HandleBatchAmendmentAsync(batchReturnId, loggedInSacco, isConsistent, consistencyErrors, periodToUse, batchDTO.SubmissionDate);
+                    var (amendmentSuccess, NewReturnId, message) = await HandleBatchAmendmentAsync(ExistingReturnId, loggedInSacco, isConsistent, consistencyErrors, periodToUse, batchDTO.SubmissionDate);
 
                     if (!amendmentSuccess)
                     {
@@ -114,23 +114,23 @@ namespace Returns.Helpers
                     }
                     else
                     {
-                        effectiveReturnId = newBatchId;
+                        effectiveReturnId = NewReturnId;
                         processingSummary.Add(message);
                     }
                 }
                 else
                 {
                     // This is a new batch - create a new return
-                    var newBatch = CreateNewReturn(
+                    var newReturn = CreateNewReturn(
                         loggedInSacco,
                         isConsistent,
                         consistencyErrors,
                         batchDTO.SubmissionDate,
                         periodToUse);
 
-                    await _context.Returns.AddAsync(newBatch);
+                    await _context.Returns.AddAsync(newReturn);
                     await _context.SaveChangesAsync();
-                    effectiveReturnId = newBatch.Id;
+                    effectiveReturnId = newReturn.Id;
                 }
 
                 EffectiveReturnId = effectiveReturnId;
@@ -184,7 +184,7 @@ namespace Returns.Helpers
                         effectiveReturnId,
                         loggedInSacco.SaccoId,
                         loggedInSacco.SaccoType,
-                        batchReturnId
+                        ExistingReturnId
                         );
 
                     if (isProcessed)
@@ -224,53 +224,52 @@ namespace Returns.Helpers
             };
         }
 
-        public async Task<(bool Success, string NewBatchId, string Message)> HandleBatchAmendmentAsync(string batchReturnId, LoggedInEntity loggedInSacco, bool isConsistent, List<string> consistencyErrors, string periodToUse, DateTime submissionDate)
+        public async Task<(bool Success, string NewReturnId, string Message)> HandleBatchAmendmentAsync(string ExistingReturnId, LoggedInEntity loggedInSacco, bool isConsistent, List<string> consistencyErrors, string periodToUse, DateTime submissionDate)
         {
             using var transaction = await _context.Database.BeginTransactionAsync();
 
             try
             {
                 // Get the existing return
-                var originalReturn = await _context.Returns
-                    .FirstOrDefaultAsync(r => r.Id == batchReturnId && r.IsActiveVersion);
+                var ExistingReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == ExistingReturnId && r.IsActiveVersion);
 
-                if (originalReturn == null)
+                if (ExistingReturn == null)
                 {
-                    return (false, string.Empty, $"Original batch with ID {batchReturnId} not found or is not the active version");
+                    return (false, string.Empty, $"Original batch with ID {ExistingReturnId} not found or is not the active version");
                 }
 
                 // Mark the current return as inactive
-                originalReturn.IsActiveVersion = false;
-                _context.Returns.Update(originalReturn);
+                ExistingReturn.IsActiveVersion = false;
+                _context.Returns.Update(ExistingReturn);
 
                 // Create a new return version based on the original
                 var newReturn = new Return
                 {
-                    SaccoId = originalReturn.SaccoId,
-                    SaccoType = originalReturn.SaccoType,
-                    SaccoName = originalReturn.SaccoName,
-                    Period = originalReturn.Period,
-                    Year = originalReturn.Year,
+                    SaccoId = ExistingReturn.SaccoId,
+                    SaccoType = ExistingReturn.SaccoType,
+                    SaccoName = ExistingReturn.SaccoName,
+                    Period = ExistingReturn.Period,
+                    Year = ExistingReturn.Year,
                     SubmittedAt = DateTime.Now,
-                    ReturnFor = originalReturn.ReturnFor,
+                    ReturnFor = ExistingReturn.ReturnFor,
                     IsNotConsistent = isConsistent,
                     ConsistentErrorMessage = string.Join(", ", consistencyErrors),
-                    VersionNumber = originalReturn.VersionNumber + 1,
+                    VersionNumber = ExistingReturn.VersionNumber + 1,
                     IsActiveVersion = true,
                     AmendmentDate = DateTime.Now,
-                    PreviousVersionId = originalReturn.Id
+                    PreviousVersionId = ExistingReturn.Id
                 };
 
                 await _context.Returns.AddAsync(newReturn);
                 await _context.SaveChangesAsync();
 
                 // Copy all child records that aren't being amended
-                //await CopyChildRecords(originalReturn.Id, newReturn.Id, form, loggedInSacco.SaccoType);
+                //await CopyChildRecords(ExistingReturn.Id, newReturn.Id, form, loggedInSacco.SaccoType);
                 await _context.SaveChangesAsync();
 
                 await transaction.CommitAsync();
 
-                return (true, newReturn.Id, $"Processing amendment to batch Return ID: {batchReturnId}, new version: {newReturn.VersionNumber}");
+                return (true, newReturn.Id, $"Processing amendment to batch Return ID: {ExistingReturnId}, new version: {newReturn.VersionNumber}");
             }
             catch (Exception ex)
             {
@@ -301,7 +300,7 @@ namespace Returns.Helpers
                         return (false, respose);
                     }
 
-                    effectiveReturnId = newReturnId;
+                    //effectiveReturnId = newReturnId;
                 }
 
                 // Process the form content
@@ -1683,7 +1682,7 @@ namespace Returns.Helpers
                 DateTime reportingEndDate = DateTime.MinValue;
                 string Year = string.Empty;
                 bool hasExistingReturn = false;
-                string returnId = string.Empty;
+                string OldReturnId = string.Empty;
 
                 // Extract the reporting period end date from the form
                 (reportingEndDate, Year) = await ExtractReportingEndDate(formFile, form, SaccoType);
@@ -1705,7 +1704,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
 
                     else if (form.IsDailyLiquidity)
@@ -1715,7 +1714,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.ReportDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsInsiderLending)
                     {
@@ -1724,7 +1723,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsLiquidityStatement)
                     {
@@ -1733,7 +1732,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsFinancialPosition)
                     {
@@ -1742,7 +1741,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsInvestmentReturn)
                     {
@@ -1751,7 +1750,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsStatementOfComprehensiveIncome)
                     {
@@ -1760,7 +1759,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsRiskClassification)
                     {
@@ -1769,7 +1768,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsDepositReturnForm)
                     {
@@ -1778,7 +1777,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                 }
                 else
@@ -1791,7 +1790,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsLiquidityStatement)
                     {
@@ -1800,7 +1799,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsInsiderLending)
                     {
@@ -1809,7 +1808,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsDailyLiquidity)
                     {
@@ -1818,7 +1817,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.ReportDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsFinancialPosition)
                     {
@@ -1827,7 +1826,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsInvestmentReturn)
                     {
@@ -1836,7 +1835,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsStatementOfComprehensiveIncome)
                     {
@@ -1845,7 +1844,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsRiskClassification)
                     {
@@ -1854,7 +1853,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                     else if (form.IsDepositReturnForm)
                     {
@@ -1863,7 +1862,7 @@ namespace Returns.Helpers
                             .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
 
                         hasExistingReturn = existingReturn != null;
-                        returnId = existingReturn?.Return?.Id ?? string.Empty;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
                     }
                 }
 
@@ -1876,7 +1875,7 @@ namespace Returns.Helpers
                 bool isAmendment = hasExistingReturn; //&& DateTime.Now > dueDate;
 
                 // Only return the ReturnId if it's an amendment
-                return (isAmendment, isAmendment ? returnId : string.Empty);
+                return (isAmendment, isAmendment ? OldReturnId : string.Empty);
             }
             catch (Exception ex)
             {

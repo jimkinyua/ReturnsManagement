@@ -464,19 +464,19 @@ namespace Returns.Controllers
                     //PeriodToUse = CommonPeriod;
                 }
 
-                var (success, returnId, processingMessages) = await _formProcessor.ProcessFormBatchAsync(createFormDTO, loggedInSacco, IsConsistent, ConError, PeriodToUse);
+                var (success, EffectiveReturnId, processingMessages) = await _formProcessor.ProcessFormBatchAsync(createFormDTO, loggedInSacco, IsConsistent, ConError, PeriodToUse);
 
                 if (!success)
                 {
                     return StatusCode(409, string.Join(", ", processingMessages));
                 }
-                var ReturnDetails = _context.Returns.Find(returnId);
-                var IsAssigned = await _returnAssignmentService.AssignReturnAsync(ReturnDetails, loggedInSacco.SaccoId);
+                var PreviousReturnDetails = _context.Returns.Find(EffectiveReturnId);
+                var IsAssigned = await _returnAssignmentService.AssignReturnAsync(PreviousReturnDetails, loggedInSacco.SaccoId);
                 if (!IsAssigned.Success)
                 {
                     _logger.LogError("Error assigning return: {ErrorMessage}", IsAssigned.ErrorMessage);
 
-                    var returnToDelete = await _context.Returns.FindAsync(returnId);
+                    var returnToDelete = await _context.Returns.FindAsync(EffectiveReturnId);
                     if (returnToDelete != null)
                     {
                         _context.Returns.Remove(returnToDelete);
@@ -485,8 +485,8 @@ namespace Returns.Controllers
 
                     return StatusCode(500, IsAssigned.ErrorMessage);
                 }
-                var ratingResult = await camelsAnalysisService.CalculateAnalysisAsync(ReturnDetails.Id, ReturnDetails.SaccoType);
-                var WorkFlowResult = await _workflowService.StartWorkflowAsync(ReturnDetails, ratingResult.OverallRating);
+                var ratingResult = await camelsAnalysisService.CalculateAnalysisAsync(PreviousReturnDetails.Id, PreviousReturnDetails.SaccoType);
+                var WorkFlowResult = await _workflowService.StartWorkflowAsync(PreviousReturnDetails, ratingResult.OverallRating);
                 
                 await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
                 return Ok(processingMessages);
