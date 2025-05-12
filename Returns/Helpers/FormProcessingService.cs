@@ -357,7 +357,7 @@ namespace Returns.Helpers
 
                     /*var newReturn = new Return
                     {
-                        SaccoId = OldReturn.SaccoId,
+                        SaccoCsNumber = OldReturn.SaccoCsNumber,
                         SaccoType = OldReturn.SaccoType,
                         SaccoName = OldReturn.SaccoName,
                         Period = OldReturn.Period,
@@ -493,7 +493,7 @@ namespace Returns.Helpers
                         IsCurrent = true,
                         SaccoName = ExistingInsiderLendingHeader.SaccoName,
                         DaysLateBy = ExistingInsiderLendingHeader.DaysLateBy,
-                        //SaccoId = ExistingInsiderLendingHeader.SaccoId,
+                        //SaccoCsNumber = ExistingInsiderLendingHeader.SaccoCsNumber,
                     };
                     await _context.InsiderLendingHeaders.AddAsync(NewInsiderLendingHeader);
                     foreach (var OldItem in SavedLoans)
@@ -1098,7 +1098,7 @@ namespace Returns.Helpers
                         IsCurrent = true,
                         SaccoName = ExistingInsiderLendingHeader.SaccoName,
                         DaysLateBy = ExistingInsiderLendingHeader.DaysLateBy,
-                        //SaccoId = ExistingInsiderLendingHeader.SaccoId,
+                        //SaccoCsNumber = ExistingInsiderLendingHeader.SaccoCsNumber,
                     };
                     await _context.InsiderLendingHeaders.AddAsync(NewInsiderLendingHeader);
                     foreach (var OldItem in SavedLoans)
@@ -1967,7 +1967,7 @@ namespace Returns.Helpers
                     }
                     else if (form.IsSectoralLending)
                     {
-                        var formData = ExcelService.ImportSectoralLendingReport(formFile, _logger);
+                        var formData = ExcelService.ImportSectoralLendingReport(formFile, _logger, saccoType);
                         var Year = formData.Year.ToString();
                         return (formData.EndDate, Year);
                     }
@@ -2031,7 +2031,7 @@ namespace Returns.Helpers
                     }
                     else if (form.IsSectoralLending)
                     {
-                        var formData = ExcelService.ImportSectoralLendingReport(formFile, _logger);
+                        var formData = ExcelService.ImportSectoralLendingReport(formFile, _logger, saccoType);
                         var Year = formData.Year.ToString();
                         return (formData.EndDate, Year);
                     }
@@ -2121,7 +2121,7 @@ namespace Returns.Helpers
                             await ReturnsHelper.ProcessComprehensiveIncomeForm(formFile, returnId, _logger, form);
                             break;
                         case "SectoralLending":
-                            await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId, saccoType);
                             break;
                         case "DailyLiquidity":
                             await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
@@ -2160,7 +2160,7 @@ namespace Returns.Helpers
                             await ReturnsHelper.ProcessForm2F(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "SectoralLending":
-                           await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                           await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId, saccoType);
                             break;
                         case "DailyLiquidity":
                             await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);

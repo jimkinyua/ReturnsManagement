@@ -114,7 +114,7 @@ namespace Returns.Controllers
         public async Task<IActionResult> GetCurrentState(string returnId)
         {
             /*LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoCsNumber) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
             }*/

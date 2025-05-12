@@ -24,10 +24,11 @@ namespace Returns.Helpers
 
         public class SectoralLendingReportDto
         {
-            public string SaccoId { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public string SaccoName { get; set; } = string.Empty;
             public string Year { get; set; } = string.Empty;
             public string Month { get; set; } = string.Empty;
+            public string SaccoType { get; set; } = string.Empty;
             public DateTime StartDate { get; set; } 
             public DateTime EndDate { get; set; }
             public List<CategoryDto> Categories { get; set; } = new List<CategoryDto>();
@@ -66,6 +67,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber = string.Empty;
             public List<CapitalAdequacyRow> Rows { get; set; } = new List<CapitalAdequacyRow>();
         }
 
@@ -128,6 +130,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<LiquidityStatementRow> Rows { get; set; } = new List<LiquidityStatementRow>();
         }
 
@@ -136,6 +139,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<RiskClassificationRow> Rows { get; set; } = new List<RiskClassificationRow>();
         }
 
@@ -187,6 +191,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<InvestmentRow> Rows { get; set; } = new List<InvestmentRow>();
         }
         public class Form2EStatement
@@ -194,6 +199,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<Form2ERow> Rows { get; set; } = new List<Form2ERow>();
         }
 
@@ -202,6 +208,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<CapitalAdequacyRow> Rows { get; set; } = new List<CapitalAdequacyRow>();
         }
 
@@ -226,6 +233,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<StatementOfFinancialPositionRow> Rows { get; set; } = new List<StatementOfFinancialPositionRow>();
         }
 
@@ -235,6 +243,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<StatementOfComprehensiveIncomeRow> Rows { get; set; } = new List<StatementOfComprehensiveIncomeRow>();
         }
         public class StatementOfComprehensiveIncomeRow
@@ -259,6 +268,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<DepositRangeData> Rows { get; set; } = new List<DepositRangeData>();
         }
 
@@ -278,6 +288,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<StatementOfComprehensiveIncomeRow> Rows { get; set; } = new List<StatementOfComprehensiveIncomeRow>();
         }
 
@@ -286,6 +297,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public List<StatementOfFinancialPositionRow> Rows { get; set; } = new List<StatementOfFinancialPositionRow>();
         }
 
@@ -328,9 +340,10 @@ namespace Returns.Helpers
         public class Form2BStatement
         {
             // Form metadata
-            public string SaccoName { get; set; }
-            public string CsNumber { get; set; }
-            public string Period { get; set; }
+            public string SaccoName { get; set; } = string.Empty;
+            public string CsNumber { get; set; } = string.Empty;
+            public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
 
@@ -367,7 +380,7 @@ namespace Returns.Helpers
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public string Period = string.Empty;
-
+            public string SaccoCsNumber = string.Empty;
             public List<DepositRangeRow> Rows { get; set; } = new List<DepositRangeRow>();
 
             public int TotalNumberOfAccounts => GetTotalNumberOfAccounts();
@@ -670,8 +683,8 @@ namespace Returns.Helpers
                         var worksheet = workbook.Worksheets.First();
 
                         // Extract SACCO details and report date
-                        dailyLiquidityStatement.SACCOName = GetCellValueOrEmpty(worksheet.Cell("C5"));
-                        dailyLiquidityStatement.CSNO = GetCellValueOrEmpty(worksheet.Cell("E5"));
+                        dailyLiquidityStatement.SACCOName = GetCellValueOrEmpty(worksheet.Cell("D5"));
+                        dailyLiquidityStatement.CSNO = GetCellValueOrEmpty(worksheet.Cell("F5"));
                         dailyLiquidityStatement.ReportDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("E6"))) ?? DateTime.Now;
 
                         // Opening Balances
@@ -771,7 +784,7 @@ namespace Returns.Helpers
             return -1; // Not found
         }
 
-        public static SectoralLendingReportDto ImportSectoralLendingReport(IFormFile file, ILogger logger)
+        public static SectoralLendingReportDto ImportSectoralLendingReport(IFormFile file, ILogger logger, string SaccoType)
         {
             try
             {
@@ -798,13 +811,13 @@ namespace Returns.Helpers
                             throw new Exception("Worksheet 'Sheet1' not found.");
 
                         // 2. Extract Metadata (adjust cell references for your file):
-                        string saccoId = GetCellValueOrEmpty(worksheet.Cell("C3"));
+                        string SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C3"));
                         string saccoName = GetCellValueOrEmpty(worksheet.Cell("C3"));
                         string financialYear = GetCellValueOrEmpty(worksheet.Cell("C4"));
                         DateTime? startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C5")));
                         DateTime? endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6")));
 
-                        if (string.IsNullOrWhiteSpace(saccoId))
+                        if (string.IsNullOrWhiteSpace(SaccoCsNumber))
                             throw new Exception("SaccoId not found in cell C3");
                         if (string.IsNullOrWhiteSpace(saccoName))
                             throw new Exception("SaccoName not found in cell C4");
@@ -833,12 +846,13 @@ namespace Returns.Helpers
                         // Initialize the main DTO
                         var reportDto = new SectoralLendingReportDto
                         {
-                            SaccoId = saccoId,
+                            SaccoCsNumber = SaccoCsNumber,
                             SaccoName = saccoName,
                             Year = financialYear,
                             Month = month,
                             StartDate = startDate.Value,
                             EndDate = endDate.Value,
+                            SaccoType = SaccoType,
                             Categories = new List<CategoryDto>()
                         };
 
@@ -1010,6 +1024,7 @@ namespace Returns.Helpers
 
                         var form2AStatement = new Form2AStatement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4")) ?? string.Empty,
                             Period = GetCellValueOrEmpty(worksheet.Cell("D5")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7"))) ?? DateTime.Now,
@@ -1222,6 +1237,7 @@ namespace Returns.Helpers
 
                         var form2FStatement = new Form2FStatement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C4")) ?? string.Empty,
                             Period = GetCellValueOrEmpty(worksheet.Cell("C5")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C7"))) ?? DateTime.Now,
@@ -1324,6 +1340,7 @@ namespace Returns.Helpers
                         }
                         var form2B = new Form2BStatement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4")) ?? string.Empty,
                             Period = GetCellValueOrEmpty(worksheet.Cell("D5")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7"))) ?? DateTime.Now,
@@ -1439,6 +1456,7 @@ namespace Returns.Helpers
                             Period = GetCellValueOrEmpty(worksheet.Cell("D4")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D5"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6"))) ?? DateTime.Now,
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D3")),
                         };
 
                         int firstDataRow = 10;
@@ -1553,6 +1571,7 @@ namespace Returns.Helpers
 
                         Form3Statement form3Statement = new Form3Statement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("E3")),
                             Period = GetCellValueOrEmpty(worksheet.Cell("E4")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("E5"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("E6"))) ?? DateTime.Now,
@@ -1661,9 +1680,10 @@ namespace Returns.Helpers
                         var worksheet = workbook.Worksheets.First();
                         var form2C = new Form2CStatement
                         {
-                            Period = GetCellValueOrEmpty(worksheet.Cell("D5")),
-                            StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6"))) ?? DateTime.Now,
-                            EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7"))) ?? DateTime.Now,
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C4")) ?? string.Empty,
+                            Period = GetCellValueOrEmpty(worksheet.Cell("C5")),
+                            StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))) ?? DateTime.Now,
+                            EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C7"))) ?? DateTime.Now,
                         };
 
 
@@ -1785,6 +1805,7 @@ namespace Returns.Helpers
 
                         Form7Statement form5Statement = new Form7Statement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C3")),
                             Period = GetCellValueOrEmpty(worksheet.Cell("C4")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C5"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))) ?? DateTime.Now,
@@ -1886,6 +1907,7 @@ namespace Returns.Helpers
                         // Parse the metadata
                         var form2Statement = new Form2Statement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D3")),
                             Period = GetCellValueOrEmpty(worksheet.Cell("D4")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D5"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6"))) ?? DateTime.Now,
@@ -1990,6 +2012,7 @@ namespace Returns.Helpers
                         // Parse the metadata   
                         var form4Statement = new Form4Statement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("F3")),
                             Period = GetCellValueOrEmpty(worksheet.Cell("F4")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("F5"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("F6"))) ?? DateTime.Now,
@@ -2268,6 +2291,7 @@ namespace Returns.Helpers
 
                         Form5Statement form5Statement = new Form5Statement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C3")),
                             Period = GetCellValueOrEmpty(worksheet.Cell("C4")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C5"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))) ?? DateTime.Now,
@@ -2457,6 +2481,7 @@ namespace Returns.Helpers
 
                         Form6Statement form6Statement = new Form6Statement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C3")),
                             Period = GetCellValueOrEmpty(worksheet.Cell("C4")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C5"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))) ?? DateTime.Now,
@@ -2567,6 +2592,7 @@ namespace Returns.Helpers
 
                         var Form2GStatement = new Form2GStatement
                         {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C4")),
                             Period = GetCellValueOrEmpty(worksheet.Cell("C5")),
                             StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))) ?? DateTime.Now,
                             EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C7"))) ?? DateTime.Now,

@@ -5,5 +5,6 @@
         public bool IsAmended { get; set; } = false;
         public string? PreviousReturnId { get; set; }
         public bool IsCurrent { get; set; } = false;
+        public string SaccoCsNumber { get; set; } = null!;
     }
 }

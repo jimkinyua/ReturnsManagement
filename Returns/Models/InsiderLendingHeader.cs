@@ -5,7 +5,7 @@ namespace Returns.Models
 {
     public class InsiderLendingHeader: FormBase
     {
-        //public string SaccoId { get; set; } = null!;
+        //public string SaccoCsNumber { get; set; } = null!;
         public string SaccoName { get; set; } = null!;
         public string CSNO { get; set; } = null!;
         public DateTime EndDate { get; set; }

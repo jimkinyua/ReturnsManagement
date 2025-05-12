@@ -537,7 +537,7 @@ namespace Returns.Controllers
             if (!activeAssignments.Any())
                 return Ok(new List<SubmittedReturnDTO>());
 
-            // 2. Get distinct SaccoId+Year pairs as separate lists
+            // 2. Get distinct SaccoCsNumber+Year pairs as separate lists
             var saccoIds = activeAssignments
                 .Select(a => a.Return.SaccoId)
                 .Distinct()
@@ -561,7 +561,7 @@ namespace Returns.Controllers
                 })
                 .ToListAsync();
 
-            // 4. Build a lookup for (SaccoId, Year) combinations
+            // 4. Build a lookup for (SaccoCsNumber, Year) combinations
             var lookup = activeAssignments
                 .Select(a => new { a.Return.SaccoId, a.Return.ReturnFor.Year })
                 .Distinct()
@@ -572,7 +572,7 @@ namespace Returns.Controllers
                 .Where(r => lookup.Any(x => x.SaccoId == r.SaccoId && x.Year == r.Year))
                 .ToList();
 
-            // 6. Group into a map: (SaccoId,Year) → { Id → PreviousVersionId }
+            // 6. Group into a map: (SaccoCsNumber,Year) → { Id → PreviousVersionId }
             var linkMap = filteredReturns
                 .GroupBy(x => new { x.SaccoId, x.Year })
                 .ToDictionary(
@@ -639,7 +639,7 @@ namespace Returns.Controllers
             if (!activeAssignments.Any())
                 return Ok(new List<SubmittedReturnDTO>());
 
-            // 2. Get distinct SaccoId+Year pairs as separate lists
+            // 2. Get distinct SaccoCsNumber+Year pairs as separate lists
             var saccoIds = activeAssignments
                 .Select(a => a.SaccoId)
                 .Distinct()
@@ -663,7 +663,7 @@ namespace Returns.Controllers
                 })
                 .ToListAsync();
 
-            // 4. Build a lookup for (SaccoId, Year) combinations
+            // 4. Build a lookup for (SaccoCsNumber, Year) combinations
             var lookup = activeAssignments
                 .Select(a => new { a.SaccoId, a.ReturnFor.Year })
                 .Distinct()
@@ -674,7 +674,7 @@ namespace Returns.Controllers
                 .Where(r => lookup.Any(x => x.SaccoId == r.SaccoId && x.Year == r.Year))
                 .ToList();
 
-            // 6. Group into a map: (SaccoId,Year) → { Id → PreviousVersionId }
+            // 6. Group into a map: (SaccoCsNumber,Year) → { Id → PreviousVersionId }
             var linkMap = filteredReturns
                 .GroupBy(x => new { x.SaccoId, x.Year })
                 .ToDictionary(
@@ -765,7 +765,7 @@ namespace Returns.Controllers
                 })
                 .ToListAsync();
 
-            // 4. Filter to only the exact (SaccoId, Year) pairs we need
+            // 4. Filter to only the exact (SaccoCsNumber, Year) pairs we need
             var requiredPairs = activeAssignments
                 .Select(a => (a.SaccoId, a.ReturnFor.Year))
                 .Distinct()
@@ -775,7 +775,7 @@ namespace Returns.Controllers
                 .Where(x => requiredPairs.Contains((x.SaccoId, x.Year)))
                 .ToList();
 
-            // 5. Group into a map: (SaccoId,Year) → Dictionary<Id,PreviousVersionId>
+            // 5. Group into a map: (SaccoCsNumber,Year) → Dictionary<Id,PreviousVersionId>
             var linkMap = filteredLinks
                 .GroupBy(x => (x.SaccoId, x.Year))
                 .ToDictionary(
@@ -865,7 +865,7 @@ namespace Returns.Controllers
                 })
                 .ToListAsync();
 
-            // 4. Filter to only the exact (SaccoId, Year) pairs we need
+            // 4. Filter to only the exact (SaccoCsNumber, Year) pairs we need
             var requiredPairs = activeAssignments
                 .Select(a => (a.Return.SaccoId, a.Return.ReturnFor.Year))
                 .Distinct()
@@ -875,7 +875,7 @@ namespace Returns.Controllers
                 .Where(x => requiredPairs.Contains((x.SaccoId, x.Year)))
                 .ToList();
 
-            // 5. Group into a map: (SaccoId,Year) → Dictionary<Id,PreviousVersionId>
+            // 5. Group into a map: (SaccoCsNumber,Year) → Dictionary<Id,PreviousVersionId>
             var linkMap = filteredLinks
                 .GroupBy(x => (x.SaccoId, x.Year))
                 .ToDictionary(

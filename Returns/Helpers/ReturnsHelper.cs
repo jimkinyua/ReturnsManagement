@@ -520,6 +520,7 @@ namespace Returns.Helpers
                         DaysLateBy = DaysLateBy,
                         IsCurrent = true,
                         IsAmended = false,
+                        SaccoCsNumber = Form1Statement.SaccoCsNumber,
                     };
                 }
                 else
@@ -1114,7 +1115,7 @@ namespace Returns.Helpers
                 {
                     throw new Exception("Prev Return not Found");
                 }
-
+                liquidityStatement.SaccoCsNumber = form2BData.SaccoCsNumber;
 
                 // Extract values from Form1Statement based on index
                 foreach (var row in form2BData.Rows)
@@ -1224,7 +1225,8 @@ namespace Returns.Helpers
                     EndDate = form2.EndDate,
                     Frequency = form.Period.Name,
                     FilePath = Path,
-                    DaysLateBy = DaysLateBy
+                    DaysLateBy = DaysLateBy,
+                    SaccoCsNumber = form2.SaccoCsNumber,
                 };
                 foreach (var liquidityRow in form2.Rows)
                 {
@@ -1330,7 +1332,8 @@ namespace Returns.Helpers
                         EndDate = form3.EndDate,
                         Frequency = form.Period.Name,
                         FilePath = FilePath,
-                        DaysLateBy = DaysLateBy
+                        DaysLateBy = DaysLateBy,
+                        SaccoCsNumber = form3.SaccoCsNumber,
                     };
                     await _context.DepositReturns.AddAsync(depositReturn);
                 }
@@ -1379,6 +1382,7 @@ namespace Returns.Helpers
                         DaysLateBy = DaysLateBy,
                         FilePath = FilePath
                     };
+                    depositReturn.SaccoCsNumber = form2CData.SaccoCsNumber;
                     depositReturn.ReturnId = returnId;
                     depositReturn.AmountInKshs000 = row.Amount;
                     depositReturn.RangeName = row.Range;
@@ -1458,7 +1462,9 @@ namespace Returns.Helpers
                             EndDate = form2DData.EndDate,
                             FilePath = filePath,
                             DaysLateBy = daysLateBy,
-                            PreviousReturnId = prevId
+                            PreviousReturnId = prevId,
+                            SaccoCsNumber = form2DData.CsNumber,
+
                         };
                         entitiesToAdd.Add(riskClassification);
                     }
@@ -1514,7 +1520,8 @@ namespace Returns.Helpers
                         EndDate = form4.EndDate,
                         Frequency = form.Period.Name,
                         FilePath = FilePath,
-                        DaysLateBy = DaysLateBy
+                        DaysLateBy = DaysLateBy,
+                        SaccoCsNumber = form4.SaccoCsNumber,
                     };
                     await _context.DTRiskClassificationReturns.AddAsync(riskClassification);
                 }
@@ -1550,7 +1557,8 @@ namespace Returns.Helpers
                     EndDate = form5.EndDate,
                     Frequency = form.Period.Name,
                     FilePath = FilePath,
-                    DaysLateBy = DaysLateBy
+                    DaysLateBy = DaysLateBy,
+                    SaccoCsNumber = form5.SaccoCsNumber,
                 };
                 foreach (var row in rows)
                 {
@@ -1776,7 +1784,8 @@ namespace Returns.Helpers
                     EndDate = form6.EndDate,
                     Frequency = form.Period.Name,
                     FilePath = FilePath,
-                    DaysLateBy = DaysLateBy
+                    DaysLateBy = DaysLateBy,
+                    SaccoCsNumber = form6.SaccoCsNumber,    
                 };
                 foreach (var row in rows)
                 {
@@ -1945,7 +1954,8 @@ namespace Returns.Helpers
                         Frequency = form.Period.Name,
                         DaysLateBy = DaysLateBy,
                         IsAmended = false,
-                        IsCurrent = true
+                        IsCurrent = true,
+                        SaccoCsNumber = form2A.SaccoCsNumber,
                     };
 
                 }
@@ -2136,6 +2146,7 @@ namespace Returns.Helpers
                     };
                 }
 
+                comprehensiveIncome.SaccoCsNumber = form2F.SaccoCsNumber;
 
                 // Map data from Form1Statement to entity properties based on reference numbers
                 foreach (var row in form2F.Rows)
@@ -2308,6 +2319,8 @@ namespace Returns.Helpers
                         DaysLateBy = DaysLateBy
                     };
                 }
+
+                financialPosition.SaccoCsNumber = form2G.SaccoCsNumber;
 
                 // Map data from Form1Statement to entity properties based on reference numbers
                 foreach (var row in form2G.Rows)
@@ -2488,7 +2501,8 @@ namespace Returns.Helpers
                     EndDate = form7.EndDate,
                     Frequency = form.Period.Name,
                     FilePath = FilePath,
-                    DaysLateBy = DaysLateBy
+                    DaysLateBy = DaysLateBy,
+                    SaccoCsNumber = form7.SaccoCsNumber,
                 };
                 foreach (var row in rows)
                 {
@@ -2588,12 +2602,12 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public static async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "", string SaccoType="")
         {
             try
             {
                 ReturnsDbContext _context = new ReturnsDbContext();
-                var ImportedSectoralReport = ExcelService.ImportSectoralLendingReport(file, _logger);
+                var ImportedSectoralReport = ExcelService.ImportSectoralLendingReport(file, _logger, SaccoType);
                 var DaysLateBy = CalculateDaysLate(form, DateTime.Now, ImportedSectoralReport.EndDate);
                 var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
                 string EffectiveReturnId = returnId;
@@ -2613,9 +2627,10 @@ namespace Returns.Helpers
                         EndDate = ImportedSectoralReport.EndDate,
                         DaysLateBy = DaysLateBy,
                         SaccoName = ImportedSectoralReport.SaccoName,
-                        SaccoId = ImportedSectoralReport.SaccoId,
+                        SaccoId = ImportedSectoralReport.SaccoCsNumber,
                         IsCurrent = true,
-                        IsAmended = false
+                        IsAmended = false,
+                        SaccoCsNumber = ImportedSectoralReport.SaccoCsNumber,
                     };
                 }
                 else
@@ -2712,6 +2727,7 @@ namespace Returns.Helpers
                             var econData = new EconomicSectorData
                             {
                                 Amount = econDto.Amount,
+                                SaccoType = SaccoType,
                                 Category = categoryEntity.CategoryName,
                                 SubCategory = subCategoryEntity.Name,
                                 EconomicSectorName = econEntity.Name,
