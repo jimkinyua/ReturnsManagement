@@ -23,8 +23,6 @@ using Returns.Helpers.Interfaces;
 using Returns.DTOs.Returns.Return_Assignement;
 using Returns.DTOs.Returns.Returns_Submission.NWDT;
 using Microsoft.AspNetCore.Http.HttpResults;
-using QuestPDF.Infrastructure;
-using QuestPDF.Fluent;
 using System.ComponentModel.DataAnnotations;
 
 namespace Returns.Controllers
@@ -135,6 +133,51 @@ namespace Returns.Controllers
 
                     if (!isValid)
                     {
+                        if (!isValid)
+                        {
+                            string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
+                            //var pdfReport = ReportsHelper.GeneratePdfReport(ConsistencyErrors, CommonPeriod);
+
+                            _ = _emailService
+                            .SendEmailAsync(
+                                SaccoDetails.OfficialSaccoEmail,
+                                "Validation Report - Consistency Errors",
+                                htmlReport)
+                            .ContinueWith(t =>
+                            {
+                                if (t.IsFaulted)
+                                {
+                                    _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                                }
+                                else
+                                {
+                                    _logger.LogInformation("Validation-report email sent successfully.");
+                                }
+                            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+
+
+                            // _ = Task.Run(async () =>
+                            // {
+                            //     try
+                            //     {
+                            //         await _emailService.SendEmailWithAttachmentAsync(
+                            //             "james@mailinator.com",
+                            //             "Validation Report (PDF) - Consistency Errors",
+                            //             htmlReport,               // you can reuse the HTML body
+                            //             pdfReport,                // the PDF bytes
+                            //             $"ValidationReport_{CommonPeriod}.pdf"
+                            //         );
+                            //         _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                            //     }
+                            //     catch (Exception ex)
+                            //     {
+                            //         _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                            //     }
+                            // });
+
+                            return BadRequest(ConsistencyErrors);
+                        }
+
                         return BadRequest(ConsistencyErrors);
                     }
                 }
@@ -2538,7 +2581,6 @@ namespace Returns.Controllers
                 isValid = validationResult.IsValid;
                 if (!isValid)
                 {
-                    QuestPDF.Settings.License = LicenseType.Community;
                     ConsistencyErrors.AddRange(validationResult.ValidationErrors);
                     /*IDocument report = new ConsistencyReport(validationResult, "Test", "System");
                     var pdfBytes = report.GeneratePdf();

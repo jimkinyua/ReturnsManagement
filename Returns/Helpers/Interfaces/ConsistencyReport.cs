@@ -1,11 +1,10 @@
-﻿using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
+﻿
 using static Returns.Helpers.ReturnAnalysisHelper;
 
 namespace Returns.Helpers.Interfaces
 {
-    public class ConsistencyReport : IDocument
+}
+   /* public class ConsistencyReport
     {
         private readonly ValidationResult _data;
         private readonly string _returnId;
@@ -82,4 +81,4 @@ namespace Returns.Helpers.Interfaces
             });
         }
     }
-    }
+    }*/
