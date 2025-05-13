@@ -40,10 +40,11 @@ namespace Returns.Controllers
         private readonly IReturnAssignmentService _returnAssignmentService;
         private readonly IWorkflowEngineService _workflowService;
         private readonly ICamelsAnalysisService  camelsAnalysisService;
+        private readonly IComplianceService complianceService;
 
 
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance)
         {
             _context = context;
             _logger = logger;
@@ -52,6 +53,7 @@ namespace Returns.Controllers
             _returnAssignmentService = returnAssignmentService;
             _workflowService = workflowService;
             this.camelsAnalysisService = camelsAnalysisService;
+            this.complianceService = compliance;
         }
 
         [HttpPost("CheckConsistency")]
@@ -65,6 +67,11 @@ namespace Returns.Controllers
                 {
                     return StatusCode(401);
                 }
+                var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
+                if (SaccoDetails == null)
+                {
+                    return NotFound("Sacco not found");
+                }
 
                 if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
                 {
@@ -76,11 +83,11 @@ namespace Returns.Controllers
                     if (!isValid)
                     {
                         string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
-                        var pdfReport = ReportsHelper.GeneratePdfReport(ConsistencyErrors, CommonPeriod);
+                        //var pdfReport = ReportsHelper.GeneratePdfReport(ConsistencyErrors, CommonPeriod);
 
                         _ = _emailService
                         .SendEmailAsync(
-                            "james@mailinator.com",
+                            SaccoDetails.OfficialSaccoEmail,
                             "Validation Report - Consistency Errors",
                             htmlReport)
                         .ContinueWith(t =>
@@ -96,24 +103,24 @@ namespace Returns.Controllers
                         }, TaskContinuationOptions.OnlyOnRanToCompletion);
 
 
-                        _ = Task.Run(async () =>
-                        {
-                            try
-                            {
-                                await _emailService.SendEmailWithAttachmentAsync(
-                                    "james@mailinator.com",
-                                    "Validation Report (PDF) - Consistency Errors",
-                                    htmlReport,               // you can reuse the HTML body
-                                    pdfReport,                // the PDF bytes
-                                    $"ValidationReport_{CommonPeriod}.pdf"
-                                );
-                                _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                            }
-                        });
+                        // _ = Task.Run(async () =>
+                        // {
+                        //     try
+                        //     {
+                        //         await _emailService.SendEmailWithAttachmentAsync(
+                        //             "james@mailinator.com",
+                        //             "Validation Report (PDF) - Consistency Errors",
+                        //             htmlReport,               // you can reuse the HTML body
+                        //             pdfReport,                // the PDF bytes
+                        //             $"ValidationReport_{CommonPeriod}.pdf"
+                        //         );
+                        //         _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                        //     }
+                        //     catch (Exception ex)
+                        //     {
+                        //         _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                        //     }
+                        // });
 
                         return BadRequest(ConsistencyErrors);
                     }
