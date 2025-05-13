@@ -1886,6 +1886,215 @@ namespace Returns.Helpers
             }
         }
 
+        public async Task<(bool ReturnExists, string ReturnId)> IsThereAnyExistingReturn( ReturnForm form, DateTime ReportingEndDate, string SaccoType, string SaccoId)
+        {
+            try
+            {
+                DateTime reportingEndDate = ReportingEndDate;
+                string Year = DateTime.Now.Year.ToString();
+                bool hasExistingReturn = false;
+                string OldReturnId = string.Empty;
+
+
+                if (reportingEndDate == DateTime.MinValue)
+                {
+                    // Couldn't determine the end date, assume it's not an amendment
+                    return (false, string.Empty);
+                }
+
+                // Check if there's an existing return for this period
+                if (SaccoType == Constants.SaccoType.NWDT)
+                {
+                    if (form.IsCapitalAdequencyForm)
+                    {
+                        var existingReturn = await _context
+                            .NWDTCapitalAdequacyReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+
+                    else if (form.IsDailyLiquidity)
+                    {
+                        var existingReturn = await _context.DailyLiquidityReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.ReportDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsInsiderLending)
+                    {
+                        var existingReturn = await _context.InsiderLendingHeaders
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsLiquidityStatement)
+                    {
+                        var existingReturn = await _context.NDWTLiquidityReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsFinancialPosition)
+                    {
+                        var existingReturn = await _context.NWDTFinancialPositionReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsInvestmentReturn)
+                    {
+                        var existingReturn = await _context.NWDTInvestmentReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsStatementOfComprehensiveIncome)
+                    {
+                        var existingReturn = await _context.NWDTComprehensiveIncomeReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsRiskClassification)
+                    {
+                        var existingReturn = await _context.NWDTRiskClassificationReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsDepositReturnForm)
+                    {
+                        var existingReturn = await _context.NWDTDepositReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                }
+                else
+                {
+                    if (form.IsCapitalAdequencyForm)
+                    {
+                        var existingReturn = await _context
+                            .DTCapitalAdequacyReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsLiquidityStatement)
+                    {
+                        var existingReturn = await _context.DTLiquidityReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsInsiderLending)
+                    {
+                        var existingReturn = await _context.InsiderLendingHeaders
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsDailyLiquidity)
+                    {
+                        var existingReturn = await _context.DailyLiquidityReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.ReportDate == reportingEndDate && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsFinancialPosition)
+                    {
+                        var existingReturn = await _context.DTFinancialPositionReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsInvestmentReturn)
+                    {
+                        var existingReturn = await _context.DTInvestmentReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsStatementOfComprehensiveIncome)
+                    {
+                        var existingReturn = await _context.DTComprehensiveIncomeReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsRiskClassification)
+                    {
+                        var existingReturn = await _context.DTRiskClassificationReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                    else if (form.IsDepositReturnForm)
+                    {
+                        var existingReturn = await _context.DepositReturns
+                            .Include(c => c.Return)
+                            .FirstOrDefaultAsync(c => c.EndDate.Date == reportingEndDate.Date && c.Return.SaccoId == SaccoId && c.Return.Year == Year && c.IsAmended == false);
+
+                        hasExistingReturn = existingReturn != null;
+                        OldReturnId = existingReturn?.Return?.Id ?? string.Empty;
+                    }
+                }
+
+                // Calculate the due date based on the reporting period
+                DateTime dueDate = CalculateDueDate(reportingEndDate, form.Period.Name);
+
+                // It's an amendment if:
+                // 1. There's an existing return AND
+                // 2. The current date is after the due date
+                bool isAmendment = hasExistingReturn; //&& DateTime.Now > dueDate;
+
+                // Only return the ReturnId if it's an amendment
+                return (isAmendment, isAmendment ? OldReturnId : string.Empty);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error determining if form is an amendment");
+                // Default to false if there's an error
+                throw;
+                //return (false, string.Empty);
+            }
+        }
+
 
         private DateTime CalculateDueDate(DateTime reportingEndDate, string periodType)
         {

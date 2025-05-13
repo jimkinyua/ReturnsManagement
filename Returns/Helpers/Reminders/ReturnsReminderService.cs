@@ -1,7 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DocumentFormat.OpenXml.InkML;
+using iTextSharp.text.log;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Returns.DTOs.Forms;
 using Returns.Helpers.Interfaces;
+using Returns.Models;
 using Returns.Models.Data;
 using System;
 using System.Reflection.Metadata;
@@ -14,6 +17,8 @@ namespace Returns.Helpers.Reminders
         private readonly IEmailService _mail;
         private readonly ILogger<ReturnsReminderService> _log;
         private readonly IComplianceService complianceService;
+        private readonly FormProcessingService _formProcessor;
+
 
         public ReturnsReminderService( ReturnsDbContext db, IEmailService mail, ILogger<ReturnsReminderService> log, IComplianceService complianceService)
         {
@@ -21,18 +26,19 @@ namespace Returns.Helpers.Reminders
             _mail = mail;
             _log = log;
             this.complianceService = complianceService;
+            _formProcessor = new FormProcessingService(_context, _log);
         }
-    
-        public  void SendRemindersAsync(CancellationToken ct)
+
+        public async Task SendRemindersAsync(CancellationToken ct)
         {
 
-            var allSaccos = complianceService.GetAllSaccosAsync().Result;
+            var allSaccos =  await complianceService.GetAllSaccosAsync();
 
             // 2. Send each one a polite nudge
             foreach (var sacco in allSaccos)
             {
 
-              /*  var FormsForThisSacco = await _context.ReturnForms
+                var FormsForThisSacco = await _context.ReturnForms
                  .Where(x => x.SaccoTypeId == sacco.SaccoType)
                  .Include(f => f.Period)
                  .ToListAsync();
@@ -43,47 +49,34 @@ namespace Returns.Helpers.Reminders
                     {
                         (DateTime reportingStartDate, DateTime reportingEndDate) = ReturnsHelper.GetReportingPeriod(form, DateTime.Now);
 
-                        DateTime dueDate = ReturnsHelper.GetDueDate(form, reportingEndDate);
-                        if (sacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                       var Result = await _formProcessor.IsThereAnyExistingReturn(form, reportingEndDate, sacco.SaccoType, sacco.Id);
+                        if (!Result.ReturnExists)
                         {
-                            if (form.IsCapitalAdequencyForm)
-                            {
-                                var capitalAdequacyReturn = await _context.DTCapitalAdequacyReturns.Where(x => x.EndDate.Date == reportingEndDate.Date).FirstOrDefaultAsync();
+                            var body = $"""
+                            Dear {sacco.SaccoName} Team,
 
-                                if (capitalAdequacyReturn != null)
-                                {
-                                    continue; 
-                                }
-                            }
-                        }
-                        else
-                        {
+                            Our records show we have not yet received your {form.FormName} return for the period {reportingStartDate:dd/MM/yyyy} – {reportingEndDate:dd/MM/yyyy}.  
+                            Please log in to the portal and submit the return at your earliest convenience to avoid penalties.
 
-                        }
-                     
-                     
-                    }
-                }*/
+                            Thank you for your prompt attention.
 
-
-                        var body = $"""
-                            Dear {sacco.SaccoName} team,
-
-                            Our records show we have not received your returns for {DateTime.Now.Month.ToString()}.
-                            Please log into the portal and file them at your earliest convenience
-                            to avoid penalties.
-
-                            Thank you,
                             Compliance Desk
                             """;
 
-                _mail.SendEmailAsync(
-                   sacco.OfficialSaccoEmail,
-                   $"Reminder: submit your  returns",
-                   body.Replace("\n", "<br/>")
-                   );
+                            await _mail.SendEmailAsync(
+                               sacco.OfficialSaccoEmail,
+                               $"Reminder: submit your  returns",
+                               body.Replace("\n", "<br/>")
+                               );
 
-                _log.LogInformation("Reminder sent to {Sacco}", sacco.SaccoName);
+                            _log.LogInformation("Reminder sent to {Sacco}", sacco.SaccoName);
+                        }
+
+                    }
+                }
+
+
+      
             }
 
             _log.LogInformation("Returns-reminder run complete – {Count} email(s) sent.", allSaccos.Count);

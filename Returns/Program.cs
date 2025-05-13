@@ -88,6 +88,11 @@ internal class Program
         builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
         builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
         builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
+
+        //builder.Services.AddScoped<FormProcessingService>();    
+        //builder.Services.AddScoped<ReturnsReminderService>();
+        builder.Services.AddLogging();
+
         //builder.Services.AddTransient<IPdfReportService, PdfReportService>();
     }
 
@@ -130,10 +135,16 @@ internal class Program
 
         // Schedule recurring jobs
         RecurringJob.AddOrUpdate<ReturnsReminderService>(
-            "returns-reminder",
-            job => job.SendRemindersAsync(CancellationToken.None),
-            "0 9 5-31 * *",
-            queue: "reminders");
+            recurringJobId: "returns-reminder-dev",
+            methodCall: s => s.SendRemindersAsync(CancellationToken.None),
+            cronExpression: Cron.MinuteInterval(5),
+            options: new RecurringJobOptions
+            {
+                TimeZone = TimeZoneInfo.Local,           // or FindSystemTimeZoneById("E. Africa Standard Time")
+                QueueName = "reminders"                  // still works up to 1.8.x
+            });
+
+
 
         app.UseCors("ALLOWED_ROUTES");
         app.UseSwagger();
