@@ -679,6 +679,7 @@ namespace Returns.Helpers
                 }
                 await _context.DTCapitalAdequacyReturns.AddAsync(capitalAdequacy);
                 await _context.SaveChangesAsync();
+
             }
             catch (Exception)
             {

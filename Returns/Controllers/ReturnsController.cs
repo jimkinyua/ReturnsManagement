@@ -496,6 +496,58 @@ namespace Returns.Controllers
                 var WorkFlowResult = await _workflowService.StartWorkflowAsync(PreviousReturnDetails, ratingResult.OverallRating);
                 
                 await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
+                // Loop thru the Forms, Check If nay is late then send an Email saying the same 
+                foreach (var form in createFormDTO.FormUploads)
+                {
+                    if (form.formFile == null) continue;
+                    var formDetails = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
+                    var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
+                    if (formDetails != null)
+                    {
+                        (DateTime reportingStartDate, DateTime reportingEndDate) = ReturnsHelper.GetReportingPeriod(formDetails, DateTime.Now);
+
+                        DateTime dueDate = ReturnsHelper.GetDueDate(formDetails, reportingEndDate);
+
+                        // is today after due date?
+                        if (DateTime.Now > dueDate)
+                        {
+                            var subject = $"Late Submission – {formDetails.FormName} Return";
+
+                            var body = $"""
+                            Dear {SaccoDetails.SaccoName} Team,
+
+                            Thank you for submitting your **{formDetails.FormName}** return.  
+                            Please note that it was received **after the statutory deadline**.  
+                            Under the Regulations, late submissions may attract penalties or additional supervisory follow-up.
+
+                            Kindly ensure future returns are lodged on or before their due dates to remain in full compliance.
+
+                            Regards,
+
+                            Compliance Desk
+                            """;
+
+                            _ = _emailService
+                            .SendEmailAsync(
+                                SaccoDetails.OfficialSaccoEmail,
+                                subject,
+                                body)
+                            .ContinueWith(t =>
+                            {
+                                if (t.IsFaulted)
+                                {
+                                    _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                                }
+                                else
+                                {
+                                    _logger.LogInformation("Validation-report email sent successfully.");
+                                }
+                            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                        }
+                       
+
+                    }
+                }
                 return Ok(processingMessages);
             }
             catch (Exception ex)
