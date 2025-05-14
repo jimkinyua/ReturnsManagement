@@ -15,9 +15,16 @@ using static Returns.Helpers.ExcelService;
 
 namespace Returns.Helpers
 {
-    public static class ReturnsHelper
+    public  class ReturnsHelper
     {
-        public static bool AreAllFormsPresent(params object[] forms)
+        private readonly ReturnsDbContext _context;
+
+        public ReturnsHelper(ReturnsDbContext context)
+        {
+            _context = context;
+        }
+
+        public  bool AreAllFormsPresent(params object[] forms)
         {
             return forms.All(form => form != null);
         }
@@ -27,7 +34,7 @@ namespace Returns.Helpers
             public string Label { get; set; } = null!;
             public int Value { get; set; }
         }
-        public static bool CheckLateReturns(Return returnItem)
+        public  bool CheckLateReturns(Return returnItem)
         {
             var TotalLateReturns = CountLateReturns(returnItem);
             if (TotalLateReturns > 0)
@@ -37,12 +44,11 @@ namespace Returns.Helpers
             return false;
         }
 
-        public static async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync(Return returnEntity)
+        public  async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync(Return returnEntity)
         {
-            using var db = new ReturnsDbContext();
 
             // 1. Load Id → (PreviousVersionId, VersionNumber) for this Sacco+Type+Year
-            var lookups = (await db.Returns
+            var lookups = (await _context.Returns
                 .AsNoTracking()
                 .Where(r =>
                     r.SaccoId == returnEntity.SaccoId &&
@@ -78,7 +84,7 @@ namespace Returns.Helpers
 
 
 
-        public static int CountPopulatedReturns(Return returnItem)
+        public  int CountPopulatedReturns(Return returnItem)
         {
             int count = 0;
 
@@ -94,7 +100,7 @@ namespace Returns.Helpers
             return count;
         }
 
-        public static int CountLateReturns(Return returnItem)
+        public  int CountLateReturns(Return returnItem)
         {
             int count = 0;
 
@@ -108,7 +114,7 @@ namespace Returns.Helpers
 
             return count;
         }
-        public static int CountPopulatedReturnsNWDT(Return returnItem)
+        public  int CountPopulatedReturnsNWDT(Return returnItem)
         {
             int count = 0;
 
@@ -124,7 +130,7 @@ namespace Returns.Helpers
             return count;
         }
 
-        public static int CountLateReturnsNWDT(Return returnItem)
+        public  int CountLateReturnsNWDT(Return returnItem)
         {
             int count = 0;
 
@@ -140,7 +146,7 @@ namespace Returns.Helpers
             return count;
         }
 
-        public static bool CheckLateReturnsNWDT(Return returnItem)
+        public  bool CheckLateReturnsNWDT(Return returnItem)
         {
             var TotalLateReturns = CountLateReturnsNWDT(returnItem);
             if (TotalLateReturns > 0)
@@ -163,7 +169,7 @@ namespace Returns.Helpers
 
                return (isCapitalAdequacyLate, isLiquidityReturnLate, isRiskClassificationLate, isInvestmentReturnLate, isStatementOfFinancialPositionLate, isStatementOfComprehensiveIncomeLate, isSaccoAnalysisLate, isDepositReturnLate);
            }*/
-        public static (int CapitalAdequacyDaysLate, int LiquidityReturnDaysLate, int RiskClassificationDaysLate, int InvestmentReturnDaysLate, int StatementOfFinancialPositionDaysLate, int StatementOfComprehensiveIncomeDaysLate, int SaccoAnalysisDaysLate, int DepositReturnDaysLate) CalculateDaysLateForChildren(Return returnItem)
+        public  (int CapitalAdequacyDaysLate, int LiquidityReturnDaysLate, int RiskClassificationDaysLate, int InvestmentReturnDaysLate, int StatementOfFinancialPositionDaysLate, int StatementOfComprehensiveIncomeDaysLate, int SaccoAnalysisDaysLate, int DepositReturnDaysLate) CalculateDaysLateForChildren(Return returnItem)
         {
             int capitalAdequacyDaysLate = returnItem.CapitalAdequencies.Any() ? HowLate(returnItem.CapitalAdequencies.First().CreatedAt, returnItem.ReturnFor) : 0;
             int liquidityReturnDaysLate = returnItem.LiquidityReturns.Any() ? HowLate(returnItem.LiquidityReturns.First().CreatedAt, returnItem.ReturnFor) : 0;
@@ -178,13 +184,13 @@ namespace Returns.Helpers
         }
 
 
-        public static int HowLate(DateTime submittedAt, DateTime returnFor)
+        public  int HowLate(DateTime submittedAt, DateTime returnFor)
         {
             TimeSpan difference = submittedAt - returnFor;
             return difference.Days > 0 ? difference.Days : 0;
         }
 
-        private static DateTime CalculateDueDate(DateTime reportingEndDate, string periodType)
+        private  DateTime CalculateDueDate(DateTime reportingEndDate, string periodType)
         {
             switch (periodType)
             {
@@ -240,7 +246,7 @@ namespace Returns.Helpers
         }
 
 
-        public static int CalculateDaysLate(ReturnForm form, DateTime currentDate, DateTime EndDate)
+        public  int CalculateDaysLate(ReturnForm form, DateTime currentDate, DateTime EndDate)
         {
             var periodName = form.Period.Name;
             DateTime dueDate = CalculateDueDate(EndDate, form.Period.Name);
@@ -253,14 +259,13 @@ namespace Returns.Helpers
             return daysLate > 0 ? daysLate : 0;
         }
 
-        public static bool HasValidUploads(NewReturnDTO createFormDTO)
+        public  bool HasValidUploads(NewReturnDTO createFormDTO)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
 
             return createFormDTO.FormUploads != null && createFormDTO.FormUploads.Any(f => f.formFile != null);
         }
 
-        public static DateTime GetDueDate(ReturnForm form, DateTime reportingPeriodEndDate)
+        public  DateTime GetDueDate(ReturnForm form, DateTime reportingPeriodEndDate)
         {
             if (reportingPeriodEndDate == DateTime.MinValue)
             {
@@ -330,7 +335,7 @@ namespace Returns.Helpers
             }
         }
 
-        public static (DateTime start, DateTime end) GetReportingPeriod(ReturnForm form, DateTime currentDate)
+        public  (DateTime start, DateTime end) GetReportingPeriod(ReturnForm form, DateTime currentDate)
         {
             var periodName = form.Period.Name;
 
@@ -434,7 +439,7 @@ namespace Returns.Helpers
             }
         }
 
-        public static bool IsFormDueForSubmission(ReturnForm form, DateTime currentDate)
+        public  bool IsFormDueForSubmission(ReturnForm form, DateTime currentDate)
         {
             var periodName = form.Period.Name;
 
@@ -487,11 +492,10 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public  async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
 
                 var Form1Statement = ExcelService.ImportCapitalAdequacyRows(file, _logger);
                 if (Form1Statement == null || !Form1Statement.Rows.Any())
@@ -507,31 +511,30 @@ namespace Returns.Helpers
                 string EffectiveReturnId = returnId;
                 string PreviousReturnId = string.Empty;
                 DTCapitalAdequacyReturn? capitalAdequacy = null;
+                capitalAdequacy = new DTCapitalAdequacyReturn
+                {
+                    ReturnId = returnId,
+                    FilePath = Path,
+                    Year = Form1Statement.Period,
+                    StartDate = Form1Statement.StartDate,
+                    EndDate = Form1Statement.EndDate,
+                    Frequency = form.Period.Name,
+                    DaysLateBy = DaysLateBy,
+                    SaccoCsNumber = Form1Statement.SaccoCsNumber,
+                };
+
                 if (!IsAmendMent)
                 {
-                    capitalAdequacy = new DTCapitalAdequacyReturn
-                    {
-                        ReturnId = returnId,
-                        FilePath = Path,
-                        Year = Form1Statement.Period,
-                        StartDate = Form1Statement.StartDate,
-                        EndDate = Form1Statement.EndDate,
-                        Frequency = form.Period.Name,
-                        DaysLateBy = DaysLateBy,
-                        IsCurrent = true,
-                        IsAmended = false,
-                        SaccoCsNumber = Form1Statement.SaccoCsNumber,
-                    };
+                    capitalAdequacy.PreviousReturnId = null;
+                    capitalAdequacy.IsCurrent = true;
+                    capitalAdequacy.IsAmended = false;
                 }
                 else
                 {
-                    capitalAdequacy = await _context.DTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
-                    if (capitalAdequacy == null)
+                    if (!string.IsNullOrWhiteSpace(PreviousReturnId))
                     {
-                        throw new Exception(
-                            "Not Fond");
+                        capitalAdequacy.PreviousReturnId = PreviousReturnId;
                     }
-                    capitalAdequacy.PreviousReturnId = PreviousReturnId;
                     capitalAdequacy.IsCurrent = false;
                     capitalAdequacy.IsAmended = true;
                 }
@@ -688,11 +691,10 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessInsiderLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
+        public  async Task ProcessInsiderLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
 
                 var ImportedLendingReport = ExcelService.ImportInsiderLendingReport(file, _logger);
                 if (ImportedLendingReport == null)
@@ -807,12 +809,12 @@ namespace Returns.Helpers
 
 
 
-        public static async Task ProcessDailyLiquidityForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
+        public  async Task ProcessDailyLiquidityForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
         {
             try
             {
 
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
 
                 // Import the Excel data using the ExcelService
                 var liquidityData = ExcelService.ImportDailyLiquidityRows(file, _logger);
@@ -943,9 +945,9 @@ namespace Returns.Helpers
 
 
 
-        public static async Task<List<string>> GetMissingRequiredFormsAsync(NewReturnDTO createFormDTO, string SaccoType)
+        public  async Task<List<string>> GetMissingRequiredFormsAsync(NewReturnDTO createFormDTO, string SaccoType)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
 
             var forms = await _context.ReturnForms.ToListAsync();
             // List any form flagged as required
@@ -971,9 +973,9 @@ namespace Returns.Helpers
             return missingForms;
         }
 
-        public static async Task ValidateUploadedForms(NewReturnDTO createFormDTO)
+        public  async Task ValidateUploadedForms(NewReturnDTO createFormDTO)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
 
             // Get all required forms for this Sacco type
             var requiredForms = await _context.ReturnForms
@@ -1020,9 +1022,9 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task NWDTValidateUploadedForms(NWDTNewReturnDTO createFormNWDTDTO)
+        public  async Task NWDTValidateUploadedForms(NWDTNewReturnDTO createFormNWDTDTO)
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
 
             // Get all required forms for this Sacco type
             var requiredForms = await _context.ReturnForms
@@ -1068,9 +1070,9 @@ namespace Returns.Helpers
                 );
             }
         }
-        public static async Task ProcessForm2B(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public  async Task ProcessForm2B(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
             try
             {
                 _logger.LogInformation($"Processing Form 2B for return ID: {returnId}");
@@ -1191,7 +1193,7 @@ namespace Returns.Helpers
         }
 
         // Helper method to extract value after colon in strings like "Name of Sacco Society: ABCD"
-        private static string GetStringValueAfterColon(string text)
+        private  string GetStringValueAfterColon(string text)
         {
             if (string.IsNullOrEmpty(text) || !text.Contains(":"))
                 return string.Empty;
@@ -1200,11 +1202,11 @@ namespace Returns.Helpers
         }
 
 
-        public static async Task ProcessLiquidityForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        public  async Task ProcessLiquidityForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
 
                 var form2 = ExcelService.ImportLiquidityStatementRows(formFile, _logger);
                 if (form2.Rows == null || !form2.Rows.Any())
@@ -1306,11 +1308,11 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessDepositReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        public  async Task ProcessDepositReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
                 var form3 = ExcelService.ImportDepositRangeDataRows(formFile, _logger);
                 var rows = form3.Rows;
                 if (rows == null || !rows.Any())
@@ -1348,9 +1350,9 @@ namespace Returns.Helpers
         }
 
 
-        public static async Task ProcessForm2C(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public  async Task ProcessForm2C(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
             var form2CData = ExcelService.ImportForm2CDataRows(formFile, _logger);
             if (form2CData.Rows == null || !form2CData.Rows.Any())
             {
@@ -1408,7 +1410,7 @@ namespace Returns.Helpers
             await _context.SaveChangesAsync();
         }
 
-        public static async Task ProcessForm2D(IFormFile formFile, string returnId, ILogger logger, ReturnForm form, bool isAmendment, string prevId = "")
+        public  async Task ProcessForm2D(IFormFile formFile, string returnId, ILogger logger, ReturnForm form, bool isAmendment, string prevId = "")
         {
             try
             {
@@ -1492,11 +1494,11 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessRiskClassificationForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        public  async Task ProcessRiskClassificationForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
                 var form4 = ExcelService.ImportRiskClassificationRows(formFile, _logger);
                 var rows = form4.Rows;
                 if (rows == null || !rows.Any())
@@ -1535,11 +1537,11 @@ namespace Returns.Helpers
             }
         }
 
-        internal static async Task ProcessInvestmentReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        internal  async Task ProcessInvestmentReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
                 var form5 = ExcelService.ImportInvestmentRows(formFile, _logger);
                 var rows = form5.Rows;
                 if (rows == null || !rows.Any())
@@ -1618,9 +1620,9 @@ namespace Returns.Helpers
         }
 
 
-        internal static async Task ProcessForm2E(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
+        internal  async Task ProcessForm2E(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
             var Form2E = ExcelService.ImportForm2ERows(formFile, _logger);
             if (Form2E.Rows == null || !Form2E.Rows.Any())
             {
@@ -1763,11 +1765,11 @@ namespace Returns.Helpers
             await _context.SaveChangesAsync();
         }
 
-        public static async Task ProcessFinancialPositionForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        public  async Task ProcessFinancialPositionForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
 
                 var form6 = ExcelService.ImportFinancialPositionRows(formFile, _logger);
                 var rows = form6.Rows;
@@ -1919,9 +1921,9 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessForm2A(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public  async Task ProcessForm2A(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
             try
             {
                 _logger.LogInformation($"Processing Form 2A for return ID: {returnId}");
@@ -2097,9 +2099,9 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessForm2F(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
+        public  async Task ProcessForm2F(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
             try
             {
                 _logger.LogInformation($"Processing Form 2F for return ID: {returnId}");
@@ -2272,9 +2274,9 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessForm2G(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
+        public  async Task ProcessForm2G(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
         {
-            ReturnsDbContext _context = new ReturnsDbContext();
+            
             try
             {
                 _logger.LogInformation($"Processing Form 2G for return ID: {returnId}");
@@ -2480,11 +2482,11 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessComprehensiveIncomeForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form)
+        public  async Task ProcessComprehensiveIncomeForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form)
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
                 var form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(file, _logger);
                 var rows = form7.Rows;
                 if (rows == null || !rows.Any())
@@ -2603,11 +2605,11 @@ namespace Returns.Helpers
             }
         }
 
-        public static async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "", string SaccoType="")
+        public  async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "", string SaccoType="")
         {
             try
             {
-                ReturnsDbContext _context = new ReturnsDbContext();
+                
                 var ImportedSectoralReport = ExcelService.ImportSectoralLendingReport(file, _logger, SaccoType);
                 var DaysLateBy = CalculateDaysLate(form, DateTime.Now, ImportedSectoralReport.EndDate);
                 var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
@@ -2757,7 +2759,7 @@ namespace Returns.Helpers
                 throw ;
             }
         }
-        public static (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriodNWDT(
+        public  (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriodNWDT(
            Form2AStatement? capital_adequacy_form1,
            Form2BStatement? liquidityStatement_form_2,
            Form2CStatement? depositreturn_form_3,
@@ -2811,7 +2813,7 @@ namespace Returns.Helpers
         }
 
 
-        public static (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriod(
+        public  (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriod(
     Form1Statement? capital_adequacy_form1,
     Form2Statement? liquidityStatement_form_2,
     Form3Statement? depositreturn_form_3,

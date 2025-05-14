@@ -352,6 +352,7 @@ namespace Returns.Helpers
                 {
                     // Mark the current return as inactive
                     OldReturn.IsActiveVersion = false;
+                    OldReturn.AmendmentDate = DateTime.Now;
                     _context.Returns.Update(OldReturn);
 
                     /*var newReturn = new Return
@@ -733,7 +734,7 @@ namespace Returns.Helpers
                             IsAmended = false  // Will be set to true later if this form is amended
                         };
 
-                        await _context.DTRiskClassificationReturns.AddAsync(OldItem);
+                        //await _context.DTRiskClassificationReturns.AddAsync(OldItem);
                         OldItem.IsCurrent = false;
                         OldItem.IsAmended = true;
                         _context.DTRiskClassificationReturns.Update(OldItem);
@@ -2289,6 +2290,7 @@ namespace Returns.Helpers
 
         private async Task<(bool Success, string Message)> ProcessFormByType(IFormFile formFile, ReturnForm form, string returnId, string saccoType, Boolean IsAmendMent, string PrevReturnId = "")
         {
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
             try
             {
                 // Check if this is a Deposit Taking SACCO
@@ -2308,34 +2310,34 @@ namespace Returns.Helpers
                     switch (formType)
                     {
                         case "CapitalAdequacy":
-                            await ReturnsHelper.ProcessCapitalAdequacyForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessCapitalAdequacyForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "Liquidity":
-                            await ReturnsHelper.ProcessLiquidityForm(formFile, returnId, _logger, form);
+                            await returnsHelper.ProcessLiquidityForm(formFile, returnId, _logger, form);
                             break;
                         case "DepositReturn":
-                            await ReturnsHelper.ProcessDepositReturnForm(formFile, returnId, _logger, form);
+                            await returnsHelper.ProcessDepositReturnForm(formFile, returnId, _logger, form);
                             break;
                         case "RiskClassification":
-                            await ReturnsHelper.ProcessRiskClassificationForm(formFile, returnId, _logger, form);
+                            await returnsHelper.ProcessRiskClassificationForm(formFile, returnId, _logger, form);
                             break;
                         case "Investment":
-                            await ReturnsHelper.ProcessInvestmentReturnForm(formFile, returnId, _logger, form);
+                            await returnsHelper.ProcessInvestmentReturnForm(formFile, returnId, _logger, form);
                             break;
                         case "FinancialPosition":
-                            await ReturnsHelper.ProcessFinancialPositionForm(formFile, returnId, _logger, form);
+                            await returnsHelper.ProcessFinancialPositionForm(formFile, returnId, _logger, form);
                             break;
                         case "ComprehensiveIncome":
-                            await ReturnsHelper.ProcessComprehensiveIncomeForm(formFile, returnId, _logger, form);
+                            await returnsHelper.ProcessComprehensiveIncomeForm(formFile, returnId, _logger, form);
                             break;
                         case "SectoralLending":
-                            await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId, saccoType);
+                            await returnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId, saccoType);
                             break;
                         case "DailyLiquidity":
-                            await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "InsiderLending":
-                            await ReturnsHelper.ProcessInsiderLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessInsiderLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         default:
                             return (false, $"No processor found for form type: {formType}");
@@ -2347,34 +2349,34 @@ namespace Returns.Helpers
                     switch (formType)
                     {
                         case "CapitalAdequacy":
-                            await ReturnsHelper.ProcessForm2A(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessForm2A(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "Liquidity":
-                            await ReturnsHelper.ProcessForm2B(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessForm2B(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "DepositReturn":
-                            await ReturnsHelper.ProcessForm2C(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessForm2C(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "RiskClassification":
-                            await ReturnsHelper.ProcessForm2D(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessForm2D(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "Investment":
-                            await ReturnsHelper.ProcessForm2E(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessForm2E(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "FinancialPosition":
-                            await ReturnsHelper.ProcessForm2G(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessForm2G(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "ComprehensiveIncome":
-                            await ReturnsHelper.ProcessForm2F(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessForm2F(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "SectoralLending":
-                           await ReturnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId, saccoType);
+                           await returnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId, saccoType);
                             break;
                         case "DailyLiquidity":
-                            await ReturnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         case "InsiderLending":
-                            await ReturnsHelper.ProcessInsiderLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            await returnsHelper.ProcessInsiderLendingForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
                         default:
                             return (false, $"No processor found for form type: {formType}");

@@ -209,7 +209,7 @@ namespace Returns.Controllers
         {
             var processingSummary = new List<string>();
             List<ValidationError> ConsistencyErrors = new List<ValidationError>();
-
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
 
             // Check for attachments
             if (createFormNWDTDTO.FormUploads == null ||
@@ -219,7 +219,7 @@ namespace Returns.Controllers
                 throw new Exception("No attachments found. Please attach at least one form");
             }
 
-            // await ReturnsHelper.NWDTValidateUploadedForms(createFormNWDTDTO);
+            // await returnsHelper.NWDTValidateUploadedForms(createFormNWDTDTO);
 
             // Initialize form data holders
             List<CapitalAdequacyRow> capital_adequacy_form1 = null;
@@ -363,7 +363,7 @@ namespace Returns.Controllers
                 }
             }
 
-            var red = ReturnsHelper.AreAllFormsInSamePeriodNWDT(form1Statement, Form2, Form3, form4, Form5, form6, form7);
+            var red = returnsHelper.AreAllFormsInSamePeriodNWDT(form1Statement, Form2, Form3, form4, Form5, form6, form7);
 
             if (!red.IsValid)
             {
@@ -374,7 +374,7 @@ namespace Returns.Controllers
 
 
             bool isValid = true;
-            if (ReturnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
+            if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
                 riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
                 comprehensiveStatement_form7))
             {
@@ -418,8 +418,8 @@ namespace Returns.Controllers
         [HttpPost("FileReturns")]
         public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
         {
-         
 
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
             try
             {
                 var processingSummary = new List<string>();
@@ -433,7 +433,7 @@ namespace Returns.Controllers
                 }
 
 
-                if (!ReturnsHelper.HasValidUploads(createFormDTO))
+                if (!returnsHelper.HasValidUploads(createFormDTO))
                 {
                     return BadRequest("No attachments found. Please attach at least one form.");
                 }
@@ -547,9 +547,9 @@ namespace Returns.Controllers
                     var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
                     if (formDetails != null)
                     {
-                        (DateTime reportingStartDate, DateTime reportingEndDate) = ReturnsHelper.GetReportingPeriod(formDetails, DateTime.Now);
+                        (DateTime reportingStartDate, DateTime reportingEndDate) = returnsHelper.GetReportingPeriod(formDetails, DateTime.Now);
 
-                        DateTime dueDate = ReturnsHelper.GetDueDate(formDetails, reportingEndDate);
+                        DateTime dueDate = returnsHelper.GetDueDate(formDetails, reportingEndDate);
 
                         // is today after due date?
                         if (DateTime.Now > dueDate)
@@ -627,6 +627,7 @@ namespace Returns.Controllers
         [HttpGet("GetSubmittedReturns")]
         public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedReturns() 
         {
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
             // 1. Load active assignments + their Returns
             var activeAssignments = await _context.ReturnsAssigments
                 .Include(a => a.Return)
@@ -710,9 +711,9 @@ namespace Returns.Controllers
                     ConsistentErrorMessage = r.ConsistentErrorMessage,
                     SaccoName = r.SaccoName,
                     SubmittedAt = r.SubmittedAt,
-                    LateNessStatus = ReturnsHelper.CheckLateReturns(r) ? "Late" : "On Time",
-                    TotalReturns = ReturnsHelper.CountPopulatedReturns(r),
-                    TotalLateReturns = ReturnsHelper.CountLateReturns(r),
+                    LateNessStatus = returnsHelper.CheckLateReturns(r) ? "Late" : "On Time",
+                    TotalReturns = returnsHelper.CountPopulatedReturns(r),
+                    TotalLateReturns = returnsHelper.CountLateReturns(r),
                     VersionNumber = r.VersionNumber,
                     PreviousVersionIds = chain
                 });
@@ -729,6 +730,7 @@ namespace Returns.Controllers
             {
                 return StatusCode(401);
             }
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
 
             // 1. Load active assignments + their Returns
             var activeAssignments = await _context.Returns
@@ -812,9 +814,9 @@ namespace Returns.Controllers
                     ConsistentErrorMessage = r.ConsistentErrorMessage,
                     SaccoName = r.SaccoName,
                     SubmittedAt = r.SubmittedAt,
-                    LateNessStatus = ReturnsHelper.CheckLateReturns(r) ? "Late" : "On Time",
-                    TotalReturns = ReturnsHelper.CountPopulatedReturns(r),
-                    TotalLateReturns = ReturnsHelper.CountLateReturns(r),
+                    LateNessStatus = returnsHelper.CheckLateReturns(r) ? "Late" : "On Time",
+                    TotalReturns = returnsHelper.CountPopulatedReturns(r),
+                    TotalLateReturns = returnsHelper.CountLateReturns(r),
                     VersionNumber = r.VersionNumber,
                     PreviousVersionIds = chain
                 });
@@ -827,11 +829,14 @@ namespace Returns.Controllers
         [HttpGet("GetSubmittedNWDTReturnsForSacco")]
         public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedNWDTReturnsForSacco()
         {
+
             var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
             {
                 return StatusCode(401);
             }
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+
             // 1. Load all active NWDT assignments (one DB call)
             var activeAssignments = await _context.Returns
                 .Where(a =>
@@ -905,7 +910,7 @@ namespace Returns.Controllers
                     currentId = prevId;
                 }
 
-                var isAnyLate = ReturnsHelper.CheckLateReturnsNWDT(r);
+                var isAnyLate = returnsHelper.CheckLateReturnsNWDT(r);
 
                 results.Add(new SubmittedReturnDTO
                 {
@@ -917,8 +922,8 @@ namespace Returns.Controllers
                     SaccoName = r.SaccoName,
                     SubmittedAt = r.SubmittedAt,
                     LateNessStatus = isAnyLate ? "Late" : "On Time",
-                    TotalReturns = ReturnsHelper.CountPopulatedReturnsNWDT(r),
-                    TotalLateReturns = ReturnsHelper.CountLateReturnsNWDT(r),
+                    TotalReturns = returnsHelper.CountPopulatedReturnsNWDT(r),
+                    TotalLateReturns = returnsHelper.CountLateReturnsNWDT(r),
                     VersionNumber = r.VersionNumber,
                     PreviousVersionIds = chain
                 });
@@ -931,6 +936,8 @@ namespace Returns.Controllers
         [HttpGet("GetSubmittedNWDTReturns")]
         public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedNWDTReturns()
         {
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+
             // 1. Load all active NWDT assignments (one DB call)
             var activeAssignments = await _context.ReturnsAssigments
                 .Include(a => a.Return)
@@ -1005,7 +1012,7 @@ namespace Returns.Controllers
                     currentId = prevId;
                 }
 
-                var isAnyLate = ReturnsHelper.CheckLateReturnsNWDT(r);
+                var isAnyLate = returnsHelper.CheckLateReturnsNWDT(r);
 
                 results.Add(new SubmittedReturnDTO
                 {
@@ -1017,8 +1024,8 @@ namespace Returns.Controllers
                     SaccoName = r.SaccoName,
                     SubmittedAt = r.SubmittedAt,
                     LateNessStatus = isAnyLate ? "Late" : "On Time",
-                    TotalReturns = ReturnsHelper.CountPopulatedReturnsNWDT(r),
-                    TotalLateReturns = ReturnsHelper.CountLateReturnsNWDT(r),
+                    TotalReturns = returnsHelper.CountPopulatedReturnsNWDT(r),
+                    TotalLateReturns = returnsHelper.CountLateReturnsNWDT(r),
                     VersionNumber = r.VersionNumber,
                     PreviousVersionIds = chain
                 });
@@ -1034,6 +1041,8 @@ namespace Returns.Controllers
         {
             try
             {
+                ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+
                 var baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
 
                 var returnDTO = await _context.Returns
@@ -1236,7 +1245,7 @@ namespace Returns.Controllers
                         AmendmentDate = r.AmendmentDate,
                         CanReportBeViewed = r.CanReportBeViewed,
                         //PreviousVersionId = r.PreviousVersionId,
-                        PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(r).Result
+                        PreviousVersionIds = returnsHelper.GetPreviousVersionChoicesAsync(r).Result
                     })
 
                     .FirstOrDefaultAsync();
@@ -1689,6 +1698,8 @@ namespace Returns.Controllers
         {
             try
             {
+                ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+
                 var baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
 
                 // Query the main return entity
@@ -2040,7 +2051,7 @@ namespace Returns.Controllers
                     AmendmentDate = returnEntity.AmendmentDate,
                     PreviousVersionId = returnEntity.PreviousVersionId,
                     CanReportBeViewed = returnEntity.CanReportBeViewed,
-                    PreviousVersionIds = ReturnsHelper.GetPreviousVersionChoicesAsync(returnEntity).Result
+                    PreviousVersionIds = returnsHelper.GetPreviousVersionChoicesAsync(returnEntity).Result
                 };
 
                 var sectoralLendingReports = await _context.SectoralLendingReports
@@ -2397,6 +2408,7 @@ namespace Returns.Controllers
         {
             var processingSummary = new List<string>();
             List<ValidationError> ConsistencyErrors = new List<ValidationError>();
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
 
 
             // Check for attachments
@@ -2407,7 +2419,7 @@ namespace Returns.Controllers
                 throw new Exception("No attachments found. Please attach at least one form");
             }
 
-            // await ReturnsHelper.ValidateUploadedForms(createFormDTO);
+            // await returnsHelper.ValidateUploadedForms(createFormDTO);
             Form1Statement form1Statement = null;
             Form2Statement Form2 = null;
             Form3Statement Form3 = null;
@@ -2550,7 +2562,7 @@ namespace Returns.Controllers
                 }
             }
 
-            var red = ReturnsHelper.AreAllFormsInSamePeriod(
+            var red = returnsHelper.AreAllFormsInSamePeriod(
              form1Statement,
              Form2,
              Form3,
@@ -2568,7 +2580,7 @@ namespace Returns.Controllers
 
 
             bool isValid = true;
-            if (ReturnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
+            if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
                 riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
                 comprehensiveStatement_form7))
             {

@@ -31,6 +31,7 @@ namespace Returns.Helpers.Reminders
 
         public async Task SendRemindersAsync(CancellationToken ct)
         {
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
 
             var allSaccos =  await complianceService.GetAllSaccosAsync();
 
@@ -45,9 +46,9 @@ namespace Returns.Helpers.Reminders
 
                 foreach (var form in FormsForThisSacco)
                 {
-                    if (ReturnsHelper.IsFormDueForSubmission(form, DateTime.Now))
+                    if (returnsHelper.IsFormDueForSubmission(form, DateTime.Now))
                     {
-                        (DateTime reportingStartDate, DateTime reportingEndDate) = ReturnsHelper.GetReportingPeriod(form, DateTime.Now);
+                        (DateTime reportingStartDate, DateTime reportingEndDate) = returnsHelper.GetReportingPeriod(form, DateTime.Now);
 
                        var Result = await _formProcessor.IsThereAnyExistingReturn(form, reportingEndDate, sacco.SaccoType, sacco.Id);
                         if (!Result.ReturnExists)

@@ -134,6 +134,7 @@ namespace Returns.Controllers
             {
             try
             {
+                ReturnsHelper returnsHelper = new ReturnsHelper(_context);
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
@@ -150,11 +151,11 @@ namespace Returns.Controllers
 
                 foreach (var form in allForms)
                 {
-                    if (ReturnsHelper.IsFormDueForSubmission(form, requestDate))
+                    if (returnsHelper.IsFormDueForSubmission(form, requestDate))
                     {
-                        (DateTime reportingStartDate, DateTime reportingEndDate) = ReturnsHelper.GetReportingPeriod(form, requestDate);
+                        (DateTime reportingStartDate, DateTime reportingEndDate) = returnsHelper.GetReportingPeriod(form, requestDate);
 
-                        DateTime dueDate = ReturnsHelper.GetDueDate(form, reportingEndDate);
+                        DateTime dueDate = returnsHelper.GetDueDate(form, reportingEndDate);
 
                         var formDto = new FormsToSubmitDTO
                         {
