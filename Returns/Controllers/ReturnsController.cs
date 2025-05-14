@@ -136,44 +136,44 @@ namespace Returns.Controllers
                         if (!isValid)
                         {
                             string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
-                            //var pdfReport = ReportsHelper.GeneratePdfReport(ConsistencyErrors, CommonPeriod);
+                            byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
 
                             _ = _emailService
-                            .SendEmailAsync(
-                                SaccoDetails.OfficialSaccoEmail,
-                                "Validation Report - Consistency Errors",
-                                htmlReport)
-                            .ContinueWith(t =>
+                      .SendEmailAsync(
+                          SaccoDetails.OfficialSaccoEmail,
+                          "Validation Report - Consistency Errors",
+                          htmlReport)
+                      .ContinueWith(t =>
+                      {
+                          if (t.IsFaulted)
+                          {
+                              _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                          }
+                          else
+                          {
+                              _logger.LogInformation("Validation-report email sent successfully.");
+                          }
+                      }, TaskContinuationOptions.OnlyOnRanToCompletion);
+
+
+                            _ = Task.Run(async () =>
                             {
-                                if (t.IsFaulted)
+                                try
                                 {
-                                    _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                                    await _emailService.SendEmailWithAttachmentAsync(
+                                        "james.kinyua@agilebiz.co.ke",
+                                        "Validation Report - Consistency Errors",
+                                        "PFA",
+                                        ConsistencyReport,
+                                        $"ValidationReport_{CommonPeriod}.pdf"
+                                    );
+                                    _logger.LogInformation("Validation-report (PDF) email sent successfully.");
                                 }
-                                else
+                                catch (Exception ex)
                                 {
-                                    _logger.LogInformation("Validation-report email sent successfully.");
+                                    _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
                                 }
-                            }, TaskContinuationOptions.OnlyOnRanToCompletion);
-
-
-                            // _ = Task.Run(async () =>
-                            // {
-                            //     try
-                            //     {
-                            //         await _emailService.SendEmailWithAttachmentAsync(
-                            //             "james@mailinator.com",
-                            //             "Validation Report (PDF) - Consistency Errors",
-                            //             htmlReport,               // you can reuse the HTML body
-                            //             pdfReport,                // the PDF bytes
-                            //             $"ValidationReport_{CommonPeriod}.pdf"
-                            //         );
-                            //         _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                            //     }
-                            //     catch (Exception ex)
-                            //     {
-                            //         _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                            //     }
-                            // });
+                            });
 
                             return BadRequest(ConsistencyErrors);
                         }
@@ -2052,7 +2052,15 @@ namespace Returns.Controllers
                 }
 
                 var reportBytes = ReportsHelper.GenerateSaccoPerformancePdfReport(report);
-                return File(reportBytes, "application/pdf", $"SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
+                var base64String = Convert.ToBase64String(reportBytes);
+
+                return Ok(new
+                {
+                    pdfData = base64String,
+                    fileName = $"SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf"
+                });
+
+                //return File(reportBytes, "application/pdf", $"SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
 
             }
             catch (System.Exception Ex)
@@ -3020,7 +3028,14 @@ namespace Returns.Controllers
                 }
 
                 var reportBytes = NWDTReportHelper.GenerateNwdtSaccoPerformancePdfReport(report);
-                return File(reportBytes, "application/pdf", $"NWDT_SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
+                var base64String = Convert.ToBase64String(reportBytes);
+                return Ok(new
+                {
+                    pdfData = base64String,
+                    fileName = $"NWDT_SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf"
+                });
+
+                // return File(reportBytes, "application/pdf", $"NWDT_SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
 
             }
             catch (System.Exception Ex)
