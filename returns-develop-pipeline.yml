@@ -196,233 +196,233 @@ stages:
                
                Write-Host "Build and push completed successfully"
 
-#  # Deploy stage 
-#  - stage: Deploy
-#    displayName: "Deploy to Windows Server"
-#    dependsOn: Build
-#    jobs:
-#      - job: DeployToServer
-#        displayName: "Deploy Using Docker Compose"
-#        pool:
-#          name: Agile-selfhosted-testpool
-#        steps:
-#          - task: Docker@2
-#            displayName: "Login to Azure Container Registry"
-#            inputs:
-#              command: login
-#              containerRegistry: "ACR_sasra_svc"
+ # Deploy stage 
+ - stage: Deploy
+   displayName: "Deploy to Windows Server"
+   dependsOn: Build
+   jobs:
+     - job: DeployToServer
+       displayName: "Deploy Using Docker Compose"
+       pool:
+         name: Agile-selfhosted-testpool
+       steps:
+         - task: Docker@2
+           displayName: "Login to Azure Container Registry"
+           inputs:
+             command: login
+             containerRegistry: "ACR_sasra_svc"
 
-#          - task: PowerShell@2
-#            displayName: "Check Docker Compose File Exists"
-#            inputs:
-#              targetType: 'inline'
-#              script: |
-#                $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
+         - task: PowerShell@2
+           displayName: "Check Docker Compose File Exists"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
                
-#                if (Test-Path $dockerComposePath) {
-#                  Write-Host "Docker Compose file found at: $dockerComposePath"
-#                } else {
-#                  Write-Error "Docker Compose file not found at: $dockerComposePath"
-#                  Write-Host "Current path: $PWD"
-#                  Write-Host "Contents of $(Split-Path $dockerComposePath):"
-#                  Get-ChildItem -Path (Split-Path $dockerComposePath) -ErrorAction SilentlyContinue
-#                  exit 1
-#                }
+               if (Test-Path $dockerComposePath) {
+                 Write-Host "Docker Compose file found at: $dockerComposePath"
+               } else {
+                 Write-Error "Docker Compose file not found at: $dockerComposePath"
+                 Write-Host "Current path: $PWD"
+                 Write-Host "Contents of $(Split-Path $dockerComposePath):"
+                 Get-ChildItem -Path (Split-Path $dockerComposePath) -ErrorAction SilentlyContinue
+                 exit 1
+               }
 
-#          - task: PowerShell@2
-#            displayName: "Update Compose File for External Network"
-#            inputs:
-#              targetType: 'inline'
-#              script: |
-#                $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
+         - task: PowerShell@2
+           displayName: "Update Compose File for External Network"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
                
-#                try {
-#                  # Read compose file content
-#                  $composeContent = Get-Content $dockerComposePath -Raw -ErrorAction Stop
+               try {
+                 # Read compose file content
+                 $composeContent = Get-Content $dockerComposePath -Raw -ErrorAction Stop
                  
-#                  # Check if networks section already has external: true
-#                  if ($composeContent -match "microservices-network:\s*\n\s*external:\s*true") {
-#                    Write-Host "Network already configured as external - no changes needed"
-#                  } else {
-#                    # Update network configuration to use external network
-#                    $networkPattern = "networks:\s*\n\s*microservices-network:(\s*\n\s*driver:\s*nat)?"
-#                    $networkReplacement = "networks:`n  microservices-network:`n    external: true"
+                 # Check if networks section already has external: true
+                 if ($composeContent -match "microservices-network:\s*\n\s*external:\s*true") {
+                   Write-Host "Network already configured as external - no changes needed"
+                 } else {
+                   # Update network configuration to use external network
+                   $networkPattern = "networks:\s*\n\s*microservices-network:(\s*\n\s*driver:\s*nat)?"
+                   $networkReplacement = "networks:`n  microservices-network:`n    external: true"
                    
-#                    if ($composeContent -match $networkPattern) {
-#                      Write-Host "Updating network configuration to use external network"
-#                      $newContent = $composeContent -replace $networkPattern, $networkReplacement
-#                      Set-Content $dockerComposePath $newContent -ErrorAction Stop
-#                      Write-Host "Network configuration updated successfully"
-#                    } else {
-#                      Write-Host "Warning: Could not find network configuration pattern to update"
-#                    }
-#                  }
+                   if ($composeContent -match $networkPattern) {
+                     Write-Host "Updating network configuration to use external network"
+                     $newContent = $composeContent -replace $networkPattern, $networkReplacement
+                     Set-Content $dockerComposePath $newContent -ErrorAction Stop
+                     Write-Host "Network configuration updated successfully"
+                   } else {
+                     Write-Host "Warning: Could not find network configuration pattern to update"
+                   }
+                 }
                  
-#                  # Update image reference to latest build
-#                  $composeContent = Get-Content $dockerComposePath -Raw -ErrorAction Stop
-#                  $imagePattern = "tntdev\.azurecr\.io/sasra-returns:.*"
-#                  if ($composeContent -match $imagePattern) {
-#                    Write-Host "Found image reference to update"
-#                    $newContent = $composeContent -replace $imagePattern, "$(IMAGE_NAME):$(IMAGE_TAG)"
-#                    Set-Content $dockerComposePath $newContent -ErrorAction Stop
-#                    Write-Host "Image reference updated successfully"
-#                  } else {
-#                    Write-Host "Warning: Image reference pattern not found in compose file"
-#                  }
+                 # Update image reference to latest build
+                 $composeContent = Get-Content $dockerComposePath -Raw -ErrorAction Stop
+                 $imagePattern = "tntdev\.azurecr\.io/sasra-returns:.*"
+                 if ($composeContent -match $imagePattern) {
+                   Write-Host "Found image reference to update"
+                   $newContent = $composeContent -replace $imagePattern, "$(IMAGE_NAME):$(IMAGE_TAG)"
+                   Set-Content $dockerComposePath $newContent -ErrorAction Stop
+                   Write-Host "Image reference updated successfully"
+                 } else {
+                   Write-Host "Warning: Image reference pattern not found in compose file"
+                 }
                  
-#                  # Display the updated compose file for verification
-#                  Write-Host "Updated compose file content:"
-#                  Get-Content $dockerComposePath | ForEach-Object { Write-Host "  $_" }
-#                }
-#                catch {
-#                  Write-Error "Error updating compose file: $_"
-#                  exit 1
-#                }
+                 # Display the updated compose file for verification
+                 Write-Host "Updated compose file content:"
+                 Get-Content $dockerComposePath | ForEach-Object { Write-Host "  $_" }
+               }
+               catch {
+                 Write-Error "Error updating compose file: $_"
+                 exit 1
+               }
 
-#          - task: PowerShell@2
-#            displayName: "Pull Latest Image"
-#            inputs:
-#              targetType: 'inline'
-#              script: |
-#                # Pull latest image
-#                Write-Host "Pulling latest image: $(IMAGE_NAME):$(IMAGE_TAG)"
-#                docker pull "$(IMAGE_NAME):$(IMAGE_TAG)"
+         - task: PowerShell@2
+           displayName: "Pull Latest Image"
+           inputs:
+             targetType: 'inline'
+             script: |
+               # Pull latest image
+               Write-Host "Pulling latest image: $(IMAGE_NAME):$(IMAGE_TAG)"
+               docker pull "$(IMAGE_NAME):$(IMAGE_TAG)"
                
-#                if ($LASTEXITCODE -ne 0) { 
-#                  Write-Error "Failed to pull image, exit code: $LASTEXITCODE"
-#                  exit $LASTEXITCODE 
-#                }
+               if ($LASTEXITCODE -ne 0) { 
+                 Write-Error "Failed to pull image, exit code: $LASTEXITCODE"
+                 exit $LASTEXITCODE 
+               }
                
-#                Write-Host "Image pulled successfully"
+               Write-Host "Image pulled successfully"
 
-#          - task: PowerShell@2
-#            displayName: "Prepare Docker Network Environment"
-#            inputs:
-#              targetType: 'inline'
-#              errorActionPreference: 'continue'
-#              failOnStderr: false
-#              script: |
-#                # First clean up any existing networks with the same name
-#                Write-Host "Cleaning up Docker networks..."
+         - task: PowerShell@2
+           displayName: "Prepare Docker Network Environment"
+           inputs:
+             targetType: 'inline'
+             errorActionPreference: 'continue'
+             failOnStderr: false
+             script: |
+               # First clean up any existing networks with the same name
+               Write-Host "Cleaning up Docker networks..."
                
-#                # Try to disconnect containers first
-#                $networkNames = @("microservices-network", "sasra-compose-files_microservices-network")
+               # Try to disconnect containers first
+               $networkNames = @("microservices-network", "sasra-compose-files_microservices-network")
                
-#                foreach ($network in $networkNames) {
-#                  # Check if network exists
-#                  $networkExists = docker network ls --filter "name=$network" --format "{{.Name}}"
+               foreach ($network in $networkNames) {
+                 # Check if network exists
+                 $networkExists = docker network ls --filter "name=$network" --format "{{.Name}}"
                  
-#                  if ($networkExists) {
-#                    Write-Host "Found network: $network - disconnecting containers"
+                 if ($networkExists) {
+                   Write-Host "Found network: $network - disconnecting containers"
                    
-#                    # Get containers connected to this network and disconnect them
-#                    $containers = docker network inspect $network -f "{{range .Containers}}{{.Name}} {{end}}" 2>$null
+                   # Get containers connected to this network and disconnect them
+                   $containers = docker network inspect $network -f "{{range .Containers}}{{.Name}} {{end}}" 2>$null
                    
-#                    if ($containers) {
-#                      $containerArray = $containers -split " " | Where-Object { $_ }
-#                      foreach ($container in $containerArray) {
-#                        Write-Host "Disconnecting $container from $network"
-#                        docker network disconnect -f $network $container 2>$null
-#                      }
-#                    }
+                   if ($containers) {
+                     $containerArray = $containers -split " " | Where-Object { $_ }
+                     foreach ($container in $containerArray) {
+                       Write-Host "Disconnecting $container from $network"
+                       docker network disconnect -f $network $container 2>$null
+                     }
+                   }
                    
-#                    # Try to remove the network
-#                    Write-Host "Removing network: $network"
-#                    docker network rm $network 2>$null
-#                  }
-#                }
+                   # Try to remove the network
+                   Write-Host "Removing network: $network"
+                   docker network rm $network 2>$null
+                 }
+               }
                
-#                # Prune networks as a final cleanup
-#                Write-Host "Pruning unused networks"
-#                docker network prune -f
+               # Prune networks as a final cleanup
+               Write-Host "Pruning unused networks"
+               docker network prune -f
                
-#                # Create the microservices-network network
-#                Write-Host "Creating microservices-network network with NAT driver"
-#                docker network create -d nat microservices-network 2>$null
+               # Create the microservices-network network
+               Write-Host "Creating microservices-network network with NAT driver"
+               docker network create -d nat microservices-network 2>$null
                
-#                # Check if network was created successfully
-#                $networkExists = docker network ls --filter "name=microservices-network" --format "{{.Name}}"
-#                if ($networkExists) {
-#                  Write-Host "Successfully created/verified microservices-network"
-#                } else {
-#                  Write-Host "Warning: Could not create microservices-network network"
-#                }
+               # Check if network was created successfully
+               $networkExists = docker network ls --filter "name=microservices-network" --format "{{.Name}}"
+               if ($networkExists) {
+                 Write-Host "Successfully created/verified microservices-network"
+               } else {
+                 Write-Host "Warning: Could not create microservices-network network"
+               }
                
-#                Write-Host "Network preparation completed"
-#                exit 0
+               Write-Host "Network preparation completed"
+               exit 0
 
-#          - task: PowerShell@2
-#            displayName: "Deploy Application"
-#            inputs:
-#              targetType: 'inline'
-#              script: |
-#                $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
+         - task: PowerShell@2
+           displayName: "Deploy Application"
+           inputs:
+             targetType: 'inline'
+             script: |
+               $dockerComposePath = "$(DOCKER_COMPOSE_PATH)"
                
-#                try {
-#                  # First verify the external network exists
-#                  $networkExists = docker network ls --filter "name=microservices-network" --format "{{.Name}}"
-#                  if (-not $networkExists) {
-#                    Write-Host "Creating microservices-network..."
-#                    docker network create -d nat microservices-network
-#                    if ($LASTEXITCODE -ne 0) {
-#                      Write-Error "Failed to create network, exit code: $LASTEXITCODE"
-#                      exit $LASTEXITCODE
-#                    }
-#                  } else {
-#                    Write-Host "External network microservices-network already exists"
-#                  }
+               try {
+                 # First verify the external network exists
+                 $networkExists = docker network ls --filter "name=microservices-network" --format "{{.Name}}"
+                 if (-not $networkExists) {
+                   Write-Host "Creating microservices-network..."
+                   docker network create -d nat microservices-network
+                   if ($LASTEXITCODE -ne 0) {
+                     Write-Error "Failed to create network, exit code: $LASTEXITCODE"
+                     exit $LASTEXITCODE
+                   }
+                 } else {
+                   Write-Host "External network microservices-network already exists"
+                 }
                
-#                  # Check if docker-compose exists
-#                  $dockerComposeVersion = docker-compose version
-#                  Write-Host "Docker Compose version: $dockerComposeVersion"
+                 # Check if docker-compose exists
+                 $dockerComposeVersion = docker-compose version
+                 Write-Host "Docker Compose version: $dockerComposeVersion"
                  
-#                  # Pull all images first (this happens with no service disruption)
-#                  Write-Host "Pulling all updated images..."
-#                  docker-compose -f "$dockerComposePath" pull
+                 # Pull all images first (this happens with no service disruption)
+                 Write-Host "Pulling all updated images..."
+                 docker-compose -f "$dockerComposePath" pull
                  
-#                  # Stop existing services
-#                  Write-Host "Stopping existing services..."
-#                  docker-compose -f "$dockerComposePath" down --remove-orphans
-#                  if ($LASTEXITCODE -ne 0) {
-#                    Write-Warning "Warning: docker-compose down returned exit code $LASTEXITCODE, continuing anyway"
-#                  }
+                 # Stop existing services
+                 Write-Host "Stopping existing services..."
+                 docker-compose -f "$dockerComposePath" down --remove-orphans
+                 if ($LASTEXITCODE -ne 0) {
+                   Write-Warning "Warning: docker-compose down returned exit code $LASTEXITCODE, continuing anyway"
+                 }
                  
-#                  # Start services with updated configuration
-#                  Write-Host "Starting services with updated configuration..."
-#                  docker-compose -f "$dockerComposePath" up -d
-#                  if ($LASTEXITCODE -ne 0) {
-#                    Write-Error "Failed to start services, exit code: $LASTEXITCODE"
-#                    # Show docker-compose logs for troubleshooting
-#                    Write-Host "Docker Compose logs:"
-#                    docker-compose -f "$dockerComposePath" logs
-#                    exit $LASTEXITCODE
-#                  }
+                 # Start services with updated configuration
+                 Write-Host "Starting services with updated configuration..."
+                 docker-compose -f "$dockerComposePath" up -d
+                 if ($LASTEXITCODE -ne 0) {
+                   Write-Error "Failed to start services, exit code: $LASTEXITCODE"
+                   # Show docker-compose logs for troubleshooting
+                   Write-Host "Docker Compose logs:"
+                   docker-compose -f "$dockerComposePath" logs
+                   exit $LASTEXITCODE
+                 }
                  
-#                  # Quick verification
-#                  Write-Host "Waiting for services to stabilize..."
-#                  Start-Sleep -Seconds 15
+                 # Quick verification
+                 Write-Host "Waiting for services to stabilize..."
+                 Start-Sleep -Seconds 15
                  
-#                  Write-Host "Current running containers:"
-#                  docker ps
+                 Write-Host "Current running containers:"
+                 docker ps
                  
-#                  # Define service names for verification
-#                  $serviceNames = @("complaintsservice", "returnsservice", "identityservice", "licensingservice", "apigateway")
+                 # Define service names for verification
+                 $serviceNames = @("complaintsservice", "returnsservice", "identityservice", "licensingservice", "apigateway")
                  
-#                  # Check each service
-#                  foreach ($service in $serviceNames) {
-#                    Write-Host "Checking $service status..."
-#                    $containerRunning = docker ps --filter "name=$service" --format "{{.Names}}"
-#                    if ($containerRunning) {
-#                      Write-Host "Service $service is running. Showing logs:"
-#                      docker logs $service --tail 20
-#                    } else {
-#                      Write-Warning "Service $service is not running!"
-#                    }
-#                  }
+                 # Check each service
+                 foreach ($service in $serviceNames) {
+                   Write-Host "Checking $service status..."
+                   $containerRunning = docker ps --filter "name=$service" --format "{{.Names}}"
+                   if ($containerRunning) {
+                     Write-Host "Service $service is running. Showing logs:"
+                     docker logs $service --tail 20
+                   } else {
+                     Write-Warning "Service $service is not running!"
+                   }
+                 }
                  
-#                  Write-Host "Deployment completed successfully"
-#                }
-#                catch {
-#                  Write-Error "Error during deployment: $_"
-#                  exit 1
-#                }
+                 Write-Host "Deployment completed successfully"
+               }
+               catch {
+                 Write-Error "Error during deployment: $_"
+                 exit 1
+               }
