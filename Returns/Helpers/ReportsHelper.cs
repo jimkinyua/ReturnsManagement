@@ -11,7 +11,9 @@ using iText.Layout;
 using iText.Layout.Borders;
 using iText.Layout.Element;
 using iText.Layout.Properties;
+using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Perfomance_Report;
+using Returns.Models.Data;
 using System.Globalization;
 using System.Text;
 using static Returns.Helpers.ReturnAnalysisHelper;
@@ -20,7 +22,6 @@ namespace Returns.Helpers
 {
     public static class ReportsHelper
     {
-
         public static byte[] GenerateConsistencyPdfReport(List<ValidationError> validationErrors, string period)
         {
             using (MemoryStream ms = new MemoryStream())
