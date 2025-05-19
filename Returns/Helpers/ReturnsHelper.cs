@@ -492,6 +492,106 @@ namespace Returns.Helpers
             }
         }
 
+        public async Task ProcessManagementReturn(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        {
+            try
+            {
+
+                var ManagementReturn = ExcelService.ImportManagementRows(file, _logger);
+                if (ManagementReturn == null || !ManagementReturn.ManagementReports.Any())
+                    throw new Exception("No data found in Management Form");
+
+                // save the Excel
+                var Path = await FormsHelper.SaveFileAsync(file, "Capital Adequacy Returns", "");
+                if (Path == null)
+                {
+                    throw new Exception("Error saving file");
+                }
+                //var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
+                string EffectiveReturnId = returnId;
+                string PreviousReturnId = string.Empty;
+                ManagementReturn? managementReturn = null;
+                managementReturn = new ManagementReturn
+                {
+                    ReturnId = returnId,
+                    FilePath = Path,
+                    MRating = managementReturn.MRating,
+                };
+
+                if (!IsAmendMent)
+                {
+                    managementReturn.PreviousReturnId = null;
+                    managementReturn.IsCurrent = true;
+                    managementReturn.IsAmended = false;
+                }
+                else
+                {
+                   /* if (!string.IsNullOrWhiteSpace(PreviousReturnId))
+                    {
+                        managementReturn.PreviousReturnId = PreviousReturnId;
+                    }*/
+                    managementReturn.IsCurrent = false;
+                    managementReturn.IsAmended = true;
+                    managementReturn.PreviousReturnId = PrevId;
+                }
+
+
+                foreach (var row in ManagementReturn.ManagementReports)
+                {
+                    switch (row.Category?.Trim())
+                    {
+                        // CORE CAPITAL
+                        case "GOVERNANCE, STRUCTURE AND ORGANIZATION":
+                            managementReturn.GorvenanceStructureScore = row.WeightedScore ?? 0;
+                            managementReturn.GorvenanceStructureWeight = row.Weight ?? 0;
+                            managementReturn.GorvenanceStructureWeightedScore = row.WeightedScore ?? 0;
+                            break;
+                        case "INTERNAL CONTROLS":
+                            managementReturn.InternalControlsScore = row.WeightedScore ?? 0;
+                            managementReturn.InternalControlsWeight = row.Weight ?? 0;
+                            managementReturn.InternalControlsWeightedScore = row.WeightedScore ?? 0;
+                            break;
+                        case "COMPLIANCE WITH LAWS AND REGULATIONS":
+                            managementReturn.ComplianceWithLawsAndRegulationsScore = row.WeightedScore ?? 0;
+                            managementReturn.ComplianceWithLawsAndRegulationsWeight = row.Weight ?? 0;
+                            managementReturn.ComplianceWithLawsAndRegulationsWeightedScore = row.WeightedScore ?? 0;
+                            break;
+                        case "MEMBER PROTECTION":
+                            managementReturn.MemberProtectionScore = row.WeightedScore ?? 0;
+                            managementReturn.MemberProtectionWeight = row.Weight ?? 0;
+                            managementReturn.MemberProtectionWeightedScore = row.WeightedScore ?? 0;
+                            break;
+                        case "ADEQUACY OF MIS":
+                            managementReturn.AdequacyOfMISScore = row.WeightedScore ?? 0;
+                            managementReturn.AdequacyOfMISWeight = row.Weight ?? 0;
+                            managementReturn.AdequacyOfMISWeightedScore = row.WeightedScore ?? 0;
+                            break;
+                        case "OVERALL RISK PROFILE":
+                            managementReturn.OverallRiskProfileScore = row.WeightedScore ?? 0;
+                            managementReturn.OverallRiskProfileWeight = row.Weight ?? 0;
+                            managementReturn.OverallRiskProfileWeightedScore = row.WeightedScore ?? 0;
+                            break;
+         
+                    }
+                }
+                if (IsAmendMent)
+                {
+                     _context.ManagementReturns.Update(managementReturn);
+                }
+                else
+                {
+                    await _context.ManagementReturns.AddAsync(managementReturn);
+                }
+                await _context.SaveChangesAsync();
+
+            }
+            catch (Exception)
+            {
+
+                throw;
+            }
+        }
+
         public  async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
         {
             try
@@ -691,7 +791,10 @@ namespace Returns.Helpers
             }
         }
 
-        public  async Task ProcessInsiderLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
+     
+
+
+        public async Task ProcessInsiderLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
         {
             try
             {

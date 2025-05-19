@@ -63,7 +63,7 @@ namespace Returns.Models.Data
         public DbSet<DailyLiquidityReturn> DailyLiquidityReturns { get; set; }
         public DbSet<InsiderLendingHeader> InsiderLendingHeaders { get; set; }
         public DbSet<InsiderLoan> InsiderLoans { get; set; }
-
+        public DbSet<ManagementReturn> ManagementReturns { get; set; }
         public DbSet<WorkFlowTemplate> WorkFlowTemplates { get; set; }
         public DbSet<WorkFlowStep> WorkFlowSteps { get; set; }
         public DbSet<ApprovalAction> ApprovalActions { get; set; }

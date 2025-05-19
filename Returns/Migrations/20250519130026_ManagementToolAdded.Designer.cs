@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250519130026_ManagementToolAdded")]
+    partial class ManagementToolAdded
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1503,9 +1506,6 @@ namespace Returns.Migrations
                     b.Property<bool>("IsCurrent")
                         .HasColumnType("bit");
 
-                    b.Property<int>("MRating")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("MemberProtectionScore")
                         .HasColumnType("decimal(18,2)");
 
@@ -2728,9 +2728,6 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsLiquidityStatement")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsManagement")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsOtherForm")

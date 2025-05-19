@@ -34,6 +34,7 @@ namespace Returns.DTOs.Returns_Submission.DT
         public int DepositReturnDaysLate { get; set; }
         public int OtherReturnsDaysLate { get; set; }
         public CapitalAdequacyDTO? CapitalAdequacy { get; set; }
+        public ManagementReturnDTO? ManagementReturn { get; set; }
         public LiquidityStatementDTO? LiquidityStatement { get; set; }
         public List<RiskClassificationDTO> RiskClassifications { get; set; } = new List<RiskClassificationDTO>();
         public InvestmentReturnDTO? Investment { get; set; }

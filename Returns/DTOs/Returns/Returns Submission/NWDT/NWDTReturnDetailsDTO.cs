@@ -27,6 +27,8 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public NWDTLiquidityStatementDTO? NWDTLiquidityStatement { get; set; }
         public List<NWDTRiskClassificationDTO> NWDTRiskClassifications { get; set; } = new List<NWDTRiskClassificationDTO>();
         public NWDTInvestmentReturnDTO? NWDTInvestment { get; set; }
+        public ManagementReturnDTO? ManagementReturn { get; set; }
+
         public NWDTComprehesiveIncomeStatementDTO? NWDTIncomeStatement { get; set; }
         public NWDTFinancialPositionDTO? NWDTFinancialPosition { get; set; }
         public List<NWDTDepositReturnDto> NWDTDepositReturn { get; set; } = new List<NWDTDepositReturnDto>();

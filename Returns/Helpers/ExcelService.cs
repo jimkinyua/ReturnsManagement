@@ -71,6 +71,21 @@ namespace Returns.Helpers
             public List<CapitalAdequacyRow> Rows { get; set; } = new List<CapitalAdequacyRow>();
         }
 
+        public class ManagementData
+        {
+            public string SaccoCsNumber = string.Empty;
+            public int MRating;
+            public List<ManagementReportDTO> ManagementReports { get; set; } = new List<ManagementReportDTO>();
+
+        }
+        public class ManagementReportDTO
+        {
+            public string Category { get; set; } = string.Empty;
+            public decimal? Score { get; set; }
+            public decimal? Weight { get; set; }
+            public decimal? WeightedScore { get; set; }
+        }
+
         public class DailyLiquidityStatement
         {
             public string SACCOName { get; set; } = string.Empty;
@@ -1529,6 +1544,130 @@ namespace Returns.Helpers
             }
 
 
+        }
+
+
+        public static ManagementData ImportManagementRows(IFormFile file, ILogger logger)
+        {
+            try
+            {
+                logger.LogInformation("File Name: " + file.FileName);
+                if (file == null)
+                {
+                    logger.LogError("File is null");
+                    throw new ArgumentNullException(nameof(file), "No file was provided for processing");
+                }
+
+                if (file.Length == 0)
+                {
+                    throw new ArgumentException("The uploaded file is empty", nameof(file));
+                }
+
+                // Check file extension
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                if (extension != ".xlsx")
+                {
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
+                }
+
+                // var path = @"C:\Projects\SASRA\Code\src\SASRAXRBSS.Application.Shared\ExcelUpload\CapitalAdequency.xlsx";
+                using (var stream = new MemoryStream())
+                {
+                    // Copy the file to a memory stream
+                    logger.LogInformation("Copying file to memory stream");
+                    file.CopyTo(stream);
+                    // This list will hold all the rows we read
+                    var rowDataList = new List<ManagementData>();
+
+                    // Open the Excel workbook
+                    using (var workbook = new XLWorkbook(stream))
+                    {
+
+                        logger.LogInformation("Workbook opened");
+                        var worksheet = workbook.Worksheets.FirstOrDefault(ws => ws.Name.Equals("OVERALL", StringComparison.OrdinalIgnoreCase));
+
+                        var ManagementStatement = new ManagementData
+                        {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D3")),
+                        };
+
+                        int firstDataRow = 2;
+                        int lastDataRow = 7;
+                        var rowData = new List< ManagementReportDTO>();
+
+                        /*   var lastRow = 0; //worksheet.LastRowUsed();
+                           int lastRowNumber = 7; //lastRow.RowNumber();*/
+
+                        // Iterate from the row after the header to the last row
+                        for (int rowNum = firstDataRow; rowNum <= lastDataRow; rowNum++)
+                        {
+                            // Read the row
+                            var row = worksheet.Row(rowNum);
+
+                            // Extract cells
+                            string? category =  row.Cell(2).GetString(); // Column C
+                            decimal? score = GetDecimalOrNull((row.Cell(3))); // Column C
+                            decimal? weight = GetDecimalOrNull((row.Cell(4))); // Column D
+                            decimal? weightedScore = GetDecimalOrNull(row.Cell(5)); // Column E
+                            string cellNumberWithFigures = row.Cell(4)?.Address.ToString() ?? string.Empty;
+
+
+                            // skip blank can go to hell
+                            if (!string.IsNullOrWhiteSpace(category.ToString()) || !string.IsNullOrWhiteSpace(score.ToString()))
+                            {
+                                var item = new ManagementReportDTO
+                                {
+                                    Category = category,
+                                    Score = score,
+                                    Weight = weight,
+                                    WeightedScore = weightedScore,
+                                };
+
+                                rowData.Add(item);
+
+                            }
+                        }
+
+                        int? mRating = worksheet.Cell("E10").GetValue<int?>();
+                        //int? mRating = labelCell.CellRight().GetValue<int?>();
+
+                        ManagementStatement.MRating = mRating.Value;
+                        ManagementStatement.ManagementReports = rowData;
+
+                        return ManagementStatement;
+                    }
+                }
+            }
+            catch (ArgumentNullException ex)
+            {
+                logger.LogError(ex, "No file was provided for processing");
+                throw;
+                //new ArgumentNullException("No file was provided for processing", ex);
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "Invalid file type or empty file");
+                throw;
+                //new ArgumentException("Invalid file type or empty file", ex);
+            }
+            catch (FileFormatException ex)
+            {
+                logger.LogError(ex, "Invalid file format");
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing ImportCapitalAdequacyRows");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
+            }
         }
 
         public static Form3Statement ImportDepositRangeDataRows(IFormFile file, ILogger logger)

@@ -12,6 +12,7 @@
         public Boolean IsRiskClassification { get; set; } = false;
         public Boolean IsInvestmentReturn { get; set; } = false;
         public Boolean IsFinancialPosition { get; set; } = false;
+        public Boolean IsManagement { get; set; } = false;
         public Boolean IsStatementOfComprehensiveIncome { get; set; } = false;
         public Boolean IsDepositReturnForm { get; set; } = false;
         public Boolean IsSectoralLending { get; set; } = false;

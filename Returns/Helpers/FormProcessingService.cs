@@ -2312,6 +2312,11 @@ namespace Returns.Helpers
                         case "CapitalAdequacy":
                             await returnsHelper.ProcessCapitalAdequacyForm(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
+
+                        case "Management":
+                            await returnsHelper.ProcessManagementReturn(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            break;
+
                         case "Liquidity":
                             await returnsHelper.ProcessLiquidityForm(formFile, returnId, _logger, form);
                             break;
@@ -2351,6 +2356,11 @@ namespace Returns.Helpers
                         case "CapitalAdequacy":
                             await returnsHelper.ProcessForm2A(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
+
+                        case "Management":
+                            await returnsHelper.ProcessManagementReturn(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
+                            break;
+
                         case "Liquidity":
                             await returnsHelper.ProcessForm2B(formFile, returnId, _logger, form, IsAmendMent, PrevReturnId);
                             break;
@@ -2406,6 +2416,7 @@ namespace Returns.Helpers
             if (form.IsSectoralLending) return "SectoralLending";
             if(form.IsDailyLiquidity) return "DailyLiquidity";
             if(form.IsInsiderLending) return "InsiderLending";
+            if(form.IsManagement) return "Management";
             if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
             return null;
         }
