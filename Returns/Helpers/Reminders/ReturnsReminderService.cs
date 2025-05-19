@@ -63,11 +63,25 @@ namespace Returns.Helpers.Reminders
                             Compliance Desk
                             """;
 
-                            await _mail.SendEmailAsync(
-                               sacco.OfficialSaccoEmail,
-                               $"Reminder: submit your  returns",
-                               body.Replace("\n", "<br/>")
-                               );
+
+                            if (IsValidEmail(sacco.OfficialSaccoEmail))
+                            {
+                                await _mail.SendEmailAsync(
+                                    sacco.OfficialSaccoEmail,
+                                    $"Reminder: submit your returns",
+                                    body.Replace("\n", "<br/>")
+                                );
+                                _log.LogInformation("Reminder sent to {Sacco}", sacco.SaccoName);
+                            }
+                            else
+                            {
+                                _log.LogWarning("Invalid email address for {Sacco}: {Email}",
+                                    sacco.SaccoName, sacco.OfficialSaccoEmail);
+                               
+                            }
+
+
+                           
 
                             _log.LogInformation("Reminder sent to {Sacco}", sacco.SaccoName);
                         }
@@ -80,6 +94,19 @@ namespace Returns.Helpers.Reminders
             }
 
             _log.LogInformation("Returns-reminder run complete – {Count} email(s) sent.", allSaccos.Count);
+        }
+
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
         }
     }
 }

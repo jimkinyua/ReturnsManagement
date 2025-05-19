@@ -162,8 +162,9 @@ namespace Returns.Controllers
                                 {
                                     await _emailService.SendEmailWithAttachmentAsync(
                                         "james.kinyua@agilebiz.co.ke",
+                                        //SaccoDetails.OfficialSaccoEmail,
                                         "Validation Report - Consistency Errors",
-                                        "PFA",
+                                        $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
                                         ConsistencyReport,
                                         $"ValidationReport_{CommonPeriod}.pdf"
                                     );
@@ -2050,6 +2051,11 @@ namespace Returns.Controllers
 
                     report.Periods.Add(blank);
                 }
+
+                var approvals = await _context.ApprovalActions
+                    .Where(r => r.ReturnId == returnId)
+                    .ToListAsync();
+                report.approvalActions = approvals;
 
                 var reportBytes = ReportsHelper.GenerateSaccoPerformancePdfReport(report);
                 var base64String = Convert.ToBase64String(reportBytes);

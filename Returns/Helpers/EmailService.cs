@@ -37,6 +37,41 @@ namespace Returns.Helpers
             }
         }
 
+        public async Task SendEmailAsyncWithCC(string to,
+                                        string subject,
+                                        string body,
+                                        IEnumerable<string> ccAddresses)   // renamed for clarity
+        {
+            using var client = new SmtpClient(_emailSettings.Host, _emailSettings.Port)
+            {
+                EnableSsl = _emailSettings.EnableSsl,
+                Credentials = new NetworkCredential(_emailSettings.UserName, _emailSettings.Password)
+            };
+
+            using var message = new MailMessage
+            {
+                From = new MailAddress(_emailSettings.From),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = true            // set false if you’re sending plain-text
+            };
+
+            // primary recipient
+            message.To.Add(to);
+
+            // optional CC list
+            if (ccAddresses != null)
+            {
+                foreach (var cc in ccAddresses.Where(a => !string.IsNullOrWhiteSpace(a)))
+                {
+                    message.CC.Add(cc.Trim());
+                }
+            }
+
+            await client.SendMailAsync(message);
+        }
+
+
         public async Task SendEmailWithAttachmentAsync(string to, string subject, string body, byte[] attachment, string attachmentName)
         {
             using (var client = new SmtpClient(_emailSettings.Host, _emailSettings.Port)

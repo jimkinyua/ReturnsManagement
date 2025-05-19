@@ -1,10 +1,13 @@
-﻿namespace Returns.DTOs.Perfomance_Report
+﻿using Returns.Models;
+
+namespace Returns.DTOs.Perfomance_Report
 {
     public class SaccoPerformanceReportDTO
     {
         public string SaccoName { get; set; }
         public DateTime ReportDate { get; set; }
         public List<PeriodData> Periods { get; set; } = new List<PeriodData>();
+        public List<ApprovalAction> approvalActions { get; set; } = new List<ApprovalAction>();
 
         public class PeriodData
         {

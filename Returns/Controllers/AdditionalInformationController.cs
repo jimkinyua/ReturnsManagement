@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.AdditionalInfo;
@@ -16,12 +17,14 @@ namespace Returns.Controllers
         private readonly ReturnsDbContext _context;
         private readonly IAdditionalInformationRequestService _informationRequestService;
         private readonly IEmailService _emailSender;
+        private readonly IComplianceService _complianceService;
 
-        public AdditionalInformationController(ReturnsDbContext context, IAdditionalInformationRequestService informationRequestService, IEmailService emailSender)
+        public AdditionalInformationController(ReturnsDbContext context, IAdditionalInformationRequestService informationRequestService, IEmailService emailSender, IComplianceService complianceService)
         {
             this._context = context;
             this._informationRequestService = informationRequestService;
             this._emailSender = emailSender;
+            this._complianceService = complianceService;
         }
 
         [HttpGet("AdditionalInformationRequests")]
@@ -268,8 +271,17 @@ namespace Returns.Controllers
                     return NotFound();
                 }
                 var ReturnDetails = await _context.Returns.FirstOrDefaultAsync(r => r.Id == createAdditionalInformationRequestDto.ReturnId);
-                // Send email notification to the user or sacco
-                await _emailSender.SendEmailAsync(loggedPerson.EmailAddress, "Additional Information Request", "You have a new request for additional information.");
+
+                var coUserId = await _complianceService.GetAssignedComplianceOfficer(createAdditionalInformationRequestDto.ReturnId);
+
+                var TeamMembers = await _complianceService.GetTeamMembers(coUserId.TeamId);
+
+                var ccAddresses = TeamMembers
+                  .Select(m => m.Email)
+                  .Where(e => !string.IsNullOrWhiteSpace(e) && !e.Equals(coUserId.Email, StringComparison.OrdinalIgnoreCase))
+                  .Distinct();
+
+                await _emailSender.SendEmailAsyncWithCC(loggedPerson.EmailAddress, "Additional Information Request", "You have a new request for additional information.", ccAddresses);
                 return Ok(result);
             }
             catch (Exception ex)

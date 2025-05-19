@@ -436,7 +436,11 @@ namespace Returns.Helpers
                 return null;
             }
 
-            // 5. LOW RATED Returns flow (rating > 2):
+
+            if (instance.Rating.HasValue && instance.Rating.Value ==3)
+            {
+                return null;
+            }
 
             //    Find where “current” sits in the allSteps list
             int position = allSteps.FindIndex(s => s.Id == current.Id);

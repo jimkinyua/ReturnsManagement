@@ -337,6 +337,65 @@ namespace Returns.Helpers
             }
         }
 
+        public async Task<List<SasraUser>> GetTeamMembers(string teamId)
+        {
+            var members = new List<SasraUser>();
+
+            try
+            {
+                await using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                const string sql = @"
+                    SELECT  u.Id,
+                            u.FullName,
+                            u.Email,
+                            u.TeamName,
+                            u.TeamRole,                       -- INT in table
+                            r.Id   AS RoleId,
+                            r.Name AS RoleName
+                    FROM    AspNetUsers       u
+                    LEFT    JOIN AspNetRoles  r
+                                ON r.Id = CONVERT(NVARCHAR(450), u.Role)
+                    WHERE   u.TeamId = @teamId;";
+
+                await using var cmd = new SqlCommand(sql, connection);
+                cmd.Parameters.Add(new SqlParameter("@teamId", SqlDbType.NVarChar) { Value = teamId });
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+
+                // Ordinals once for speed / safety
+                int ordId = reader.GetOrdinal("Id");
+                int ordFullName = reader.GetOrdinal("FullName");
+                int ordEmail = reader.GetOrdinal("Email");
+                int ordTeamName = reader.GetOrdinal("TeamName");
+                int ordTeamRole = reader.GetOrdinal("TeamRole");   // INT
+                int ordRoleId = reader.GetOrdinal("RoleId");
+                int ordRoleName = reader.GetOrdinal("RoleName");
+
+                while (await reader.ReadAsync())
+                {
+                    members.Add(new SasraUser
+                    {
+                        Id = !reader.IsDBNull(ordId) ? reader.GetString(ordId) : string.Empty,
+                        FullName = !reader.IsDBNull(ordFullName) ? reader.GetString(ordFullName) : string.Empty,
+                        Email = !reader.IsDBNull(ordEmail) ? reader.GetString(ordEmail) : string.Empty,
+                        TeamName = !reader.IsDBNull(ordTeamName) ? reader.GetString(ordTeamName) : string.Empty,
+                        TeamRole = !reader.IsDBNull(ordTeamRole) ? reader.GetInt32(ordTeamRole).ToString() : string.Empty,
+                        RoleId = !reader.IsDBNull(ordRoleId) ? reader.GetString(ordRoleId) : string.Empty,
+                        //RoleName = !reader.IsDBNull(ordRoleName) ? reader.GetString(ordRoleName) : string.Empty
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving members for Team ID {TeamId}", teamId);
+            }
+
+            return members;
+        }
+
+
         public Task<SasraRoleDetails?> GetRoleDetails(string RoleId)
         {
             try

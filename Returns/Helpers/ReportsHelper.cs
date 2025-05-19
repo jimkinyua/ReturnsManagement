@@ -22,157 +22,200 @@ namespace Returns.Helpers
 {
     public static class ReportsHelper
     {
+        private static readonly DeviceRgb SASRA_PRIMARY_COLOR = new DeviceRgb(13, 91, 146); // #0d5b92 - Main blue
+        private static readonly DeviceRgb SASRA_SECONDARY_COLOR = new DeviceRgb(214, 164, 39); // #D6A427 - Gold accent (from logo)
+        private static readonly DeviceRgb SASRA_LIGHT_GRAY = new DeviceRgb(229, 231, 235); // #e5e7eb - Light gray for backgrounds
+        private static readonly DeviceRgb SASRA_DARK_GRAY = new DeviceRgb(102, 102, 102); // #666666 - Dark gray for text
+        private static readonly DeviceRgb SASRA_ERROR_COLOR = new DeviceRgb(220, 53, 69); // #dc3545 - Red for errors/negative values
+        private static readonly DeviceRgb SASRA_SUCCESS_COLOR = new DeviceRgb(21, 87, 36); // #155724 - Green for success/positive indicators
+
+
+
         public static byte[] GenerateConsistencyPdfReport(List<ValidationError> validationErrors, string period)
         {
-            using (MemoryStream ms = new MemoryStream())
+        using var ms = new MemoryStream();
+
+        PdfWriter writer = new PdfWriter(ms);
+        PdfDocument pdf = new PdfDocument(writer);
+        Document doc = new Document(pdf, PageSize.A4);
+        doc.SetMargins(36, 36, 36, 36);
+
+        PdfFont regularFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+        PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+
+        DeviceRgb sasraGold = new DeviceRgb(211, 158, 11);   // #D39E0B
+        DeviceRgb sasraNavy = new DeviceRgb(13, 59, 102);   // #0D3B66
+        DeviceRgb sasraGrey = new DeviceRgb(102, 102, 102);   // #666666
+        DeviceRgb errorRed = new DeviceRgb(153, 0, 0);   // dark red
+
+        Style bigTitleStyle = new Style().SetFont(boldFont).SetFontColor(sasraNavy)
+                                              .SetFontSize(18)
+                                              .SetTextAlignment(TextAlignment.CENTER);
+
+        Style labelStyle = new Style().SetFont(boldFont).SetFontSize(12);
+        Style valueStyle = new Style().SetFont(regularFont).SetFontSize(12);
+
+        Style sectionTitleStyle = new Style().SetFont(boldFont).SetFontColor(sasraNavy)
+                                              .SetFontSize(13);
+
+        Style errorCategoryStyle = new Style().SetFont(boldFont).SetFontColor(errorRed)
+                                              .SetFontSize(12);
+
+
+        try
+        {
+            ImageData logoData = ImageDataFactory.Create(GetSasraLogoBytes());
+            Image logo = new Image(logoData).SetHeight(60).SetAutoScale(true);
+
+            Table hdr = new Table(UnitValue.CreatePercentArray(new float[] { 1, 4 }))
+                .SetWidth(UnitValue.CreatePercentValue(100))
+                .SetBorder(Border.NO_BORDER);
+
+            hdr.AddCell(new Cell().SetBorder(Border.NO_BORDER)
+                                  .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                                  .Add(logo));
+
+            Paragraph orgName = new Paragraph("SACCO Societies Regulatory Authority (SASRA)")
+                                    .SetFont(boldFont)
+                                    .SetFontColor(sasraNavy)
+                                    .SetFontSize(16)
+                                    .SetMarginBottom(3);
+
+            Paragraph tagline = new Paragraph("Securing SACCO Funds")
+                                    .SetFont(regularFont)
+                                    .SetFontColor(sasraGrey)
+                                    .SetFontSize(11)
+                                    .SetMarginBottom(6);
+
+            Paragraph contacts = new Paragraph(
+                "UAP Old Mutual Tower, 19ᵗʰ Floor, Upper Hill Road, Nairobi, Kenya\n" +
+                "P.O. Box 25089 – 00100 Nairobi  |  Tel: +254 (20) 293 5100/101  |  Toll-Free: 0800 724 422\n" +
+                "Email: info@sasra.go.ke  |  www.sasra.go.ke")
+                .SetFont(regularFont)
+                .SetFontSize(9)
+                .SetFontColor(sasraGrey);
+
+            hdr.AddCell(new Cell().SetBorder(Border.NO_BORDER)
+                                  .Add(orgName)
+                                  .Add(tagline)
+                                  .Add(contacts));
+            doc.Add(hdr);
+        }
+        catch
+        {
+            // fallback if logo fails
+            doc.Add(new Paragraph("SACCO Societies Regulatory Authority (SASRA)")
+                    .SetFont(boldFont)
+                    .SetFontColor(sasraNavy)
+                    .SetFontSize(16));
+        }
+
+        // thin gold rule
+        doc.Add(new LineSeparator(new SolidLine())
+                   .SetStrokeColor(sasraGold)
+                   .SetMarginTop(5)
+                   .SetMarginBottom(12));
+
+        // ---------------------------------------------------------------------
+        // Page title
+        // ---------------------------------------------------------------------
+        doc.Add(new Paragraph("Consistency Report").AddStyle(bigTitleStyle).SetMarginBottom(20));
+
+        // ---------------------------------------------------------------------
+        // Report metadata
+        // ---------------------------------------------------------------------
+        doc.Add(new Paragraph("Report Details")
+                .SetFont(boldFont)
+                .SetFontColor(sasraNavy)
+                .SetFontSize(14)
+                .SetMarginBottom(10));
+
+        Table metaTbl = new Table(UnitValue.CreatePercentArray(new float[] { 1, 2 }))
+            .SetWidth(UnitValue.CreatePercentValue(100));
+
+        void AddMetaRow(string label, string value, bool colourise = false)
+        {
+            metaTbl.AddCell(new Cell().Add(new Paragraph(label).AddStyle(labelStyle))
+                                      .SetBorder(Border.NO_BORDER));
+
+            Paragraph valPara = new Paragraph(value).AddStyle(valueStyle);
+            if (colourise)
+                valPara.SetFontColor(value == "VALID" ? sasraNavy : errorRed)
+                       .SetFont(boldFont);
+
+            metaTbl.AddCell(new Cell().Add(valPara).SetBorder(Border.NO_BORDER));
+        }
+
+        AddMetaRow("Reporting Period", period);
+        AddMetaRow("Validation Status", validationErrors.Any() ? "INVALID" : "VALID", colourise: true);
+        AddMetaRow("Errors Found", validationErrors.Count.ToString());
+
+        doc.Add(metaTbl);
+
+        // ---------------------------------------------------------------------
+        // Validation errors
+        // ---------------------------------------------------------------------
+        if (validationErrors.Any())
+        {
+            doc.Add(new Paragraph("Validation Errors")
+                        .AddStyle(sectionTitleStyle)
+                        .SetMarginTop(20));
+
+            foreach (var err in validationErrors)
             {
-                // Create PDF document
-                PdfWriter writer = new PdfWriter(ms);
-                PdfDocument pdf = new PdfDocument(writer);
-                Document document = new Document(pdf, PageSize.A4);
+                Div errDiv = new Div()
+                    .SetMarginTop(12)
+                    .SetPadding(10)
+                    .SetBackgroundColor(new DeviceRgb(248, 249, 250))   // light grey
+                    .SetBorderLeft(new SolidBorder(errorRed, 4));
 
-                // Set document properties
-                document.SetMargins(36, 36, 36, 36);
+                errDiv.Add(new Paragraph(err.Category).AddStyle(errorCategoryStyle));
+                errDiv.Add(new Paragraph(err.Description).SetMarginTop(5));
 
-                // Define fonts and styles - using the correct Bold approach
-                Style headerStyle = new Style()
-                    .SetFontColor(ColorConstants.WHITE)
-                    .SetBackgroundColor(new DeviceRgb(13, 91, 146)) // #0d5b92
-                    .SetFontSize(18)
-                    .SetTextAlignment(TextAlignment.CENTER)
-                    .SetPaddingTop(20)
-                    .SetPaddingBottom(20);
+                Table detTbl = new Table(UnitValue.CreatePercentArray(new float[] { 1, 2 }))
+                    .SetWidth(UnitValue.CreatePercentValue(100))
+                    .SetMarginTop(8);
 
-                Style titleStyle = new Style()
-                    .SetFontColor(new DeviceRgb(13, 91, 146)) // #0d5b92
-                    .SetFontSize(16);
+                detTbl.AddHeaderCell(new Cell().Add(new Paragraph("Field")
+                                                    .SetFont(boldFont)
+                                                    .SetFontColor(ColorConstants.WHITE))
+                                               .SetBackgroundColor(sasraGold)
+                                               .SetPadding(5));
+                detTbl.AddHeaderCell(new Cell().Add(new Paragraph("Value")
+                                                    .SetFont(boldFont)
+                                                    .SetFontColor(ColorConstants.WHITE))
+                                               .SetBackgroundColor(sasraGold)
+                                               .SetPadding(5));
 
-                Style sectionTitleStyle = new Style()
-                    .SetFontSize(14);
-
-                Style errorCategoryStyle = new Style()
-                    .SetFontColor(new DeviceRgb(220, 53, 69)) // #dc3545
-                    .SetFontSize(12);
-
-                Table metaTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 2 }))
-                    .SetWidth(UnitValue.CreatePercentValue(100));
-
-                // Header with logo and title
-                try
+                foreach (var d in err.Details)
                 {
-                    // Replace with actual path to logo or embedded resource
-                    ImageData logoData = ImageDataFactory.Create(GetSasraLogoBytes());
-                    Image logo = new Image(logoData).SetHeight(60);
-
-                    Paragraph headerPara = new Paragraph("Consistency Report")
-                        .AddStyle(headerStyle);
-
-                    Div headerDiv = new Div()
-                        .SetBackgroundColor(new DeviceRgb(13, 91, 146))
-                        .SetPadding(20)
-                        .Add(new Paragraph().Add(logo).SetTextAlignment(TextAlignment.CENTER))
-                        .Add(headerPara);
-
-                    document.Add(headerDiv);
-                }
-                catch (Exception ex)
-                {
-                    // If logo loading fails, just add the text header
-                    Paragraph headerPara = new Paragraph("Consistency Report")
-                        .AddStyle(headerStyle);
-
-                    Div headerDiv = new Div()
-                        .SetBackgroundColor(new DeviceRgb(13, 91, 146))
-                        .SetPadding(20)
-                        .Add(headerPara);
-
-                    document.Add(headerDiv);
+                    detTbl.AddCell(new Cell().Add(new Paragraph(d.Key).SetFont(regularFont)).SetPadding(4));
+                    detTbl.AddCell(new Cell().Add(new Paragraph(d.Value).SetFont(regularFont)).SetPadding(4));
                 }
 
-                // Report metadata
-                document.Add(new Paragraph().SetMarginTop(20));
-                document.Add(new Paragraph("Report Details").AddStyle(titleStyle).SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline());
-
-                metaTable.AddCell(new Cell().Add(new Paragraph("Reporting Period:").SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline())).SetBorder(Border.NO_BORDER);
-                metaTable.AddCell(new Cell().Add(new Paragraph(period)).SetBorder(Border.NO_BORDER));
-
-                metaTable.AddCell(new Cell().Add(new Paragraph("Validation Status:").SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline())).SetBorder(Border.NO_BORDER);
-                metaTable.AddCell(new Cell().Add(new Paragraph(validationErrors.Count() > 0 ? "INVALID" : "VALID")
-                    .SetFontColor(validationErrors.Count() > 0 ? new DeviceRgb(114, 28, 36) : new DeviceRgb(21, 87, 36)))
-                    .SetBorder(Border.NO_BORDER));
-
-
-                // Replace .SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline()) with the appropriate method to simulate bold text
-                metaTable.AddCell(new Cell().Add(new Paragraph("Errors Found:").SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline()).SetBorder(Border.NO_BORDER));
-                metaTable.AddCell(new Cell().Add(new Paragraph("Errors Found:").SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline()).SetBorder(Border.NO_BORDER));
-                metaTable.AddCell(new Cell().Add(new Paragraph(validationErrors.Count().ToString())).SetBorder(Border.NO_BORDER));
-
-                document.Add(metaTable);
-
-                // Error details section
-                if (validationErrors.Count() > 0)
-                {
-                    document.Add(new Paragraph("Validation Errors").AddStyle(sectionTitleStyle).SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline().SetMarginTop(20));
-
-                    foreach (var error in validationErrors)
-                    {
-                        Div errorDiv = new Div()
-                            .SetMarginTop(15)
-                            .SetMarginBottom(15)
-                            .SetPadding(10)
-                            .SetBackgroundColor(new DeviceRgb(248, 249, 250)) // #f8f9fa
-                            .SetBorderLeft(new SolidBorder(new DeviceRgb(220, 53, 69), 4)); // #dc3545
-
-                        errorDiv.Add(new Paragraph(error.Category).AddStyle(errorCategoryStyle).SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline());
-                        errorDiv.Add(new Paragraph(error.Description).SetMarginTop(5));
-
-                        // Create table for error details
-                        Table detailsTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 2 }))
-                            .SetWidth(UnitValue.CreatePercentValue(100))
-                            .SetMarginTop(10);
-
-                        Cell headerCell1 = new Cell()
-                            .Add(new Paragraph("Field").SetFontColor(ColorConstants.WHITE).SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline())
-                            .SetBackgroundColor(new DeviceRgb(13, 91, 146))
-                            .SetPadding(5);
-
-                        Cell headerCell2 = new Cell()
-                            .Add(new Paragraph("Value").SetFontColor(ColorConstants.WHITE).SetFontColor(ColorConstants.BLACK).SetFontSize(12).SetUnderline())
-                            .SetBackgroundColor(new DeviceRgb(13, 91, 146))
-                            .SetPadding(5);
-
-                        detailsTable.AddHeaderCell(headerCell1);
-                        detailsTable.AddHeaderCell(headerCell2);
-
-                        foreach (var detail in error.Details)
-                        {
-                            detailsTable.AddCell(new Cell().Add(new Paragraph(detail.Key)).SetPadding(5));
-                            detailsTable.AddCell(new Cell().Add(new Paragraph(detail.Value)).SetPadding(5));
-                        }
-
-                        errorDiv.Add(detailsTable);
-                        document.Add(errorDiv);
-                    }
-                }
-
-                // Add footer
-                Paragraph footer = new Paragraph("SASRA - SACCO Societies Regulatory Authority\n" +
-                                                 "Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"))
-                    .SetTextAlignment(TextAlignment.CENTER)
-                    .SetFontSize(9)
-                    .SetFontColor(new DeviceRgb(102, 102, 102)); // #666666
-
-                document.Add(new LineSeparator(new SolidLine(1f))
-                    .SetMarginTop(30)
-                    .SetMarginBottom(10));
-                document.Add(footer);
-
-                // Close the document
-                document.Close();
-
-                return ms.ToArray();
+                errDiv.Add(detTbl);
+                doc.Add(errDiv);
             }
         }
+
+        // ---------------------------------------------------------------------
+        // Footer
+        // ---------------------------------------------------------------------
+        doc.Add(new LineSeparator(new SolidLine())
+                    .SetStrokeColor(sasraGold)
+                    .SetMarginTop(28)
+                    .SetMarginBottom(8));
+
+        doc.Add(new Paragraph("Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"))
+                .SetFont(regularFont)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetFontSize(9)
+                .SetFontColor(sasraGrey));
+
+        doc.Close();
+        return ms.ToArray();
+    }
+
 
 
         public static byte[] GenerateSaccoPerformancePdfReport(SaccoPerformanceReportDTO report)
@@ -197,7 +240,6 @@ namespace Returns.Helpers
                 PdfFont regularFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
 
                 // Colors
-                DeviceRgb headerColor = new DeviceRgb(13, 91, 146); // #0d5b92
                 DeviceRgb sectionBgColor = new DeviceRgb(229, 231, 235); // Light gray background
                 DeviceRgb normalRowBgColor = new DeviceRgb(240, 240, 240); // Lighter gray for normal rows
 
@@ -214,7 +256,7 @@ namespace Returns.Helpers
                             .ToList();
 
                         // Add header to each page
-                        AddReportHeader(document, headerColor, boldFont);
+                        AddReportHeader(document, SASRA_PRIMARY_COLOR, boldFont);
 
                         // Add report metadata with page indicator
                         document.Add(new Paragraph().SetMarginTop(20));
@@ -231,9 +273,13 @@ namespace Returns.Helpers
                             .SetWidth(UnitValue.CreatePercentValue(100));
 
                         // Generate table with only these periods
-                        GenerateReportTable(tableForPage, report, periodsForPage, boldFont, regularFont, sectionBgColor, normalRowBgColor);
+                        GenerateReportTable(tableForPage, report, periodsForPage, boldFont, regularFont, SASRA_LIGHT_GRAY, normalRowBgColor);
 
                         document.Add(tableForPage);
+
+                        AddApprovalComments(document, report, boldFont,
+                          PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE),
+                          regularFont);
 
                         // Add footer
                         AddReportFooter(document);
@@ -248,7 +294,7 @@ namespace Returns.Helpers
                 else
                 {
                     // Add header
-                    AddReportHeader(document, headerColor, boldFont);
+                    AddReportHeader(document, SASRA_PRIMARY_COLOR, boldFont);
 
                     // Add report metadata
                     document.Add(new Paragraph().SetMarginTop(20));
@@ -263,7 +309,7 @@ namespace Returns.Helpers
                     Table mainTable = new Table(UnitValue.CreatePercentArray(columnCount))
                         .SetWidth(UnitValue.CreatePercentValue(100));
 
-                    GenerateReportTable(mainTable, report, report.Periods, boldFont, regularFont, sectionBgColor, normalRowBgColor);
+                    GenerateReportTable(mainTable, report, report.Periods, boldFont, regularFont, SASRA_LIGHT_GRAY, normalRowBgColor);
 
                     document.Add(mainTable);
 
@@ -278,12 +324,10 @@ namespace Returns.Helpers
             }
         }
 
-        // Add report header
         private static void AddReportHeader(Document document, DeviceRgb headerColor, PdfFont boldFont)
         {
             try
             {
-                // Replace with actual path to logo or embedded resource
                 ImageData logoData = ImageDataFactory.Create(GetSasraLogoBytes());
                 Image logo = new Image(logoData).SetHeight(60);
 
@@ -327,9 +371,91 @@ namespace Returns.Helpers
                                              "Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"))
                 .SetTextAlignment(TextAlignment.CENTER)
                 .SetFontSize(9)
-                .SetFontColor(new DeviceRgb(102, 102, 102)); // #666666
+                .SetFontColor(SASRA_DARK_GRAY); // #666666
 
             document.Add(footer);
+        }
+
+        private static void AddApprovalComments(Document document, SaccoPerformanceReportDTO report,
+         PdfFont boldFont, PdfFont italicFont, PdfFont regularFont)
+        {
+            // Only add the section if there are approval comments
+            if (report.approvalActions != null && report.approvalActions.Count > 0)
+            {
+                document.Add(new Paragraph().SetMarginTop(30));
+
+                // Section header
+                Paragraph approvalHeader = new Paragraph("Approval Comments")
+                    .SetFont(boldFont)
+                    .SetFontSize(14)
+                    .SetFontColor(SASRA_PRIMARY_COLOR)
+                    .SetMarginBottom(10);
+                document.Add(approvalHeader);
+
+                // Create a table for approval comments
+                Table commentsTable = new Table(UnitValue.CreatePercentArray(new float[] { 1, 2, 3, 1.5f }))
+                    .SetWidth(UnitValue.CreatePercentValue(100));
+
+                // Add table headers
+                Cell[] headerCells = new Cell[]
+                {
+                    new Cell().Add(new Paragraph("Date").SetFont(boldFont)),
+                    new Cell().Add(new Paragraph("Step/Role").SetFont(boldFont)),
+                    new Cell().Add(new Paragraph("Comment").SetFont(boldFont)),
+                    new Cell().Add(new Paragraph("Status").SetFont(boldFont))
+                };
+
+                foreach (var cell in headerCells)
+                {
+                    cell.SetBackgroundColor(SASRA_LIGHT_GRAY)
+                        .SetPadding(8)
+                        .SetTextAlignment(TextAlignment.CENTER);
+                    commentsTable.AddHeaderCell(cell);
+                }
+
+                // Add comments to table
+                foreach (var comment in report.approvalActions)
+                {
+                    // Date cell
+                    commentsTable.AddCell(new Cell()
+                        .Add(new Paragraph(comment.CreatedAt.ToString("dd-MM-yyyy HH:mm"))
+                        .SetFont(regularFont))
+                        .SetPadding(8));
+
+                    // Step/Role cell
+                    commentsTable.AddCell(new Cell()
+                        .Add(new Paragraph(comment.WorkFlowStep.RoleName)
+                        .SetFont(regularFont))
+                        .SetPadding(8));
+
+                    // Comment cell
+                    commentsTable.AddCell(new Cell()
+                        .Add(new Paragraph(comment.Comment)
+                        .SetFont(regularFont))
+                        .SetPadding(8));
+
+                    // Status cell with appropriate color
+                    var statusCell = new Cell()
+                        .Add(new Paragraph(comment.Status)
+                        .SetFont(boldFont))
+                        .SetPadding(8)
+                        .SetTextAlignment(TextAlignment.CENTER);
+
+                    // Set status cell color based on status
+                    if (comment.Status.ToUpper() == "APPROVED")
+                    {
+                        statusCell.SetFontColor(SASRA_SUCCESS_COLOR);
+                    }
+                    else if (comment.Status.ToUpper() == "REJECTED")
+                    {
+                        statusCell.SetFontColor(SASRA_ERROR_COLOR);
+                    }
+
+                    commentsTable.AddCell(statusCell);
+                }
+
+                document.Add(commentsTable);
+            }
         }
 
         // Helper method to generate table for a given set of periods
@@ -659,7 +785,7 @@ namespace Returns.Helpers
                 // Color negative values in red
                 if (value < 0)
                 {
-                    valuePara.SetFontColor(new DeviceRgb(220, 53, 69));
+                    valuePara.SetFontColor(SASRA_ERROR_COLOR);
                 }
 
                 Cell valueCell = new Cell(1, 1)
@@ -692,16 +818,16 @@ namespace Returns.Helpers
         // Helper method to get logo bytes
         private static byte[] GetSasraLogoBytes()
         {
-            // Use a placeholder image for testing
-            return Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
+            var path = System.IO.Path.Combine(AppContext.BaseDirectory, "Images", "sasraimage.jpg");
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException($"Logo not found at {path}");
+            }
 
-            // TODO: Replace with your actual logo
-            // return File.ReadAllBytes("path/to/logo.png");
-            // OR
-            // return Convert.FromBase64String("YOUR_BASE64_STRING");
+            return File.ReadAllBytes(path);
         }
 
-     
+
 
         public static string GenerateHtmlReport( List<ValidationError> validationErrors, string period)
         {
