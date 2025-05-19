@@ -415,6 +415,7 @@ namespace Returns.Helpers
             // 2. Identify first and last steps
             var firstStep = allSteps[0];
             var lastStep = allSteps[allSteps.Count - 1];
+            var DirectorStep = allSteps[2]; //allSteps.FirstOrDefault(s => s.RoleName == "headofcompliance");
 
             // 3. Load the step we just finished
             var current = await _db.WorkFlowSteps.FindAsync(instance.CurrentStepId);
@@ -439,7 +440,12 @@ namespace Returns.Helpers
 
             if (instance.Rating.HasValue && instance.Rating.Value ==3)
             {
-                return null;
+                if (current.Id == DirectorStep.Id)
+                {
+                    return null;
+                }
+
+               // return null;
             }
 
             //    Find where “current” sits in the allSteps list

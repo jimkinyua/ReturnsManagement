@@ -312,6 +312,9 @@ namespace Returns.Helpers
                     GenerateReportTable(mainTable, report, report.Periods, boldFont, regularFont, SASRA_LIGHT_GRAY, normalRowBgColor);
 
                     document.Add(mainTable);
+                    AddApprovalComments(document, report, boldFont,
+                          PdfFontFactory.CreateFont(StandardFonts.HELVETICA_OBLIQUE),
+                          regularFont);
 
                     // Add footer
                     AddReportFooter(document);
@@ -326,42 +329,85 @@ namespace Returns.Helpers
 
         private static void AddReportHeader(Document document, DeviceRgb headerColor, PdfFont boldFont)
         {
+            // local supporting colours & regular font
+            DeviceRgb sasraNavy = new DeviceRgb(13, 59, 102);   // #0D3B66
+            DeviceRgb sasraGrey = new DeviceRgb(102, 102, 102); // #666666
+            PdfFont regular = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+
             try
             {
+                // ─── Logo ─────────────────────────────────────────────────────────
                 ImageData logoData = ImageDataFactory.Create(GetSasraLogoBytes());
-                Image logo = new Image(logoData).SetHeight(60);
+                Image logo = new Image(logoData)
+                                        .SetHeight(60)
+                                        .SetAutoScale(true);
 
-                Paragraph headerPara = new Paragraph("SASRA - SACCO Performance Report")
-                    .SetFont(boldFont)
-                    .SetFontColor(ColorConstants.WHITE)
-                    .SetFontSize(18)
-                    .SetTextAlignment(TextAlignment.CENTER);
+                // ─── Right-hand block (org name, tagline, contacts) ───────────────
+                Paragraph orgName = new Paragraph("SACCO Societies Regulatory Authority (SASRA)")
+                                        .SetFont(boldFont)
+                                        .SetFontColor(ColorConstants.BLACK)
+                                        .SetFontSize(16)
+                                        .SetMarginBottom(3);
 
+                Paragraph tagline = new Paragraph("Securing SACCO Funds")
+                                        .SetFont(regular)
+                                        .SetFontColor(ColorConstants.BLACK)
+                                        .SetFontSize(11)
+                                        .SetMarginBottom(6);
+
+                Paragraph contacts = new Paragraph(
+                        "UAP Old Mutual Tower, 19ᵗʰ Floor, Upper Hill Road, Nairobi, Kenya\n" +
+                        "P.O. Box 25089 – 00100 Nairobi  |  Tel: +254 (20) 293 5100/101  |  Toll-Free: 0800 724 422\n" +
+                        "Email: info@sasra.go.ke  |  www.sasra.go.ke")
+                    .SetFont(regular)
+                    .SetFontColor(ColorConstants.BLACK)
+                    .SetFontSize(9);
+
+                // ─── Two-column table layout ──────────────────────────────────────
+                Table hdr = new Table(UnitValue.CreatePercentArray(new float[] { 1, 4 }))
+                                .SetWidth(UnitValue.CreatePercentValue(100))
+                                .SetBorder(Border.NO_BORDER);
+
+                hdr.AddCell(new Cell()
+                    .SetBorder(Border.NO_BORDER)
+                    .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                    .Add(logo));
+
+                hdr.AddCell(new Cell()
+                    .SetBorder(Border.NO_BORDER)
+                    .Add(orgName)
+                    .Add(tagline)
+                    .Add(contacts));
+
+                // wrap table in coloured div for padding
                 Div headerDiv = new Div()
-                    .SetBackgroundColor(headerColor)
-                    .SetPadding(20)
-                    .Add(new Paragraph().Add(logo).SetTextAlignment(TextAlignment.CENTER))
-                    .Add(headerPara);
+                    //.SetBackgroundColor(sasraGrey)     
+                    .SetPadding(16)
+                    .Add(hdr);
 
                 document.Add(headerDiv);
+
+                // thin separator below header
+                document.Add(new LineSeparator(new SolidLine())
+                                 .SetStrokeColor(headerColor)
+                                 .SetMarginTop(6)
+                                 .SetMarginBottom(12));
             }
-            catch (Exception ex)
+            catch
             {
-                // If logo loading fails, just add the text header
-                Paragraph headerPara = new Paragraph("SASRA - SACCO Performance Report")
-                    .SetFont(boldFont)
-                    .SetFontColor(ColorConstants.WHITE)
-                    .SetFontSize(18)
-                    .SetTextAlignment(TextAlignment.CENTER);
-
-                Div headerDiv = new Div()
-                    .SetBackgroundColor(headerColor)
-                    .SetPadding(20)
-                    .Add(headerPara);
-
-                document.Add(headerDiv);
+                document.Add(
+                    new Div()
+                        .SetBackgroundColor(headerColor)
+                        .SetPadding(18)
+                        .Add(new Paragraph("SACCO Societies Regulatory Authority (SASRA)")
+                                 .SetFont(boldFont)
+                                 .SetFontColor(ColorConstants.WHITE)
+                                 .SetFontSize(16)
+                                 .SetTextAlignment(TextAlignment.CENTER))
+                );
             }
         }
+
 
         // Add report footer
         private static void AddReportFooter(Document document)
