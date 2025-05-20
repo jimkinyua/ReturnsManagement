@@ -337,6 +337,64 @@ namespace Returns.Helpers
             }
         }
 
+        public async Task<List<Sacco>> GetSaccosAssignedToOfficerAsync(string userId)
+        {
+            var saccos = new List<Sacco>();
+
+            try
+            {
+                await using var connection = new SqlConnection(_connectionString);
+                await connection.OpenAsync();
+
+                const string sql = @"
+                    SELECT  s.Id,
+                            s.SaccoName,
+                            s.OfficialSaccoEmail,
+                            s.ContactNumber,
+                            s.Kra_Pin,
+                            s.SaccoType,
+                            s.IsApproved,
+                            s.AuthorizedRepresentative,
+                            s.ApprovedAt,
+                            s.CooperativeSocietyNo,
+                            s.TeamId,
+                            s.TeamName
+                    FROM    UserSaccos us
+                    JOIN    [Saccos] s
+                            ON s.Id = us.SaccoId
+                    WHERE   us.UserId = @userId;";
+
+                await using var cmd = new SqlCommand(sql, connection);
+                cmd.Parameters.Add(new SqlParameter("@userId", SqlDbType.NVarChar) { Value = userId });
+
+                await using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    saccos.Add(new Sacco
+                    {
+                        Id = reader["Id"]?.ToString() ?? string.Empty,
+                        SaccoName = reader["SaccoName"]?.ToString() ?? string.Empty,
+                        OfficialSaccoEmail = reader["OfficialSaccoEmail"]?.ToString() ?? string.Empty,
+                        ContactNumber = reader["ContactNumber"]?.ToString() ?? string.Empty,
+                        KraPin = reader["Kra_Pin"]?.ToString() ?? string.Empty,
+                        SaccoType = reader["SaccoType"]?.ToString() ?? string.Empty,
+                        IsApproved = reader["IsApproved"] as bool? ?? false,
+                        AuthorizedRepresentative = reader["AuthorizedRepresentative"]?.ToString() ?? string.Empty,
+                        ApprovedAt = reader["ApprovedAt"] as DateTime?,
+                        CooperativeSocietyNo = reader["CooperativeSocietyNo"]?.ToString() ?? string.Empty,
+                        TeamId = reader["TeamId"]?.ToString() ?? string.Empty,
+                        TeamName = reader["TeamName"]?.ToString() ?? string.Empty
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving Saccos assigned to user {UserId}", userId);
+            }
+
+            return saccos;
+        }
+
         public async Task<List<SasraUser>> GetTeamMembers(string teamId)
         {
             var members = new List<SasraUser>();

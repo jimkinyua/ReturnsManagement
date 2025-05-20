@@ -1,5 +1,6 @@
 using Returns.DTOs.Returns.Returns_Submission.DT;
 using Returns.DTOs.Returns.Returns_Submission.NWDT;
+using Returns.DTOs.WorkFlow_Engine;
 using static Returns.Helpers.ReturnsHelper;
 
 namespace Returns.DTOs.Returns_Submission.NWDT
@@ -32,6 +33,7 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public NWDTComprehesiveIncomeStatementDTO? NWDTIncomeStatement { get; set; }
         public NWDTFinancialPositionDTO? NWDTFinancialPosition { get; set; }
         public List<NWDTDepositReturnDto> NWDTDepositReturn { get; set; } = new List<NWDTDepositReturnDto>();
+        public List<CommentDetails> ApprovalComments { get; set; } = new List<CommentDetails>();
         public List<OtherReturnDTO> OtherReturns { get; set; } = new List<OtherReturnDTO>();
         public SectoralLendingDTO SectoralLending { get; set; } = new SectoralLendingDTO();
         public int VersionNumber { get; set; }

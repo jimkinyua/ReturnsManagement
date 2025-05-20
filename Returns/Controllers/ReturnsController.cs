@@ -24,6 +24,7 @@ using Returns.DTOs.Returns.Return_Assignement;
 using Returns.DTOs.Returns.Returns_Submission.NWDT;
 using Microsoft.AspNetCore.Http.HttpResults;
 using System.ComponentModel.DataAnnotations;
+using Returns.DTOs.WorkFlow_Engine;
 
 namespace Returns.Controllers
 {
@@ -1276,6 +1277,11 @@ namespace Returns.Controllers
                     .AsNoTracking()
                     .FirstOrDefaultAsync(inv => inv.ReturnId == returnId);
 
+                var ApprovalComments = await _context.ApprovalActions
+                                          .AsNoTracking()
+                                          .Where(o => o.ReturnId == returnId)
+                                          .ToListAsync();
+
                 InvestmentReturnDTO? investment = null;
                 int investmentDaysLate = 0;
                 if (investmentEntity != null)
@@ -1388,6 +1394,32 @@ namespace Returns.Controllers
                 // ───────────────────────────────────────────────────────────────
                 dto.PreviousVersionIds =
                     await helper.GetPreviousVersionChoicesAsync(hdr);
+
+                List<CommentDetails> commentDetails = new List<CommentDetails>();
+
+                foreach (var comment in ApprovalComments)
+                {
+
+                    var UserDetails = await complianceService.GetUserById(comment.UserId);
+                    var Name = string.Empty;
+                    if (UserDetails == null)
+                    {
+                    }
+                    else
+                    {
+                        Name = UserDetails.FullName;
+                    }
+                    commentDetails.Add(new CommentDetails
+                    {
+                        Comment = comment.Comment,
+                        UserId = comment.UserId,
+                        ApproverName = Name,
+                        Status = comment.Status,
+                        CreatedAt = comment.CreatedAt
+                    });
+                }
+
+                dto.ApprovalComments = commentDetails;
 
 
                 // ───────────────────────────────────────────────────────────────
@@ -2262,7 +2294,12 @@ namespace Returns.Controllers
                                              .AsNoTracking()
                                              .FirstOrDefaultAsync(m => m.ReturnId == returnId);
 
-      
+                var ApprovalComments = await _context.ApprovalActions
+                                             .AsNoTracking()
+                                             .Where(o => o.ReturnId == returnId)
+                                             .ToListAsync();
+
+
                 var dto = new NWDTReturnDetailsDTO
                 {
                     // header
@@ -2545,6 +2582,31 @@ namespace Returns.Controllers
                 // previous-version IDs
                 dto.PreviousVersionIds =
                     await helper.GetPreviousVersionChoicesAsync(hdr);
+                List<CommentDetails> commentDetails = new List<CommentDetails>();
+
+                foreach (var comment in ApprovalComments)
+                {
+
+                    var UserDetails = await complianceService.GetUserById(comment.UserId);
+                    var Name = string.Empty;
+                    if (UserDetails == null)
+                    {
+                    }
+                    else
+                    {
+                        Name = UserDetails.FullName;
+                    }
+                    commentDetails.Add(new CommentDetails
+                    {
+                        Comment = comment.Comment,
+                        UserId = comment.UserId,
+                        ApproverName = Name,
+                        Status = comment.Status,
+                        CreatedAt = comment.CreatedAt
+                    });
+                }
+
+                dto.ApprovalComments = commentDetails;
 
                 // sectoral lending
                 var sectoral = await _context.SectoralLendingReports

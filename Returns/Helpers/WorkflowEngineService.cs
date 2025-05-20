@@ -22,17 +22,24 @@ namespace Returns.Helpers
             _emailService = emailService;
         }
 
-     
+
 
         public async Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId)
         {
-            // Get all workflow instances where:
-            // 1. The workflow is still active (not completed/rejected)
-            // 2. The current step is assigned to this user
+            var mySaccoIds = (await _complianceService
+                    .GetSaccosAssignedToOfficerAsync(userId))
+                    .Select(s => s.Id)
+                    .ToHashSet();
+
+            // 2. Fetch pending workflow items the user should see:
+            //    – they’re the current approver OR
+            //    – the Sacco is one they supervise.
             var pendingReturns = await _db.WorkflowInstances
                 .Include(w => w.CurrentStep)
                 .Include(w => w.Return)
-                .Where(w => w.Status == ApprovalStatus.Pending.ToString() && w.UserId == userId) // UserId stores current approver
+                .Where(w =>
+                    w.Status == ApprovalStatus.Pending.ToString() &&
+                    (w.UserId == userId || mySaccoIds.Contains(w.Return.SaccoId)))
                 .OrderBy(w => w.CreatedAt)
                 .Select(w => new PendingReturnDto
                 {
@@ -44,7 +51,7 @@ namespace Returns.Helpers
                     SubmittedDate = w.Return.SubmittedAt,
                     SaccoId = w.Return.SaccoId,
                     WorkFlowInstanceId = w.Id,
-                    CurrentRole = w.CurrentStep.RoleName,
+                    CurrentRole = w.CurrentStep.RoleName ?? "",
                     CurrentStep = w.CurrentStep.Sequence,
                     Rating = w.Rating
                 })
@@ -52,6 +59,8 @@ namespace Returns.Helpers
 
             return pendingReturns;
         }
+
+
 
         public async Task<WorkflowStateDto> GetCurrentStateAsync(string returnId)
         {
@@ -337,7 +346,7 @@ namespace Returns.Helpers
                 throw new Exception("Sacco not found.");
             }
             var email = SaccoDetails.OfficialSaccoEmail;
-            var subject = "Return Approved";
+            var subject = "Compliance Report";
             var message = $"Your return has been approved";
             _emailService.SendEmailAsync(email, subject, message);
         }

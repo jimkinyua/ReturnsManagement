@@ -8,6 +8,7 @@ using Returns.DTOs.Returns.Returns_Submission.NWDT;
 using Returns.DTOs.Returns_Analysis;
 using Returns.DTOs.Returns_Submission;
 using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
+using Returns.DTOs.WorkFlow_Engine;
 using static Returns.Helpers.ReturnsHelper;
 
 namespace Returns.DTOs.Returns_Submission.DT
@@ -43,6 +44,7 @@ namespace Returns.DTOs.Returns_Submission.DT
         public List<DepositReturnDto> DepositReturn { get; set; }
         public List<OtherReturnDTO> OtherReturns { get; set; } = new List<OtherReturnDTO>();
         public SectoralLendingDTO SectoralLending { get; set; } = new SectoralLendingDTO();
+        public List<CommentDetails> ApprovalComments { get; set; } = new List<CommentDetails>();
 
         public int VersionNumber { get; set; }
         public Boolean CanReportBeViewed { get; set; } = false;
