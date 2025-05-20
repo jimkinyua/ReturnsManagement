@@ -2278,7 +2278,7 @@ namespace Returns.Controllers
                                              .AsNoTracking()
                                              .FirstOrDefaultAsync(liq => liq.ReturnId == returnId);
 
-                var risks = await _context.DTRiskClassificationReturns
+                var risks = await _context.NWDTRiskClassificationReturns
                                              .AsNoTracking()
                                              .Where(rc => rc.ReturnId == returnId)
                                              .ToListAsync();
