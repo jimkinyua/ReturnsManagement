@@ -81,7 +81,9 @@ internal class Program
         // Core services
         builder.Services.AddScoped<DbInitializer>();
         builder.Services.AddScoped<ReturnsDbContext>();
-        builder.Services.AddTransient<IEmailService, EmailService>();
+        //builder.Services.AddTransient<IEmailService, EmailService>();
+        builder.Services.AddSingleton<IEmailService, EmailService>();   // NOT AddScoped / AddTransient
+
         builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();
         builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
         builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
@@ -98,24 +100,40 @@ internal class Program
 
     private static void ConfigureHangfire(WebApplicationBuilder builder)
     {
+        var conn = builder.Configuration.GetConnectionString("HangfireDbConnection")
+            ?? builder.Configuration.GetConnectionString("ReturnsDbConnection");
+
+
         builder.Services.AddHangfire(cfg =>
         {
             cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                .UseSimpleAssemblyNameTypeSerializer()
                .UseRecommendedSerializerSettings()
-               .UseSqlServerStorage(
-                    builder.Configuration.GetConnectionString("ReturnsDbConnection"),
-                    new SqlServerStorageOptions
-                    {
-                        CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
-                        SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
-                        QueuePollInterval = TimeSpan.FromSeconds(15),
-                        UseRecommendedIsolationLevel = true,
-                        DisableGlobalLocks = true
-                    });
+               .UseSqlServerStorage(conn, new SqlServerStorageOptions
+               {
+                   // give long-running jobs breathing room
+                   CommandBatchMaxTimeout = TimeSpan.FromMinutes(10),
+                   SlidingInvisibilityTimeout = TimeSpan.FromMinutes(30),
+
+                   // snappy queue polling so devs “see something happen”
+                   QueuePollInterval = TimeSpan.FromSeconds(5),
+
+                   // 1.8+ best-practice flags
+                   UsePageLocksOnDequeue = true,
+                   DisableGlobalLocks = true
+               });
+            cfg.UseFilter(new DisableConcurrentExecutionAttribute(300));
+
         });
 
-        builder.Services.AddHangfireServer();
+        builder.Services.AddHangfireServer(opts =>
+        {
+            opts.ServerName = $"reminder-srv-{Environment.MachineName}";
+            opts.WorkerCount = Math.Max(2, Environment.ProcessorCount * 4);
+            opts.Queues = new[] { "reminders", "default" };
+            opts.SchedulePollingInterval = TimeSpan.FromSeconds(5);    // re-check Cron schedule quickly
+            opts.ShutdownTimeout = TimeSpan.FromMinutes(5);
+        });
     }
 
     private static void ConfigurePdfService(WebApplicationBuilder builder)
@@ -133,17 +151,12 @@ internal class Program
             Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
         });
 
-        // Schedule recurring jobs
         RecurringJob.AddOrUpdate<ReturnsReminderService>(
-            recurringJobId: "returns-reminder-dev",
+            recurringJobId: "returns-reminder",
             methodCall: s => s.SendRemindersAsync(CancellationToken.None),
-            cronExpression: Cron.MinuteInterval(1),
-            options: new RecurringJobOptions
-            {
-                TimeZone = TimeZoneInfo.Local,           // or FindSystemTimeZoneById("E. Africa Standard Time")
-                QueueName = "reminders"                  // still works up to 1.8.x
-            });
-
+            cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
+            timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
+            queue: "reminders");
 
 
         app.UseCors("ALLOWED_ROUTES");

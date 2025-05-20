@@ -515,7 +515,7 @@ namespace Returns.Helpers
                 {
                     ReturnId = returnId,
                     FilePath = Path,
-                    MRating = managementReturn.MRating,
+                    MRating = ManagementReturn.MRating,
                 };
 
                 if (!IsAmendMent)

@@ -1,103 +1,93 @@
-﻿
-using Microsoft.Extensions.Options;
+﻿using Microsoft.Extensions.Options;
 using Returns.Helpers.Interfaces;
-using System.Net.Mail;
 using System.Net;
+using System.Net.Mail;
 using System.Net.Mime;
+using System.Threading;
 
-namespace Returns.Helpers
+namespace Returns.Helpers;
+
+/// <summary>
+/// One long-lived SmtpClient + a Semaphore to guarantee
+/// only one send is in flight – fixes the “4.3.2 concurrent connections” problem.
+/// </summary>
+public sealed class EmailService : IEmailService, IDisposable
 {
-    public class EmailService : IEmailService
+    private readonly SmtpClient _client;
+    private readonly SemaphoreSlim _gate = new(1, 1);       // serialize sends
+    private bool _disposed;
+
+    public EmailService(IOptions<EmailSettings> options)
     {
-        private readonly EmailSettings _emailSettings;
+        var cfg = options.Value;
 
-        public EmailService(IOptions<EmailSettings> emailSettings)
+        _client = new SmtpClient(cfg.Host, cfg.Port)
         {
-            _emailSettings = emailSettings.Value;
-        }
+            EnableSsl = cfg.EnableSsl,
+            Credentials = new NetworkCredential(cfg.UserName, cfg.Password)
+        };
 
-        public async Task SendEmailAsync(string to, string subject, string body)
+        // keep the socket alive for 2 minutes (optional)
+        _client.ServicePoint!.MaxIdleTime = 120_000;
+    }
+
+    public Task SendEmailAsync(string to, string subject, string body) =>
+        SendAsync(BuildBasicMessage(to, subject, body));
+
+    public Task SendEmailAsyncWithCC(
+        string to, string subject, string body, IEnumerable<string> cc)
+    {
+        var msg = BuildBasicMessage(to, subject, body);
+
+        if (cc != null)
+            foreach (var addr in cc.Where(a => !string.IsNullOrWhiteSpace(a)))
+                msg.CC.Add(addr.Trim());
+
+        return SendAsync(msg);
+    }
+
+    public Task SendEmailWithAttachmentAsync(
+        string to, string subject, string body, byte[] attachment, string attachmentName)
+    {
+        var msg = BuildBasicMessage(to, subject, body);
+        msg.Attachments.Add(
+            new Attachment(new MemoryStream(attachment), attachmentName,
+                           MediaTypeNames.Application.Pdf));
+
+        return SendAsync(msg);
+    }
+
+    private MailMessage BuildBasicMessage(string to, string subject, string body)
+    {
+        var msg = new MailMessage
         {
-            using (var client = new SmtpClient(_emailSettings.Host, _emailSettings.Port)
-            {
-                EnableSsl = _emailSettings.EnableSsl,
-                Credentials = new NetworkCredential(_emailSettings.UserName, _emailSettings.Password)
-            })
-            {
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(_emailSettings.From),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true // Set to false if sending plain text
-                };
+            From = _client.Credentials is NetworkCredential c
+                           ? new MailAddress(c.UserName)
+                           : new MailAddress("no-reply@example.com"),
+            Subject = subject,
+            Body = body,
+            IsBodyHtml = true
+        };
+        msg.To.Add(to);
+        return msg;
+    }
 
-                mailMessage.To.Add(to);
-                await client.SendMailAsync(mailMessage);
-            }
-        }
-
-        public async Task SendEmailAsyncWithCC(string to,
-                                        string subject,
-                                        string body,
-                                        IEnumerable<string> ccAddresses)   // renamed for clarity
+    private async Task SendAsync(MailMessage msg)
+    {
+        await _gate.WaitAsync();
+        try { await _client.SendMailAsync(msg); }
+        finally
         {
-            using var client = new SmtpClient(_emailSettings.Host, _emailSettings.Port)
-            {
-                EnableSsl = _emailSettings.EnableSsl,
-                Credentials = new NetworkCredential(_emailSettings.UserName, _emailSettings.Password)
-            };
-
-            using var message = new MailMessage
-            {
-                From = new MailAddress(_emailSettings.From),
-                Subject = subject,
-                Body = body,
-                IsBodyHtml = true            // set false if you’re sending plain-text
-            };
-
-            // primary recipient
-            message.To.Add(to);
-
-            // optional CC list
-            if (ccAddresses != null)
-            {
-                foreach (var cc in ccAddresses.Where(a => !string.IsNullOrWhiteSpace(a)))
-                {
-                    message.CC.Add(cc.Trim());
-                }
-            }
-
-            await client.SendMailAsync(message);
+            _gate.Release();
+            msg.Dispose();            // dispose after send
         }
+    }
 
-
-        public async Task SendEmailWithAttachmentAsync(string to, string subject, string body, byte[] attachment, string attachmentName)
-        {
-            using (var client = new SmtpClient(_emailSettings.Host, _emailSettings.Port)
-            {
-                EnableSsl = _emailSettings.EnableSsl,
-                Credentials = new NetworkCredential(_emailSettings.UserName, _emailSettings.Password)
-            })
-            {
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(_emailSettings.From),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-
-                mailMessage.To.Add(to);
-
-                using (var stream = new MemoryStream(attachment))
-                {
-                    var attachmentItem = new Attachment(stream, attachmentName, MediaTypeNames.Application.Pdf);
-                    mailMessage.Attachments.Add(attachmentItem);
-
-                    await client.SendMailAsync(mailMessage);
-                }
-            }
-        }
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _client.Dispose();
+        _gate.Dispose();
+        _disposed = true;
     }
 }
