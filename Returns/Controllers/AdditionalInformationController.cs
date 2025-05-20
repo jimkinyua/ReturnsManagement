@@ -265,14 +265,19 @@ namespace Returns.Controllers
             }
             try
             {
+                var ReturnDetails = await _context.Returns.FirstOrDefaultAsync(r => r.Id == createAdditionalInformationRequestDto.ReturnId);
+                if (ReturnDetails == null)
+                {
+                    return NotFound();
+                }
+
                 var result = await _informationRequestService.RequestAdditionalInformationAsync(createAdditionalInformationRequestDto, loggedPerson.UserId);
                 if (result == null)
                 {
                     return NotFound();
                 }
-                var ReturnDetails = await _context.Returns.FirstOrDefaultAsync(r => r.Id == createAdditionalInformationRequestDto.ReturnId);
-
-                var coUserId = await _complianceService.GetAssignedComplianceOfficer(createAdditionalInformationRequestDto.ReturnId);
+               
+                var coUserId = await _complianceService.GetAssignedComplianceOfficer(ReturnDetails.SaccoId);
 
                 var TeamMembers = await _complianceService.GetTeamMembers(coUserId.TeamId);
 

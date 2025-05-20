@@ -106,7 +106,7 @@ namespace Returns.Controllers
                           try
                              {
                                  await _emailService.SendEmailWithAttachmentAsync(
-                                     "james.kinyua@agilebiz.co.ke",
+                                     SaccoDetails.OfficialSaccoEmail,
                                      "Validation Report - Consistency Errors",
                                      "PFA",
                                      ConsistencyReport,
@@ -2210,81 +2210,68 @@ namespace Returns.Controllers
         {
             try
             {
-                var helper = new ReturnsHelper(_context);
-
-                Return? header = await _context.Returns
+              
+                var hdr = await _context.Returns
                     .AsNoTracking()
                     .FirstOrDefaultAsync(r =>
                         r.Id == returnId &&
                         r.SaccoType == Constants.SaccoType.NWDT.ToString());
 
-                if (header == null)
-                {
-                    return new NWDTReturnDetailsDTO();
-                }
-                var capitalTask = _context.NWDTCapitalAdequacyReturns
-                                           .AsNoTracking()
-                                           .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
+                if (hdr == null) return new NWDTReturnDetailsDTO();
 
-                var depositTask = _context.NWDTDepositReturns
-                                           .AsNoTracking()
-                                           .Where(dr => dr.ReturnId == returnId)
-                                           .ToListAsync();
+                var helper = new ReturnsHelper(_context);
 
-                var balanceTask = _context.NWDTFinancialPositionReturns
-                                           .AsNoTracking()
-                                           .FirstOrDefaultAsync(fp => fp.ReturnId == returnId);
+       
+                var ca = await _context.NWDTCapitalAdequacyReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
 
-                var incomeTask = _context.NWDTComprehensiveIncomeReturns
-                                           .AsNoTracking()
-                                           .FirstOrDefaultAsync(ci => ci.ReturnId == returnId);
+                var deposits = await _context.NWDTDepositReturns
+                                             .AsNoTracking()
+                                             .Where(dr => dr.ReturnId == returnId)
+                                             .ToListAsync();
 
-                var investmentTask = _context.NWDTInvestmentReturns
-                                           .AsNoTracking()
-                                           .FirstOrDefaultAsync(inv => inv.ReturnId == returnId);
+                var fp = await _context.NWDTFinancialPositionReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(fp => fp.ReturnId == returnId);
 
-                var liquidityTask = _context.NDWTLiquidityReturns
-                                           .AsNoTracking()
-                                           .FirstOrDefaultAsync(liq => liq.ReturnId == returnId);
+                var inc = await _context.NWDTComprehensiveIncomeReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(ci => ci.ReturnId == returnId);
 
-                var riskTask = _context.DTRiskClassificationReturns
-                                           .AsNoTracking()
-                                           .Where(rc => rc.ReturnId == returnId)
-                                           .ToListAsync();
+                var inv = await _context.NWDTInvestmentReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(inv => inv.ReturnId == returnId);
 
-                var otherTask = _context.OtherReturns
-                                           .AsNoTracking()
-                                           .Where(o => o.ReturnId == returnId)
-                                           .ToListAsync();
+                var liq = await _context.NDWTLiquidityReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(liq => liq.ReturnId == returnId);
 
-                var managementTask = _context.ManagementReturns
-                                           .AsNoTracking()
-                                           .FirstOrDefaultAsync(m => m.ReturnId == returnId);
+                var risks = await _context.DTRiskClassificationReturns
+                                             .AsNoTracking()
+                                             .Where(rc => rc.ReturnId == returnId)
+                                             .ToListAsync();
 
-                await Task.WhenAll(capitalTask, depositTask, balanceTask, incomeTask,
-                                   investmentTask, liquidityTask, riskTask,
-                                   otherTask, managementTask);
+                var others = await _context.OtherReturns
+                                             .AsNoTracking()
+                                             .Where(o => o.ReturnId == returnId)
+                                             .ToListAsync();
 
-                // unwrap results
-                var ca = capitalTask.Result;
-                var deposits = depositTask.Result;
-                var fp = balanceTask.Result;
-                var inc = incomeTask.Result;
-                var inv = investmentTask.Result;
-                var liq = liquidityTask.Result;
-                var risks = riskTask.Result;
-                var others = otherTask.Result;
-                var mgr = managementTask.Result;
+                var mgr = await _context.ManagementReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(m => m.ReturnId == returnId);
 
-            
+      
                 var dto = new NWDTReturnDetailsDTO
                 {
-                    Id = header.Id,
-                    SaccoName = header.SaccoName,
-                    SubmittedAt = header.SubmittedAt,
-                    IsConsistent = header.IsNotConsistent,
-                    ConsistentErrorMessage = header.ConsistentErrorMessage,
+                    // header
+                    Id = hdr.Id,
+                    SaccoName = hdr.SaccoName,
+                    SubmittedAt = hdr.SubmittedAt,
+                    IsConsistent = hdr.IsNotConsistent,
+                    ConsistentErrorMessage = hdr.ConsistentErrorMessage,
 
+                    // late counters
                     CapitalAdequacyDaysLate = ca?.DaysLateBy ?? 0,
                     DepositReturnDaysLate = deposits.FirstOrDefault()?.DaysLateBy ?? 0,
                     StatementOfComprehensiveIncomeDaysLate = inc?.DaysLateBy ?? 0,
@@ -2293,6 +2280,7 @@ namespace Returns.Controllers
                     RiskClassificationDaysLate = risks.FirstOrDefault()?.DaysLateBy ?? 0,
                     InvestmentReturnDaysLate = inv?.DaysLateBy ?? 0,
 
+                    // capital adequacy
                     NWDTCapitalAdequacy = ca == null ? null : new NWDTCapitalAdequacyDTO
                     {
                         ShareCapital = ca.ShareCapital,
@@ -2302,12 +2290,10 @@ namespace Returns.Controllers
                         CapitalGrantsEquityInNature = ca.CapitalGrants,
                         OtherReserves = ca.OtherReserves,
                         SubTotalCoreCapital = ca.SubTotalCoreCapital,
-
                         InvestmentsInSubsidiaryAndEquityInstruments = ca.InvestmentsInSubsidiary,
                         OtherDeductions = ca.OtherDeductions,
                         TotalDeductions = ca.TotalDeductions,
                         CoreCapital = ca.CoreCapital,
-
                         CashLocalAndForeignCurrency = ca.CashLocalForeign,
                         GovernmentSecurities = ca.GovernmentSecurities,
                         DepositsAndBalancesAtOtherInstitutions = ca.DepositsBalancesAtOtherInstitutions,
@@ -2318,7 +2304,6 @@ namespace Returns.Controllers
                         TotalOnBalanceSheetAssets = ca.TotalOnBalanceSheetAssets,
                         TotalAssetsPerBalanceSheet = ca.TotalAssetsPerBalanceSheet,
                         Difference = ca.DifferenceInAssets,
-
                         CoreCapitalToAssetsRatio = ca.CoreCapitalToAssetsRatio,
                         CoreCapitalToAssetsRatioExcessDeficiency =
                             ca.CoreCapitalToAssetsExcessDeficiency,
@@ -2328,6 +2313,7 @@ namespace Returns.Controllers
                         FilePath = ca.FilePath
                     },
 
+                    // deposit list
                     NWDTDepositReturn = deposits.Select(dr => new NWDTDepositReturnDto
                     {
                         RangeName = dr.RangeName,
@@ -2337,6 +2323,7 @@ namespace Returns.Controllers
                         FilePath = dr.FilePath
                     }).ToList(),
 
+                    // income statement
                     NWDTIncomeStatement = inc == null ? null : new NWDTComprehesiveIncomeStatementDTO
                     {
                         InterestOnLoanPortfolio = inc.InterestOnLoanPortfolio,
@@ -2352,7 +2339,6 @@ namespace Returns.Controllers
                             inc.InvestmentInCompaniesIncome,
                         TotalFinancialIncomeFromInvestments = inc.FinancialIncomeFromInvestments,
                         TotalFinancialIncome = inc.FinancialIncome,
-
                         InterestExpenseOnDeposits = inc.InterestExpenseOnDeposits,
                         CostOfExternalBorrowings = inc.CostOfExternalBorrowings,
                         DividendExpenses = inc.DividendExpenses,
@@ -2361,11 +2347,9 @@ namespace Returns.Controllers
                         OtherExpense = inc.OtherExpense,
                         TotalFinancialExpense = inc.FinancialExpense,
                         NetFinancialIncome = inc.NetFinancialIncome,
-
                         ProvisionForLoanLosses = inc.ProvisionForLoanLosses,
                         ValueOfLoansRecovered = inc.ValueOfLoansRecovered,
                         NetAllowanceForLoanLoss = inc.AllowanceForLoanLoss,
-
                         PersonnelExpenses = inc.PersonnelExpenses,
                         GovernanceExpenses = inc.GovernanceExpenses,
                         MarketingExpenses = inc.MarketingExpenses,
@@ -2373,11 +2357,9 @@ namespace Returns.Controllers
                         AdministrativeExpenses = inc.AdministrativeExpenses,
                         TotalOperatingExpenses = inc.OperatingExpenses,
                         NetOperatingIncome = inc.NetOperatingIncome,
-
                         NonOperatingIncome = inc.NonOperatingIncome,
                         NonOperatingExpense = inc.NonOperatingExpense,
                         NetNonOperatingIncome = inc.NetNonOperatingIncome,
-
                         Taxes = inc.Taxes,
                         NetIncomeBeforeTaxes = inc.NetIncomeBeforeTaxes,
                         NetIncomeAfterTaxes = inc.NetIncomeAfterTaxesBeforeDonations,
@@ -2385,15 +2367,14 @@ namespace Returns.Controllers
                         NetIncomeAfterTaxesAndDonations = inc.NetIncomeAfterTaxesAndDonations,
                         FilePath = inc.FilePath
                     },
-                    
 
+                    // financial position
                     NWDTFinancialPosition = fp == null ? null : new NWDTFinancialPositionDTO
                     {
                         CashInHand = fp.CashInHand,
                         CashAtBank = fp.CashAtBank,
                         TotalCashAndCashEquivalent = fp.CashAndCashEquivalent,
                         PrepaymentsAndSundryReceivables = fp.PrepaymentsAndSundryReceivables,
-
                         GovernmentSecurities = fp.GovernmentSecurities,
                         OtherSecurities =
                             fp.PlacementInFinancialInstitutions +
@@ -2405,30 +2386,24 @@ namespace Returns.Controllers
                         BalancesWithOtherSaccos = 0M,
                         InvestmentsInCompanies = fp.InvestmentInCompanies,
                         TotalFinancialInvestments = fp.FinancialInvestments,
-
                         GrossLoanPortfolio = fp.GrossLoanPortfolio,
                         AllowanceForLoanLoss = fp.AllowanceForLoanLoss,
                         NetLoanPortfolio = fp.NetLoanPortfolio,
-
                         TaxRecoverable = fp.TaxRecoverable,
                         DeferredTaxAssets = fp.DeferredTaxAssets,
                         RetirementBenefitAssets = fp.RetirementBenefitAssets,
                         TotalAccountsReceivables = fp.AccountsReceivables,
-
                         InvestmentProperties = fp.InvestmentProperties,
                         PropertyAndEquipment = fp.PropertyAndEquipment,
                         PrepaidLeaseRentals = fp.PrepaidLeaseRentals,
                         IntangibleAssets = fp.IntangibleAssets,
                         OtherAssets = fp.OtherAssets,
                         TotalPropertyAndEquipment = fp.PropertyEquipmentOtherAssets,
-
                         TotalAssets = fp.TotalAssets,
-
                         SavingsDeposits = 0M,
                         ShortTermDeposits = 0M,
                         NonWithdrawableDeposits = fp.NonWithdrawableDeposits,
                         TotalDepositLiabilities = fp.TotalDepositLiabilities,
-
                         TaxPayable = fp.TaxPayable,
                         DividendsPayable = fp.DividendsPayable,
                         DeferredTaxLiability = fp.DeferredTaxLiability,
@@ -2436,9 +2411,7 @@ namespace Returns.Controllers
                         OtherLiabilities = fp.OtherLiabilities,
                         ExternalBorrowings = fp.ExternalBorrowings,
                         TotalAccountsPayable = fp.AccountsPayableOtherLiabilities,
-
                         TotalLiabilities = fp.TotalLiabilities,
-
                         ShareCapital = fp.ShareCapital,
                         CapitalGrants = fp.CapitalGrants,
                         PriorYearsRetainedEarnings = fp.PriorYearsRetainedEarnings,
@@ -2454,6 +2427,7 @@ namespace Returns.Controllers
                         FilePath = fp.FilePath
                     },
 
+                    // liquidity
                     NWDTLiquidityStatement = liq == null ? null : new NWDTLiquidityStatementDTO
                     {
                         LocalNotesAndCoins = liq.LocalNotesAndCoins,
@@ -2480,6 +2454,7 @@ namespace Returns.Controllers
                         NetBankBalances = liq.NetBankBalances
                     },
 
+                    // risks
                     NWDTRiskClassifications = risks.Select(rc => new NWDTRiskClassificationDTO
                     {
                         LoanType = rc.LoanType,
@@ -2491,12 +2466,14 @@ namespace Returns.Controllers
                         FilePath = rc.FilePath
                     }).ToList(),
 
+                    // other returns
                     OtherReturns = others.Select(o => new OtherReturnDTO
                     {
                         FormName = o.FormName,
                         FileUrl = o.FileUrl
                     }).ToList(),
 
+                    // investment
                     NWDTInvestment = inv == null ? null : new NWDTInvestmentReturnDTO
                     {
                         CoreCapital = inv.CoreCapital,
@@ -2531,48 +2508,44 @@ namespace Returns.Controllers
                         FilePath = inv.FilePath
                     },
 
+                    // management
                     ManagementReturn = mgr == null ? null : new ManagementReturnDTO
                     {
                         SaccoCsNumber = mgr.SaccoCsNumber,
-
                         GovernanceStructureScore = mgr.GorvenanceStructureScore,
                         GovernanceStructureWeight = mgr.GorvenanceStructureWeight,
                         GovernanceStructureWeightedScore = mgr.GorvenanceStructureWeightedScore,
-
                         InternalControlsScore = mgr.InternalControlsScore,
                         InternalControlsWeight = mgr.InternalControlsWeight,
                         InternalControlsWeightedScore = mgr.InternalControlsWeightedScore,
-
                         ComplianceWithLawsScore = mgr.ComplianceWithLawsAndRegulationsScore,
                         ComplianceWithLawsWeight = mgr.ComplianceWithLawsAndRegulationsWeight,
                         ComplianceWithLawsWeightedScore = mgr.ComplianceWithLawsAndRegulationsWeightedScore,
-
                         MemberProtectionScore = mgr.MemberProtectionScore,
                         MemberProtectionWeight = mgr.MemberProtectionWeight,
                         MemberProtectionWeightedScore = mgr.MemberProtectionWeightedScore,
-
                         AdequacyOfMISScore = mgr.AdequacyOfMISScore,
                         AdequacyOfMISWeight = mgr.AdequacyOfMISWeight,
                         AdequacyOfMISWeightedScore = mgr.AdequacyOfMISWeightedScore,
-
                         OverallRiskProfileScore = mgr.OverallRiskProfileScore,
                         OverallRiskProfileWeight = mgr.OverallRiskProfileWeight,
                         OverallRiskProfileWeightedScore = mgr.OverallRiskProfileWeightedScore,
                         MRating = mgr.MRating
                     },
 
-                    Year = header.Year.ToString(),
-                    VersionNumber = header.VersionNumber,
-                    IsActiveVersion = header.IsActiveVersion,
-                    AmendmentDate = header.AmendmentDate,
-                    PreviousVersionId = header.PreviousVersionId,
-                    CanReportBeViewed = header.CanReportBeViewed
+                    Year = hdr.Year.ToString(),
+                    VersionNumber = hdr.VersionNumber,
+                    IsActiveVersion = hdr.IsActiveVersion,
+                    AmendmentDate = hdr.AmendmentDate,
+                    PreviousVersionId = hdr.PreviousVersionId,
+                    CanReportBeViewed = hdr.CanReportBeViewed
                 };
 
+                // previous-version IDs
+                dto.PreviousVersionIds =
+                    await helper.GetPreviousVersionChoicesAsync(hdr);
 
-                dto.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync(header);
-
-             
+                // sectoral lending
                 var sectoral = await _context.SectoralLendingReports
                     .AsNoTracking()
                     .FirstOrDefaultAsync(x => x.ReturnId == returnId);
@@ -2598,7 +2571,7 @@ namespace Returns.Controllers
                     };
                 }
 
-                return Ok(dto);
+                return dto;
             }
             catch (Exception ex)
             {
