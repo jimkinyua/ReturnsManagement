@@ -137,7 +137,7 @@ internal class Program
         RecurringJob.AddOrUpdate<ReturnsReminderService>(
             recurringJobId: "returns-reminder-dev",
             methodCall: s => s.SendRemindersAsync(CancellationToken.None),
-            cronExpression: Cron.MinuteInterval(5),
+            cronExpression: Cron.MinuteInterval(1),
             options: new RecurringJobOptions
             {
                 TimeZone = TimeZoneInfo.Local,           // or FindSystemTimeZoneById("E. Africa Standard Time")

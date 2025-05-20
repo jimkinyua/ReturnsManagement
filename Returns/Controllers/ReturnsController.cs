@@ -1828,7 +1828,7 @@ namespace Returns.Controllers
                 var report = new SaccoPerformanceReportDTO();
 
                 // Find current return
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString());
+                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
                 if (currentReturn == null)
                 {
                     return BadRequest("Return not found");
@@ -2182,6 +2182,7 @@ namespace Returns.Controllers
 
                 var approvals = await _context.ApprovalActions
                     .Where(r => r.ReturnId == returnId)
+                    .Include(r=>r.WorkFlowStep)
                     .ToListAsync();
                 report.approvalActions = approvals;
 
