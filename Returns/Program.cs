@@ -131,8 +131,8 @@ internal class Program
             opts.ServerName = $"reminder-srv-{Environment.MachineName}";
             opts.WorkerCount = Math.Max(2, Environment.ProcessorCount * 4);
             opts.Queues = new[] { "reminders", "default" };
-            opts.SchedulePollingInterval = TimeSpan.FromSeconds(5);    // re-check Cron schedule quickly
-            opts.ShutdownTimeout = TimeSpan.FromMinutes(5);
+            opts.SchedulePollingInterval = TimeSpan.FromMinutes(40);    // re-check Cron schedule quickly
+            opts.ShutdownTimeout = TimeSpan.FromMinutes(40);
         });
     }
 
@@ -151,12 +151,12 @@ internal class Program
             Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
         });
 
-        RecurringJob.AddOrUpdate<ReturnsReminderService>(
-            recurringJobId: "returns-reminder",
-            methodCall: s => s.SendRemindersAsync(CancellationToken.None),
-            cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
-            timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
-            queue: "reminders");
+        //RecurringJob.AddOrUpdate<ReturnsReminderService>(
+           // recurringJobId: "returns-reminder",
+            //methodCall: s => s.SendRemindersAsync(CancellationToken.None),
+           // cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
+            //timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
+            //queue: "reminders");
 
 
         app.UseCors("ALLOWED_ROUTES");

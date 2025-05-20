@@ -1390,9 +1390,6 @@ namespace Returns.Controllers
                 };
 
 
-                // ───────────────────────────────────────────────────────────────
-                //  4.  Previous-version IDs (done after main DB work)
-                // ───────────────────────────────────────────────────────────────
                 dto.PreviousVersionIds =
                     await helper.GetPreviousVersionChoicesAsync(hdr);
 
