@@ -542,32 +542,32 @@ namespace Returns.Helpers
                     {
                         // CORE CAPITAL
                         case "GOVERNANCE, STRUCTURE AND ORGANIZATION":
-                            managementReturn.GorvenanceStructureScore = row.WeightedScore ?? 0;
+                            managementReturn.GorvenanceStructureScore = row.Score ?? 0;
                             managementReturn.GorvenanceStructureWeight = row.Weight ?? 0;
                             managementReturn.GorvenanceStructureWeightedScore = row.WeightedScore ?? 0;
                             break;
                         case "INTERNAL CONTROLS":
-                            managementReturn.InternalControlsScore = row.WeightedScore ?? 0;
+                            managementReturn.InternalControlsScore = row.Score ?? 0;
                             managementReturn.InternalControlsWeight = row.Weight ?? 0;
                             managementReturn.InternalControlsWeightedScore = row.WeightedScore ?? 0;
                             break;
                         case "COMPLIANCE WITH LAWS AND REGULATIONS":
-                            managementReturn.ComplianceWithLawsAndRegulationsScore = row.WeightedScore ?? 0;
+                            managementReturn.ComplianceWithLawsAndRegulationsScore = row.Score ?? 0;
                             managementReturn.ComplianceWithLawsAndRegulationsWeight = row.Weight ?? 0;
                             managementReturn.ComplianceWithLawsAndRegulationsWeightedScore = row.WeightedScore ?? 0;
                             break;
                         case "MEMBER PROTECTION":
-                            managementReturn.MemberProtectionScore = row.WeightedScore ?? 0;
+                            managementReturn.MemberProtectionScore = row.Score ?? 0;
                             managementReturn.MemberProtectionWeight = row.Weight ?? 0;
                             managementReturn.MemberProtectionWeightedScore = row.WeightedScore ?? 0;
                             break;
                         case "ADEQUACY OF MIS":
-                            managementReturn.AdequacyOfMISScore = row.WeightedScore ?? 0;
+                            managementReturn.AdequacyOfMISScore = row.Score ?? 0;
                             managementReturn.AdequacyOfMISWeight = row.Weight ?? 0;
                             managementReturn.AdequacyOfMISWeightedScore = row.WeightedScore ?? 0;
                             break;
                         case "OVERALL RISK PROFILE":
-                            managementReturn.OverallRiskProfileScore = row.WeightedScore ?? 0;
+                            managementReturn.OverallRiskProfileScore = row.Score ?? 0;
                             managementReturn.OverallRiskProfileWeight = row.Weight ?? 0;
                             managementReturn.OverallRiskProfileWeightedScore = row.WeightedScore ?? 0;
                             break;
