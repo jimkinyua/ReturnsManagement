@@ -120,7 +120,7 @@ namespace Returns.Helpers
                         TotalDeposits = balanceSheet.TotalDepositLiabilities
                     };
                     analysis.OverallRating = CalculateOverallRating(analysis);
-                    analysis.ManagementRating = 5; //AnalyzeManagement(managementReturn);
+                    analysis.ManagementRating = AnalyzeManagement(managementReturn);
                     _context.SaccoAnalysis.Add(analysis);
                     await _context.SaveChangesAsync();
 
@@ -144,8 +144,8 @@ namespace Returns.Helpers
 
 
                    var mgtRating  = AnalyzeManagement(managementReturn);
-                    mgtRating.Period = p.CreatedAt.ToString("yyyy-MM-dd");
-                    dto.ManagementRatingResults = mgtRating;
+                    //mgtRating.Period = p.CreatedAt.ToString("yyyy-MM-dd");
+                    //dto.ManagementRatingResults = mgtRating;
 
                     var earnRatings = await AnalyzeEarnings(incomeStmt, balanceSheet);
                     earnRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
@@ -183,7 +183,7 @@ namespace Returns.Helpers
                                               dto.AssetQualityRating,
                                               dto.EarningsRating,
                                               dto.LiquidityRating,
-                                              dto.ManagementRatingResults.MRating
+                                              dto.ManagementRating
                                               );
                 dto.RiskLevel = DetermineRiskLevel(dto.OverallRating);
 
@@ -250,6 +250,12 @@ namespace Returns.Helpers
                                            .FirstOrDefaultAsync(x => x.ReturnId == p.Id)
                                        ?? new NWDTInvestmentReturn();
 
+
+                    var managementReturn = await _context.ManagementReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(m => m.ReturnId == p.Id) ?? new ManagementReturn();
+
+
                     // persist analysis
                     var analysis = new SaccoAnalysis
                     {
@@ -265,7 +271,7 @@ namespace Returns.Helpers
                         TotalDeposits = balanceSheet.TotalDepositLiabilities
                     };
                     analysis.OverallRating = CalculateOverallRating(analysis);
-                    analysis.ManagementRating = 5; // AnalyzeManagement();
+                    analysis.ManagementRating = AnalyzeManagement(managementReturn);
                     _context.SaccoAnalysis.Add(analysis);
                     await _context.SaveChangesAsync();
 
@@ -319,7 +325,9 @@ namespace Returns.Helpers
                                               dto.CapitalRating,
                                               dto.AssetQualityRating,
                                               dto.EarningsRating,
-                                              dto.LiquidityRating, 5);
+                                              dto.LiquidityRating,
+                                              dto.ManagementRating
+                                              );
                 dto.RiskLevel = DetermineRiskLevel(dto.OverallRating);
 
                 return dto;

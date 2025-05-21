@@ -81,8 +81,8 @@ internal class Program
         // Core services
         builder.Services.AddScoped<DbInitializer>();
         builder.Services.AddScoped<ReturnsDbContext>();
-        //builder.Services.AddTransient<IEmailService, EmailService>();
-        builder.Services.AddSingleton<IEmailService, EmailService>();   // NOT AddScoped / AddTransient
+        builder.Services.AddTransient<IEmailService, EmailService>();
+        //builder.Services.AddSingleton<IEmailService, EmailService>();   // NOT AddScoped / AddTransient
 
         builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();
         builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();

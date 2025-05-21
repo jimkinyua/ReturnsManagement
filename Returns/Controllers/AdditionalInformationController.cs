@@ -32,9 +32,16 @@ namespace Returns.Controllers
         {
             try
             {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return StatusCode(401);
+                }
+
                 var requests = await _context.AdditionalInformationRequests
                     .AsNoTracking()
                     .Include(r => r.ReturnReponses)
+                    .Where(x=>x.SaccoId == loggedInSacco.SaccoId)
                     .OrderBy(r => r.CreatedAt)
                     .ToListAsync();
 
