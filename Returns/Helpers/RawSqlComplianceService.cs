@@ -255,7 +255,7 @@ namespace Returns.Helpers
                         ,[Email]
                         ,[TeamName]
                         ,[TeamRole]
-                          FROM [IdentityDatabase].[dbo].[AspNetUsers] as u
+                          FROM [AspNetUsers] as u
                           JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
                           JOIN AspNetRoles   r  ON r.Id = ur.RoleId
                           WHERE u.Id = @UserId

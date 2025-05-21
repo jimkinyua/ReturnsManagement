@@ -1411,7 +1411,7 @@ namespace Returns.Controllers
                     {
                         Comment = comment.Comment,
                         UserId = comment.UserId,
-                        ApproverName = Name,
+                        ApproverName = UserDetails.FullName??"Not Found", //Name,
                         Status = comment.Status,
                         CreatedAt = comment.CreatedAt
                     });
