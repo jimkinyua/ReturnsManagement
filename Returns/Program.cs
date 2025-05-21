@@ -106,7 +106,7 @@ internal class Program
 
         builder.Services.AddHangfire(cfg =>
         {
-            cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+           /* cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                .UseSimpleAssemblyNameTypeSerializer()
                .UseRecommendedSerializerSettings()
                .UseSqlServerStorage(conn, new SqlServerStorageOptions
@@ -122,7 +122,7 @@ internal class Program
                    UsePageLocksOnDequeue = true,
                    DisableGlobalLocks = true
                });
-            cfg.UseFilter(new DisableConcurrentExecutionAttribute(300));
+            cfg.UseFilter(new DisableConcurrentExecutionAttribute(300));*/
 
         });
 

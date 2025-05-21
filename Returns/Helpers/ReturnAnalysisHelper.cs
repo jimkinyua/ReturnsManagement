@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Returns.Migrations;
 using static Returns.Helpers.ExcelService.Form2CStatement;
+using Returns.DTOs.Returns.Return_Analysis_Result;
 
 namespace Returns.Helpers
 {
@@ -1093,7 +1094,25 @@ namespace Returns.Helpers
                 result.ICA.WeightedScore +
                 result.CCD.WeightedScore +
                 result.AdjustedCCA.WeightedScore;
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+
+          
+            int worstSub = new[]
+            {
+                result.MinimumCC.Rating,
+                result.CCA.Rating,
+                result.ICA.Rating,
+                result.CCD.Rating,
+                result.AdjustedCCA.Rating
+            }.Max();
+
+
+            // "no more than one level better than the worst
+            //          (i.e. numerically lowest) sub-ratio"
+            result.FinalRating = Math.Max(baseRating, worstSub - 1);
+
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
 
             return result;
         }
@@ -1131,8 +1150,17 @@ namespace Returns.Helpers
 
 
             decimal totalWeightedScore = ROAWeightedScore + CostToIncomeWeightedScore + OEWeightedScore;
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+            int worstSub = new[]
+            {
+                result.ROARating,
+                result.CostToIncomeRating,
+                result.OERating
+            }.Max();
 
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
+            result.FinalRating = Math.Max(baseRating, worstSub - 1);
+
             return result;
         }
 
@@ -1166,10 +1194,12 @@ namespace Returns.Helpers
             var OEWeightedScore = result.OERating * result.OEWeight;
             var CostToIncomeWeightedScore = result.CostToIncomeRating * result.CostToIncomeWeight;
 
-
             decimal totalWeightedScore = ROAWeightedScore + CostToIncomeWeightedScore + OEWeightedScore;
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+            int worst = new[] { result.ROARating, result.CostToIncomeRating, result.OERating }.Max();
+             result.FinalRating = Math.Max(baseRating, worst - 1);
 
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
             return result;
         }
 
@@ -1233,7 +1263,10 @@ namespace Returns.Helpers
 
             // Final rating calculation
             decimal totalWeightedScore = result.NPL30WeightedScore + result.AdjustedNPL30WeightedScore;
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+            int worst = Math.Max(result.NPL30Rating, result.AdjustedNPL30Rating);
+            result.FinalRating = Math.Max(baseRating, worst - 1);
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
 
             return result;
         }
@@ -1267,7 +1300,11 @@ namespace Returns.Helpers
 
             // Final rating calculation
             decimal totalWeightedScore = result.NPL30WeightedScore + result.AdjustedNPL30WeightedScore;
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+            int worst = Math.Max(result.NPL30Rating, result.AdjustedNPL30Rating);   // worst sub-rating
+            result.FinalRating = Math.Max(baseRating, worst - 1);
+
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
 
             return result;
         }
@@ -1326,10 +1363,11 @@ namespace Returns.Helpers
 
 
 
-        public static int AnalyzeManagement()
+        public static ManagementRatingDetails AnalyzeManagement(ManagementReturn managementReturn)
         {
-            // For now, give everyone a rating of 5 
-            return 5;
+            var result = new ManagementRatingDetails();
+            result.MRating = managementReturn.MRating;
+            return result;
         }
 
         public static decimal CalculateWNLIQRatio(DTFinancialPositionReturn balanceSheet)
@@ -1558,8 +1596,10 @@ namespace Returns.Helpers
             var liqToTAWeightScore = result.LIQtoTARating * result.LIQtoTAWeight;
 
             decimal totalWeightedScore = liqWeightScore + techLiqWeightScore + extBorrowWeightScore + liqToTAWeightScore;
-
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+            int worst = new[] { result.WNLIQRating, result.TNLIQRating, result.EBRating, result.LIQtoTARating }.Max();
+            result.FinalRating = Math.Max(baseRating, worst - 1);
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
             return result;
         }
 
@@ -1593,8 +1633,12 @@ namespace Returns.Helpers
             var liqToTAWeightScore = result.LIQtoTARating * result.LIQtoTAWeight;
 
             decimal totalWeightedScore = liqWeightScore + techLiqWeightScore + extBorrowWeightScore + liqToTAWeightScore;
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
 
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+            int worst = new[] { result.WNLIQRating, result.TNLIQRating, result.EBRating, result.LIQtoTARating }.Max();
+            result.FinalRating = Math.Max(baseRating, worst - 1);
+
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
             return result;
         }
 
@@ -1639,7 +1683,11 @@ namespace Returns.Helpers
                                           result.FICCWeightedScore +
                                           result.FITDWeightedScore +
                                           result.NEAWeightedScore;
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+            int worst = new[] { result.LBRatioRating, result.FICCRating, result.FITDRating, result.NEARating }.Max();
+            result.FinalRating = Math.Max(baseRating, worst - 1);
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
 
             return result;
         }
@@ -1684,7 +1732,13 @@ namespace Returns.Helpers
                                           result.FICCWeightedScore +
                                           result.FITDWeightedScore +
                                           result.NEAWeightedScore;
-            result.FinalRating = (int)Math.Round(totalWeightedScore);
+
+            int baseRating = (int)Math.Round(totalWeightedScore, MidpointRounding.AwayFromZero);
+            int worst = new[] { result.LBRatioRating, result.FICCRating, result.FITDRating, result.NEARating }.Max();
+            result.FinalRating = Math.Max(baseRating, worst - 1);
+
+
+            //result.FinalRating = (int)Math.Round(totalWeightedScore);
 
             return result;
         }
@@ -1692,10 +1746,24 @@ namespace Returns.Helpers
 
 
         public static int CalculateOverallRating(int capitalRating, int assetRating,
-            int earningsRating, int liquidityRating)
+            int earningsRating, int liquidityRating, int managementRating)
         {
-            // Calculate average rating
-            decimal averageRating = (capitalRating + assetRating + earningsRating + liquidityRating) / 4.0m;
+            var CapitalWeighted = capitalRating * 0.20m;
+            var AssetWeighted = assetRating * 0.20m;
+            var EarningsWeighted = earningsRating * 0.20m;
+            var LiquidityWeighted = liquidityRating * 0.20m;
+            var ManagementWeighted = managementRating * 0.20m;
+            // Calculate weighted average rating
+            decimal weightedAverage = (CapitalWeighted + AssetWeighted + EarningsWeighted + LiquidityWeighted + ManagementWeighted) / 5.0m;
+            // Round to nearest whole number
+            int baseRating = (int)Math.Round(weightedAverage);
+            // Find worst component rating
+            int worstRating = new[] { capitalRating, assetRating, earningsRating, liquidityRating }.Max();
+            // Overall rating can't be more than one level better than worst component
+            return Math.Max(baseRating, worstRating - 1);
+
+            /*// Calculate average rating
+            decimal averageRating = (capitalRating + assetRating + earningsRating + liquidityRating + managementRating) / 5.0m;
 
             // Round to nearest whole number
             int baseRating = (int)Math.Round(averageRating);
@@ -1704,7 +1772,7 @@ namespace Returns.Helpers
             int worstRating = new[] { capitalRating, assetRating, earningsRating, liquidityRating }.Max();
 
             // Overall rating can't be more than one level better than worst component
-            return Math.Min(baseRating, worstRating - 1);
+            return Math.Min(baseRating, worstRating - 1);*/
         }
 
     }

@@ -100,6 +100,10 @@ namespace Returns.Helpers
                                            .FirstOrDefaultAsync(x => x.ReturnId == p.Id)
                                        ?? new DTInvestmentReturn();
 
+                    var managementReturn = await _context.ManagementReturns
+                                             .AsNoTracking()
+                                             .FirstOrDefaultAsync(m => m.ReturnId == p.Id)?? new ManagementReturn();
+
                     // —— persist analysis record ——
                     var analysis = new SaccoAnalysis
                     {
@@ -116,7 +120,7 @@ namespace Returns.Helpers
                         TotalDeposits = balanceSheet.TotalDepositLiabilities
                     };
                     analysis.OverallRating = CalculateOverallRating(analysis);
-                    analysis.ManagementRating = AnalyzeManagement();
+                    analysis.ManagementRating = 5; //AnalyzeManagement(managementReturn);
                     _context.SaccoAnalysis.Add(analysis);
                     await _context.SaveChangesAsync();
 
@@ -135,9 +139,13 @@ namespace Returns.Helpers
 
                     var aqRatings = await AnalyzeAssetQuality(riskList, riskList);
                     aqRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
-                    dto.AssetQualityRatingResults.Add(aqRatings);   
+                    dto.AssetQualityRatingResults.Add(aqRatings); 
+                    
 
-                    dto.ManagementRating = AnalyzeManagement();
+
+                   var mgtRating  = AnalyzeManagement(managementReturn);
+                    mgtRating.Period = p.CreatedAt.ToString("yyyy-MM-dd");
+                    dto.ManagementRatingResults = mgtRating;
 
                     var earnRatings = await AnalyzeEarnings(incomeStmt, balanceSheet);
                     earnRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
@@ -168,11 +176,15 @@ namespace Returns.Helpers
                 dto.AssetQualityRating = dto.AssetQualityRatingResults[0].FinalRating;
                 dto.EarningsRating = dto.EarningsRatingResults[0].FinalRating;
                 dto.LiquidityRating = dto.LiquidityRatingResults[0].FinalRating;
+                dto.ManagementRating = dto.ManagementRatingResults.MRating;
+
                 dto.OverallRating = CalculateOverallRating(
                                               dto.CapitalRating,
                                               dto.AssetQualityRating,
                                               dto.EarningsRating,
-                                              dto.LiquidityRating);
+                                              dto.LiquidityRating,
+                                              dto.ManagementRatingResults.MRating
+                                              );
                 dto.RiskLevel = DetermineRiskLevel(dto.OverallRating);
 
                 return dto;
@@ -253,7 +265,7 @@ namespace Returns.Helpers
                         TotalDeposits = balanceSheet.TotalDepositLiabilities
                     };
                     analysis.OverallRating = CalculateOverallRating(analysis);
-                    analysis.ManagementRating = AnalyzeManagement();
+                    analysis.ManagementRating = 5; // AnalyzeManagement();
                     _context.SaccoAnalysis.Add(analysis);
                     await _context.SaveChangesAsync();
 
@@ -273,7 +285,7 @@ namespace Returns.Helpers
                     aqRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
                     dto.AssetQualityRatingResults.Add(aqRatings);
 
-                    dto.ManagementRating = AnalyzeManagement();
+                    dto.ManagementRating = 5; // AnalyzeManagement();
 
                     var earnRatings = await AnalyzeNwdtEarnings(incomeStmt, balanceSheet);
                     earnRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
@@ -307,7 +319,7 @@ namespace Returns.Helpers
                                               dto.CapitalRating,
                                               dto.AssetQualityRating,
                                               dto.EarningsRating,
-                                              dto.LiquidityRating);
+                                              dto.LiquidityRating, 5);
                 dto.RiskLevel = DetermineRiskLevel(dto.OverallRating);
 
                 return dto;

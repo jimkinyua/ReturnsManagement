@@ -1,4 +1,5 @@
-﻿using SASRAXRBSS.Dto.Returns_Analysis;
+﻿using Returns.DTOs.Returns.Return_Analysis_Result;
+using SASRAXRBSS.Dto.Returns_Analysis;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,7 @@ namespace Returns.DTOs.Returns_Analysis
         public string RiskLevel { get; set; }
         public string ActionRequired { get; set; }
         public List<CapitalAnalysisResult> CapitalAnalysisResults { get; set; } = new();
+        public ManagementRatingDetails ManagementRatingResults { get; set; } = new();
         public List<AssetQualityRatingDetails> AssetQualityRatingResults { get; set; } = new();
         public List<EarningsRatingDetails> EarningsRatingResults { get; set; } = new();
         public List<LiquidityRatingDetails> LiquidityRatingResults { get; set; } = new();
