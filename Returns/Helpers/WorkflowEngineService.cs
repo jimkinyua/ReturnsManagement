@@ -50,7 +50,7 @@ namespace Returns.Helpers
             _emailService = emailService;
         }
 
-        public async Task<WorkflowStateDto> RecommendForEndorsementAsync(RecommendStepRequest dto, string userId)
+        public async Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId)
         {
             using var tx = await _db.Database.BeginTransactionAsync();
 
@@ -81,6 +81,8 @@ namespace Returns.Helpers
                 inst.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
+                // Notify Enfocment Module
+
                 return ConvertToDto(inst);
             }
 
@@ -156,7 +158,6 @@ namespace Returns.Helpers
             return ConvertToDto(inst);
         }
 
-
         public async Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId)
         {
             var mySaccoIds = (await _complianceService
@@ -192,8 +193,6 @@ namespace Returns.Helpers
 
             return pendingReturns;
         }
-
-
 
         public async Task<WorkflowStateDto> GetCurrentStateAsync(string returnId)
         {

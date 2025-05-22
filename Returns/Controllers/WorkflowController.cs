@@ -85,8 +85,8 @@ namespace Returns.Controllers
             }
         }
 
-        [HttpPost("RejectRequest")]
-        public async Task<IActionResult> RejectRequest([FromBody] RejectStepRequest rejectStepRequestDTO)
+        [HttpPost("RecommendForEnforcement")]
+        public async Task<IActionResult> RecommendForEnforcement([FromBody] RecommendStepRequest rejectStepRequestDTO)
         {
             LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
             if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
@@ -95,7 +95,7 @@ namespace Returns.Controllers
             }
             try
             {
-                var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, loggedInSacco.UserId, rejectStepRequestDTO);
+                var result = await _workflowService.RecommendForEnforcementAsync(rejectStepRequestDTO, loggedInSacco.UserId);
                 //var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, "7ded1b0a-bca9-491e-8880-3743d4b3cae5", rejectStepRequestDTO);
                 return Ok(result);
             }
@@ -109,6 +109,32 @@ namespace Returns.Controllers
                 return BadRequest(ex.Message);
             }
         }
+
+
+        [HttpPost("RejectWithReservations")]
+        public async Task<IActionResult> RejectWithReservations([FromBody] ReturnWithReservationsRequest rejectStepRequestDTO)
+        {
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+            {
+                return StatusCode(401);
+            }
+            try
+            {
+                var result = await _workflowService.ReturnWithReservationsAsync(rejectStepRequestDTO, loggedInSacco.UserId);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Rejection failed for workflow {rejectStepRequestDTO.WorkFlowInstanceId}");
+                return BadRequest(ex.Message);
+            }
+        }
+
 
         [HttpGet("CurrentState/{returnId}")]
         public async Task<IActionResult> GetCurrentState(string returnId)
