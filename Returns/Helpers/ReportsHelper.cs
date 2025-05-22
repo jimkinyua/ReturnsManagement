@@ -878,80 +878,96 @@ namespace Returns.Helpers
 
 
 
-        public static string GenerateHtmlReport( List<ValidationError> validationErrors, string period)
+        public static string GenerateHtmlReport(
+            List<ValidationError> validationErrors,
+            string period)
         {
             var sb = new StringBuilder();
+
+            var logoBytes = GetSasraLogoBytes();
+            var logoBase64 = Convert.ToBase64String(logoBytes);
+            var logoDataUri = $"data:image/jpeg;base64,{logoBase64}";
+            const string sasraNavy = "#0D3B66";
+            const string sasraGold = "#D39E0B";
+            const string sasraGrey = "#666666";
+            const string errorRed = "#990000";
+            const string lightGrey = "#f8f9fa";
 
             sb.AppendLine("<!DOCTYPE html>");
             sb.AppendLine("<html lang='en'>");
             sb.AppendLine("<head>");
             sb.AppendLine("  <meta charset='UTF-8'>");
-            sb.AppendLine("  <title>SASRA - Consistency Report</title>");
+            sb.AppendLine("  <title>SASRA – Consistency Report</title>");
             sb.AppendLine("  <style>");
-            sb.AppendLine("    body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; color: #333; }");
-            sb.AppendLine("    .header { background-color: #0d5b92; color: white; padding: 20px; text-align: center; }");
-            sb.AppendLine("    .logo { height: 80px; margin-bottom: 10px; }");
+            sb.AppendLine("    body { font-family: Helvetica, Arial, sans-serif; color: " + sasraGrey + "; margin:0; padding:0; }");
+            sb.AppendLine("    .header { background-color: " + sasraNavy + "; color: white; padding: 20px; text-align: center; }");
+            sb.AppendLine("    .logo { height: 60px; vertical-align: middle; }");
+            sb.AppendLine("    .org-info { display: inline-block; text-align: left; margin-left: 15px; vertical-align: middle; }");
+            sb.AppendLine("    .org-info h2 { margin: 0; font-size: 18px; }");
+            sb.AppendLine("    .org-info p { margin: 2px 0; font-size: 12px; color: " + lightGrey + "; }");
+            sb.AppendLine("    .gold-rule { border: none; height: 3px; background-color: " + sasraGold + "; margin: 0; }");
             sb.AppendLine("    .container { padding: 20px 40px; }");
-            sb.AppendLine("    h1 { color: #0d5b92; margin-top: 0; }");
-            sb.AppendLine("    .report-meta { margin-bottom: 30px; }");
-            sb.AppendLine("    .validation-status { padding: 10px; border-radius: 5px; font-weight: bold; }");
-            sb.AppendLine("    .status-valid { background-color: #d4edda; color: #155724; }");
-            sb.AppendLine("    .status-invalid { background-color: #f8d7da; color: #721c24; }");
+            sb.AppendLine("    h1 { color: " + sasraNavy + "; font-size: 20px; margin-top: 10px; }");
+            sb.AppendLine("    .report-meta { margin-bottom: 25px; }");
+            sb.AppendLine("    .report-meta p { margin: 4px 0; }");
+            sb.AppendLine("    .validation-status { font-weight: bold; }");
+            sb.AppendLine("    .status-valid   { color: " + sasraNavy + "; }");
+            sb.AppendLine("    .status-invalid { color: " + errorRed + "; }");
             sb.AppendLine("    .error-section { margin-top: 30px; }");
-            sb.AppendLine("    .error { margin-bottom: 20px; border-left: 4px solid #dc3545; padding: 10px 15px; background-color: #f8f9fa; }");
-            sb.AppendLine("    .error-category { color: #dc3545; font-weight: bold; font-size: 1.1em; }");
-            sb.AppendLine("    .error-desc { margin: 8px 0; }");
-            sb.AppendLine("    .error-details { margin-left: 15px; }");
-            sb.AppendLine("    .error-detail { margin: 5px 0; }");
-            sb.AppendLine("    .footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; font-size: 0.9em; color: #666; text-align: center; }");
-            sb.AppendLine("    table { width: 100%; border-collapse: collapse; margin: 15px 0; }");
-            sb.AppendLine("    th { background-color: #0d5b92; color: white; text-align: left; padding: 8px; }");
+            sb.AppendLine("    .error-section h2 { color: " + sasraNavy + "; font-size: 16px; }");
+            sb.AppendLine("    .error { background-color: " + lightGrey + "; border-left: 4px solid " + errorRed + "; padding: 10px 15px; margin-bottom: 20px; }");
+            sb.AppendLine("    .error-category { color: " + errorRed + "; font-weight: bold; font-size: 1.1em; }");
+            sb.AppendLine("    .error-desc     { margin: 8px 0; }");
+            sb.AppendLine("    table { width: 100%; border-collapse: collapse; margin-top: 10px; }");
+            sb.AppendLine("    th { background-color: " + sasraGold + "; color: white; text-align: left; padding: 8px; }");
             sb.AppendLine("    td { padding: 8px; border-bottom: 1px solid #ddd; }");
             sb.AppendLine("    tr:nth-child(even) { background-color: #f2f2f2; }");
+            sb.AppendLine("    .footer { margin-top: 40px; border-top: 1px solid #ddd; padding-top: 15px; font-size: 0.85em; color: " + sasraGrey + "; text-align:center; }");
             sb.AppendLine("  </style>");
             sb.AppendLine("</head>");
             sb.AppendLine("<body>");
 
-            // Header with SASRA logo
+            // Header with logo + org name/tagline
             sb.AppendLine("  <div class='header'>");
-            sb.AppendLine("    <img src='data:image/png;base64,[BASE64_LOGO_DATA]' class='logo' alt='SASRA Kenya Logo'>");
-            sb.AppendLine("    <h1> Consistency Report</h1>");
+            sb.AppendLine($"    <img src='{logoDataUri}' class='logo' alt='SASRA Logo' />");
+            sb.AppendLine("    <div class='org-info'>");
+            sb.AppendLine("      <h2>SACCO Societies Regulatory Authority</h2>");
+            sb.AppendLine("      <p>Securing SACCO Funds</p>");
+            sb.AppendLine("    </div>");
             sb.AppendLine("  </div>");
+            sb.AppendLine("  <hr class='gold-rule' />");
 
-            // Report content
+            // Body
             sb.AppendLine("  <div class='container'>");
+            sb.AppendLine("    <h1>Consistency Report</h1>");
             sb.AppendLine("    <div class='report-meta'>");
             sb.AppendLine($"      <p><strong>Reporting Period:</strong> {period}</p>");
-            sb.AppendLine($"      <p><strong>Validation Status:</strong> ");
-                   sb.AppendLine("        </span>");
-            sb.AppendLine("      </p>");
-            sb.AppendLine($"      <p><strong>Errors Found:</strong> {validationErrors.Count()}</p>");
+            sb.AppendLine($"      <p><strong>Validation Status:</strong> " +
+                $"<span class='validation-status {(validationErrors.Any() ? "status-invalid" : "status-valid")}'>{(validationErrors.Any() ? "INVALID" : "VALID")}</span></p>");
+            sb.AppendLine($"      <p><strong>Errors Found:</strong> {validationErrors.Count}</p>");
             sb.AppendLine("    </div>");
 
-            // Error details
-            if (validationErrors.Count() > 0)
+            // Errors table
+            if (validationErrors.Any())
             {
                 sb.AppendLine("    <div class='error-section'>");
                 sb.AppendLine("      <h2>Validation Errors</h2>");
 
-                foreach (var error in validationErrors)
+                foreach (var err in validationErrors)
                 {
                     sb.AppendLine("      <div class='error'>");
-                    sb.AppendLine($"        <div class='error-category'>{error.Category}</div>");
-                    sb.AppendLine($"        <div class='error-desc'>{error.Description}</div>");
-
+                    sb.AppendLine($"        <div class='error-category'>{err.Category}</div>");
+                    sb.AppendLine($"        <div class='error-desc'>{err.Description}</div>");
                     sb.AppendLine("        <table>");
                     sb.AppendLine("          <thead><tr><th>Field</th><th>Value</th></tr></thead>");
                     sb.AppendLine("          <tbody>");
-
-                    foreach (var detail in error.Details)
+                    foreach (var d in err.Details)
                     {
                         sb.AppendLine("            <tr>");
-                        sb.AppendLine($"              <td>{detail.Key}</td>");
-                        sb.AppendLine($"              <td>{detail.Value}</td>");
+                        sb.AppendLine($"              <td>{d.Key}</td>");
+                        sb.AppendLine($"              <td>{d.Value}</td>");
                         sb.AppendLine("            </tr>");
                     }
-
                     sb.AppendLine("          </tbody>");
                     sb.AppendLine("        </table>");
                     sb.AppendLine("      </div>");
@@ -962,9 +978,11 @@ namespace Returns.Helpers
 
             // Footer
             sb.AppendLine("    <div class='footer'>");
-            sb.AppendLine("      <p>SASRA - SACCO Societies Regulatory Authority</p>");
-            sb.AppendLine("      <p>Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm") + "</p>");
+            sb.AppendLine("      <p>UAP Old Mutual Tower, 19th Floor, Upper Hill Road, Nairobi, Kenya | P.O. Box 25089 – 00100 Nairobi</p>");
+            sb.AppendLine("      <p>Tel: +254 (20) 293 5100/101  |  Toll-Free: 0800 724 422  |  Email: info@sasra.go.ke  |  www.sasra.go.ke</p>");
+            sb.AppendLine($"      <p>Generated on: {DateTime.Now:yyyy-MM-dd HH:mm}</p>");
             sb.AppendLine("    </div>");
+
             sb.AppendLine("  </div>");
             sb.AppendLine("</body>");
             sb.AppendLine("</html>");
@@ -972,6 +990,6 @@ namespace Returns.Helpers
             return sb.ToString();
         }
 
-        
+
     }
 }

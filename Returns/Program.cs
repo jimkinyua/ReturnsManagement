@@ -12,6 +12,11 @@ using Hangfire.Dashboard;
 using Returns.Helpers.Reminders;
 using System.Globalization;
 using TuesPechkin;
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+using System.Net.Mail;
+using System.Net;
+using FluentEmail.Core;
+using FluentEmail.Smtp;
 
 internal class Program
 {
@@ -45,7 +50,9 @@ internal class Program
     private static void ConfigureServices(WebApplicationBuilder builder)
     {
         var connectionString = builder.Configuration.GetConnectionString("ReturnsDbConnection");
-
+        var emailCfg = builder.Configuration
+                       .GetSection("EmailSettings")
+                       .Get<EmailSettings>()!;
         // Add CORS
         builder.Services.AddCors(options =>
         {
@@ -72,6 +79,24 @@ internal class Program
 
         // Configure PDF generation service
         ConfigurePdfService(builder);
+
+        builder.Services
+       .AddFluentEmail(emailCfg.From)
+       .AddSmtpSender(() =>
+       {
+           var client = new SmtpClient(emailCfg.Host, emailCfg.Port)
+           {
+               EnableSsl = emailCfg.EnableSsl,
+               Credentials = new NetworkCredential(
+                                 emailCfg.UserName,
+                                 emailCfg.Password
+                             )
+           };
+           // optional: tweak ServicePoint.MaxIdleTime if you like
+           client.ServicePoint!.MaxIdleTime = 120_000;
+           return client;
+       });
+
     }
 
     private static void RegisterApplicationServices(WebApplicationBuilder builder)
@@ -81,7 +106,8 @@ internal class Program
         // Core services
         builder.Services.AddScoped<DbInitializer>();
         builder.Services.AddScoped<ReturnsDbContext>();
-        builder.Services.AddTransient<IEmailService, EmailService>();
+        //builder.Services.AddTransient<IEmailService, EmailService>();
+        builder.Services.AddTransient<IEmailService, FluentEmailService>();
         //builder.Services.AddSingleton<IEmailService, EmailService>();   // NOT AddScoped / AddTransient
 
         builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();

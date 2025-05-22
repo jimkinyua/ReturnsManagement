@@ -1,11 +1,13 @@
-﻿namespace Returns.DTOs.WorkFlow_Engine
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace Returns.DTOs.WorkFlow_Engine
 {
     public class WorkflowStateDto
     {
         public string WorkflowId { get; set; }
         public string ReturnId { get; set; }
         public string CurrentStep { get; set; }
-        public string Status { get; set; } // "Pending", "Approved", "Rejected"
+        public string Status { get; set; } // "Pending", "RecommendForApproval", "Rejected"
         public int? Rating { get; set; }
         public List<WorkflowStepDto> NextSteps { get; set; } = new();
     }
@@ -45,4 +47,17 @@
     {
         public string SaccoId { get; set; }
     }
-}
+
+    public sealed record RecommendStepRequest
+    {
+        [Required] public string WorkFlowInstanceId { get; set; } = string.Empty;
+        [Required] public string Reason { get; init; } = string.Empty;
+    }
+
+    public sealed record ReturnWithReservationsRequest
+    {
+        [Required] public string WorkFlowInstanceId { get; set; } = string.Empty;
+        [Required] public string Comment { get; set; } = string.Empty;
+    }
+
+}   

@@ -162,7 +162,6 @@ namespace Returns.Controllers
                                 try
                                 {
                                     await _emailService.SendEmailWithAttachmentAsync(
-                                        //"james.kinyua@agilebiz.co.ke",
                                         SaccoDetails.OfficialSaccoEmail,
                                         "Validation Report - Consistency Errors",
                                         $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
@@ -1054,7 +1053,9 @@ namespace Returns.Controllers
                     return new ReturnDetailsDTO();   
                 }
 
- 
+                var ApprovalStatus = await _workflowService.GetReturnStatus(hdr.Id);
+
+
                 var capEntity = await _context.DTCapitalAdequacyReturns
                     .AsNoTracking()
                     .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
@@ -1380,8 +1381,9 @@ namespace Returns.Controllers
                     OtherReturns = otherReturns,
                     Investment = investment,
                     ManagementReturn = managementReturn,
+                    ReturnStatus = ApprovalStatus,
 
-                    Year = hdr.Period.ToString(),
+                    Year = hdr.Year.ToString(),
                     VersionNumber = hdr.VersionNumber,
                     IsActiveVersion = hdr.IsActiveVersion,
                     AmendmentDate = hdr.AmendmentDate,
@@ -2313,6 +2315,7 @@ namespace Returns.Controllers
                                              .Where(o => o.ReturnId == returnId)
                                              .ToListAsync();
 
+                var ApprovalStatus = await _workflowService.GetReturnStatus(hdr.Id);
 
                 var dto = new NWDTReturnDetailsDTO
                 {
@@ -2322,6 +2325,9 @@ namespace Returns.Controllers
                     SubmittedAt = hdr.SubmittedAt,
                     IsConsistent = hdr.IsNotConsistent,
                     ConsistentErrorMessage = hdr.ConsistentErrorMessage,
+                    ReturnStatus = ApprovalStatus,
+
+                    
 
                     // late counters
                     CapitalAdequacyDaysLate = ca?.DaysLateBy ?? 0,

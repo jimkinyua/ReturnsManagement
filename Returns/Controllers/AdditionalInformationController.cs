@@ -283,8 +283,13 @@ namespace Returns.Controllers
                 {
                     return NotFound();
                 }
-               
+
                 var coUserId = await _complianceService.GetAssignedComplianceOfficer(ReturnDetails.SaccoId);
+                var Sacco = await _complianceService.GetSaccoByIdAsync(ReturnDetails.SaccoId);
+                if (Sacco == null)
+                {
+                    return NotFound();
+                }
 
                 var TeamMembers = await _complianceService.GetTeamMembers(coUserId.TeamId);
 
@@ -293,7 +298,7 @@ namespace Returns.Controllers
                   .Where(e => !string.IsNullOrWhiteSpace(e) && !e.Equals(coUserId.Email, StringComparison.OrdinalIgnoreCase))
                   .Distinct();
 
-                await _emailSender.SendEmailAsyncWithCC(loggedPerson.EmailAddress, "Additional Information Request", "You have a new request for additional information.", ccAddresses);
+                await _emailSender.SendEmailAsyncWithCC(Sacco.OfficialSaccoEmail, "Additional Information Request", "You have a new request for additional information.", ccAddresses);
                 return Ok(result);
             }
             catch (Exception ex)

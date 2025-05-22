@@ -254,6 +254,7 @@ namespace Returns.Helpers
                         ,[FirstName]
                         ,[Email]
                         ,[TeamName]
+                        ,[RoleId]
                         ,[TeamRole]
                           FROM [AspNetUsers] as u
                           JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
