@@ -34,7 +34,7 @@ namespace Returns.Helpers
             [Description("Pending Enforcement")]
             PendingEnforcement = 4,
         }
-        private string GetDescription(this Enum value)
+        private string GetDescription(Enum value)
         {
             var fi = value.GetType()
                           .GetField(value.ToString())!;
