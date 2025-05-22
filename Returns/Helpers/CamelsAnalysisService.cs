@@ -185,6 +185,7 @@ namespace Returns.Helpers
                                               dto.LiquidityRating,
                                               dto.ManagementRating
                                               );
+                dto.Average = (dto.CapitalRating + dto.AssetQualityRating + dto.EarningsRating + dto.LiquidityRating + dto.ManagementRating) / 5.0m;
                 dto.RiskLevel = DetermineRiskLevel(dto.OverallRating);
 
                 return dto;
@@ -333,6 +334,7 @@ namespace Returns.Helpers
                                               dto.ManagementRating
                                               );
                 dto.RiskLevel = DetermineRiskLevel(dto.OverallRating);
+                dto.Average = (dto.CapitalRating + dto.AssetQualityRating + dto.EarningsRating + dto.LiquidityRating + dto.ManagementRating) / 5.0m;
 
                 return dto;
             }

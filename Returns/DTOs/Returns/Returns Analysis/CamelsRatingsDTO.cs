@@ -18,6 +18,7 @@ namespace Returns.DTOs.Returns_Analysis
         public int EarningsRating { get; set; }
         public int LiquidityRating { get; set; }
         public int OverallRating { get; set; }
+        public decimal Average { get; set; }
         public string RiskLevel { get; set; }
         public string ActionRequired { get; set; }
         public List<CapitalAnalysisResult> CapitalAnalysisResults { get; set; } = new();
