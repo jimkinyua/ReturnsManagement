@@ -1849,7 +1849,7 @@ namespace Returns.Controllers
         }
 
         [HttpGet("GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReportPdf(string returnId, string? components)
+        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReportPdf(string returnId, [FromQuery] string? components)
         {
             try
             {
@@ -2952,7 +2952,7 @@ namespace Returns.Controllers
 
 
         [HttpGet("nwdt/GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string returnId,string? components)
+        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string returnId, [FromQuery] string? components)
         {
             try
             {
