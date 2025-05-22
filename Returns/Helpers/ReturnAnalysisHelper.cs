@@ -1363,11 +1363,12 @@ namespace Returns.Helpers
 
 
 
-        public static int AnalyzeManagement(ManagementReturn managementReturn)
+        public static ManagementRatingDetails AnalyzeManagement(ManagementReturn managementReturn)
         {
             var result = new ManagementRatingDetails();
             result.MRating = managementReturn.MRating;
-            return result.MRating;
+            result.Period = managementReturn.Year;
+            return result;
         }
 
         public static decimal CalculateWNLIQRatio(DTFinancialPositionReturn balanceSheet)

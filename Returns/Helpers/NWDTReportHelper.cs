@@ -21,7 +21,7 @@ namespace Returns.Helpers
     public static class NWDTReportHelper
     {
 
-    public static byte[] GenerateNwdtSaccoPerformancePdfReport(NWDTPerformanceReportDTO report)
+    public static byte[] GenerateNwdtSaccoPerformancePdfReport(NWDTPerformanceReportDTO report, string components)
     {
         
 
@@ -78,7 +78,7 @@ namespace Returns.Helpers
                         .SetWidth(UnitValue.CreatePercentValue(100));
 
                     // Generate table with only these periods
-                    GenerateNwdtReportTable(tableForPage, report, periodsForPage, boldFont, regularFont, sectionBgColor, normalRowBgColor);
+                    GenerateNwdtReportTable(tableForPage, report, periodsForPage, components, boldFont, regularFont, sectionBgColor, normalRowBgColor);
 
                     document.Add(tableForPage);
 
@@ -110,7 +110,7 @@ namespace Returns.Helpers
                 Table mainTable = new Table(UnitValue.CreatePercentArray(columnCount))
                     .SetWidth(UnitValue.CreatePercentValue(100));
 
-                GenerateNwdtReportTable(mainTable, report, report.Periods, boldFont, regularFont, sectionBgColor, normalRowBgColor);
+                GenerateNwdtReportTable(mainTable, report, report.Periods, components, boldFont, regularFont, sectionBgColor, normalRowBgColor);
 
                 document.Add(mainTable);
 
@@ -179,254 +179,266 @@ namespace Returns.Helpers
         document.Add(footer);
     }
 
-    // Helper method to generate table for a given set of periods
-    private static void GenerateNwdtReportTable(Table table, NWDTPerformanceReportDTO report,
-        List<NWDTPerformanceReportDTO.NWDTPeriodData> periods,
-        PdfFont boldFont, PdfFont regularFont, DeviceRgb sectionBgColor, DeviceRgb normalRowBgColor)
-    {
-        // Add table header row
-        Cell emptyCell = new Cell(1, 1)
-            .SetBackgroundColor(sectionBgColor)
-            .SetPadding(10)
-            .SetBorder(Border.NO_BORDER);
-        table.AddCell(emptyCell);
-
-        Cell standardHeader = new Cell(1, 1)
-            .Add(new Paragraph("Prudential Standard").SetFont(boldFont))
-            .SetBackgroundColor(sectionBgColor)
-            .SetPadding(10)
-            .SetTextAlignment(TextAlignment.CENTER)
-            .SetBorder(Border.NO_BORDER);
-        table.AddCell(standardHeader);
-
-        // Add period headers for only the periods we're including on this page
-        foreach (var period in periods)
+        // Helper method to generate table for a given set of periods
+        /// <summary>
+        /// Builds the CAMELS (or CAEL, CAMEL, etc.) table dynamically,
+        /// including Management (“M”) and gating every block by the caller-supplied
+        /// <paramref name="components"/> string.
+        /// </summary>
+        private static void GenerateNwdtReportTable(
+            Table table,
+            NWDTPerformanceReportDTO report,
+            List<NWDTPerformanceReportDTO.NWDTPeriodData> periods,
+            string components,                              // e.g. "CAMELS", "CAEL"
+            PdfFont boldFont,
+            PdfFont regularFont,
+            DeviceRgb sectionBgColor,
+            DeviceRgb normalRowBgColor)
         {
-            Cell periodHeader = new Cell(1, 1)
-                .Add(new Paragraph(period.PeriodLabel).SetFont(boldFont))
-                .SetBackgroundColor(sectionBgColor)
-                .SetPadding(10)
-                .SetTextAlignment(TextAlignment.CENTER)
-                .SetBorder(Border.NO_BORDER);
-            table.AddCell(periodHeader);
+            /* ---------- fixed header row ---------- */
+            table.AddCell(new Cell().SetBackgroundColor(sectionBgColor)
+                                    .SetPadding(10)
+                                    .SetBorder(Border.NO_BORDER));
+
+            table.AddCell(new Cell().Add(new Paragraph("Prudential Standard").SetFont(boldFont))
+                                    .SetBackgroundColor(sectionBgColor)
+                                    .SetPadding(10)
+                                    .SetTextAlignment(TextAlignment.CENTER)
+                                    .SetBorder(Border.NO_BORDER));
+
+            foreach (var period in periods)
+            {
+                table.AddCell(new Cell().Add(new Paragraph(period.PeriodLabel).SetFont(boldFont))
+                                        .SetBackgroundColor(sectionBgColor)
+                                        .SetPadding(10)
+                                        .SetTextAlignment(TextAlignment.CENTER)
+                                        .SetBorder(Border.NO_BORDER));
+            }
+
+            /* ===== C – CAPITAL ADEQUACY ===== */
+            if (components.Contains('C'))
+            {
+                AddSectionHeader(table, "A. CAPITAL ADEQUACY", 2 + periods.Count, boldFont, sectionBgColor);
+
+                AddMetricRow(table, "Core Capital",
+                    report.PrudentialStandards.TryGetValue("CoreCapital", out var cc) ? cc : "N/A",
+                    periods.Select(p => p.CoreCapital).ToList(),
+                    FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Core Capital/Total Assets",
+                    report.PrudentialStandards.TryGetValue("CoreCapita/Total Assets", out var ccta) ? ccta : "N/A",
+                    periods.Select(p => p.CoreCapitalToTotalAssetsRatio).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+            }
+
+            /* ===== A – ASSET QUALITY ===== */
+            if (components.Contains('A'))
+            {
+                AddSectionHeader(table, "B. ASSET QUALITY", 2 + periods.Count, boldFont, sectionBgColor);
+
+                AddMetricRow(table, "NPL (Substandard+Doubtful+Loss)",
+                    report.PrudentialStandards.TryGetValue("Non-Performing Loans", out var npl) ? npl : "N/A",
+                    periods.Select(p => p.NonPerformingLoans).ToList(),
+                    FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Non-Earning Assets",
+                    report.PrudentialStandards.TryGetValue("Non-Earning Assets", out var nea) ? nea : "N/A",
+                    periods.Select(p => p.NonEarningAssets * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Equity investments/Deposits",
+                    report.PrudentialStandards.TryGetValue("Equity Investments to Core Capital Ratio", out var eid) ? eid : "N/A",
+                    periods.Select(p => p.EquityInvestmentsToDeposits * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Equity investments/Core capital",
+                    report.PrudentialStandards.TryGetValue("Equity Investments to Core Capital Ratio", out var eic) ? eic : "N/A",
+                    periods.Select(p => p.EquityInvestmentsToCoreCapitalRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Subsidiary & Related Investments/Core capital",
+                    report.PrudentialStandards.TryGetValue("Subsidary Investments to Total Assets", out var sri) ? sri : "N/A",
+                    periods.Select(p => p.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Other Financial Investments/Core capital",
+                    report.PrudentialStandards.TryGetValue("Other Financial investments to Core Capital Ratio ", out var ofi) ? ofi : "N/A",
+                    periods.Select(p => p.OtherFinancialInvestmentsToCoreCapitalRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+            }
+
+            /* ===== M – MANAGEMENT ===== */
+            if (components.Contains('M'))
+            {
+                AddSectionHeader(table, "C. MANAGEMENT", 2 + periods.Count, boldFont, sectionBgColor);
+
+                AddMetricRow(table, "Governance Structure Score", "N/A",
+                    periods.Select(p => p.GovernanceStructureScore).ToList(),
+                    FormatType.Number, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Internal Controls Score", "N/A",
+                    periods.Select(p => p.InternalControlsScore).ToList(),
+                    FormatType.Number, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Compliance-with-Laws Score", "N/A",
+                    periods.Select(p => p.ComplianceWithLawsScore).ToList(),
+                    FormatType.Number, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Member Protection Score", "N/A",
+                    periods.Select(p => p.MemberProtectionScore).ToList(),
+                    FormatType.Number, boldFont, regularFont, normalRowBgColor);
+            }
+
+            /* ===== E – EARNINGS ===== */
+            if (components.Contains('E'))
+            {
+                AddSectionHeader(table, "D. EARNINGS RATING", 2 + periods.Count, boldFont, sectionBgColor);
+
+                AddMetricRow(table, "Yield on Gross Loans", "N/A",
+                    periods.Select(p => p.YieldOnGrossLoans * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Total Expense/Total Income", "N/A",
+                    periods.Select(p => p.TotalExpenseToTotalIncomeRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Net Income/Average Assets (ROA)", "N/A",
+                    periods.Select(p => p.NetIncomeToAverageAssetsRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Operating Expenses/Financial Income (OPEX)", "N/A",
+                    periods.Select(p => p.OperatingExpenseToFinancialIncomeRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+            }
+
+            /* ===== L – LIQUIDITY ===== */
+            if (components.Contains('L'))
+            {
+                AddSectionHeader(table, "E. LIQUIDITY", 2 + periods.Count, boldFont, sectionBgColor);
+
+                AddMetricRow(table, "Liquid Assets/Short-term Liabilities",
+                    report.PrudentialStandards.TryGetValue("Liquid Assets/Short-term Liabilities", out var lasl) ? lasl : "N/A",
+                    periods.Select(p => p.LiquidAssetsToShortTermLiabilitiesRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "External Borrowing/Total Assets",
+                    report.PrudentialStandards.TryGetValue("External Borrowing to Total Assets", out var ebta) ? ebta : "N/A",
+                    periods.Select(p => p.ExternalBorrowingToTotalAssetsRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+                AddMetricRow(table, "Liquid Assets/Total Assets", "N/A",
+                    periods.Select(p => p.LiquidAssetsToTotalAssetsRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+            }
+
+            /* ===== S – STRUCTURE / SENSITIVITY ===== */
+            if (components.Contains('S'))
+            {
+                AddSectionHeader(table, "F. STRUCTURE / SENSITIVITY TO RISK", 2 + periods.Count, boldFont, sectionBgColor);
+
+                AddMetricRow(table, "Financial Investments/Total Assets", "N/A",
+                    periods.Select(p => p.FinancialInvestmentsToTotalAssetsRatio * 100).ToList(),
+                    FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+            }
+
+            /* ===== RAW FINANCIAL STATISTICS (always shown) ===== */
+            AddSectionHeader(table, "G. KEY FINANCIAL STATISTICS", 2 + periods.Count, boldFont, sectionBgColor);
+
+            AddMetricRow(table, "Total Assets", "N/A",
+                periods.Select(p => p.TotalAssets).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Average Assets", "N/A",
+                periods.Select(p => p.AverageAssets).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Total Deposits", "N/A",
+                periods.Select(p => p.TotalDeposits).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Gross Loans from Form 4", "N/A",
+                periods.Select(p => p.GrossLoansForm4).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Gross Loans from Form 6", "N/A",
+                periods.Select(p => p.GrossLoansForm6).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Core Capital", "N/A",
+                periods.Select(p => p.CoreCapital).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Non-performing Loans", "N/A",
+                periods.Select(p => p.NonPerformingLoans).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Non-Earning Assets", "N/A",
+                periods.Select(p => p.NonEarningAssets * 100).ToList(),
+                FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Property and Equipment", "N/A",
+                periods.Select(p => p.PropertyAndEquipment).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Equity Investments", "N/A",
+                periods.Select(p => p.EquityInvestments).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Financial Investments", "N/A",
+                periods.Select(p => p.FinancialInvestments).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Equity Investments in NACCOS", "N/A",
+                periods.Select(p => p.EquityInvestmentsInNaccos).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Liquid Assets", "N/A",
+                periods.Select(p => p.LiquidAssets).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Short-term Liabilities", "N/A",
+                periods.Select(p => p.ShortTermLiabilities).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "External Borrowing", "N/A",
+                periods.Select(p => p.ExternalBorrowing).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Average Gross Loans", "N/A",
+                periods.Select(p => p.AverageGrossLoans).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Total Income", "N/A",
+                periods.Select(p => p.TotalIncome).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Net Financial Income/Loss", "N/A",
+                periods.Select(p => p.NetFinancialIncome).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Dividends + Interest on Deposits", "N/A",
+                periods.Select(p => p.DividendsAndInterestOnDeposits).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Operating Expenses", "N/A",
+                periods.Select(p => p.OperatingExpenses).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Interest on Loan Portfolio + Fees & Commission on Loan", "N/A",
+                periods.Select(p => p.InterestOnLoanPortfolioAndFeesCommission).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Total Expenses", "N/A",
+                periods.Select(p => p.TotalExpenses).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
+
+            AddMetricRow(table, "Net Income", "N/A",
+                periods.Select(p => p.NetIncome).ToList(),
+                FormatType.Currency, boldFont, regularFont, normalRowBgColor);
         }
 
-        // Add section: CAPITAL ADEQUACY
-        AddSectionHeader(table, "CAPITAL ADEQUACY", 2 + periods.Count, boldFont, sectionBgColor);
-
-        // Add metrics for CAPITAL ADEQUACY
-        AddMetricRow(table, "Core Capital",
-            report.PrudentialStandards.ContainsKey("CoreCapital") ? report.PrudentialStandards["CoreCapital"] : "N/A",
-            periods.Select(p => p.CoreCapital).ToList(),
-            FormatType.Currency,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Core Capital/Total Assets",
-            report.PrudentialStandards.ContainsKey("CoreCapita/Total Assets") ? report.PrudentialStandards["CoreCapita/Total Assets"] : "N/A",
-            periods.Select(p => p.CoreCapitalToTotalAssetsRatio).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        // Add section: ASSET QUALITY
-        AddSectionHeader(table, "B. ASSET QUALITY", 2 + periods.Count, boldFont, sectionBgColor);
-
-        // Add metrics for ASSET QUALITY
-        AddMetricRow(table, "NPL (Substandard+Doubtful+Loss)",
-            report.PrudentialStandards.ContainsKey("Non-Performing Loans") ? report.PrudentialStandards["Non-Performing Loans"] : "N/A",
-            periods.Select(p => p.NonPerformingLoans).ToList(),
-            FormatType.Currency,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Non-Earning Assets",
-            report.PrudentialStandards.ContainsKey("Non-Earning Assets") ? report.PrudentialStandards["Non-Earning Assets"] : "N/A",
-            periods.Select(p => p.NonEarningAssets * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        // Add investment metrics
-        AddMetricRow(table, "Equity investments/Deposits",
-            report.PrudentialStandards.ContainsKey("Equity Investments to Core Capital Ratio") ? report.PrudentialStandards["Equity Investments to Core Capital Ratio"] : "N/A",
-            periods.Select(p => p.EquityInvestmentsToDeposits * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Equity investments/Core capital",
-            report.PrudentialStandards.ContainsKey("Equity Investments to Core Capital Ratio") ? report.PrudentialStandards["Equity Investments to Core Capital Ratio"] : "N/A",
-            periods.Select(p => p.EquityInvestmentsToCoreCapitalRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Subsidiary & Related Investments/Core capital",
-            report.PrudentialStandards.ContainsKey("Subsidary Investments to Total Assets") ? report.PrudentialStandards["Subsidary Investments to Total Assets"] : "N/A",
-            periods.Select(p => p.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Other Financial Investments/Core capital",
-            report.PrudentialStandards.ContainsKey("Other Financial investments to Core Capital Ratio ") ? report.PrudentialStandards["Other Financial investments to Core Capital Ratio "] : "N/A",
-            periods.Select(p => p.OtherFinancialInvestmentsToCoreCapitalRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        // Add section: EARNINGS RATING
-        AddSectionHeader(table, "C. EARNINGS RATING", 2 + periods.Count, boldFont, sectionBgColor);
-
-        // Add metrics for EARNINGS RATING
-        AddMetricRow(table, "Yield on Gross Loans",
-            "N/A",
-            periods.Select(p => p.YieldOnGrossLoans * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Total Expense/Total Income",
-            "N/A",
-            periods.Select(p => p.TotalExpenseToTotalIncomeRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Net Income/Average Assets (ROA)",
-            "N/A",
-            periods.Select(p => p.NetIncomeToAverageAssetsRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Operating Expenses/Financial Income (OPEX)",
-            "N/A",
-            periods.Select(p => p.OperatingExpenseToFinancialIncomeRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        // Add section: LIQUIDITY
-        AddSectionHeader(table, "D. LIQUIDITY", 2 + periods.Count, boldFont, sectionBgColor);
-
-        // Add metrics for LIQUIDITY
-        AddMetricRow(table, "Liquid Assets/Short-term Liabilities",
-            report.PrudentialStandards.ContainsKey("Liquid Assets/Short-term Liabilities") ? report.PrudentialStandards["Liquid Assets/Short-term Liabilities"] : "N/A",
-            periods.Select(p => p.LiquidAssetsToShortTermLiabilitiesRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "External Borrowing/Total Assets",
-            report.PrudentialStandards.ContainsKey("External Borrowing to Total Assets") ? report.PrudentialStandards["External Borrowing to Total Assets"] : "N/A",
-            periods.Select(p => p.ExternalBorrowingToTotalAssetsRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Liquid Assets/Total Assets",
-            "N/A",
-            periods.Select(p => p.LiquidAssetsToTotalAssetsRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        // Add section: STRUCTURE/SENSITIVITY TO RISK
-        AddSectionHeader(table, "E. STRUCTURE/SENSITIVITY TO RISK", 2 + periods.Count, boldFont, sectionBgColor);
-
-        // Add metrics for STRUCTURE/SENSITIVITY TO RISK
-        AddMetricRow(table, "Financial Investments/Total Assets",
-            "N/A",
-            periods.Select(p => p.FinancialInvestmentsToTotalAssetsRatio * 100).ToList(),
-            FormatType.Percentage,
-            boldFont, regularFont, normalRowBgColor);
-
-        // Add section: KEY FINANCIAL STATISTICS
-        AddSectionHeader(table, "F. KEY FINANCIAL STATISTICS", 2 + periods.Count, boldFont, sectionBgColor);
-
-        // Add raw data rows
-        AddMetricRow(table, "Total Assets", "N/A",
-            periods.Select(p => p.TotalAssets).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Average Assets", "N/A",
-            periods.Select(p => p.AverageAssets).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Total Deposits", "N/A",
-            periods.Select(p => p.TotalDeposits).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Gross Loans from Form 4", "N/A",
-            periods.Select(p => p.GrossLoansForm4).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Gross Loans from Form 6", "N/A",
-            periods.Select(p => p.GrossLoansForm6).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Core Capital", "N/A",
-            periods.Select(p => p.CoreCapital).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Non-performing Loans", "N/A",
-            periods.Select(p => p.NonPerformingLoans).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Non-Earning Assets", "N/A",
-            periods.Select(p => p.NonEarningAssets * 100).ToList(),
-            FormatType.Percentage, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Property and Equipment", "N/A",
-            periods.Select(p => p.PropertyAndEquipment).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Equity Investments", "N/A",
-            periods.Select(p => p.EquityInvestments).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Financial Investments", "N/A",
-            periods.Select(p => p.FinancialInvestments).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Equity Investments in NACCOS", "N/A",
-            periods.Select(p => p.EquityInvestmentsInNaccos).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Liquid Assets", "N/A",
-            periods.Select(p => p.LiquidAssets).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Short-term Liabilities", "N/A",
-            periods.Select(p => p.ShortTermLiabilities).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "External Borrowing", "N/A",
-            periods.Select(p => p.ExternalBorrowing).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Average Gross Loans", "N/A",
-            periods.Select(p => p.AverageGrossLoans).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Total Income", "N/A",
-            periods.Select(p => p.TotalIncome).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Net Financial Income/Loss", "N/A",
-            periods.Select(p => p.NetFinancialIncome).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Dividends+Interest on Deposits", "N/A",
-            periods.Select(p => p.DividendsAndInterestOnDeposits).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Operating Expenses", "N/A",
-            periods.Select(p => p.OperatingExpenses).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Interest on Loan portfolio+Fees&Commission on Loan", "N/A",
-            periods.Select(p => p.InterestOnLoanPortfolioAndFeesCommission).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Total Expenses", "N/A",
-            periods.Select(p => p.TotalExpenses).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-
-        AddMetricRow(table, "Net Income", "N/A",
-            periods.Select(p => p.NetIncome).ToList(),
-            FormatType.Currency, boldFont, regularFont, normalRowBgColor);
-    }
-
-    // Define format types
-    public enum FormatType
+        // Define format types
+        public enum FormatType
     {
         Currency,
         Percentage,

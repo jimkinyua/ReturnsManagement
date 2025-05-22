@@ -180,6 +180,11 @@ namespace Returns.DTOs.Perfomance_Report
             public decimal InterestOnLoanPortfolioAndFeesCommission { get; set; }
             public decimal TotalExpenses { get; set; }
             public decimal NetIncome { get; set; }
+            public int ManagementScore { get; set; }
+            public decimal MemberProtectionScore { get; set; }
+            public decimal ComplianceWithLawsScore { get; set; }
+            public decimal InternalControlsScore { get; set; }
+            public decimal GovernanceStructureScore { get; set; }
         }
 
         public Dictionary<string, string> PrudentialStandards { get; set; } = new Dictionary<string, string>();

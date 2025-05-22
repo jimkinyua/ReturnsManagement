@@ -162,8 +162,8 @@ namespace Returns.Controllers
                                 try
                                 {
                                     await _emailService.SendEmailWithAttachmentAsync(
-                                        "james.kinyua@agilebiz.co.ke",
-                                        //SaccoDetails.OfficialSaccoEmail,
+                                        //"james.kinyua@agilebiz.co.ke",
+                                        SaccoDetails.OfficialSaccoEmail,
                                         "Validation Report - Consistency Errors",
                                         $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
                                         ConsistencyReport,
@@ -1310,7 +1310,6 @@ namespace Returns.Controllers
                     };
                 }
 
-                // 2-i  Management return (single row)
                 var managementEntity = await _context.ManagementReturns
                     .AsNoTracking()
                     .FirstOrDefaultAsync(m => m.ReturnId == returnId);
@@ -1850,10 +1849,17 @@ namespace Returns.Controllers
         }
 
         [HttpGet("GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReportPdf(string returnId)
+        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReportPdf(string returnId, string? components)
         {
             try
             {
+                string selector = string.IsNullOrWhiteSpace(components)
+                ? "CAMELS"
+                : new string(components.ToUpperInvariant()
+                                       .Where(c => "CAMELS".Contains(c))
+                                       .Distinct()
+                                       .ToArray());
+
                 // Initialize report
                 var report = new SaccoPerformanceReportDTO();
 
@@ -1911,6 +1917,9 @@ namespace Returns.Controllers
                         .ToListAsync();
 
                     var investmentReturn = await _context.DTInvestmentReturns
+                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                    var managementReturns = await _context.ManagementReturns
                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
 
                     // Use default objects if data is missing
@@ -2148,7 +2157,14 @@ namespace Returns.Controllers
                         InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio,
                         TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense + SavedComprehensiveStatement.TotalOperatingExpenses + SavedComprehensiveStatement.NonOperatingExpense,
                         NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations,
+                        //ManagementScore = managementReturns.MRating
                     };
+
+
+                    periodData.MemberProtectionScore = managementReturns?.MemberProtectionScore ?? 0;
+                    periodData.GovernanceStructureScore = managementReturns?.GorvenanceStructureScore ?? 0;
+                    periodData.InternalControlsScore = managementReturns?.InternalControlsScore ?? 0;
+                    periodData.ComplianceWithLawsScore = managementReturns?.ComplianceWithLawsAndRegulationsScore ?? 0;
 
                     // Add period data to report
                     report.Periods.Add(periodData);
@@ -2216,7 +2232,7 @@ namespace Returns.Controllers
                     .ToListAsync();
                 report.approvalActions = approvals;
 
-                var reportBytes = ReportsHelper.GenerateSaccoPerformancePdfReport(report);
+                var reportBytes = ReportsHelper.GenerateSaccoPerformancePdfReport(report, selector);
                 var base64String = Convert.ToBase64String(reportBytes);
 
                 return Ok(new
@@ -2936,12 +2952,17 @@ namespace Returns.Controllers
 
 
         [HttpGet("nwdt/GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string returnId)
+        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string returnId,string? components)
         {
             try
             {
                 var report = new NWDTPerformanceReportDTO();
-
+                string selector = string.IsNullOrWhiteSpace(components)
+                ? "CAMELS"
+                : new string(components.ToUpperInvariant()
+                                       .Where(c => "CAMELS".Contains(c))
+                                       .Distinct()
+                                       .ToArray());
                 var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.NWDT.ToString());
                 if (currentReturn == null)
                 {
@@ -2979,7 +3000,7 @@ namespace Returns.Controllers
                     var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
                     var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
                     var investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
+                    var managementReturn = await _context.ManagementReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
                     // Use default objects if data is missing
 
                     var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
@@ -3177,6 +3198,10 @@ namespace Returns.Controllers
                     periodData.InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + 0; //Todo: FeesAndCommissionOnLoanPortfolio Not defined
                                                                                                                                    // periodData.TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense;
                     periodData.NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                    periodData.MemberProtectionScore = managementReturn?.MemberProtectionScore ?? 0;
+                    periodData.GovernanceStructureScore = managementReturn?.GorvenanceStructureScore ?? 0;
+                    periodData.InternalControlsScore = managementReturn?.InternalControlsScore ?? 0;
+                    periodData.ComplianceWithLawsScore = managementReturn?.ComplianceWithLawsAndRegulationsScore ?? 0;
                     report.Periods.Add(periodData);
                 }
 
@@ -3192,7 +3217,7 @@ namespace Returns.Controllers
                     report.Periods.Add(blank);
                 }
 
-                var reportBytes = NWDTReportHelper.GenerateNwdtSaccoPerformancePdfReport(report);
+                var reportBytes = NWDTReportHelper.GenerateNwdtSaccoPerformancePdfReport(report, selector);
                 var base64String = Convert.ToBase64String(reportBytes);
                 return Ok(new
                 {

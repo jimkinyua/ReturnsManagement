@@ -46,6 +46,13 @@ namespace Returns.DTOs.Perfomance_Report.NWDT
             // Stucture of Assets
             public decimal FinancialInvestmentsToTotalAssetsRatio { get; set; }
 
+            // Management 
+            public decimal MemberProtectionScore { get; set; }
+            public decimal ComplianceWithLawsScore { get; set; }
+            public decimal InternalControlsScore { get; set; }
+            public decimal GovernanceStructureScore { get; set; }
+
+
             // Key Financial Statistics
             public decimal TotalAssets { get; set; }
             public decimal AverageAssets { get; set; }

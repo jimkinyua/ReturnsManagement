@@ -6,7 +6,7 @@ namespace Returns.Models
     public class ManagementReturn : FormBase
     {
         public string FilePath { get; set; } = null!;
-        public string? Year { get; set; }
+        public string Year { get; set; } = DateTime.Now.Year.ToString();
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }   
         [ForeignKey("ReturnId")]

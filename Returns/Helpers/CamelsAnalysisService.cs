@@ -120,7 +120,7 @@ namespace Returns.Helpers
                         TotalDeposits = balanceSheet.TotalDepositLiabilities
                     };
                     analysis.OverallRating = CalculateOverallRating(analysis);
-                    analysis.ManagementRating = AnalyzeManagement(managementReturn);
+                    //analysis.ManagementRating = AnalyzeManagement(managementReturn);
                     _context.SaccoAnalysis.Add(analysis);
                     await _context.SaveChangesAsync();
 
@@ -145,7 +145,7 @@ namespace Returns.Helpers
 
                    var mgtRating  = AnalyzeManagement(managementReturn);
                     //mgtRating.Period = p.CreatedAt.ToString("yyyy-MM-dd");
-                    //dto.ManagementRatingResults = mgtRating;
+                    dto.ManagementRatingResults.Add(mgtRating);
 
                     var earnRatings = await AnalyzeEarnings(incomeStmt, balanceSheet);
                     earnRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
@@ -176,7 +176,7 @@ namespace Returns.Helpers
                 dto.AssetQualityRating = dto.AssetQualityRatingResults[0].FinalRating;
                 dto.EarningsRating = dto.EarningsRatingResults[0].FinalRating;
                 dto.LiquidityRating = dto.LiquidityRatingResults[0].FinalRating;
-                dto.ManagementRating = dto.ManagementRatingResults.MRating;
+                dto.ManagementRating = dto.ManagementRatingResults[0].MRating;
 
                 dto.OverallRating = CalculateOverallRating(
                                               dto.CapitalRating,
@@ -271,7 +271,9 @@ namespace Returns.Helpers
                         TotalDeposits = balanceSheet.TotalDepositLiabilities
                     };
                     analysis.OverallRating = CalculateOverallRating(analysis);
-                    analysis.ManagementRating = AnalyzeManagement(managementReturn);
+                    //var mgtRating = AnalyzeManagement(managementReturn);
+                    //dto.ManagementRatingResults.Add(mgtRating);
+                    //analysis.ManagementRating = AnalyzeManagement(managementReturn);
                     _context.SaccoAnalysis.Add(analysis);
                     await _context.SaveChangesAsync();
 
@@ -291,8 +293,9 @@ namespace Returns.Helpers
                     aqRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
                     dto.AssetQualityRatingResults.Add(aqRatings);
 
-                    dto.ManagementRating = 5; // AnalyzeManagement();
-
+                    var mgrating = AnalyzeManagement(managementReturn);
+                    dto.ManagementRatingResults.Add(mgrating); 
+                    
                     var earnRatings = await AnalyzeNwdtEarnings(incomeStmt, balanceSheet);
                     earnRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
                     dto.EarningsRatingResults.Add(earnRatings);
@@ -321,6 +324,7 @@ namespace Returns.Helpers
                 dto.AssetQualityRating = dto.AssetQualityRatingResults[0].FinalRating;
                 dto.EarningsRating = dto.EarningsRatingResults[0].FinalRating;
                 dto.LiquidityRating = dto.LiquidityRatingResults[0].FinalRating;
+                dto.ManagementRating = dto.ManagementRatingResults[0].MRating;
                 dto.OverallRating = CalculateOverallRating(
                                               dto.CapitalRating,
                                               dto.AssetQualityRating,
