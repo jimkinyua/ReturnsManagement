@@ -22,11 +22,11 @@ RUN dotnet restore "Returns/Returns.csproj" --verbosity minimal /p:RestoreUseSki
 COPY . .
 WORKDIR /src/Returns
 # Build with optimizations and parallel builds
-RUN dotnet build "Returns.csproj" -c Release -o /app/build --verbosity minimal --no-restore /p:UseSharedCompilation=false /maxcpucount:8
+RUN dotnet build "Returns.csproj" -c Release -o /app/build --verbosity minimal --no-restore /p:UseSharedCompilation=false /maxcpucount:8 /p:RuntimeIdentifier=win-x64
 
 FROM build AS publish
 # Publish without rebuilding since we already built
-RUN dotnet publish "Returns.csproj" -c Release -o /app/publish --no-build --verbosity minimal
+RUN dotnet publish "Returns.csproj" -c Release -o /app/publish --no-build --verbosity minimal /p:RuntimeIdentifier=win-x64
 
 FROM base AS final
 WORKDIR /app
