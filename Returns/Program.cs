@@ -49,6 +49,8 @@ internal class Program
 
     private static void ConfigureServices(WebApplicationBuilder builder)
     {
+        // Get connection string from configuration
+        // Using ReturnsDbConnection which points to: Server=10.0.0.4;Database=Returns;User Id=erp;Password=Pass@7046.;
         var connectionString = builder.Configuration.GetConnectionString("ReturnsDbConnection");
         var emailCfg = builder.Configuration
                        .GetSection("EmailSettings")
@@ -62,7 +64,7 @@ internal class Program
                                .AllowAnyMethod());
         });
 
-        // Add DbContext
+        // Add DbContext with SQL Server connection
         builder.Services.AddDbContext<ReturnsDbContext>(options =>
             options.UseSqlServer(connectionString));
 
@@ -198,6 +200,12 @@ internal class Program
         var services = scope.ServiceProvider;
         var maxRetries = 3;
         var retryDelay = TimeSpan.FromSeconds(5);
+
+        var configuration = services.GetRequiredService<IConfiguration>();
+        var connectionString = configuration.GetConnectionString("ReturnsDbConnection");
+        Console.WriteLine($"Attempting database connection with: {connectionString}");
+        var dbserverName = connectionString.Split(';')[0].Split('=')[1];
+        Console.WriteLine($"Database server name: {dbserverName}");
 
         for (int i = 0; i < maxRetries; i++)
         {
