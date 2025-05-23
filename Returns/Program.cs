@@ -141,7 +141,7 @@ internal class Program
                    CommandBatchMaxTimeout = TimeSpan.FromMinutes(10),
                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(30),
 
-                   // snappy queue polling so devs “see something happen”
+                   // snappy queue polling so devs ï¿½see something happenï¿½
                    QueuePollInterval = TimeSpan.FromSeconds(5),
 
                    // 1.8+ best-practice flags
@@ -172,17 +172,17 @@ internal class Program
 
     private static void ConfigureMiddleware(WebApplication app)
     {
-       /* app.UseHangfireDashboard("/hangfire", new DashboardOptions
-        {
-            Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
-        });*/
+        /* app.UseHangfireDashboard("/hangfire", new DashboardOptions
+         {
+             Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
+         });*/
 
         //RecurringJob.AddOrUpdate<ReturnsReminderService>(
-           // recurringJobId: "returns-reminder",
-            //methodCall: s => s.SendRemindersAsync(CancellationToken.None),
-           // cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
-            //timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
-            //queue: "reminders");
+        // recurringJobId: "returns-reminder",
+        //methodCall: s => s.SendRemindersAsync(CancellationToken.None),
+        // cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
+        //timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
+        //queue: "reminders");
 
 
         app.UseCors("ALLOWED_ROUTES");
@@ -196,21 +196,34 @@ internal class Program
     {
         using var scope = app.Services.CreateScope();
         var services = scope.ServiceProvider;
+        var maxRetries = 3;
+        var retryDelay = TimeSpan.FromSeconds(5);
 
-        try
+        for (int i = 0; i < maxRetries; i++)
         {
-            var context = services.GetRequiredService<ReturnsDbContext>();
-            context.Database.Migrate();
+            try
+            {
+                var context = services.GetRequiredService<ReturnsDbContext>();
+                context.Database.Migrate();
 
-            var dbInitializer = services.GetRequiredService<DbInitializer>();
-            dbInitializer.IntialiseCamelData(context);
-            dbInitializer.SeedPeriods(context);
+                var dbInitializer = services.GetRequiredService<DbInitializer>();
+                dbInitializer.IntialiseCamelData(context);
+                dbInitializer.SeedPeriods(context);
 
-            Console.WriteLine("Database migration and seeding complete");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"An error occurred while seeding the database: {ex.Message}");
+                Console.WriteLine("Database migration and seeding complete");
+                return; // Success - exit the retry loop
+            }
+            catch (Exception ex)
+            {
+                if (i == maxRetries - 1) // Last attempt
+                {
+                    Console.WriteLine($"Failed to seed database after {maxRetries} attempts. Last error: {ex.Message}");
+                    throw; // Re-throw on final attempt
+                }
+
+                Console.WriteLine($"Attempt {i + 1} failed, retrying in {retryDelay.TotalSeconds} seconds... Error: {ex.Message}");
+                Thread.Sleep(retryDelay);
+            }
         }
     }
 }
