@@ -165,14 +165,19 @@ namespace Returns.Helpers
                     .Select(s => s.Id)
                     .ToHashSet();
 
-            // 2. Fetch pending workflow items the user should see:
-            //    – they’re the current approver OR
-            //    – the Sacco is one they supervise.
+            // statuses we want to show in “Pending” queue
+            var visibleStatuses = new[]{
+                ApprovalStatus.Pending.ToString(),
+                ApprovalStatus.RecommendForApproval.ToString(),
+                ApprovalStatus.RecommendedForEnForcement.ToString(),
+                ApprovalStatus.ReturnedWithReservations.ToString()
+            };
+
             var pendingReturns = await _db.WorkflowInstances
                 .Include(w => w.CurrentStep)
                 .Include(w => w.Return)
                 .Where(w =>
-                    w.Status == ApprovalStatus.Pending.ToString() &&
+                    visibleStatuses.Contains(w.Status) &&
                     (w.UserId == userId || mySaccoIds.Contains(w.Return.SaccoId)))
                 .OrderBy(w => w.CreatedAt)
                 .Select(w => new PendingReturnDto
