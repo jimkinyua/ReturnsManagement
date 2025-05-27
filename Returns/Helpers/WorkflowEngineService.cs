@@ -64,6 +64,9 @@ namespace Returns.Helpers
                 throw new UnauthorizedAccessException("Step not assigned to you.");
             }
 
+            var ReturnToApprove = await _db.Returns.FindAsync(inst.ReturnId)
+                ?? throw new Exception("Return not found.");
+
             _db.ApprovalActions.Add(new ApprovalAction
             {
                 WorkFlowStepId = inst.CurrentStepId,
@@ -92,6 +95,7 @@ namespace Returns.Helpers
 
             inst.CurrentStepId = next.Id;
             inst.UserId = nextApprover.UserId;
+            inst.SaccoId = ReturnToApprove.SaccoId;
             inst.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
 
             await _db.SaveChangesAsync();
@@ -116,22 +120,32 @@ namespace Returns.Helpers
             if (inst.UserId != userId)
                 throw new UnauthorizedAccessException("User is not assigned to this step.");
 
-            var allSteps = await _db.WorkFlowSteps
-                .Where(s => s.WorkFlowTemplateId == inst.WorkflowTemplateId)
-                .OrderBy(s => s.Sequence)
+            var ReturnToApprove = await _db.Returns.FindAsync(inst.ReturnId)
+                ?? throw new Exception("Return not found.");
+
+            // Get the approval history for this return, ordered by time (most recent first)
+            var approvalHistory = await _db.ApprovalActions
+                .Where(a => a.ReturnId == inst.ReturnId)
+                .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
 
-            var current = allSteps.First(s => s.Id == inst.CurrentStepId);
-            if (current.Sequence == 0)
+            var lastActionTaken = approvalHistory.FirstOrDefault(a => a.Status != ApprovalStatus.Pending.ToString());
+
+            if (lastActionTaken == null)
             {
-                throw new UnauthorizedAccessException("Compliance Officer cannot take back further.");
+                throw new UnauthorizedAccessException("No previous action found to revert to.");
             }
 
-            var previous = allSteps[current.Sequence - 1];
-            var prevApprover = await GetApproverForStep(previous, inst.TeamId)
+            // Get the workflow step where the last action was taken
+            var stepToRevertTo = await _db.WorkFlowSteps
+                .FirstOrDefaultAsync(s => s.Id == lastActionTaken.WorkFlowStepId)
+                ?? throw new Exception("Previous step not found.");
+
+            // Get the approver for that step - pass SaccoId for compliance officer assignment
+            var prevApprover = await GetApproverForStep(stepToRevertTo, inst.TeamId, ReturnToApprove.SaccoId)
                 ?? throw new Exception("Previous approver not found.");
 
-            // Log action
+            // Log the current action
             _db.ApprovalActions.Add(new ApprovalAction
             {
                 WorkFlowStepId = inst.CurrentStepId,
@@ -142,9 +156,10 @@ namespace Returns.Helpers
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Move workflow pointer back
-            inst.CurrentStepId = previous.Id;
+            // Move workflow pointer back to the step where the last action was taken
+            inst.CurrentStepId = stepToRevertTo.Id;
             inst.UserId = prevApprover.UserId;
+            inst.SaccoId = ReturnToApprove.SaccoId;
             inst.Status = ApprovalStatus.ReturnedWithReservations.ToString();
 
             await _db.SaveChangesAsync();
@@ -157,7 +172,6 @@ namespace Returns.Helpers
 
             return ConvertToDto(inst);
         }
-
         public async Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId)
         {
             var mySaccoIds = (await _complianceService
@@ -330,6 +344,7 @@ namespace Returns.Helpers
                     UserId = coUserId.Id,
                     RoleName = coUserId.Role,
                     Rating = Rating,
+                    SaccoId = SubmittedReturn.SaccoId,
                     CurrentStepId = template.WorkFlowSteps.OrderBy(s => s.Sequence).First().Id
                 };
 
@@ -421,9 +436,9 @@ namespace Returns.Helpers
                 {
                     // workflow is complete
                     instance.Status = ApprovalStatus.RecommendForApproval.ToString();
-
+                    instance.SaccoId = ReturnToApprove.SaccoId;
                     // update the return status CanReportBeViewed to be true
-                    
+
                     ReturnToApprove.CanReportBeViewed = true;
 
                     _db.Returns.Update(ReturnToApprove);
@@ -452,6 +467,7 @@ namespace Returns.Helpers
                     instance.CurrentStepId = nextStep.Id;
                     instance.UserId = nextApprover.UserId;
                     instance.Status = ApprovalStatus.Pending.ToString();
+                    instance.SaccoId = ReturnToApprove.SaccoId;
 
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
@@ -489,7 +505,7 @@ namespace Returns.Helpers
         }
 
 
-        private async Task<CommonFieldForUser?> GetApproverForStep(WorkFlowStep step, string teamId)
+        private async Task<CommonFieldForUser?> GetApproverForStep(WorkFlowStep step, string teamId, string SaccoId="")
         {
             var stepdetails = await _db.WorkFlowSteps
                 .Include(s => s.ApprovalActions)
@@ -519,6 +535,19 @@ namespace Returns.Helpers
                 commonFieldForUser.Email = teamLead.Email;
                 commonFieldForUser.RoleId = teamLead.RoleId;
                 commonFieldForUser.UserId = teamLead.Id;
+            }
+            // if we are back to step 0, get assigned compliance officer
+            else if (stepdetails.Sequence == 0)
+            {
+                var complianceOfficer = await _complianceService.GetAssignedComplianceOfficer(SaccoId);
+                if (complianceOfficer == null)
+                {
+                    throw new Exception("No Compliance Officer assigned to this Sacco.");
+                }
+                commonFieldForUser.FullName = complianceOfficer.FullName;
+                commonFieldForUser.Email = complianceOfficer.Email;
+                commonFieldForUser.RoleId = complianceOfficer.Role;
+                commonFieldForUser.UserId = complianceOfficer.Id;
             }
             else
             {

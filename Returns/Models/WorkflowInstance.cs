@@ -18,6 +18,7 @@ namespace Returns.Models
         public int? Rating { get; set; }
         [ForeignKey("WorkFlowStep")]
         public string CurrentStepId { get; set; } = null!;
+        public string SaccoId { get; set; } = null!;
         public virtual WorkFlowStep CurrentStep { get; set; } = null!;
         public virtual Return Return { get; set; } = null!;
 
