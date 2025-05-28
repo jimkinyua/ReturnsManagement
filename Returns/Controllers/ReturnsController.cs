@@ -25,6 +25,7 @@ using Returns.DTOs.Returns.Returns_Submission.NWDT;
 using Microsoft.AspNetCore.Http.HttpResults;
 using System.ComponentModel.DataAnnotations;
 using Returns.DTOs.WorkFlow_Engine;
+using Returns.DTOs.Returns.Returns_Analysis;
 
 namespace Returns.Controllers
 {
@@ -40,10 +41,12 @@ namespace Returns.Controllers
         private readonly IWorkflowEngineService _workflowService;
         private readonly ICamelsAnalysisService  camelsAnalysisService;
         private readonly IComplianceService complianceService;
+        private readonly FormResubmissionService _resubmissionService;
 
 
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance)
+
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger,  IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance)
         {
             _context = context;
             _logger = logger;
@@ -53,6 +56,8 @@ namespace Returns.Controllers
             _workflowService = workflowService;
             this.camelsAnalysisService = camelsAnalysisService;
             this.complianceService = compliance;
+            _resubmissionService = new FormResubmissionService(context, emailService, logger);
+
         }
 
         [HttpPost("CheckConsistency")]
@@ -194,6 +199,67 @@ namespace Returns.Controllers
             }
 
         }
+
+        [HttpPost("RequestFormResubmission")]
+        public async Task<IActionResult> RequestFormResubmission([FromBody] ResubmissionRequestDto request)
+        {
+            try
+            {
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return StatusCode(401);
+                }
+
+                var returnToResubmit = await _context.Returns.FindAsync(request.ReturnId);
+                if (returnToResubmit == null)
+                {
+                    return NotFound("Return not found");
+                }
+
+                var formToResubmit = await _context.ReturnForms.FindAsync(request.FormId);
+                if (formToResubmit == null)
+                {
+                    return NotFound("Form not found");
+                }
+
+                var ComplianceOfficer = await complianceService.GetUserById(loggedInAdmin.UserId);
+                var SaccoDetails = await complianceService.GetSaccoByIdAsync(returnToResubmit.SaccoId);
+
+                var result = await _resubmissionService.RequestFormResubmissionAsync(
+                 request.ReturnId,
+                 formToResubmit,
+                 loggedInAdmin.UserId,
+                 ComplianceOfficer?.FullName ?? "Unknown Compliance Officer",
+                 loggedInAdmin.EmailAddress,
+                 request.Reason ?? "No reason provided",
+                 returnToResubmit.SaccoId,
+                 returnToResubmit.SaccoType,
+                 SaccoDetails.OfficialSaccoEmail
+                );
+
+                if (result.Success)
+                {
+                    return Ok();
+                }
+                else
+                {
+                    return BadRequest(
+                       result.Message
+                    );
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    error = ex
+                });
+            }
+        }
+
 
         private async Task<(
             bool IsValid,
