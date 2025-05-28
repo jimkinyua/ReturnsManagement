@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.DT
 {
-    public class CapitalAdequacyDTO
+    public class CapitalAdequacyDTO: CommonFormDTO
     {
         public decimal ShareCapital { get; set; }
         public decimal StatutoryReserves { get; set; }
@@ -44,6 +44,5 @@ namespace Returns.DTOs.Returns_Submission.DT
         public decimal CoreCapitalToDepositsRatio { get; set; }
         public decimal CoreCapitalToDepositsRatioExcessDeficiency { get; set; }
         public string FilePath { get; set; } = string.Empty;
-        public string FormId { get; set; } = string.Empty;
     }
 }

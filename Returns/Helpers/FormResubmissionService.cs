@@ -19,8 +19,19 @@ namespace Returns.Helpers
             _logger = logger;
         }
 
-        public async Task<(bool Success, string Message)> RequestFormResubmissionAsync(string ReturnId, ReturnForm form, string complianceOfficerId, string complianceOfficerName, string complianceOfficerEmail, string reason, string SaccoId, string saccoType, string SaccoEmail)
+        public async Task<(bool Success, string Message)> RequestFormResubmissionAsync(
+             string ReturnId,
+             ReturnForm form,
+             string complianceOfficerId,
+             string complianceOfficerName,
+             string complianceOfficerEmail,
+             string reason,
+             string SaccoId,
+             string saccoType,
+             string SaccoEmail)
         {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
             try
             {
                 var returnDetails = await _context.Returns.FindAsync(ReturnId);
@@ -30,14 +41,13 @@ namespace Returns.Helpers
                 }
 
                 var (returnInfo, childFormId) = await GetReturnWithCurrentChildFormAsync(ReturnId, form.Id, returnDetails.SaccoType);
-
                 if (string.IsNullOrEmpty(childFormId))
                 {
                     return (false, "No current form found for this return and form type");
                 }
 
-                var existingRequest = await _context.FormResubmissionRequests.FirstOrDefaultAsync(r => r.ChildId == childFormId && r.Status == "Pending");
-
+                var existingRequest = await _context.FormResubmissionRequests
+                    .FirstOrDefaultAsync(r => r.ChildId == childFormId && r.Status == "Pending");
                 if (existingRequest != null)
                 {
                     return (false, "There is already a pending resubmission request for this form");
@@ -61,19 +71,40 @@ namespace Returns.Helpers
                 };
 
                 await _context.FormResubmissionRequests.AddAsync(resubmissionRequest);
+
+                var flagResult = await UpdateRequiresResubmissionFlagAsync(childFormId, form, true, reason, returnDetails.SaccoType);
+                if (!flagResult.Success)
+                {
+                    // CRITICAL FAILURE - rollback everything
+                    _logger.LogError($"Failed to set RequiresResubmission flag for {form.FormName} ({childFormId}): {flagResult.Message}");
+                    await transaction.RollbackAsync();
+                    return (false, $"Failed to mark form for resubmission: {flagResult.Message}");
+                }
+
                 await _context.SaveChangesAsync();
 
-                await SendResubmissionNotificationEmail(returnDetails, form.FormName, SaccoEmail, reason);
+                await transaction.CommitAsync();
+
+                try
+                {
+                    await SendResubmissionNotificationEmail(returnDetails, form.FormName, SaccoEmail, reason);
+                }
+                catch (Exception emailEx)
+                {
+                    // Log email failure but don't fail the entire operation
+                    _logger.LogWarning(emailEx, $"Resubmission request created successfully but failed to send email notification to {SaccoEmail}");
+                }
 
                 _logger.LogInformation($"Form resubmission requested for {form.FormName} by {complianceOfficerName}. ChildId: {childFormId}");
 
                 return (true, "Resubmission request sent successfully");
-
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error requesting form resubmission for ChildFormId: {ChildFormId}", ReturnId);
-                return (false, ex.Message);
+                // Rollback transaction on any error
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error requesting form resubmission for ReturnId: {ReturnId}. Transaction rolled back.", ReturnId);
+                return (false, $"Error: {ex.Message}");
             }
         }
 
@@ -155,6 +186,86 @@ namespace Returns.Helpers
                 // Don't throw - this shouldn't break the resubmission request creation
             }
         }
+
+        private async Task<(bool Success, string Message)> UpdateRequiresResubmissionFlagAsync(string childFormId,ReturnForm form,bool requiresResubmission,string reason, string saccoType)
+        {
+            try
+            {
+                // Use your existing GetFormTypeFromForm method
+                string formType = GetFormTypeFromForm(form);
+                bool isDepositTaking = saccoType == Constants.SaccoType.DepositTaking.ToString();
+
+                // Determine form type and update the appropriate table
+                var result = (formType, isDepositTaking) switch
+                {
+                    ("CapitalAdequacy", true) => await UpdateFormFlag<DTCapitalAdequacyReturn>(childFormId, requiresResubmission),
+                    ("Liquidity", true) => await UpdateFormFlag<DTLiquidityReturn>(childFormId, requiresResubmission),
+                    ("RiskClassification", true) => await UpdateFormFlag<DTRiskClassificationReturn>(childFormId, requiresResubmission),
+                    ("Investment", true) => await UpdateFormFlag<DTInvestmentReturn>(childFormId, requiresResubmission),
+                    ("FinancialPosition", true) => await UpdateFormFlag<DTFinancialPositionReturn>(childFormId, requiresResubmission),
+                    ("ComprehensiveIncome", true) => await UpdateFormFlag<DTComprehensiveIncomeReturn>(childFormId, requiresResubmission),
+                    ("DepositReturn", true) => await UpdateFormFlag<DepositReturn>(childFormId, requiresResubmission),
+
+                    // NWDT Forms
+                    ("CapitalAdequacy", false) => await UpdateFormFlag<NWDTCapitalAdequacyReturn>(childFormId, requiresResubmission),
+                    ("Liquidity", false) => await UpdateFormFlag<NWDTLiquidityReturn>(childFormId, requiresResubmission),
+                    ("Investment", false) => await UpdateFormFlag<NWDTInvestmentReturn>(childFormId, requiresResubmission),
+                    ("FinancialPosition", false) => await UpdateFormFlag<NWDTFinancialPositionReturn>(childFormId, requiresResubmission),
+                    ("ComprehensiveIncome", false) => await UpdateFormFlag<NWDTComprehensiveIncomeReturn>(childFormId, requiresResubmission),
+                    ("RiskClassification", false) => await UpdateFormFlag<NWDTRiskClassificationReturn>(childFormId, requiresResubmission),
+                    ("DepositReturn", false) => await UpdateFormFlag<NWDTDepositReturn>(childFormId, requiresResubmission),
+
+                    // Handle forms that don't support RequiresResubmission
+                    ("SectoralLending", _) => (true, "SectoralLending forms don't support RequiresResubmission flag"),
+                    ("DailyLiquidity", _) => (true, "DailyLiquidity forms don't support RequiresResubmission flag"),
+                    ("InsiderLending", _) => (true, "InsiderLending forms don't support RequiresResubmission flag"),
+                    ("Management", _) => (true, "Management forms don't support RequiresResubmission flag"),
+                    ("Other", _) => (true, "Other forms don't support RequiresResubmission flag"),
+
+                    _ => (false, $"Unknown form type: {formType}")
+                };
+
+                if (result.Item1)
+                {
+                    var action = requiresResubmission ? "marked for resubmission" : "resubmission requirement cleared";
+                    _logger.LogInformation($"{form.FormName} ({childFormId}) {action}. Reason: {reason}");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating RequiresResubmission flag for {form.FormName} ({childFormId})");
+                return (false, $"Error updating flag: {ex.Message}");
+            }
+        }
+
+
+        private async Task<(bool Success, string Message)> UpdateFormFlag<T>(string childFormId,bool requiresResubmission) where T : class
+        {
+            try
+            {
+                var form = await _context.Set<T>().FindAsync(childFormId);
+                if (form == null)
+                {
+                    return (false, $"{typeof(T).Name} form not found");
+                }
+
+                var property = typeof(T).GetProperty("RequiresResubmission");
+                if (property == null)
+                {
+                    return (false, $"{typeof(T).Name} does not have RequiresResubmission property");
+                }
+
+                property.SetValue(form, requiresResubmission);
+                return (true, "Flag updated successfully");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Error updating {typeof(T).Name}: {ex.Message}");
+            }
+        }
+
 
 
         private async Task<ReturnForm?> GetFormTypeFromFormId(string formId)
@@ -276,6 +387,47 @@ namespace Returns.Helpers
 
             return (returnDetails, childFormId);
         }
+
+
+        public async Task<(bool Success, string Message)> UpdateRequiresResubmissionAsync<T>(string childFormId,bool requiresResubmission,string reason = null) where T : class
+        {
+            try
+            {
+                var form = await _context.Set<T>().FindAsync(childFormId);
+                if (form == null)
+                {
+                    return (false, "Form not found");
+                }
+
+                // Use reflection to set RequiresResubmission property
+                var property = typeof(T).GetProperty("RequiresResubmission");
+                if (property == null)
+                {
+                    return (false, $"Form type {typeof(T).Name} does not have RequiresResubmission property");
+                }
+
+                property.SetValue(form, requiresResubmission);
+                await _context.SaveChangesAsync();
+
+                var action = requiresResubmission ? "marked for resubmission" : "resubmission requirement cleared";
+                var logMessage = $"Form {typeof(T).Name} ({childFormId}) {action}";
+                if (!string.IsNullOrEmpty(reason))
+                {
+                    logMessage += $". Reason: {reason}";
+                }
+
+                _logger.LogInformation(logMessage);
+
+                return (true, $"Form {action} successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error updating RequiresResubmission flag for form {childFormId}");
+                return (false, $"Error: {ex.Message}");
+            }
+        }
+
+
 
         private string GetFormTypeFromForm(ReturnForm form)
         {

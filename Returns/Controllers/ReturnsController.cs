@@ -1123,7 +1123,6 @@ namespace Returns.Controllers
 
 
                 var capEntity = await _context.DTCapitalAdequacyReturns
-                    .Include(ca => ca)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
 
@@ -1135,6 +1134,7 @@ namespace Returns.Controllers
                     capitalAdequacy = new CapitalAdequacyDTO
                     {
                         FormId = capEntity.FormId?? string.Empty,
+                        RequiresResubmission = capEntity.RequiresResubmission,
                         ShareCapital = capEntity.ShareCapital,
                         StatutoryReserves = capEntity.StatutoryReserves,
                         RetainedEarningsAccumulatedLosses = capEntity.RetainedEarningsAccumulatedLosses,
@@ -1179,6 +1179,8 @@ namespace Returns.Controllers
                 var depositReturn = depositEntities.Select(dr => new DepositReturnDto
                 {
                     RangeName = dr.RangeName,
+                    FormId = dr?.FormId ?? string.Empty,
+                    RequiresResubmission = dr.RequiresResubmission,
                     DepositType = dr.DepositType,
                     NumberOfAccounts = dr.NumberOfAccounts,
                     Amount = dr.AmountInKshs000,
@@ -1198,6 +1200,7 @@ namespace Returns.Controllers
                     incomeStatement = new ComprehesiveIncomeStatementDTO
                     {
                         FormId = incomeEntity.FormId ?? string.Empty,
+                        RequiresResubmission = incomeEntity.RequiresResubmission,
                         InterestOnLoanPortfolio = incomeEntity.InterestOnLoanPortfolio,
                         FeesAndCommissionOnLoanPortfolio = incomeEntity.FeesAndCommissionOnLoanPortfolio,
                         GovernmentSecurities = incomeEntity.GovernmentSecurities,
@@ -1238,6 +1241,7 @@ namespace Returns.Controllers
                     financialPosition = new FinancialPositionDTO
                     {
                         FormId = balanceEntity.FormId ?? string.Empty,
+                        RequiresResubmission = balanceEntity.RequiresResubmission,
                         CashInHand = balanceEntity.CashInHand,
                         CashAtBank = balanceEntity.CashAtBank,
                         PrepaymentsAndSundryReceivables = balanceEntity.PrepaymentsAndSundryReceivables,
@@ -1286,6 +1290,7 @@ namespace Returns.Controllers
                     liquidityStatement = new LiquidityStatementDTO
                     {
                         FormId = capEntity.FormId ?? string.Empty,
+                        RequiresResubmission = liquidityEntity.RequiresResubmission,
                         LocalNotesAndCoins = liquidityEntity.LocalNotesAndCoins,
                         ForeignNotesAndCoins = liquidityEntity.ForeignNotesAndCoins,
                         BalancesWithCommercialBanks = liquidityEntity.BalancesWithCommercialBanks,
@@ -1327,6 +1332,7 @@ namespace Returns.Controllers
                 {
                     LoanType = rc.LoanType,
                     FormId = rc.FormId ?? string.Empty,
+                    RequiresResubmission = rc.RequiresResubmission,
                     Classification = rc.Classification,
                     NumberOfAccounts = rc.NumberOfAccounts,
                     OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
@@ -1343,6 +1349,7 @@ namespace Returns.Controllers
                     {
                         FormName = o.FormName,
                         FileUrl = o.FileUrl,
+                        RequiresResubmission = o.RequiresResubmission,
                         FormId = o.FormId ?? string.Empty,
                     })
                     .ToListAsync();
@@ -1365,6 +1372,7 @@ namespace Returns.Controllers
                     investment = new InvestmentReturnDTO
                     {
                         FormId = investmentEntity.FormId ?? string.Empty,
+                        RequiresResubmission = investmentEntity.RequiresResubmission,
                         CoreCapital = investmentEntity.CoreCapital,
                         TotalAssets = investmentEntity.TotalAssets,
                         TotalDeposits = investmentEntity.TotalDeposits,
@@ -1395,6 +1403,7 @@ namespace Returns.Controllers
                     managementReturn = new ManagementReturnDTO
                     {
                         SaccoCsNumber = managementEntity.SaccoCsNumber,
+
 
                         GovernanceStructureScore = managementEntity.GorvenanceStructureScore,
                         GovernanceStructureWeight = managementEntity.GorvenanceStructureWeight,
@@ -2416,6 +2425,7 @@ namespace Returns.Controllers
                     NWDTCapitalAdequacy = ca == null ? null : new NWDTCapitalAdequacyDTO
                     {
                         FormId = ca.Id,
+                        RequiresResubmission = ca.RequiresResubmission,
                         ShareCapital = ca.ShareCapital,
                         StatutoryReserves = ca.StatutoryReserves,
                         RetainedEarningsAccumulatedLosses = ca.RetainedEarnings,
@@ -2450,6 +2460,7 @@ namespace Returns.Controllers
                     NWDTDepositReturn = deposits.Select(dr => new NWDTDepositReturnDto
                     {
                         FormId = dr.FormId,
+                        RequiresResubmission = dr.RequiresResubmission,
                         RangeName = dr.RangeName,
                         DepositType = dr.DepositType,
                         NumberOfAccounts = dr.NumberOfAccounts,
@@ -2461,6 +2472,7 @@ namespace Returns.Controllers
                     NWDTIncomeStatement = inc == null ? null : new NWDTComprehesiveIncomeStatementDTO
                     {
                         FormId = inc.FormId,
+                        RequiresResubmission = inc.RequiresResubmission,
                         InterestOnLoanPortfolio = inc.InterestOnLoanPortfolio,
                         FeesAndCommissionOnLoanPortfolio = inc.FeesCommissionOnLoanPortfolio,
                         TotalFinancialIncomeFromLoans = inc.FinancialIncomeFromLoansPortfolio,
@@ -2507,6 +2519,7 @@ namespace Returns.Controllers
                     NWDTFinancialPosition = fp == null ? null : new NWDTFinancialPositionDTO
                     {
                         FormId = fp.FormId,
+                        RequiresResubmission = fp.RequiresResubmission,
                         CashInHand = fp.CashInHand,
                         CashAtBank = fp.CashAtBank,
                         TotalCashAndCashEquivalent = fp.CashAndCashEquivalent,
@@ -2567,6 +2580,7 @@ namespace Returns.Controllers
                     NWDTLiquidityStatement = liq == null ? null : new NWDTLiquidityStatementDTO
                     {
                         FormId = liq.FormId,
+                        RequiresResubmission = liq.RequiresResubmission,
                         LocalNotesAndCoins = liq.LocalNotesAndCoins,
                         ForeignNotesAndCoins = liq.ForeignNotesAndCoins,
                         BalancesWithCommercialBanks = liq.BalancesWithCommercialBanks,
@@ -2595,6 +2609,7 @@ namespace Returns.Controllers
                     NWDTRiskClassifications = risks.Select(rc => new NWDTRiskClassificationDTO
                     {
                         FormId = rc.FormId,
+                        RequiresResubmission = rc.RequiresResubmission,
                         LoanType = rc.LoanType,
                         Classification = rc.Classification,
                         NumberOfAccounts = rc.NumberOfAccounts,
@@ -2608,6 +2623,7 @@ namespace Returns.Controllers
                     OtherReturns = others.Select(o => new OtherReturnDTO
                     {
                         FormId = o.FormId,
+                        RequiresResubmission = o.RequiresResubmission,
                         FormName = o.FormName,
                         FileUrl = o.FileUrl
                     }).ToList(),
@@ -2616,6 +2632,7 @@ namespace Returns.Controllers
                     NWDTInvestment = inv == null ? null : new NWDTInvestmentReturnDTO
                     {
                         FormId = inv.FormId,
+                        RequiresResubmission = inv.RequiresResubmission,
                         CoreCapital = inv.CoreCapital,
                         TotalAssets = inv.TotalAssets,
                         TotalDeposits = inv.TotalDeposits,
