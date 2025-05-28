@@ -44,5 +44,6 @@ namespace Returns.DTOs.Returns_Submission.DT
         public decimal CoreCapitalToDepositsRatio { get; set; }
         public decimal CoreCapitalToDepositsRatioExcessDeficiency { get; set; }
         public string FilePath { get; set; } = string.Empty;
+        public string FormId { get; set; } = string.Empty;
     }
 }

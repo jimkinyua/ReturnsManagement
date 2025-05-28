@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.Returns_Submission.DT
 {
-    public class ComprehesiveIncomeStatementDTO
+    public class ComprehesiveIncomeStatementDTO :CommonFormDTO
     {
         public decimal InterestOnLoanPortfolio { get; set; }
         public decimal FeesAndCommissionOnLoanPortfolio { get; set; }

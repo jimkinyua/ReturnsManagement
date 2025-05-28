@@ -1,6 +1,6 @@
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
-    public class NWDTLiquidityStatementDTO
+    public class NWDTLiquidityStatementDTO:CommonFormDTO
     {
         public decimal LocalNotesAndCoins { get; set; }
         public decimal ForeignNotesAndCoins { get; set; }

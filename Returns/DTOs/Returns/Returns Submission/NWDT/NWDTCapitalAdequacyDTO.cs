@@ -1,6 +1,6 @@
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
-    public class NWDTCapitalAdequacyDTO
+    public class NWDTCapitalAdequacyDTO : CommonFormDTO
     {
         public decimal ShareCapital { get; set; }
         public decimal StatutoryReserves { get; set; }

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.DT
 {
-    public class LiquidityStatementDTO
+    public class LiquidityStatementDTO: CommonFormDTO
     {
         public decimal LocalNotesAndCoins { get; set; }
         public decimal ForeignNotesAndCoins { get; set; }

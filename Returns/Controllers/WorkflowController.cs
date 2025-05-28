@@ -70,7 +70,7 @@ namespace Returns.Controllers
 
             try
             {
-                //var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO.WorkFlowInstanceId, loggedInSacco.UserId);
+                //var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO.WorkFlowInstanceId, loggedInSacco.RequestedBy);
                 var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, loggedInSacco.UserId);
                 return Ok(result);
             }

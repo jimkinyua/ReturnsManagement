@@ -639,7 +639,7 @@ namespace Returns.Helpers
                     capitalAdequacy.IsAmended = true;
                 }
 
-
+                capitalAdequacy.FormId = form.Id;
                 foreach (var row in Form1Statement.Rows)
                 {
                     switch (row.Index?.Trim())
@@ -1222,6 +1222,7 @@ namespace Returns.Helpers
                     throw new Exception("Prev Return not Found");
                 }
                 liquidityStatement.SaccoCsNumber = form2BData.SaccoCsNumber;
+                liquidityStatement.FormId = form.Id;
 
                 // Extract values from Form1Statement based on index
                 foreach (var row in form2BData.Rows)
@@ -1327,6 +1328,7 @@ namespace Returns.Helpers
                 {
                     ReturnId = returnId,
                     Year = form2.Period,
+                    FormId = form.Id,
                     StartDate = form2.StartDate,
                     EndDate = form2.EndDate,
                     Frequency = form.Period.Name,
@@ -1429,6 +1431,7 @@ namespace Returns.Helpers
                     var depositReturn = new DepositReturn
                     {
                         ReturnId = returnId,
+                        FormId = form.Id,
                         RangeName = row.RangeName,
                         DepositType = row.DepositType,
                         NumberOfAccounts = row.NumberOfAccounts,
@@ -1500,6 +1503,7 @@ namespace Returns.Helpers
                 {
                     continue;
                 }
+                depositReturn.FormId = form.Id;
                 if (!IsAmendMent)
                 {
                     await _context.NWDTDepositReturns.AddAsync(depositReturn);
@@ -1562,6 +1566,7 @@ namespace Returns.Helpers
                             RequiredProvision = row.RequiredProvision,
                             RequiredProvisionAmount = row.RequiredProvisionAmount,
                             ReturnId = returnId,
+                            FormId = form.Id,
                             Period = form2DData.Period,
                             Frequency = form.Period.Name,
                             StartDate = form2DData.StartDate,
@@ -1575,6 +1580,7 @@ namespace Returns.Helpers
                         entitiesToAdd.Add(riskClassification);
                     }
                 }
+
 
                 if (entitiesToAdd.Any())
                 {
@@ -1621,6 +1627,7 @@ namespace Returns.Helpers
                         RequiredProvision = row.RequiredProvision,
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
                         ReturnId = returnId,
+                        FormId = returnId,
                         Year = form4.Period,
                         StartDate = form4.StartDate,
                         EndDate = form4.EndDate,
@@ -1659,6 +1666,7 @@ namespace Returns.Helpers
                 {
                     ReturnId = returnId,
                     Year = form5.Period,
+                    FormId = form.Id,
                     StartDate = form5.StartDate,
                     EndDate = form5.EndDate,
                     Frequency = form.Period.Name,
@@ -1761,7 +1769,8 @@ namespace Returns.Helpers
                     Frequency = form.Period.Name,
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
-                    ReturnId = returnId
+                    ReturnId = returnId,
+                    FormId = form.Id,
                 };
             }
 
@@ -1888,6 +1897,7 @@ namespace Returns.Helpers
                     Year = form6.Period,
                     StartDate = form6.StartDate,
                     EndDate = form6.EndDate,
+                    FormId = form.Id,
                     Frequency = form.Period.Name,
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
@@ -2056,6 +2066,7 @@ namespace Returns.Helpers
                         StartDate = form2A.StartDate,
                         EndDate = form2A.EndDate,
                         FilePath = Path,
+                        FormId = form.Id,
                         Period = form2A.Period,
                         Frequency = form.Period.Name,
                         DaysLateBy = DaysLateBy,
@@ -2248,7 +2259,8 @@ namespace Returns.Helpers
                         Period = form2F.Period,
                         Frequency = form.Period.Name,
                         FilePath = Path,
-                        DaysLateBy = DaysLateBy
+                        DaysLateBy = DaysLateBy,
+                        FormId = form.Id,
                     };
                 }
 
@@ -2422,7 +2434,9 @@ namespace Returns.Helpers
                         Period = form2G.Period,
                         Frequency = form.Period.Name,
                         FilePath = Path,
-                        DaysLateBy = DaysLateBy
+                        DaysLateBy = DaysLateBy,
+                        FormId = form.Id,
+
                     };
                 }
 
@@ -2607,6 +2621,7 @@ namespace Returns.Helpers
                     EndDate = form7.EndDate,
                     Frequency = form.Period.Name,
                     FilePath = FilePath,
+                    FormId = form.Id,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = form7.SaccoCsNumber,
                 };

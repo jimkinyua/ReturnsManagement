@@ -1,6 +1,6 @@
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
-    public class NWDTInvestmentReturnDTO
+    public class NWDTInvestmentReturnDTO:CommonFormDTO
     {
         public decimal CoreCapital { get; set; }
         public decimal TotalAssets { get; set; }

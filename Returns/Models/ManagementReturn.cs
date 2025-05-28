@@ -11,6 +11,7 @@ namespace Returns.Models
         public DateTime? EndDate { get; set; }   
         [ForeignKey("ReturnId")]
         public string ReturnId { get; set; } = null!;
+        public string FormId { get; set; } = null!;
         public virtual Return? Return { get; set; } = null!;
         public decimal GorvenanceStructureScore { get; set; }
         public decimal GorvenanceStructureWeight { get; set; }

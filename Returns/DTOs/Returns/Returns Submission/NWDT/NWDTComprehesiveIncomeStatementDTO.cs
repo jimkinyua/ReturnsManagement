@@ -1,6 +1,6 @@
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
-    public class NWDTComprehesiveIncomeStatementDTO
+    public class NWDTComprehesiveIncomeStatementDTO: CommonFormDTO
     {
         public decimal InterestOnLoanPortfolio { get; set; }
         public decimal FeesAndCommissionOnLoanPortfolio { get; set; }

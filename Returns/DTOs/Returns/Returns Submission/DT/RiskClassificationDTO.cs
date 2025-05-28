@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.DT
 {
-    public class RiskClassificationDTO
+    public class RiskClassificationDTO:CommonFormDTO
     {
         public string LoanType { get; set; }
         public string Classification { get; set; }

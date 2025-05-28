@@ -1,6 +1,6 @@
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
-    public class NWDTFinancialPositionDTO
+    public class NWDTFinancialPositionDTO:CommonFormDTO
     {
         public decimal CashInHand { get; set; }
         public decimal CashAtBank { get; set; }

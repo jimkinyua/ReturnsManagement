@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
-    public class NWDTDepositReturnDto
+    public class NWDTDepositReturnDto:CommonFormDTO
     {
         public string? RangeName { get; set; }
         public string? DepositType { get; set; }

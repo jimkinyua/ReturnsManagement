@@ -1,6 +1,6 @@
 ﻿namespace Returns.DTOs.Returns.Returns_Submission.DT
 {
-    public class OtherReturnDTO
+    public class OtherReturnDTO :CommonFormDTO
     {
         public string FormName { get; set; }
         public string FileUrl { get; set; }

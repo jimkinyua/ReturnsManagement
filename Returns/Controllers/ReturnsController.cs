@@ -1057,6 +1057,7 @@ namespace Returns.Controllers
 
 
                 var capEntity = await _context.DTCapitalAdequacyReturns
+                    .Include(ca => ca)
                     .AsNoTracking()
                     .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
 
@@ -1067,6 +1068,7 @@ namespace Returns.Controllers
                     capitalDaysLate = capEntity.DaysLateBy;
                     capitalAdequacy = new CapitalAdequacyDTO
                     {
+                        FormId = capEntity.FormId?? string.Empty,
                         ShareCapital = capEntity.ShareCapital,
                         StatutoryReserves = capEntity.StatutoryReserves,
                         RetainedEarningsAccumulatedLosses = capEntity.RetainedEarningsAccumulatedLosses,
@@ -1129,6 +1131,7 @@ namespace Returns.Controllers
                     incomeDaysLate = incomeEntity.DaysLateBy;
                     incomeStatement = new ComprehesiveIncomeStatementDTO
                     {
+                        FormId = incomeEntity.FormId ?? string.Empty,
                         InterestOnLoanPortfolio = incomeEntity.InterestOnLoanPortfolio,
                         FeesAndCommissionOnLoanPortfolio = incomeEntity.FeesAndCommissionOnLoanPortfolio,
                         GovernmentSecurities = incomeEntity.GovernmentSecurities,
@@ -1168,6 +1171,7 @@ namespace Returns.Controllers
                     balanceDaysLate = balanceEntity.DaysLateBy;
                     financialPosition = new FinancialPositionDTO
                     {
+                        FormId = balanceEntity.FormId ?? string.Empty,
                         CashInHand = balanceEntity.CashInHand,
                         CashAtBank = balanceEntity.CashAtBank,
                         PrepaymentsAndSundryReceivables = balanceEntity.PrepaymentsAndSundryReceivables,
@@ -1215,6 +1219,7 @@ namespace Returns.Controllers
                     liquidityDaysLate = liquidityEntity.DaysLateBy;
                     liquidityStatement = new LiquidityStatementDTO
                     {
+                        FormId = capEntity.FormId ?? string.Empty,
                         LocalNotesAndCoins = liquidityEntity.LocalNotesAndCoins,
                         ForeignNotesAndCoins = liquidityEntity.ForeignNotesAndCoins,
                         BalancesWithCommercialBanks = liquidityEntity.BalancesWithCommercialBanks,
@@ -1255,6 +1260,7 @@ namespace Returns.Controllers
                 var riskClassifications = riskEntities.Select(rc => new RiskClassificationDTO
                 {
                     LoanType = rc.LoanType,
+                    FormId = rc.FormId ?? string.Empty,
                     Classification = rc.Classification,
                     NumberOfAccounts = rc.NumberOfAccounts,
                     OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
@@ -1270,7 +1276,8 @@ namespace Returns.Controllers
                     .Select(o => new OtherReturnDTO
                     {
                         FormName = o.FormName,
-                        FileUrl = o.FileUrl
+                        FileUrl = o.FileUrl,
+                        FormId = o.FormId ?? string.Empty,
                     })
                     .ToListAsync();
 
@@ -1291,6 +1298,7 @@ namespace Returns.Controllers
                     investmentDaysLate = investmentEntity.DaysLateBy;
                     investment = new InvestmentReturnDTO
                     {
+                        FormId = investmentEntity.FormId ?? string.Empty,
                         CoreCapital = investmentEntity.CoreCapital,
                         TotalAssets = investmentEntity.TotalAssets,
                         TotalDeposits = investmentEntity.TotalDeposits,
@@ -2327,7 +2335,7 @@ namespace Returns.Controllers
                     ConsistentErrorMessage = hdr.ConsistentErrorMessage,
                     ReturnStatus = ApprovalStatus,
 
-                    
+
 
                     // late counters
                     CapitalAdequacyDaysLate = ca?.DaysLateBy ?? 0,
@@ -2341,6 +2349,7 @@ namespace Returns.Controllers
                     // capital adequacy
                     NWDTCapitalAdequacy = ca == null ? null : new NWDTCapitalAdequacyDTO
                     {
+                        FormId = ca.Id,
                         ShareCapital = ca.ShareCapital,
                         StatutoryReserves = ca.StatutoryReserves,
                         RetainedEarningsAccumulatedLosses = ca.RetainedEarnings,
@@ -2374,6 +2383,7 @@ namespace Returns.Controllers
                     // deposit list
                     NWDTDepositReturn = deposits.Select(dr => new NWDTDepositReturnDto
                     {
+                        FormId = dr.FormId,
                         RangeName = dr.RangeName,
                         DepositType = dr.DepositType,
                         NumberOfAccounts = dr.NumberOfAccounts,
@@ -2384,6 +2394,7 @@ namespace Returns.Controllers
                     // income statement
                     NWDTIncomeStatement = inc == null ? null : new NWDTComprehesiveIncomeStatementDTO
                     {
+                        FormId = inc.FormId,
                         InterestOnLoanPortfolio = inc.InterestOnLoanPortfolio,
                         FeesAndCommissionOnLoanPortfolio = inc.FeesCommissionOnLoanPortfolio,
                         TotalFinancialIncomeFromLoans = inc.FinancialIncomeFromLoansPortfolio,
@@ -2429,6 +2440,7 @@ namespace Returns.Controllers
                     // financial position
                     NWDTFinancialPosition = fp == null ? null : new NWDTFinancialPositionDTO
                     {
+                        FormId = fp.FormId,
                         CashInHand = fp.CashInHand,
                         CashAtBank = fp.CashAtBank,
                         TotalCashAndCashEquivalent = fp.CashAndCashEquivalent,
@@ -2488,6 +2500,7 @@ namespace Returns.Controllers
                     // liquidity
                     NWDTLiquidityStatement = liq == null ? null : new NWDTLiquidityStatementDTO
                     {
+                        FormId = liq.FormId,
                         LocalNotesAndCoins = liq.LocalNotesAndCoins,
                         ForeignNotesAndCoins = liq.ForeignNotesAndCoins,
                         BalancesWithCommercialBanks = liq.BalancesWithCommercialBanks,
@@ -2515,6 +2528,7 @@ namespace Returns.Controllers
                     // risks
                     NWDTRiskClassifications = risks.Select(rc => new NWDTRiskClassificationDTO
                     {
+                        FormId = rc.FormId,
                         LoanType = rc.LoanType,
                         Classification = rc.Classification,
                         NumberOfAccounts = rc.NumberOfAccounts,
@@ -2527,6 +2541,7 @@ namespace Returns.Controllers
                     // other returns
                     OtherReturns = others.Select(o => new OtherReturnDTO
                     {
+                        FormId = o.FormId,
                         FormName = o.FormName,
                         FileUrl = o.FileUrl
                     }).ToList(),
@@ -2534,6 +2549,7 @@ namespace Returns.Controllers
                     // investment
                     NWDTInvestment = inv == null ? null : new NWDTInvestmentReturnDTO
                     {
+                        FormId = inv.FormId,
                         CoreCapital = inv.CoreCapital,
                         TotalAssets = inv.TotalAssets,
                         TotalDeposits = inv.TotalDeposits,

@@ -68,6 +68,7 @@ namespace Returns.Models.Data
         public DbSet<WorkFlowStep> WorkFlowSteps { get; set; }
         public DbSet<ApprovalAction> ApprovalActions { get; set; }
         public DbSet<WorkflowInstance> WorkflowInstances { get; set; }
+        public DbSet<FormResubmissionRequest> FormResubmissionRequests { get; set; }
 
     }   
 

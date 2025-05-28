@@ -1,6 +1,6 @@
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
-    public class NWDTRiskClassificationDTO
+    public class NWDTRiskClassificationDTO:CommonFormDTO
     {
         public string? LoanType { get; set; }
         public string? Classification { get; set; }

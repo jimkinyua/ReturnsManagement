@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.Returns_Submission.DT
 {
-    public class FinancialPositionDTO
+    public class FinancialPositionDTO:CommonFormDTO
     {
         public decimal CashInHand { get; set; }
         public decimal CashAtBank { get; set; }

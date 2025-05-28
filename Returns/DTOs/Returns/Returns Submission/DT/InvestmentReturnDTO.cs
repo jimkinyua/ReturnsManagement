@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.DT
 {
-    public class InvestmentReturnDTO
+    public class InvestmentReturnDTO: CommonFormDTO
     {
         public decimal CoreCapital { get; set; }
         public decimal TotalAssets { get; set; }
