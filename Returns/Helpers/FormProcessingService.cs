@@ -2305,7 +2305,7 @@ namespace Returns.Helpers
 
 
 
-        private async Task<(bool Success, string Message)> ProcessFormByType(IFormFile formFile, ReturnForm form, string returnId, string saccoType, Boolean IsAmendMent, string PrevReturnId = "")
+        public async Task<(bool Success, string Message)> ProcessFormByType(IFormFile formFile, ReturnForm form, string returnId, string saccoType, Boolean IsAmendMent, string PrevReturnId = "")
         {
             ReturnsHelper returnsHelper = new ReturnsHelper(_context);
             try

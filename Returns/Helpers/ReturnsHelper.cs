@@ -592,7 +592,7 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, string PrevChildId = "")
         {
             try
             {
@@ -607,11 +607,11 @@ namespace Returns.Helpers
                 {
                     throw new Exception("Error saving file");
                 }
+
                 var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
-                string EffectiveReturnId = returnId;
-                string PreviousReturnId = string.Empty;
-                DTCapitalAdequacyReturn? capitalAdequacy = null;
-                capitalAdequacy = new DTCapitalAdequacyReturn
+
+                // Create new Capital Adequacy form
+                DTCapitalAdequacyReturn capitalAdequacy = new DTCapitalAdequacyReturn
                 {
                     ReturnId = returnId,
                     FilePath = Path,
@@ -621,25 +621,32 @@ namespace Returns.Helpers
                     Frequency = form.Period.Name,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = Form1Statement.SaccoCsNumber,
+                    FormId = form.Id,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
                 };
 
-                if (!IsAmendMent)
+                // Handle amendment logic
+                bool isAmendment = !string.IsNullOrEmpty(PrevChildId);
+
+                if (!isAmendment)
                 {
+                    // NEW SUBMISSION - not an amendment
                     capitalAdequacy.PreviousReturnId = null;
                     capitalAdequacy.IsCurrent = true;
                     capitalAdequacy.IsAmended = false;
                 }
                 else
                 {
-                    if (!string.IsNullOrWhiteSpace(PreviousReturnId))
-                    {
-                        capitalAdequacy.PreviousReturnId = PreviousReturnId;
-                    }
-                    capitalAdequacy.IsCurrent = false;
-                    capitalAdequacy.IsAmended = true;
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    capitalAdequacy.PreviousReturnId = PrevChildId;
+                    capitalAdequacy.IsCurrent = true;     // NEW form becomes current
+                    capitalAdequacy.IsAmended = false;    // NEW form is the corrected version (not amended)
+
+                    // Mark the previous form as no longer current and as amended
+                    await MarkPreviousFormAsAmended(PrevChildId, form, "0");
                 }
 
-                capitalAdequacy.FormId = form.Id;
                 foreach (var row in Form1Statement.Rows)
                 {
                     switch (row.Index?.Trim())
@@ -791,6 +798,150 @@ namespace Returns.Helpers
             }
         }
 
+        private string GetFormTypeFromForm(ReturnForm form)
+        {
+            if (form.IsCapitalAdequencyForm) return "CapitalAdequacy";
+            if (form.IsLiquidityStatement) return "Liquidity";
+            if (form.IsDepositReturnForm) return "DepositReturn";
+            if (form.IsRiskClassification) return "RiskClassification";
+            if (form.IsInvestmentReturn) return "Investment";
+            if (form.IsFinancialPosition) return "FinancialPosition";
+            if (form.IsSectoralLending) return "SectoralLending";
+            if (form.IsDailyLiquidity) return "DailyLiquidity";
+            if (form.IsInsiderLending) return "InsiderLending";
+            if (form.IsManagement) return "Management";
+            if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
+            return null;
+        }
+
+        private async Task MarkPreviousFormAsAmended(string previousFormId, ReturnForm form, string SaccoType)
+        {
+            try
+            {
+                string formType = GetFormTypeFromForm(form);
+                bool isDepositTaking = SaccoType == Constants.SaccoType.DepositTaking.ToString();
+
+                bool result = false;
+
+                switch ((formType, isDepositTaking))
+                {
+                    // DT Forms
+                    case ("CapitalAdequacy", true):
+                        result = await MarkFormAsAmended<DTCapitalAdequacyReturn>(previousFormId);
+                        break;
+                    case ("Liquidity", true):
+                        result = await MarkFormAsAmended<DTLiquidityReturn>(previousFormId);
+                        break;
+                    case ("RiskClassification", true):
+                        result = await MarkFormAsAmended<DTRiskClassificationReturn>(previousFormId);
+                        break;
+                    case ("Investment", true):
+                        result = await MarkFormAsAmended<DTInvestmentReturn>(previousFormId);
+                        break;
+                    case ("FinancialPosition", true):
+                        result = await MarkFormAsAmended<DTFinancialPositionReturn>(previousFormId);
+                        break;
+                    case ("ComprehensiveIncome", true):
+                        result = await MarkFormAsAmended<DTComprehensiveIncomeReturn>(previousFormId);
+                        break;
+                    case ("DepositReturn", true):
+                        result = await MarkFormAsAmended<DepositReturn>(previousFormId);
+                        break;
+
+                    // NWDT Forms
+                    case ("CapitalAdequacy", false):
+                        result = await MarkFormAsAmended<NWDTCapitalAdequacyReturn>(previousFormId);
+                        break;
+                    case ("Liquidity", false):
+                        result = await MarkFormAsAmended<NWDTLiquidityReturn>(previousFormId);
+                        break;
+                    case ("RiskClassification", false):
+                        result = await MarkFormAsAmended<NWDTRiskClassificationReturn>(previousFormId);
+                        break;
+                    case ("Investment", false):
+                        result = await MarkFormAsAmended<NWDTInvestmentReturn>(previousFormId);
+                        break;
+                    case ("FinancialPosition", false):
+                        result = await MarkFormAsAmended<NWDTFinancialPositionReturn>(previousFormId);
+                        break;
+                    case ("ComprehensiveIncome", false):
+                        result = await MarkFormAsAmended<NWDTComprehensiveIncomeReturn>(previousFormId);
+                        break;
+                    case ("DepositReturn", false):
+                        result = await MarkFormAsAmended<NWDTDepositReturn>(previousFormId);
+                        break;
+
+                    // Forms that don't support amendments
+                    case ("SectoralLending", _):
+                    case ("DailyLiquidity", _):
+                    case ("InsiderLending", _):
+                    case ("Management", _):
+                    case ("Other", _):
+                        result = true; // Skip these forms
+                        break;
+
+                    default:
+                        throw new NotSupportedException($"Form type {formType} (DT: {isDepositTaking}) is not supported for amendments");
+                }
+
+                if (result)
+                {
+                    //_logger.LogInformation($"Successfully marked previous {form.FormName} form {previousFormId} as amended");
+                }
+                else
+                {
+                    //_logger.LogWarning($"Failed to mark previous {form.FormName} form {previousFormId} as amended");
+                }
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, $"Error marking previous {form.FormName} form {previousFormId} as amended");
+                throw; // Re-throw to maintain transaction integrity
+            }
+        }
+
+        private async Task<bool> MarkFormAsAmended<T>(string formId) where T : class
+        {
+            try
+            {
+                var form = await _context.Set<T>().FindAsync(formId);
+                if (form == null)
+                {
+                    //_logger.LogWarning($"Previous {typeof(T).Name} form {formId} not found");
+                    return false;
+                }
+
+                // Use reflection to set the properties
+                var properties = typeof(T).GetProperties();
+
+                foreach (var prop in properties)
+                {
+                    switch (prop.Name)
+                    {
+                        case "IsCurrent":
+                            if (prop.CanWrite) prop.SetValue(form, false);
+                            break;
+                        case "IsAmended":
+                            if (prop.CanWrite) prop.SetValue(form, true);
+                            break;
+                        case "RequiresResubmission":
+                            if (prop.CanWrite) prop.SetValue(form, false);
+                            break;
+                        case "UpdatedAt":
+                            if (prop.CanWrite) prop.SetValue(form, DateTime.Now);
+                            break;
+                    }
+                }
+
+                //_logger.LogInformation($"Marked {typeof(T).Name} form {formId} as: IsCurrent=false, IsAmended=true, RequiresResubmission=false");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                //_logger.LogError(ex, $"Error updating {typeof(T).Name} form {formId}");
+                return false;
+            }
+        }
 
 
 

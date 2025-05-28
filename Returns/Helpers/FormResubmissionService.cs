@@ -12,11 +12,13 @@ namespace Returns.Helpers
         private readonly ReturnsDbContext _context;
         private readonly IEmailService _emailService;
         private readonly ILogger _logger;
-        public FormResubmissionService(ReturnsDbContext context, IEmailService emailService, ILogger logger)
+        private readonly FormProcessingService _formProcessingService;
+        public FormResubmissionService(ReturnsDbContext context, IEmailService emailService, ILogger logger, FormProcessingService formProcessingService)
         {
             _context = context;
             _emailService = emailService;
             _logger = logger;
+            _formProcessingService = formProcessingService;
         }
 
         public async Task<(bool Success, string Message)> RequestFormResubmissionAsync(
@@ -239,6 +241,62 @@ namespace Returns.Helpers
                 return (false, $"Error updating flag: {ex.Message}");
             }
         }
+
+        public async Task<(bool Success, string Message, string NewFormId)> HandleSaccoFormResubmissionAsync(string returnId,ReturnForm form,IFormFile formFile,string saccoUserId, string SaccoType, string resubmissionNotes = "")
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
+                var pendingRequest = await _context.FormResubmissionRequests.FirstOrDefaultAsync(r => r.ReturnId == returnId && r.FormId == form.Id &&r.Status == "Pending");
+
+                if (pendingRequest == null)
+                {
+                    return (false, "No pending resubmission request found for this form", string.Empty);
+                }
+
+                // Process the form based on type using your existing logic
+                var (isProcessed, message) = await _formProcessingService.ProcessFormByType(formFile, form, returnId, SaccoType, true, pendingRequest.ChildId);
+
+                if (!isProcessed)
+                {
+                    await transaction.RollbackAsync();
+                    return (false, $"Failed to process form: {message}", string.Empty);
+                }
+
+                // Clear RequiresResubmission flag on the old form
+                var clearFlagResult = await UpdateRequiresResubmissionFlagAsync(pendingRequest.ChildId, form, false, "Resubmitted by SACCO");
+                if (!clearFlagResult.Success)
+                {
+                    _logger.LogWarning($"Failed to clear RequiresResubmission flag: {clearFlagResult.Message}");
+                    // Continue - not critical
+                }
+
+                // Update the resubmission request
+                pendingRequest.Status = "Completed";
+                pendingRequest.UploadedAt = DateTime.Now;
+                pendingRequest.RespondedBy = saccoUserId;
+                pendingRequest.ResubmissionNotes = resubmissionNotes;
+                pendingRequest.UpdatedAt = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Send confirmation email to compliance officer
+                await SendResubmissionCompletedNotification(pendingRequest, form.FormName);
+
+                _logger.LogInformation($"SACCO resubmission completed for {form.FormName}. Request ID: {pendingRequest.Id}");
+
+                return (true, $"{form.FormName} resubmitted successfully", newFormId);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                _logger.LogError(ex, "Error processing SACCO form resubmission");
+                return (false, $"Error: {ex.Message}", string.Empty);
+            }
+        }
+
 
 
         private async Task<(bool Success, string Message)> UpdateFormFlag<T>(string childFormId,bool requiresResubmission) where T : class

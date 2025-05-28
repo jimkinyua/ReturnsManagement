@@ -56,7 +56,7 @@ namespace Returns.Controllers
             _workflowService = workflowService;
             this.camelsAnalysisService = camelsAnalysisService;
             this.complianceService = compliance;
-            _resubmissionService = new FormResubmissionService(context, emailService, logger);
+            _resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
 
         }
 
