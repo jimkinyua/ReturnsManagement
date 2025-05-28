@@ -52,89 +52,94 @@ namespace Returns.Helpers
             return hasAllRequiredForms;
         }
 
-        public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync(
-            NewReturnDTO batchDTO,
-            LoggedInEntity loggedInSacco,
-            bool isConsistent,
-            List<string> consistencyErrors,
-            string periodToUse)
+        public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync( NewReturnDTO batchDTO,LoggedInEntity loggedInSacco, bool isConsistent,List<string> consistencyErrors,string periodToUse)
         {
             var processingSummary = new List<string>();
             Boolean IsAmendment = false;
             string EffectiveReturnId = string.Empty;
             try
             {
-                // Step 1: Determine if this is a batch amendment by checking any form
-                string ExistingReturnId = null;
-                bool isBatchAmendment = false;
+#if ENABLE_AMENDMENTS
+        // Step 1: Determine if this is a batch amendment by checking any form
+        string ExistingReturnId = null;
+        bool isBatchAmendment = false;
 
-                foreach (var upload in batchDTO.FormUploads)
-                {
-                    if (upload.formFile == null) continue;
+        foreach (var upload in batchDTO.FormUploads)
+        {
+            if (upload.formFile == null) continue;
 
-                    var form = await _context.ReturnForms
-                        .Include(x => x.Period)
-                        .FirstOrDefaultAsync(f => f.Id == upload.FormId);
+            var form = await _context.ReturnForms
+                .Include(x => x.Period)
+                .FirstOrDefaultAsync(f => f.Id == upload.FormId);
 
-                    if (form == null) continue;
+            if (form == null) continue;
 
-                    // Check if this form is an amendment
-                   var AmendmentData = await IsAmendmentBasedOnReportingPeriod(upload.formFile, form, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
+            // Check if this form is an amendment
+           var AmendmentData = await IsAmendmentBasedOnReportingPeriod(upload.formFile, form, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
 
-                    if (AmendmentData.IsAmendment && !string.IsNullOrEmpty(AmendmentData.ReturnId))
-                    {
-                        isBatchAmendment = true;
-                        ExistingReturnId = AmendmentData.ReturnId;
-                        break; // We only need to find one amendment to determine it's a batch amendment
-                    }
-                }
+            if (AmendmentData.IsAmendment && !string.IsNullOrEmpty(AmendmentData.ReturnId))
+            {
+                isBatchAmendment = true;
+                ExistingReturnId = AmendmentData.ReturnId;
+                break; // We only need to find one amendment to determine it's a batch amendment
+            }
+        }
 
-                // Step 2: Handle the batch (either new or amendment)
-                string effectiveReturnId;
+        // Step 2: Handle the batch (either new or amendment)
+        string effectiveReturnId;
 
-                if (isBatchAmendment && !string.IsNullOrEmpty(ExistingReturnId))
-                {
-                    // This is a batch amendment - create a new version of the batch
-                    var (amendmentSuccess, NewReturnId, message) = await HandleBatchAmendmentAsync(ExistingReturnId, loggedInSacco, isConsistent, consistencyErrors, periodToUse, batchDTO.SubmissionDate);
+        if (isBatchAmendment && !string.IsNullOrEmpty(ExistingReturnId))
+        {
+            // This is a batch amendment - create a new version of the batch
+            var (amendmentSuccess, NewReturnId, message) = await HandleBatchAmendmentAsync(ExistingReturnId, loggedInSacco, isConsistent, consistencyErrors, periodToUse, batchDTO.SubmissionDate);
 
-                    if (!amendmentSuccess)
-                    {
-                        processingSummary.Add(message);
-                        // Fall back to creating a new return
-                        var newBatch = CreateNewReturn(
-                            loggedInSacco,
-                            isConsistent,
-                            consistencyErrors,
-                            batchDTO.SubmissionDate,
-                            periodToUse);
+            if (!amendmentSuccess)
+            {
+                processingSummary.Add(message);
+                // Fall back to creating a new return
+               
+                await _context.Returns.AddAsync(newBatch);
+                await _context.SaveChangesAsync();
+                effectiveReturnId = newBatch.Id;
+            }
+            else
+            {
+                effectiveReturnId = NewReturnId;
+                processingSummary.Add(message);
+            }
+        }
+        else
+        {
+            // This is a new batch - create a new return
+            var newReturn = CreateNewReturn(
+                loggedInSacco,
+                isConsistent,
+                consistencyErrors,
+                batchDTO.SubmissionDate,
+                periodToUse);
 
-                        await _context.Returns.AddAsync(newBatch);
-                        await _context.SaveChangesAsync();
-                        effectiveReturnId = newBatch.Id;
-                    }
-                    else
-                    {
-                        effectiveReturnId = NewReturnId;
-                        processingSummary.Add(message);
-                    }
-                }
-                else
-                {
-                    // This is a new batch - create a new return
-                    var newReturn = CreateNewReturn(
-                        loggedInSacco,
-                        isConsistent,
-                        consistencyErrors,
-                        batchDTO.SubmissionDate,
-                        periodToUse);
+            await _context.Returns.AddAsync(newReturn);
+            await _context.SaveChangesAsync();
+            effectiveReturnId = newReturn.Id;
+        }
+#else
+                // Amendment handling is disabled - always create new return
+                processingSummary.Add("Amendment handling is currently disabled. Creating new return.");
 
-                    await _context.Returns.AddAsync(newReturn);
-                    await _context.SaveChangesAsync();
-                    effectiveReturnId = newReturn.Id;
-                }
+                var newReturn = CreateNewReturn(
+                    loggedInSacco,
+                    isConsistent,
+                    consistencyErrors,
+                    batchDTO.SubmissionDate,
+                    periodToUse);
+
+                await _context.Returns.AddAsync(newReturn);
+                await _context.SaveChangesAsync();
+                string effectiveReturnId = newReturn.Id;
+#endif
 
                 EffectiveReturnId = effectiveReturnId;
-                IsAmendment = isBatchAmendment;
+                IsAmendment = IsAmendment; // Will be false when amendments are disabled
 
                 // Step 3: Process each form in the batch
                 foreach (var upload in batchDTO.FormUploads)
@@ -177,15 +182,27 @@ namespace Returns.Helpers
                     }
 
                     // Process the form
+#if ENABLE_AMENDMENTS
+            var (isProcessed, message) = await ProcessFormAsync(
+                IsAmendment,
+                upload.formFile,
+                form,
+                effectiveReturnId,
+                loggedInSacco.SaccoId,
+                loggedInSacco.SaccoType,
+                ExistingReturnId
+                );
+#else
                     var (isProcessed, message) = await ProcessFormAsync(
-                        IsAmendment,
+                        false, // Always false when amendments are disabled
                         upload.formFile,
                         form,
                         effectiveReturnId,
                         loggedInSacco.SaccoId,
                         loggedInSacco.SaccoType,
-                        ExistingReturnId
+                        string.Empty // No existing return ID when amendments are disabled
                         );
+#endif
 
                     if (isProcessed)
                     {
@@ -289,7 +306,7 @@ namespace Returns.Helpers
                 string effectiveReturnId = EffectiveReturnId;
 
                 // If it's an amendment, create a new version
-                if (IsAmendment)
+            /*    if (IsAmendment)
                 {
                     _logger.LogInformation($"Form {form.FormName} is being processed as an amendment");
 
@@ -301,7 +318,7 @@ namespace Returns.Helpers
                     }
 
                     //effectiveReturnId = newReturnId;
-                }
+                }*/
 
                 // Process the form content
                 var (success, message) = await ProcessFormByType(formFile, form, effectiveReturnId, saccoType, IsAmendment, OldReturnId);

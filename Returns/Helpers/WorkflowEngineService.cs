@@ -178,13 +178,14 @@ namespace Returns.Helpers
                     .GetSaccosAssignedToOfficerAsync(userId))
                     .Select(s => s.Id)
                     .ToHashSet();
-
-            // statuses we want to show in “Pending” queue
-            var visibleStatuses = new[]{
+                
+            // statuses we want to show in "Pending" queue
+                    var visibleStatuses = new[]{
                 ApprovalStatus.Pending.ToString(),
                 ApprovalStatus.RecommendForApproval.ToString(),
                 ApprovalStatus.RecommendedForEnForcement.ToString(),
-                ApprovalStatus.ReturnedWithReservations.ToString()
+                ApprovalStatus.ReturnedWithReservations.ToString(),
+                ApprovalStatus.PendingEnforcement.ToString()
             };
 
             var pendingReturns = await _db.WorkflowInstances
@@ -206,10 +207,11 @@ namespace Returns.Helpers
                     WorkFlowInstanceId = w.Id,
                     CurrentRole = w.CurrentStep.RoleName ?? "",
                     CurrentStep = w.CurrentStep.Sequence,
-                    Rating = w.Rating
+                    Rating = w.Rating,
+                    Status = w.Status,
+                    CanTakeAction = w.UserId == userId // User can only take action if assigned to them
                 })
                 .ToListAsync();
-
             return pendingReturns;
         }
 
@@ -642,20 +644,20 @@ namespace Returns.Helpers
 
         public async Task<string> GetReturnStatus(string returnId)
         {
-            var instance = await  _db.WorkflowInstances
+            var instance = await _db.WorkflowInstances
+                .AsNoTracking()
                 .Include(w => w.CurrentStep)
                 .FirstOrDefaultAsync(w => w.ReturnId == returnId);
+
             if (instance == null)
-            {
-                throw new Exception("Workflow not found for this return");
-            }
+                return "WorkflowNotFound";          
+
             if (!int.TryParse(instance.Status, out var code))
-            {
-                return instance.Status;
-            }
+                return instance.Status;             
 
             var statusEnum = (ApprovalStatus)code;
-            return GetDescription(statusEnum);
+            return GetDescription(statusEnum);    
         }
+
     }
 }
