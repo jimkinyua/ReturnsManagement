@@ -28,18 +28,19 @@ namespace Returns.Helpers
 
                     string sql = @"
                         SELECT TOP (1)
-                            u.Id,
-                            u.FullName,
-                            u.Email,
-                            u.TeamName,
-                            u.TeamRole,
-                            r.Name  AS RoleName,
-                            u.TeamId
-                        FROM UserSaccos        us
-                        JOIN AspNetUsers       u  ON u.Id = CAST(us.UserId AS nvarchar(450))
-                        JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
-                        JOIN AspNetRoles       r  ON r.Id = ur.RoleId
-                        WHERE us.SaccoId = @saccoId";
+                        u.Id,
+                        u.FullName,
+                        u.Email,
+	                    T.Name as TeamName,
+                        u.TeamRole,
+                        r.Name  AS RoleName,
+                        u.TeamId
+                    FROM UserSaccos        us
+                    JOIN AspNetUsers       u  ON u.Id = CAST(us.UserId AS nvarchar(450))
+                    JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
+                    JOIN AspNetRoles       r  ON r.Id = ur.RoleId
+                    JOIN Teams T On T.Id = u.TeamId
+                    WHERE us.SaccoId = @saccoId";
 
                     using (var command = new SqlCommand(sql, connection))
                     {
@@ -82,20 +83,21 @@ namespace Returns.Helpers
                 {
                     await connection.OpenAsync();
                     string sql = @"
-                SELECT  
-                    [Id],
-                    [SaccoName],
-                    [OfficialSaccoEmail],
-                    [ContactNumber],
-                    [Kra_Pin],
-                    [SaccoType],
-                    [IsApproved],
-                    [AuthorizedRepresentative],
-                    [ApprovedAt],
-                    [CooperativeSocietyNo],
-                    [TeamId],
-                    [TeamName]
-                FROM [IdentityDatabase].[dbo].[Saccos]";
+                        SELECT  
+                            [Id],
+                            [SaccoName],
+                            [OfficialSaccoEmail],
+                            [ContactNumber],
+                            [Kra_Pin],
+                            [SaccoType],
+                            [IsApproved],
+                            [AuthorizedRepresentative],
+                            [ApprovedAt],
+                            [CooperativeSocietyNo],
+                            [TeamId],
+                            T.TeamName
+                            JOIN Teams T On T.Id = u.TeamId
+                        FROM [IdentityDatabase].[dbo].[Saccos]";
 
                     using (var command = new SqlCommand(sql, connection))
                     {
@@ -200,17 +202,17 @@ namespace Returns.Helpers
                 {
                     connection.Open();
                     string sql = @"  
-                       SELECT TOP (1)
-                            u.Id,
-                            u.FullName,
-                            u.Email,
-                            u.TeamName,
-                            u.TeamRole
-                        FROM AspNetUsers AS u
-                        INNER JOIN AspNetRoles AS r
-                            ON r.Id = CONVERT(NVARCHAR(450), u.Role)
-                        WHERE 
-                            u.TeamId    = @teamId AND u.TeamRole = 1;  ";
+                           SELECT TOP (1)
+                             u.Id,
+                             u.FullName,
+                             u.Email,
+                             T.Name as TeamName,
+                             u.TeamRole
+                         FROM Teams AS T
+                         INNER JOIN AspNetUsers u ON u.TeamId = T.Id
+                         INNER JOIN AspNetRoles AS r ON r.Id = CONVERT(NVARCHAR(450), u.Role)
+                         WHERE 
+                             T.Id    = @teamId AND u.TeamRole = 1;";
                     using (var command = new SqlCommand(sql, connection))
                     {
                         command.Parameters.Add(new SqlParameter("@teamId", SqlDbType.NVarChar) { Value = teamId });
@@ -248,19 +250,19 @@ namespace Returns.Helpers
                 {
                     connection.Open();
                     string sql = @"  
-                        SELECT TOP 1 u.Id
-                        ,[FullName]
-                        ,[LastName]
-                        ,[FirstName]
-                        ,[Email]
-                        ,[TeamName]
-                        ,[RoleId]
-                        ,[TeamRole]
-                          FROM [AspNetUsers] as u
-                          JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
-                          JOIN AspNetRoles   r  ON r.Id = ur.RoleId
-                          WHERE u.Id = @UserId
-                      ";
+                        	 SELECT TOP 1 u.Id
+                            ,[FullName]
+                            ,[LastName]
+                            ,[FirstName]
+                            ,[Email]
+                            ,T.Name as TeamName
+                            ,[RoleId]
+                            ,[TeamRole]
+                              FROM [AspNetUsers] as u
+                              JOIN AspNetUserRoles   ur ON ur.UserId = u.Id
+                              JOIN AspNetRoles   r  ON r.Id = ur.RoleId
+                              Join Teams T On T.Id = u.TeamId
+                              WHERE u.Id = @UserId";
                     using (var command = new SqlCommand(sql, connection))
                     {
                         command.Parameters.Add(new SqlParameter("@UserId", SqlDbType.NVarChar) { Value = UserId });
@@ -348,22 +350,23 @@ namespace Returns.Helpers
                 await connection.OpenAsync();
 
                 const string sql = @"
-                    SELECT  s.Id,
-                            s.SaccoName,
-                            s.OfficialSaccoEmail,
-                            s.ContactNumber,
-                            s.Kra_Pin,
-                            s.SaccoType,
-                            s.IsApproved,
-                            s.AuthorizedRepresentative,
-                            s.ApprovedAt,
-                            s.CooperativeSocietyNo,
-                            s.TeamId,
-                            s.TeamName
-                    FROM    UserSaccos us
-                    JOIN    [Saccos] s
-                            ON s.Id = us.SaccoId
-                    WHERE   us.UserId = @userId;";
+                      SELECT  s.Id,
+                        s.SaccoName,
+                        s.OfficialSaccoEmail,
+                        s.ContactNumber,
+                        s.Kra_Pin,
+                        s.SaccoType,
+                        s.IsApproved,
+                        s.AuthorizedRepresentative,
+                        s.ApprovedAt,
+                        s.CooperativeSocietyNo,
+                        t.Id AS TeamId,
+                        t.Name AS TeamName
+                FROM    UserSaccos us
+                JOIN    [Saccos] s ON s.Id = us.SaccoId
+                Join AspNetUsers as U on U.Id = us.UserId
+                Join Teams as T ON T.Id = U.TeamId
+                WHERE   us.UserId = @userId;";
 
                 await using var cmd = new SqlCommand(sql, connection);
                 cmd.Parameters.Add(new SqlParameter("@userId", SqlDbType.NVarChar) { Value = userId });
@@ -409,13 +412,13 @@ namespace Returns.Helpers
                     SELECT  u.Id,
                             u.FullName,
                             u.Email,
-                            u.TeamName,
+                            T.Name as TeamName,
                             u.TeamRole,                       -- INT in table
                             r.Id   AS RoleId,
                             r.Name AS RoleName
                     FROM    AspNetUsers       u
-                    LEFT    JOIN AspNetRoles  r
-                                ON r.Id = CONVERT(NVARCHAR(450), u.Role)
+                        JOIN AspNetRoles  r ON r.Id = CONVERT(NVARCHAR(450), u.Role)
+	                    Join Teams T ON T.Id = u.TeamId
                     WHERE   u.TeamId = @teamId;";
 
                 await using var cmd = new SqlCommand(sql, connection);
