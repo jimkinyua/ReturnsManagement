@@ -492,55 +492,65 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessManagementReturn(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public async Task ProcessManagementReturn(IFormFile file, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
             {
-
-                var ManagementReturn = ExcelService.ImportManagementRows(file, _logger);
-                if (ManagementReturn == null || !ManagementReturn.ManagementReports.Any())
+                var ManagementReturnData = ExcelService.ImportManagementRows(file, _logger);
+                if (ManagementReturnData == null || !ManagementReturnData.ManagementReports.Any())
                     throw new Exception("No data found in Management Form");
 
                 // save the Excel
-                var Path = await FormsHelper.SaveFileAsync(file, "Capital Adequacy Returns", "");
+                var Path = await FormsHelper.SaveFileAsync(file, "Management Returns", "");
                 if (Path == null)
                 {
                     throw new Exception("Error saving file");
                 }
-                //var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
-                string EffectiveReturnId = returnId;
-                string PreviousReturnId = string.Empty;
-                ManagementReturn? managementReturn = null;
-                managementReturn = new ManagementReturn
+
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    // Note: You may need to add EndDate to ManagementReturnData if available
+                    // DaysLateBy = CalculateDaysLate(form, DateTime.Now, ManagementReturnData.EndDate);
+                }
+
+                var managementReturn = new ManagementReturn
                 {
                     ReturnId = returnId,
                     FilePath = Path,
-                    MRating = ManagementReturn.MRating,
+                    MRating = ManagementReturnData.MRating,
+                    FormId = form.Id,
+                    //DaysLateBy = DaysLateBy,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
                 };
 
-                if (!IsAmendMent)
+                // Handle amendment logic
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+
+                if (!isAmendment)
                 {
+                    // NEW SUBMISSION - not an amendment
                     managementReturn.PreviousReturnId = null;
                     managementReturn.IsCurrent = true;
                     managementReturn.IsAmended = false;
                 }
                 else
                 {
-                    /* if (!string.IsNullOrWhiteSpace(PreviousReturnId))
-                     {
-                         managementReturn.PreviousReturnId = PreviousReturnId;
-                     }*/
-                    managementReturn.IsCurrent = false;
-                    managementReturn.IsAmended = true;
-                    managementReturn.PreviousReturnId = PrevId;
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    managementReturn.PreviousReturnId = ExistingChildId;
+                    managementReturn.IsCurrent = true;     // NEW form becomes current
+                    managementReturn.IsAmended = false;    // NEW form is the corrected version
+
+                    // Mark the previous form as amended
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "0");
                 }
 
-
-                foreach (var row in ManagementReturn.ManagementReports)
+                foreach (var row in ManagementReturnData.ManagementReports)
                 {
                     switch (row.Category?.Trim())
                     {
-                        // CORE CAPITAL
                         case "GOVERNANCE, STRUCTURE AND ORGANIZATION":
                             managementReturn.GorvenanceStructureScore = row.Score ?? 0;
                             managementReturn.GorvenanceStructureWeight = row.Weight ?? 0;
@@ -571,28 +581,19 @@ namespace Returns.Helpers
                             managementReturn.OverallRiskProfileWeight = row.Weight ?? 0;
                             managementReturn.OverallRiskProfileWeightedScore = row.WeightedScore ?? 0;
                             break;
-
                     }
                 }
-                if (IsAmendMent)
-                {
-                    _context.ManagementReturns.Update(managementReturn);
-                }
-                else
-                {
-                    await _context.ManagementReturns.AddAsync(managementReturn);
-                }
-                await _context.SaveChangesAsync();
 
+                await _context.ManagementReturns.AddAsync(managementReturn);
+                await _context.SaveChangesAsync();
             }
             catch (Exception)
             {
-
                 throw;
             }
         }
 
-        public async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, string PrevChildId = "")
+        public async Task ProcessCapitalAdequacyForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
             {
@@ -607,8 +608,12 @@ namespace Returns.Helpers
                 {
                     throw new Exception("Error saving file");
                 }
-
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
+                }
+               
 
                 // Create new Capital Adequacy form
                 DTCapitalAdequacyReturn capitalAdequacy = new DTCapitalAdequacyReturn
@@ -627,7 +632,7 @@ namespace Returns.Helpers
                 };
 
                 // Handle amendment logic
-                bool isAmendment = !string.IsNullOrEmpty(PrevChildId);
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
 
                 if (!isAmendment)
                 {
@@ -639,12 +644,12 @@ namespace Returns.Helpers
                 else
                 {
                     // AMENDMENT/RESUBMISSION - replacing an existing form
-                    capitalAdequacy.PreviousReturnId = PrevChildId;
+                    capitalAdequacy.PreviousReturnId = ExistingChildId;
                     capitalAdequacy.IsCurrent = true;     // NEW form becomes current
                     capitalAdequacy.IsAmended = false;    // NEW form is the corrected version (not amended)
 
                     // Mark the previous form as no longer current and as amended
-                    await MarkPreviousFormAsAmended(PrevChildId, form, "0");
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "0");
                 }
 
                 foreach (var row in Form1Statement.Rows)
@@ -814,7 +819,7 @@ namespace Returns.Helpers
             return null;
         }
 
-        private async Task MarkPreviousFormAsAmended(string previousFormId, ReturnForm form, string SaccoType)
+        private async Task MarkPreviousFormAsAmended(string ExistingChildId, ReturnForm form, string SaccoType)
         {
             try
             {
@@ -827,48 +832,48 @@ namespace Returns.Helpers
                 {
                     // DT Forms
                     case ("CapitalAdequacy", true):
-                        result = await MarkFormAsAmended<DTCapitalAdequacyReturn>(previousFormId);
+                        result = await MarkFormAsAmended<DTCapitalAdequacyReturn>(ExistingChildId);
                         break;
                     case ("Liquidity", true):
-                        result = await MarkFormAsAmended<DTLiquidityReturn>(previousFormId);
+                        result = await MarkFormAsAmended<DTLiquidityReturn>(ExistingChildId);
                         break;
                     case ("RiskClassification", true):
-                        result = await MarkFormAsAmended<DTRiskClassificationReturn>(previousFormId);
+                        result = await MarkFormAsAmended<DTRiskClassificationReturn>(ExistingChildId);
                         break;
                     case ("Investment", true):
-                        result = await MarkFormAsAmended<DTInvestmentReturn>(previousFormId);
+                        result = await MarkFormAsAmended<DTInvestmentReturn>(ExistingChildId);
                         break;
                     case ("FinancialPosition", true):
-                        result = await MarkFormAsAmended<DTFinancialPositionReturn>(previousFormId);
+                        result = await MarkFormAsAmended<DTFinancialPositionReturn>(ExistingChildId);
                         break;
                     case ("ComprehensiveIncome", true):
-                        result = await MarkFormAsAmended<DTComprehensiveIncomeReturn>(previousFormId);
+                        result = await MarkFormAsAmended<DTComprehensiveIncomeReturn>(ExistingChildId);
                         break;
                     case ("DepositReturn", true):
-                        result = await MarkFormAsAmended<DepositReturn>(previousFormId);
+                        result = await MarkFormAsAmended<DepositReturn>(ExistingChildId);
                         break;
 
                     // NWDT Forms
                     case ("CapitalAdequacy", false):
-                        result = await MarkFormAsAmended<NWDTCapitalAdequacyReturn>(previousFormId);
+                        result = await MarkFormAsAmended<NWDTCapitalAdequacyReturn>(ExistingChildId);
                         break;
                     case ("Liquidity", false):
-                        result = await MarkFormAsAmended<NWDTLiquidityReturn>(previousFormId);
+                        result = await MarkFormAsAmended<NWDTLiquidityReturn>(ExistingChildId);
                         break;
                     case ("RiskClassification", false):
-                        result = await MarkFormAsAmended<NWDTRiskClassificationReturn>(previousFormId);
+                        result = await MarkFormAsAmended<NWDTRiskClassificationReturn>(ExistingChildId);
                         break;
                     case ("Investment", false):
-                        result = await MarkFormAsAmended<NWDTInvestmentReturn>(previousFormId);
+                        result = await MarkFormAsAmended<NWDTInvestmentReturn>(ExistingChildId);
                         break;
                     case ("FinancialPosition", false):
-                        result = await MarkFormAsAmended<NWDTFinancialPositionReturn>(previousFormId);
+                        result = await MarkFormAsAmended<NWDTFinancialPositionReturn>(ExistingChildId);
                         break;
                     case ("ComprehensiveIncome", false):
-                        result = await MarkFormAsAmended<NWDTComprehensiveIncomeReturn>(previousFormId);
+                        result = await MarkFormAsAmended<NWDTComprehensiveIncomeReturn>(ExistingChildId);
                         break;
                     case ("DepositReturn", false):
-                        result = await MarkFormAsAmended<NWDTDepositReturn>(previousFormId);
+                        result = await MarkFormAsAmended<NWDTDepositReturn>(ExistingChildId);
                         break;
 
                     // Forms that don't support amendments
@@ -886,28 +891,28 @@ namespace Returns.Helpers
 
                 if (result)
                 {
-                    //_logger.LogInformation($"Successfully marked previous {form.FormName} form {previousFormId} as amended");
+                    //_logger.LogInformation($"Successfully marked previous {form.FormName} form {ExistingChildId} as amended");
                 }
                 else
                 {
-                    //_logger.LogWarning($"Failed to mark previous {form.FormName} form {previousFormId} as amended");
+                    //_logger.LogWarning($"Failed to mark previous {form.FormName} form {ExistingChildId} as amended");
                 }
             }
             catch (Exception ex)
             {
-                //_logger.LogError(ex, $"Error marking previous {form.FormName} form {previousFormId} as amended");
+                //_logger.LogError(ex, $"Error marking previous {form.FormName} form {ExistingChildId} as amended");
                 throw; // Re-throw to maintain transaction integrity
             }
         }
 
-        private async Task<bool> MarkFormAsAmended<T>(string formId) where T : class
+        private async Task<bool> MarkFormAsAmended<T>(string ChildId) where T : class
         {
             try
             {
-                var form = await _context.Set<T>().FindAsync(formId);
+                var form = await _context.Set<T>().FindAsync(ChildId);
                 if (form == null)
                 {
-                    //_logger.LogWarning($"Previous {typeof(T).Name} form {formId} not found");
+                    //_logger.LogWarning($"Previous {typeof(T).Name} form {ChildId} not found");
                     return false;
                 }
 
@@ -933,12 +938,12 @@ namespace Returns.Helpers
                     }
                 }
 
-                //_logger.LogInformation($"Marked {typeof(T).Name} form {formId} as: IsCurrent=false, IsAmended=true, RequiresResubmission=false");
+                //_logger.LogInformation($"Marked {typeof(T).Name} form {ChildId} as: IsCurrent=false, IsAmended=true, RequiresResubmission=false");
                 return true;
             }
             catch (Exception ex)
             {
-                //_logger.LogError(ex, $"Error updating {typeof(T).Name} form {formId}");
+                //_logger.LogError(ex, $"Error updating {typeof(T).Name} form {ChildId}");
                 return false;
             }
         }
@@ -1324,9 +1329,8 @@ namespace Returns.Helpers
                 );
             }
         }
-        public async Task ProcessForm2B(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public async Task ProcessForm2B(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
-
             try
             {
                 _logger.LogInformation($"Processing Form 2B for return ID: {returnId}");
@@ -1341,41 +1345,52 @@ namespace Returns.Helpers
                 {
                     throw new Exception("Error saving file");
                 }
-                NWDTLiquidityReturn? liquidityStatement;
-                // Calculate days late
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2BData.EndDate);
-                // Create new Liquidity return object
-                if (IsAmendMent)
+
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
                 {
-                    liquidityStatement = _context.NDWTLiquidityReturns.FirstOrDefault(X => X.ReturnId == returnId);
-                    if (liquidityStatement == null)
-                    {
-                        throw new Exception(
-                            "Wah");
-                    }
-                    liquidityStatement.PreviousReturnId = PrevId;
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2BData.EndDate);
+                }
+
+                // Create new Liquidity return object
+                var liquidityStatement = new NWDTLiquidityReturn
+                {
+                    ReturnId = returnId,
+                    Period = form2BData.Period,
+                    Frequency = form.Period.Name,
+                    DaysLateBy = DaysLateBy,
+                    StartDate = form2BData.StartDate,
+                    EndDate = form2BData.EndDate,
+                    SaccoCsNumber = form2BData.SaccoCsNumber,
+                    FormId = form.Id,
+                    //FilePath = Path,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
+                };
+
+                // Handle amendment logic
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+
+                if (!isAmendment)
+                {
+                    // NEW SUBMISSION - not an amendment
+                    liquidityStatement.PreviousReturnId = null;
+                    liquidityStatement.IsCurrent = true;
+                    liquidityStatement.IsAmended = false;
                 }
                 else
                 {
-                    liquidityStatement = new NWDTLiquidityReturn
-                    {
-                        ReturnId = returnId,
-                        Period = form2BData.Period,
-                        Frequency = form.Period.Name,
-                        DaysLateBy = DaysLateBy
-                    };
-                    liquidityStatement.StartDate = form2BData.StartDate;
-                    liquidityStatement.EndDate = form2BData.EndDate;
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    liquidityStatement.PreviousReturnId = ExistingChildId;
+                    liquidityStatement.IsCurrent = true;     // NEW form becomes current
+                    liquidityStatement.IsAmended = false;    // NEW form is the corrected version
+
+                    // Mark the previous form as amended
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "1");
                 }
 
-                if (liquidityStatement is null)
-                {
-                    throw new Exception("Prev Return not Found");
-                }
-                liquidityStatement.SaccoCsNumber = form2BData.SaccoCsNumber;
-                liquidityStatement.FormId = form.Id;
-
-                // Extract values from Form1Statement based on index
+                // Extract values from Form2BStatement based on index
                 foreach (var row in form2BData.Rows)
                 {
                     switch (row.Index?.Trim())
@@ -1422,20 +1437,12 @@ namespace Returns.Helpers
                         case "6.2":
                             liquidityStatement.LiabilitiesMaturing91Days = row.Amount ?? 0;
                             break;
-
                     }
                 }
 
                 liquidityStatement.CalculateAndStoreTotals();
 
-                if (!IsAmendMent)
-                {
-                    await _context.NDWTLiquidityReturns.AddAsync(liquidityStatement);
-                }
-                else
-                {
-                    _context.NDWTLiquidityReturns.Update(liquidityStatement);
-                }
+                await _context.NDWTLiquidityReturns.AddAsync(liquidityStatement);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"Successfully processed Form 2B for return ID: {returnId}");
@@ -1457,12 +1464,10 @@ namespace Returns.Helpers
         }
 
 
-        public async Task ProcessLiquidityForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        public async Task ProcessLiquidityForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
             {
-
-
                 var form2 = ExcelService.ImportLiquidityStatementRows(formFile, _logger);
                 if (form2.Rows == null || !form2.Rows.Any())
                     throw new Exception("No data found in Liquidity Statement Form");
@@ -1473,7 +1478,12 @@ namespace Returns.Helpers
                     throw new Exception("Error saving file");
                 }
 
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2.EndDate);
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2.EndDate);
+                }
 
                 var liquidityStatement = new DTLiquidityReturn
                 {
@@ -1486,7 +1496,30 @@ namespace Returns.Helpers
                     FilePath = Path,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = form2.SaccoCsNumber,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
                 };
+
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+
+                if (!isAmendment)
+                {
+                    // NEW SUBMISSION - not an amendment
+                    liquidityStatement.PreviousReturnId = null;
+                    liquidityStatement.IsCurrent = true;
+                    liquidityStatement.IsAmended = false;
+                }
+                else
+                {
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    liquidityStatement.PreviousReturnId = ExistingChildId;
+                    liquidityStatement.IsCurrent = true;     // NEW form becomes current
+                    liquidityStatement.IsAmended = false;    // NEW form is the corrected version
+
+                    // Mark the previous form as amended
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "0");
+                }
+
                 foreach (var liquidityRow in form2.Rows)
                 {
                     switch (liquidityRow.Index?.Trim())
@@ -1537,10 +1570,8 @@ namespace Returns.Helpers
                             liquidityStatement.LiabilitiesMaturing91Days = liquidityRow.Amount ?? 0;
                             break;
                     }
-
                 }
 
-                // Calculate totals and ratios
                 liquidityStatement.TotalNotesAndCoins = liquidityStatement.LocalNotesAndCoins + liquidityStatement.ForeignNotesAndCoins;
                 liquidityStatement.TotalGovernmentSecurities = liquidityStatement.TreasuryBills + liquidityStatement.TreasuryBonds;
                 liquidityStatement.NetLiquidAssets = liquidityStatement.TotalNotesAndCoins + liquidityStatement.NetBankBalances +
@@ -1559,23 +1590,32 @@ namespace Returns.Helpers
             }
             catch (Exception)
             {
-
                 throw;
             }
         }
 
-        public async Task ProcessDepositReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        public async Task ProcessDepositReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
             {
-
                 var form3 = ExcelService.ImportDepositRangeDataRows(formFile, _logger);
                 var rows = form3.Rows;
                 if (rows == null || !rows.Any())
                     throw new Exception("No data found in Deposit Return Form");
 
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form3.EndDate);
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form3.EndDate);
+                }
+
                 var FilePath = await FormsHelper.SaveFileAsync(formFile, "Deposit Return Forms");
+
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+                if (isAmendment)
+                {
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "0");
+                }
 
                 foreach (var row in rows)
                 {
@@ -1594,158 +1634,196 @@ namespace Returns.Helpers
                         FilePath = FilePath,
                         DaysLateBy = DaysLateBy,
                         SaccoCsNumber = form3.SaccoCsNumber,
+                        RequiresResubmission = false,
+                        CreatedAt = DateTime.Now
                     };
+
+                    // Set amendment flags for each deposit return record
+                    if (!isAmendment)
+                    {
+                        // NEW SUBMISSION
+                        depositReturn.PreviousReturnId = null;
+                        depositReturn.IsCurrent = true;
+                        depositReturn.IsAmended = false;
+                    }
+                    else
+                    {
+                        // AMENDMENT/RESUBMISSION
+                        depositReturn.PreviousReturnId = ExistingChildId;
+                        depositReturn.IsCurrent = true;     // NEW records become current
+                        depositReturn.IsAmended = false;    // NEW records are the corrected versions
+                    }
+
                     await _context.DepositReturns.AddAsync(depositReturn);
                 }
+
                 await _context.SaveChangesAsync();
             }
             catch (Exception)
             {
-
                 throw;
             }
         }
 
 
-        public async Task ProcessForm2C(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public async Task ProcessForm2C(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
-
-            var form2CData = ExcelService.ImportForm2CDataRows(formFile, _logger);
-            if (form2CData.Rows == null || !form2CData.Rows.Any())
+            try
             {
-                throw new Exception("No data found in Deposit Return Form");
-            }
-
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2CData.EndDate);
-            var FilePath = await FormsHelper.SaveFileAsync(formFile, "Deposit Return Forms");
-            NWDTDepositReturn? depositReturn; ;
-
-            foreach (var row in form2CData.Rows)
-            {
-                if (IsAmendMent)
+                var form2CData = ExcelService.ImportForm2CDataRows(formFile, _logger);
+                if (form2CData.Rows == null || !form2CData.Rows.Any())
                 {
-                    depositReturn = _context.NWDTDepositReturns.FirstOrDefault(x => x.ReturnId == returnId);
-                    if (depositReturn is null)
-                    {
-                        continue;
-                    }
-                    depositReturn.PreviousReturnId = PrevId;
+                    throw new Exception("No data found in Deposit Return Form");
                 }
-                else
+
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
                 {
-                    depositReturn = new NWDTDepositReturn
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2CData.EndDate);
+                }
+
+                var FilePath = await FormsHelper.SaveFileAsync(formFile, "Deposit Return Forms");
+
+                // Handle amendment logic - mark previous forms as amended if this is a resubmission
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+                if (isAmendment)
+                {
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "1");
+                }
+
+                foreach (var row in form2CData.Rows)
+                {
+                    var depositReturn = new NWDTDepositReturn
                     {
                         StartDate = form2CData.StartDate,
                         EndDate = form2CData.EndDate,
                         Period = form2CData.Period,
                         Frequency = form.Period.Name,
                         DaysLateBy = DaysLateBy,
-                        FilePath = FilePath
+                        FilePath = FilePath,
+                        SaccoCsNumber = form2CData.SaccoCsNumber,
+                        ReturnId = returnId,
+                        FormId = form.Id,
+                        AmountInKshs000 = row.Amount,
+                        RangeName = row.Range,
+                        DepositType = row.DepositType,
+                        NumberOfAccounts = row.NumberOfAccounts,
+                        RequiresResubmission = false,
+                        CreatedAt = DateTime.Now
                     };
-                    depositReturn.SaccoCsNumber = form2CData.SaccoCsNumber;
-                    depositReturn.ReturnId = returnId;
-                    depositReturn.AmountInKshs000 = row.Amount;
-                    depositReturn.RangeName = row.Range;
-                    depositReturn.DepositType = row.DepositType;
-                    depositReturn.NumberOfAccounts = row.NumberOfAccounts;
-                }
 
-                if (depositReturn is null)
-                {
-                    continue;
-                }
-                depositReturn.FormId = form.Id;
-                if (!IsAmendMent)
-                {
+                    // Set amendment flags for each deposit return record
+                    if (!isAmendment)
+                    {
+                        // NEW SUBMISSION
+                        depositReturn.PreviousReturnId = null;
+                        depositReturn.IsCurrent = true;
+                        depositReturn.IsAmended = false;
+                    }
+                    else
+                    {
+                        // AMENDMENT/RESUBMISSION
+                        depositReturn.PreviousReturnId = ExistingChildId;
+                        depositReturn.IsCurrent = true;     // NEW records become current
+                        depositReturn.IsAmended = false;    // NEW records are the corrected versions
+                    }
+
                     await _context.NWDTDepositReturns.AddAsync(depositReturn);
                 }
-                else
-                {
-                    _context.NWDTDepositReturns.Update(depositReturn);
-                }
+
+                await _context.SaveChangesAsync();
             }
-
-            await _context.SaveChangesAsync();
+            catch (Exception)
+            {
+                throw;
+            }
         }
-
-        public async Task ProcessForm2D(IFormFile formFile, string returnId, ILogger logger, ReturnForm form, bool isAmendment, string prevId = "")
+        public async Task ProcessForm2D(IFormFile formFile, string returnId, ILogger logger, ReturnForm form, string ExistingChildId = "")
         {
             try
             {
-                using var context = new ReturnsDbContext();
-
                 // Import and validate data
                 var form2DData = ExcelService.ImportForm2DRows(formFile, logger);
                 if (form2DData.Rows == null || !form2DData.Rows.Any())
                 {
-                    throw new ArgumentException("No data found in Deposit Return Form");
+                    throw new ArgumentException("No data found in Risk Classification Form");
                 }
 
-                // Calculate days late and save file
-                var daysLateBy = CalculateDaysLate(form, DateTime.Now, form2DData.EndDate);
+                // Only calculate days late for new submissions, not reuploads
+                var daysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    daysLateBy = CalculateDaysLate(form, DateTime.Now, form2DData.EndDate);
+                }
+
+                // Save file
                 var filePath = await FormsHelper.SaveFileAsync(formFile, "Risk Classification Returns");
                 if (filePath == null)
                 {
                     throw new IOException("Error saving file");
                 }
 
-                // Process rows
+                // Handle amendment logic - mark previous forms as amended if this is a resubmission
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+                if (isAmendment)
+                {
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "1");
+                }
+
+                // Process rows - create new records for each row
                 var entitiesToAdd = new List<NWDTRiskClassificationReturn>();
-                var entitiesToUpdate = new List<NWDTRiskClassificationReturn>();
 
                 foreach (var row in form2DData.Rows)
                 {
-                    if (isAmendment)
+                    var riskClassification = new NWDTRiskClassificationReturn
                     {
-                        var riskClassification = await context.NWDTRiskClassificationReturns
-                            .FirstOrDefaultAsync(x => x.Id == returnId);
+                        LoanType = row.LoanType,
+                        Classification = row.Classification,
+                        NumberOfAccounts = row.NumberOfAccounts,
+                        OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
+                        RequiredProvision = row.RequiredProvision,
+                        RequiredProvisionAmount = row.RequiredProvisionAmount,
+                        ReturnId = returnId,
+                        FormId = form.Id,
+                        Period = form2DData.Period,
+                        Frequency = form.Period.Name,
+                        StartDate = form2DData.StartDate,
+                        EndDate = form2DData.EndDate,
+                        FilePath = filePath,
+                        DaysLateBy = daysLateBy,
+                        SaccoCsNumber = form2DData.CsNumber,
+                        RequiresResubmission = false,
+                        CreatedAt = DateTime.Now
+                    };
 
-                        if (riskClassification != null)
-                        {
-                            riskClassification.PreviousReturnId = prevId;
-                            entitiesToUpdate.Add(riskClassification);
-                        }
+                    // Set amendment flags for each risk classification record
+                    if (!isAmendment)
+                    {
+                        // NEW SUBMISSION
+                        riskClassification.PreviousReturnId = null;
+                        riskClassification.IsCurrent = true;
+                        riskClassification.IsAmended = false;
                     }
                     else
                     {
-                        var riskClassification = new NWDTRiskClassificationReturn
-                        {
-                            LoanType = row.LoanType,
-                            Classification = row.Classification,
-                            NumberOfAccounts = row.NumberOfAccounts,
-                            OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
-                            RequiredProvision = row.RequiredProvision,
-                            RequiredProvisionAmount = row.RequiredProvisionAmount,
-                            ReturnId = returnId,
-                            FormId = form.Id,
-                            Period = form2DData.Period,
-                            Frequency = form.Period.Name,
-                            StartDate = form2DData.StartDate,
-                            EndDate = form2DData.EndDate,
-                            FilePath = filePath,
-                            DaysLateBy = daysLateBy,
-                            PreviousReturnId = prevId,
-                            SaccoCsNumber = form2DData.CsNumber,
-
-                        };
-                        entitiesToAdd.Add(riskClassification);
+                        // AMENDMENT/RESUBMISSION
+                        riskClassification.PreviousReturnId = ExistingChildId;
+                        riskClassification.IsCurrent = true;     // NEW records become current
+                        riskClassification.IsAmended = false;    // NEW records are the corrected versions
                     }
-                }
 
+                    entitiesToAdd.Add(riskClassification);
+                }
 
                 if (entitiesToAdd.Any())
                 {
-                    await context.NWDTRiskClassificationReturns.AddRangeAsync(entitiesToAdd);
+                    await _context.NWDTRiskClassificationReturns.AddRangeAsync(entitiesToAdd);
                 }
 
-                if (entitiesToUpdate.Any())
-                {
-                    context.NWDTRiskClassificationReturns.UpdateRange(entitiesToUpdate);
-                }
+                await _context.SaveChangesAsync();
 
-                await context.SaveChangesAsync();
-
-                logger.LogInformation($"Successfully processed Form 2D with {entitiesToAdd.Count + entitiesToUpdate.Count} entries for ReturnId: {returnId}");
+                logger.LogInformation($"Successfully processed Form 2D with {entitiesToAdd.Count} entries for ReturnId: {returnId}");
             }
             catch (Exception ex)
             {
@@ -1754,18 +1832,29 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessRiskClassificationForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        public async Task ProcessRiskClassificationForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
             {
-
                 var form4 = ExcelService.ImportRiskClassificationRows(formFile, _logger);
                 var rows = form4.Rows;
                 if (rows == null || !rows.Any())
                     throw new Exception("No data found in Risk Classification Form");
 
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form4.EndDate);
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form4.EndDate);
+                }
+
                 var FilePath = await FormsHelper.SaveFileAsync(formFile, "Risk Classification Returns");
+
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+                if (isAmendment)
+                {
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "0");
+                }
 
                 foreach (var row in rows)
                 {
@@ -1778,7 +1867,7 @@ namespace Returns.Helpers
                         RequiredProvision = row.RequiredProvision,
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
                         ReturnId = returnId,
-                        FormId = returnId,
+                        FormId = form.Id, 
                         Year = form4.Period,
                         StartDate = form4.StartDate,
                         EndDate = form4.EndDate,
@@ -1786,23 +1875,40 @@ namespace Returns.Helpers
                         FilePath = FilePath,
                         DaysLateBy = DaysLateBy,
                         SaccoCsNumber = form4.SaccoCsNumber,
+                        RequiresResubmission = false,
+                        CreatedAt = DateTime.Now
                     };
+
+                    if (!isAmendment)
+                    {
+                        // NEW SUBMISSION
+                        riskClassification.PreviousReturnId = null;
+                        riskClassification.IsCurrent = true;
+                        riskClassification.IsAmended = false;
+                    }
+                    else
+                    {
+                        // AMENDMENT/RESUBMISSION
+                        riskClassification.PreviousReturnId = ExistingChildId;
+                        riskClassification.IsCurrent = true;     // NEW records become current
+                        riskClassification.IsAmended = false;    // NEW records are the corrected versions
+                    }
+
                     await _context.DTRiskClassificationReturns.AddAsync(riskClassification);
                 }
+
                 await _context.SaveChangesAsync();
             }
             catch (Exception)
             {
-
                 throw;
             }
         }
 
-        internal async Task ProcessInvestmentReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
+        internal async Task ProcessInvestmentReturnForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
             {
-
                 var form5 = ExcelService.ImportInvestmentRows(formFile, _logger);
                 var rows = form5.Rows;
                 if (rows == null || !rows.Any())
@@ -1810,7 +1916,13 @@ namespace Returns.Helpers
                     throw new Exception("No data found in Investment Return Form");
                 }
 
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form5.EndDate);
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form5.EndDate);
+                }
+
                 var FilePath = await FormsHelper.SaveFileAsync(formFile, "Investment Returns");
 
                 var investmentReturn = new DTInvestmentReturn
@@ -1824,7 +1936,31 @@ namespace Returns.Helpers
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = form5.SaccoCsNumber,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
                 };
+
+                // Handle amendment logic
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+
+                if (!isAmendment)
+                {
+                    // NEW SUBMISSION - not an amendment
+                    investmentReturn.PreviousReturnId = null;
+                    investmentReturn.IsCurrent = true;
+                    investmentReturn.IsAmended = false;
+                }
+                else
+                {
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    investmentReturn.PreviousReturnId = ExistingChildId;
+                    investmentReturn.IsCurrent = true;     // NEW form becomes current
+                    investmentReturn.IsAmended = false;    // NEW form is the corrected version
+
+                    // Mark the previous form as amended
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "1");
+                }
+
                 foreach (var row in rows)
                 {
                     switch (row.Index?.Trim())
@@ -1854,7 +1990,6 @@ namespace Returns.Helpers
                 {
                     investmentReturn.LandBuildingsToTotalAssetsRatio = (investmentReturn.LandAndBuildings / investmentReturn.TotalAssets) * 100;
                     investmentReturn.LandBuildingsRatioExcessDeficiency = investmentReturn.LandBuildingsToTotalAssetsRatio - investmentReturn.MaxLandBuildingsToTotalAssetsRatio;
-
                     investmentReturn.NonEarningAssetsToTotalAssetsRatio = (investmentReturn.NonEarningAssets / investmentReturn.TotalAssets) * 100;
                     investmentReturn.NonEarningAssetsRatioExcessDeficiency = investmentReturn.NonEarningAssetsToTotalAssetsRatio - investmentReturn.MaxNonEarningAssetsToTotalAssetsRatio;
                 }
@@ -1876,43 +2011,35 @@ namespace Returns.Helpers
             }
             catch (Exception)
             {
-
                 throw;
             }
         }
 
 
-        internal async Task ProcessForm2E(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
+        internal async Task ProcessForm2E(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
-
-            var Form2E = ExcelService.ImportForm2ERows(formFile, _logger);
-            if (Form2E.Rows == null || !Form2E.Rows.Any())
+            try
             {
-                throw new Exception("No data found in Investment Return Form");
-            }
-            var DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form2E.EndDate);
-            var FilePath = await FormsHelper.SaveFileAsync(formFile, "Investment Returns");
-            if (FilePath == null)
-            {
-                throw new Exception("Error saving file");
-            }
-
-            NWDTInvestmentReturn? investmentReturn;
-
-            if (isAmendment)
-            {
-                investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnId);
-
-                if (investmentReturn == null)
+                var Form2E = ExcelService.ImportForm2ERows(formFile, _logger);
+                if (Form2E.Rows == null || !Form2E.Rows.Any())
                 {
-                    _logger.LogWarning($"Amendment requested but no existing record found for ReturnId: {prevId}");
-                    investmentReturn = new NWDTInvestmentReturn();
+                    throw new Exception("No data found in Investment Return Form");
                 }
-                investmentReturn.PreviousReturnId = prevId;
-            }
-            else
-            {
-                investmentReturn = new NWDTInvestmentReturn
+
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
+                {
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form2E.EndDate);
+                }
+
+                var FilePath = await FormsHelper.SaveFileAsync(formFile, "Investment Returns");
+                if (FilePath == null)
+                {
+                    throw new Exception("Error saving file");
+                }
+
+                var investmentReturn = new NWDTInvestmentReturn
                 {
                     StartDate = Form2E.StartDate,
                     EndDate = Form2E.EndDate,
@@ -1922,110 +2049,129 @@ namespace Returns.Helpers
                     DaysLateBy = DaysLateBy,
                     ReturnId = returnId,
                     FormId = form.Id,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
                 };
-            }
 
+                // Handle amendment logic
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
 
-            foreach (var row in Form2E.Rows)
-            {
-                switch (row.Index)
+                if (!isAmendment)
                 {
-                    case "1.1": // Core Capital
-                        investmentReturn.CoreCapital = row.Amount ?? 0;
-                        break;
-                    case "1.2": // Total Assets
-                        investmentReturn.TotalAssets = row.Amount ?? 0;
-                        break;
-                    case "1.3": // Total Deposits
-                        investmentReturn.TotalDeposits = row.Amount ?? 0;
-                        break;
-                    case "1.4": // Non-earning Assets
-                        investmentReturn.NonEarningAssets = row.Amount ?? 0;
-                        break;
-                    case "1.5.1": // Subsidiary and Related Entity investments
-                        investmentReturn.SubsidiaryRelatedEntityInvestments = row.Amount ?? 0;
-                        break;
-                    case "1.5.2": // Equity investment
-                        investmentReturn.EquityInvestments = row.Amount ?? 0;
-                        break;
-                    case "1.5.3": // Other investments
-                        investmentReturn.OtherInvestments = row.Amount ?? 0;
-                        break;
-                    case "1.6": // Other assets - Land & Building, equipment
-                        investmentReturn.OtherAssetsLandBuildingEquipment = row.Amount ?? 0;
-                        break;
-                    case "1.7": // Land & Building
-                        investmentReturn.LandAndBuilding = row.Amount ?? 0;
-                        break;
-                    case "1.9": // Maximum Land & Building and equipment to Total Asset requirement
-                        if (row.Amount.HasValue)
-                        {
-                            var percentage = row.Amount.Value;
-                            // If it's a percentage (e.g., 10%), convert to decimal value (0.10)
-                            if (percentage > 1)
-                                percentage /= 100;
-                            investmentReturn.MaxLandBuildingEquipmentToTotalAssetRequirement = percentage;
-                        }
-                        break;
-                    case "2.2": // Maximum Land & Building to Total Asset requirement
-                        if (row.Amount.HasValue)
-                        {
-                            var percentage = row.Amount.Value;
-                            if (percentage > 1)
-                                percentage /= 100;
-                            investmentReturn.MaxLandBuildingToTotalAssetRequirement = percentage;
-                        }
-                        break;
-                    case "2.5": // Maximum financial investments to Core capital
-                        if (row.Amount.HasValue)
-                        {
-                            var percentage = row.Amount.Value;
-                            if (percentage > 1)
-                                percentage /= 100;
-                            investmentReturn.MaxFinancialInvestmentsToCoreCapital = percentage;
-                        }
-                        break;
-                    case "2.8": // Maximum financial investments to Total Deposits liabilities Ratio
-                        if (row.Amount.HasValue)
-                        {
-                            var percentage = row.Amount.Value;
-                            if (percentage > 1)
-                                percentage /= 100;
-                            investmentReturn.MaxEquityInvestmentsToTotalDeposits = percentage;
-                        }
-                        break;
-                    case "3.1": // Maximum Subsidiary investment to Total assets Ratio
-                        if (row.Amount.HasValue)
-                        {
-                            var percentage = row.Amount.Value;
-                            if (percentage > 1)
-                                percentage /= 100;
-                            investmentReturn.MaxSubsidiaryInvestmentToTotalAssets = percentage;
-                        }
-                        break;
-                    case "3.4": // Maximum Other investments to Core Capital
-                        if (row.Amount.HasValue)
-                        {
-                            var percentage = row.Amount.Value;
-                            if (percentage > 1)
-                                percentage /= 100;
-                            investmentReturn.MaxOtherInvestmentsToCoreCapital = percentage;
-                        }
-                        break;
+                    // NEW SUBMISSION - not an amendment
+                    investmentReturn.PreviousReturnId = null;
+                    investmentReturn.IsCurrent = true;
+                    investmentReturn.IsAmended = false;
                 }
-            }
-            investmentReturn.CalculateAndStoreTotals();
+                else
+                {
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    investmentReturn.PreviousReturnId = ExistingChildId;
+                    investmentReturn.IsCurrent = true;     // NEW form becomes current
+                    investmentReturn.IsAmended = false;    // NEW form is the corrected version
 
-            if (isAmendment && investmentReturn.Id != string.Empty)
-            {
-                _context.NWDTInvestmentReturns.Update(investmentReturn);
-            }
-            else
-            {
+                    // Mark the previous form as amended
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "1");
+                }
+
+                foreach (var row in Form2E.Rows)
+                {
+                    switch (row.Index)
+                    {
+                        case "1.1": // Core Capital
+                            investmentReturn.CoreCapital = row.Amount ?? 0;
+                            break;
+                        case "1.2": // Total Assets
+                            investmentReturn.TotalAssets = row.Amount ?? 0;
+                            break;
+                        case "1.3": // Total Deposits
+                            investmentReturn.TotalDeposits = row.Amount ?? 0;
+                            break;
+                        case "1.4": // Non-earning Assets
+                            investmentReturn.NonEarningAssets = row.Amount ?? 0;
+                            break;
+                        case "1.5.1": // Subsidiary and Related Entity investments
+                            investmentReturn.SubsidiaryRelatedEntityInvestments = row.Amount ?? 0;
+                            break;
+                        case "1.5.2": // Equity investment
+                            investmentReturn.EquityInvestments = row.Amount ?? 0;
+                            break;
+                        case "1.5.3": // Other investments
+                            investmentReturn.OtherInvestments = row.Amount ?? 0;
+                            break;
+                        case "1.6": // Other assets - Land & Building, equipment
+                            investmentReturn.OtherAssetsLandBuildingEquipment = row.Amount ?? 0;
+                            break;
+                        case "1.7": // Land & Building
+                            investmentReturn.LandAndBuilding = row.Amount ?? 0;
+                            break;
+                        case "1.9": // Maximum Land & Building and equipment to Total Asset requirement
+                            if (row.Amount.HasValue)
+                            {
+                                var percentage = row.Amount.Value;
+                                // If it's a percentage (e.g., 10%), convert to decimal value (0.10)
+                                if (percentage > 1)
+                                    percentage /= 100;
+                                investmentReturn.MaxLandBuildingEquipmentToTotalAssetRequirement = percentage;
+                            }
+                            break;
+                        case "2.2": // Maximum Land & Building to Total Asset requirement
+                            if (row.Amount.HasValue)
+                            {
+                                var percentage = row.Amount.Value;
+                                if (percentage > 1)
+                                    percentage /= 100;
+                                investmentReturn.MaxLandBuildingToTotalAssetRequirement = percentage;
+                            }
+                            break;
+                        case "2.5": // Maximum financial investments to Core capital
+                            if (row.Amount.HasValue)
+                            {
+                                var percentage = row.Amount.Value;
+                                if (percentage > 1)
+                                    percentage /= 100;
+                                investmentReturn.MaxFinancialInvestmentsToCoreCapital = percentage;
+                            }
+                            break;
+                        case "2.8": // Maximum financial investments to Total Deposits liabilities Ratio
+                            if (row.Amount.HasValue)
+                            {
+                                var percentage = row.Amount.Value;
+                                if (percentage > 1)
+                                    percentage /= 100;
+                                investmentReturn.MaxEquityInvestmentsToTotalDeposits = percentage;
+                            }
+                            break;
+                        case "3.1": // Maximum Subsidiary investment to Total assets Ratio
+                            if (row.Amount.HasValue)
+                            {
+                                var percentage = row.Amount.Value;
+                                if (percentage > 1)
+                                    percentage /= 100;
+                                investmentReturn.MaxSubsidiaryInvestmentToTotalAssets = percentage;
+                            }
+                            break;
+                        case "3.4": // Maximum Other investments to Core Capital
+                            if (row.Amount.HasValue)
+                            {
+                                var percentage = row.Amount.Value;
+                                if (percentage > 1)
+                                    percentage /= 100;
+                                investmentReturn.MaxOtherInvestmentsToCoreCapital = percentage;
+                            }
+                            break;
+                    }
+                }
+
+                investmentReturn.CalculateAndStoreTotals();
+
                 await _context.NWDTInvestmentReturns.AddAsync(investmentReturn);
+                await _context.SaveChangesAsync();
             }
-
-            await _context.SaveChangesAsync();
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         public async Task ProcessFinancialPositionForm(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form)
@@ -2364,9 +2510,8 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessForm2F(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
+        public async Task ProcessForm2F(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
-
             try
             {
                 _logger.LogInformation($"Processing Form 2F for return ID: {returnId}");
@@ -2384,40 +2529,51 @@ namespace Returns.Helpers
                 {
                     throw new Exception("Error saving file");
                 }
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2F.EndDate);
 
-                NWDTComprehensiveIncomeReturn? comprehensiveIncome;
-
-                if (isAmendment)
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
                 {
-                    comprehensiveIncome = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnId);
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2F.EndDate);
+                }
 
-                    if (comprehensiveIncome == null)
-                    {
-                        _logger.LogWarning($"Amendment requested but no existing record found for ReturnId: {prevId}");
-                        comprehensiveIncome = new NWDTComprehensiveIncomeReturn();
-                    }
+                var comprehensiveIncome = new NWDTComprehensiveIncomeReturn
+                {
+                    ReturnId = returnId,
+                    StartDate = form2F.StartDate,
+                    EndDate = form2F.EndDate,
+                    Period = form2F.Period,
+                    Frequency = form.Period.Name,
+                    FilePath = Path,
+                    DaysLateBy = DaysLateBy,
+                    FormId = form.Id,
+                    SaccoCsNumber = form2F.SaccoCsNumber,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
+                };
 
-                    comprehensiveIncome.PreviousReturnId = prevId;
+                // Handle amendment logic
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+
+                if (!isAmendment)
+                {
+                    // NEW SUBMISSION - not an amendment
+                    comprehensiveIncome.PreviousReturnId = null;
+                    comprehensiveIncome.IsCurrent = true;
+                    comprehensiveIncome.IsAmended = false;
                 }
                 else
                 {
-                    comprehensiveIncome = new NWDTComprehensiveIncomeReturn
-                    {
-                        ReturnId = returnId,
-                        StartDate = form2F.StartDate,
-                        EndDate = form2F.EndDate,
-                        Period = form2F.Period,
-                        Frequency = form.Period.Name,
-                        FilePath = Path,
-                        DaysLateBy = DaysLateBy,
-                        FormId = form.Id,
-                    };
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    comprehensiveIncome.PreviousReturnId = ExistingChildId;
+                    comprehensiveIncome.IsCurrent = true;     // NEW form becomes current
+                    comprehensiveIncome.IsAmended = false;    // NEW form is the corrected version
+
+                    // Mark the previous form as amended
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "1");
                 }
 
-                comprehensiveIncome.SaccoCsNumber = form2F.SaccoCsNumber;
-
-                // Map data from Form1Statement to entity properties based on reference numbers
+                // Map data from Form2F to entity properties based on reference numbers
                 foreach (var row in form2F.Rows)
                 {
                     switch (row.RefNumber)
@@ -2519,18 +2675,9 @@ namespace Returns.Helpers
                 // Calculate and store all computed totals
                 comprehensiveIncome.CalculateAndStoreTotals();
 
-                if (isAmendment && comprehensiveIncome.Id != string.Empty)
-                {
-                    _context.NWDTComprehensiveIncomeReturns.Update(comprehensiveIncome);
-                    _logger.LogInformation($"Updated existing comprehensive income record for amendment, ReturnId: {returnId}");
-                }
-                else
-                {
-                    await _context.NWDTComprehensiveIncomeReturns.AddAsync(comprehensiveIncome);
-                    _logger.LogInformation($"Added new comprehensive income record, ReturnId: {returnId}");
-                }
-
+                await _context.NWDTComprehensiveIncomeReturns.AddAsync(comprehensiveIncome);
                 await _context.SaveChangesAsync();
+
                 _logger.LogInformation($"Successfully processed Form 2F for return ID: {returnId}");
             }
             catch (Exception ex)
@@ -2540,9 +2687,8 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessForm2G(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, bool isAmendment, string prevId = "")
+        public async Task ProcessForm2G(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
-
             try
             {
                 _logger.LogInformation($"Processing Form 2G for return ID: {returnId}");
@@ -2559,41 +2705,50 @@ namespace Returns.Helpers
                     throw new Exception("Error saving file");
                 }
 
-                var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2G.EndDate);
-
-                NWDTFinancialPositionReturn? financialPosition;
-
-                if (isAmendment)
+                // Only calculate days late for new submissions, not reuploads
+                var DaysLateBy = 0;
+                if (string.IsNullOrEmpty(ExistingChildId))
                 {
-                    financialPosition = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnId);
+                    DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2G.EndDate);
+                }
 
-                    if (financialPosition == null)
-                    {
-                        _logger.LogWarning($"Amendment requested but no existing record found for ReturnId: {prevId}");
-                        financialPosition = new NWDTFinancialPositionReturn();
-                    }
+                var financialPosition = new NWDTFinancialPositionReturn
+                {
+                    ReturnId = returnId,
+                    StartDate = form2G.StartDate,
+                    EndDate = form2G.EndDate,
+                    Period = form2G.Period,
+                    Frequency = form.Period.Name,
+                    FilePath = Path,
+                    DaysLateBy = DaysLateBy,
+                    FormId = form.Id,
+                    SaccoCsNumber = form2G.SaccoCsNumber,
+                    RequiresResubmission = false,
+                    CreatedAt = DateTime.Now
+                };
 
-                    financialPosition.PreviousReturnId = prevId;
+                // Handle amendment logic
+                bool isAmendment = !string.IsNullOrEmpty(ExistingChildId);
+
+                if (!isAmendment)
+                {
+                    // NEW SUBMISSION - not an amendment
+                    financialPosition.PreviousReturnId = null;
+                    financialPosition.IsCurrent = true;
+                    financialPosition.IsAmended = false;
                 }
                 else
                 {
-                    financialPosition = new NWDTFinancialPositionReturn
-                    {
-                        ReturnId = returnId,
-                        StartDate = form2G.StartDate,
-                        EndDate = form2G.EndDate,
-                        Period = form2G.Period,
-                        Frequency = form.Period.Name,
-                        FilePath = Path,
-                        DaysLateBy = DaysLateBy,
-                        FormId = form.Id,
+                    // AMENDMENT/RESUBMISSION - replacing an existing form
+                    financialPosition.PreviousReturnId = ExistingChildId;
+                    financialPosition.IsCurrent = true;     // NEW form becomes current
+                    financialPosition.IsAmended = false;    // NEW form is the corrected version
 
-                    };
+                    // Mark the previous form as amended
+                    await MarkPreviousFormAsAmended(ExistingChildId, form, "1");
                 }
 
-                financialPosition.SaccoCsNumber = form2G.SaccoCsNumber;
-
-                // Map data from Form1Statement to entity properties based on reference numbers
+                // Map data from Form2G to entity properties based on reference numbers
                 foreach (var row in form2G.Rows)
                 {
                     switch (row.RefNumber)
@@ -2728,17 +2883,7 @@ namespace Returns.Helpers
 
                 financialPosition.CalculateAndStoreTotals();
 
-                if (isAmendment && financialPosition.Id != string.Empty)
-                {
-                    _context.NWDTFinancialPositionReturns.Update(financialPosition);
-                    _logger.LogInformation($"Updated existing financial position record for amendment, ReturnId: {returnId}");
-                }
-                else
-                {
-                    await _context.NWDTFinancialPositionReturns.AddAsync(financialPosition);
-                    _logger.LogInformation($"Added new financial position record, ReturnId: {returnId}");
-                }
-
+                await _context.NWDTFinancialPositionReturns.AddAsync(financialPosition);
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation($"Successfully processed Form 2G for return ID: {returnId}");

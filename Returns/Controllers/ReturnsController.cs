@@ -244,22 +244,92 @@ namespace Returns.Controllers
                 }
                 else
                 {
-                    return BadRequest(
-                       result.Message
-                    );
+                    return BadRequest(result.Message);
                 }
 
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new
-                {
-                    success = false,
-                    error = ex
-                });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+
             }
         }
 
+        [HttpPost("ResubmitForm")]
+        public async Task<IActionResult> ResubmitForm([FromForm] SaccoResubmissionDto request)
+        {
+            try
+            {
+                var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null)
+                {
+                    return Unauthorized();
+                }
+
+                if (request.FormFile == null || request.FormFile.Length == 0)
+                {
+                    return BadRequest("Form file is required.");
+                }
+                if (string.IsNullOrEmpty(request.ReturnId) || string.IsNullOrEmpty(request.FormId))
+                {
+                    return BadRequest("ReturnId and FormId are required.");
+                }
+
+                var form = await _context.ReturnForms
+                            .Include(x => x.Period)
+                            .FirstOrDefaultAsync(x => x.Id == request.FormId);
+
+                if (form == null)
+                {
+                    return BadRequest("Form not found");
+                }
+
+                var returnRecord = await _context.Returns.FindAsync(request.ReturnId);
+                if (returnRecord == null)
+                {
+                    return BadRequest("Return not found");
+                }
+
+                if (returnRecord.SaccoId != loggedInSacco.SaccoId)
+                {
+                    return StatusCode(401, "You can only resubmit your own forms");
+                }
+
+                var pendingRequest = await _context.FormResubmissionRequests
+                    .FirstOrDefaultAsync(r => r.ReturnId == request.ReturnId &&
+                     r.FormId == request.FormId &&
+                     r.Status == "Pending");
+
+                if (pendingRequest == null)
+                {
+                    return BadRequest("No pending resubmission request found for this form");
+                }
+
+                var result = await _resubmissionService.HandleSaccoFormResubmissionAsync(
+                   request.ReturnId,
+                   form,
+                   request.FormFile,
+                   loggedInSacco.SaccoId,
+                   loggedInSacco.SaccoType,
+                   request.ResubmissionNotes?.Trim() ?? string.Empty
+               );
+
+                if (result.Success)
+                {
+                    return Ok();
+                }
+                else
+                {
+                    return BadRequest(result.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+
+
+        }
 
         private async Task<(
             bool IsValid,

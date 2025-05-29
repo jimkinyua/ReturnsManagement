@@ -265,7 +265,8 @@ namespace Returns.Helpers
                 }
 
                 // Clear RequiresResubmission flag on the old form
-                var clearFlagResult = await UpdateRequiresResubmissionFlagAsync(pendingRequest.ChildId, form, false, "Resubmitted by SACCO");
+                var clearFlagResult = await UpdateRequiresResubmissionFlagAsync(pendingRequest.ChildId, form, false, "Resubmitted by SACCO", SaccoType);
+
                 if (!clearFlagResult.Success)
                 {
                     _logger.LogWarning($"Failed to clear RequiresResubmission flag: {clearFlagResult.Message}");
@@ -277,7 +278,7 @@ namespace Returns.Helpers
                 pendingRequest.UploadedAt = DateTime.Now;
                 pendingRequest.RespondedBy = saccoUserId;
                 pendingRequest.ResubmissionNotes = resubmissionNotes;
-                pendingRequest.UpdatedAt = DateTime.Now;
+                //pendingRequest.UpdatedAt = DateTime.Now;
 
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -287,7 +288,7 @@ namespace Returns.Helpers
 
                 _logger.LogInformation($"SACCO resubmission completed for {form.FormName}. Request ID: {pendingRequest.Id}");
 
-                return (true, $"{form.FormName} resubmitted successfully", newFormId);
+                return (true, $"{form.FormName} resubmitted successfully", string.Empty);
             }
             catch (Exception ex)
             {
@@ -297,6 +298,37 @@ namespace Returns.Helpers
             }
         }
 
+        private async Task SendResubmissionCompletedNotification(FormResubmissionRequest request, string formName)
+        {
+            try
+            {
+                var subject = $"Form Resubmission Completed - {formName}";
+                var body = $@"
+                    Dear {request.RequestedByName},
+
+                    The SACCO {request.SaccoId} has successfully resubmitted the {formName} that you requested for correction.
+
+                    **Resubmission Details:**
+                    - Form: {formName}
+                    - Return ID: {request.ReturnId}
+                    - Resubmitted: {DateTime.Now:dd/MM/yyyy HH:mm}
+                    - SACCO Notes: {request.ResubmissionNotes ?? "No additional notes provided"}
+                    - Original Request Reason: {request.Reason}
+
+                    The resubmitted form is now available for your review in the returns management system.
+
+                    Best regards,
+                    Returns Management System
+                            ";
+
+                await _emailService.SendEmailAsync(request.RequestedByEmail, subject, body);
+                _logger.LogInformation($"Resubmission completion notification sent to {request.RequestedByEmail}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send resubmission completion notification");
+            }
+        }
 
 
         private async Task<(bool Success, string Message)> UpdateFormFlag<T>(string childFormId,bool requiresResubmission) where T : class

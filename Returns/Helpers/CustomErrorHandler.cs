@@ -19,7 +19,7 @@ namespace Returns.Helpers
             Logger.LogError(ex, ex.Message);
         }
 
-        public static List<string> HandleException(Exception ex, bool includeStackTrace = false)
+        public static List<string> HandleException(Exception ex, bool includeStackTrace = true)
         {
             if (ex == null) return new List<string> { "Unknown error." };
 
