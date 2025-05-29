@@ -32,8 +32,19 @@ namespace Returns.Helpers
         public class VersionChoice
         {
             public string Label { get; set; } = null!;
-            public int Value { get; set; }
+            public string Value { get; set; }
         }
+
+        public class VersionLookup
+        {
+            public string Id { get; set; }
+            public string ReturnId { get; set; }
+            public string? PreviousReturnId { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public bool IsAmended { get; set; }
+            public bool IsCurrent { get; set; }
+        }
+
         public bool CheckLateReturns(Return returnItem)
         {
             var TotalLateReturns = CountLateReturns(returnItem);
@@ -44,43 +55,446 @@ namespace Returns.Helpers
             return false;
         }
 
-        public async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync(Return returnEntity)
+
+
+        public async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync<T>(string ReturnId, string saccoType) where T : class
         {
+            // Step 1: Get all version data for this return type
+            var versionLookups = await GetVersionLookupsAsync<T>(ReturnId, saccoType);
 
-            // 1. Load Id → (PreviousVersionId, VersionNumber) for this Sacco+Type+Year
-            var lookups = (await _context.Returns
-                .AsNoTracking()
-                .Where(r =>
-                    r.SaccoId == returnEntity.SaccoId &&
-                    r.SaccoType == returnEntity.SaccoType &&
-                    r.ReturnFor.Year == returnEntity.ReturnFor.Year)
-                .Select(r => new { r.Id, r.PreviousVersionId, r.VersionNumber })
-                .ToListAsync())
-                .ToDictionary(x => x.Id);
+            // Step 2: Filter to get only non-current (inactive) versions
+            var inactiveVersions = versionLookups.Values
+                .Where(v => !v.IsCurrent)
+                .OrderBy(v => v.CreatedAt)
+                .ToList();
 
-            // 2. Walk the chain and build the dropdown list
-            var choices = new List<VersionChoice>();
-
-            for (var currentId = returnEntity.Id;
-                 lookups.TryGetValue(currentId, out var node) &&
-                 !string.IsNullOrEmpty(node.PreviousVersionId);
-                 currentId = node.PreviousVersionId!)
+            // Step 3: Create version choices from inactive versions
+            var versionChoices = new List<VersionChoice>();
+            for (int i = 0; i < inactiveVersions.Count; i++)
             {
-                var prev = lookups[node.PreviousVersionId!];
-
-                choices.Add(new VersionChoice
+                var item = inactiveVersions[i];
+                versionChoices.Add(new VersionChoice
                 {
-                    Label = $"V{prev.VersionNumber}",
-                    Value = prev.VersionNumber
+                    Label = $"V{i + 1}",
+                    Value = item.Id
                 });
             }
+          
 
-            // Oldest first
-            choices.Reverse();
-
-            return choices;
+            return versionChoices;
         }
 
+        private bool HasPreviousVersion(Dictionary<string, VersionLookup> lookups, string returnId)
+        {
+            // Check if the return exists in our lookup dictionary
+            if (!lookups.TryGetValue(returnId, out var returnData))
+            {
+                return false;
+            }
+
+            // Check if this return has a previous version ID
+            return !string.IsNullOrEmpty(returnData.PreviousReturnId);
+        }
+
+        private bool PreviousVersionExists(Dictionary<string, VersionLookup> lookups, string previousReturnId)
+        {
+            return !string.IsNullOrEmpty(previousReturnId) && 
+                   lookups.ContainsKey(previousReturnId);
+        }
+
+
+        private async Task<Dictionary<string, VersionLookup>> GetVersionLookupsAsync<T>(string ReturnId, string saccoType) where T : class
+        {
+            return typeof(T) switch
+            {
+                // Capital Adequacy
+                _ when typeof(T) == typeof(DTCapitalAdequacyReturn) =>
+                    await GetCapitalAdequacyVersionLookupsAsync(ReturnId),
+
+                // Deposit Return
+                _ when typeof(T) == typeof(DepositReturn) =>
+                    await GetDepositReturnVersionLookupsAsync(ReturnId),
+
+                // Comprehensive Income
+                _ when typeof(T) == typeof(DTComprehensiveIncomeReturn) =>
+                    await GetComprehensiveIncomeVersionLookupsAsync(ReturnId),
+
+                // Financial Position
+                _ when typeof(T) == typeof(DTFinancialPositionReturn) =>
+                    await GetFinancialPositionVersionLookupsAsync(ReturnId),
+
+                // Liquidity
+                _ when typeof(T) == typeof(DTLiquidityReturn) =>
+                    await GetLiquidityVersionLookupsAsync(ReturnId),
+
+                // Risk Classification
+                _ when typeof(T) == typeof(DTRiskClassificationReturn) =>
+                    await GetRiskClassificationVersionLookupsAsync(ReturnId),
+
+                // Investment
+                _ when typeof(T) == typeof(DTInvestmentReturn) =>
+                    await GetInvestmentVersionLookupsAsync(ReturnId),
+
+                // Management
+                _ when typeof(T) == typeof(ManagementReturn) =>
+                    await GetManagementVersionLookupsAsync(ReturnId),
+
+                // NWDT Liquidity
+                _ when typeof(T) == typeof(NWDTLiquidityReturn) =>
+                    await GetNWDTLiquidityVersionLookupsAsync(ReturnId),
+
+                // NWDT Deposit
+                _ when typeof(T) == typeof(NWDTDepositReturn) =>
+                    await GetNWDTDepositVersionLookupsAsync(ReturnId),
+
+                // NWDT Risk Classification
+                _ when typeof(T) == typeof(NWDTRiskClassificationReturn) =>
+                    await GetNWDTRiskClassificationVersionLookupsAsync(ReturnId),
+
+                // NWDT Investment
+                _ when typeof(T) == typeof(NWDTInvestmentReturn) =>
+                    await GetNWDTInvestmentVersionLookupsAsync(ReturnId),
+
+                // NWDT Financial Position
+                _ when typeof(T) == typeof(NWDTFinancialPositionReturn) =>
+                    await GetNWDTFinancialPositionVersionLookupsAsync(ReturnId),
+
+                // NWDT Comprehensive Income
+                _ when typeof(T) == typeof(NWDTComprehensiveIncomeReturn) =>
+                    await GetNWDTComprehensiveIncomeVersionLookupsAsync(ReturnId),
+
+                // Default case
+                _ => new Dictionary<string, VersionLookup>()
+            };
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetCapitalAdequacyVersionLookupsAsync(string ReturnId)
+        {
+            var results = await _context.DTCapitalAdequacyReturns
+                .AsNoTracking()
+                .Where(ca => ca.ReturnId == ReturnId)
+                .Select(ca => new VersionLookup
+                {
+                    Id = ca.Id,
+                    ReturnId = ca.ReturnId,
+                    PreviousReturnId = ca.PreviousReturnId,
+                    CreatedAt = ca.CreatedAt,
+                    IsAmended = ca.IsAmended,
+                    IsCurrent = ca.IsCurrent,
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.ReturnId).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetDepositReturnVersionLookupsAsync(string childId)
+        {
+            var results = await _context.DepositReturns
+                .AsNoTracking()
+                .Where(dr => dr.ReturnId == childId || dr.PreviousReturnId == childId)
+                .Select(dr => new VersionLookup
+                {
+                    Id = dr.ReturnId,
+                    PreviousReturnId = dr.PreviousReturnId,
+                    CreatedAt = dr.CreatedAt,
+                    IsAmended = dr.IsAmended,
+                    IsCurrent = dr.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetComprehensiveIncomeVersionLookupsAsync(string childId)
+        {
+            var results = await _context.DTComprehensiveIncomeReturns
+                .AsNoTracking()
+                .Where(ci => ci.ReturnId == childId || ci.PreviousReturnId == childId)
+                .Select(ci => new VersionLookup
+                {
+                    Id = ci.ReturnId,
+                    PreviousReturnId = ci.PreviousReturnId,
+                    CreatedAt = ci.CreatedAt,
+                    IsAmended = ci.IsAmended,
+                    IsCurrent = ci.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetFinancialPositionVersionLookupsAsync(string childId)
+        {
+            var results = await _context.DTFinancialPositionReturns
+                .AsNoTracking()
+                .Where(fp => fp.ReturnId == childId || fp.PreviousReturnId == childId)
+                .Select(fp => new VersionLookup
+                {
+                    Id = fp.ReturnId,
+                    PreviousReturnId = fp.PreviousReturnId,
+                    CreatedAt = fp.CreatedAt,
+                    IsAmended = fp.IsAmended,
+                    IsCurrent = fp.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetLiquidityVersionLookupsAsync(string childId)
+        {
+            var results = await _context.DTLiquidityReturns
+                .AsNoTracking()
+                .Where(lq => lq.ReturnId == childId || lq.PreviousReturnId == childId)
+                .Select(lq => new VersionLookup
+                {
+                    Id = lq.ReturnId,
+                    PreviousReturnId = lq.PreviousReturnId,
+                    CreatedAt = lq.CreatedAt,
+                    IsAmended = lq.IsAmended,
+                    IsCurrent = lq.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetRiskClassificationVersionLookupsAsync(string childId)
+        {
+            var results = await _context.DTRiskClassificationReturns
+                .AsNoTracking()
+                .Where(rc => rc.ReturnId == childId || rc.PreviousReturnId == childId)
+                .Select(rc => new VersionLookup
+                {
+                    Id = rc.ReturnId,
+                    PreviousReturnId = rc.PreviousReturnId,
+                    CreatedAt = rc.CreatedAt,
+                    IsAmended = rc.IsAmended,
+                    IsCurrent = rc.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetInvestmentVersionLookupsAsync(string childId)
+        {
+            var results = await _context.DTInvestmentReturns
+                .AsNoTracking()
+                .Where(inv => inv.ReturnId == childId || inv.PreviousReturnId == childId)
+                .Select(inv => new VersionLookup
+                {
+                    Id = inv.ReturnId,
+                    PreviousReturnId = inv.PreviousReturnId,
+                    CreatedAt = inv.CreatedAt,
+                    IsAmended = inv.IsAmended,
+                    IsCurrent = inv.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetManagementVersionLookupsAsync(string childId)
+        {
+            var results = await _context.ManagementReturns
+                .AsNoTracking()
+                .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
+                .Select(mg => new VersionLookup
+                {
+                    Id = mg.ReturnId,
+                    PreviousReturnId = mg.PreviousReturnId,
+                    CreatedAt = mg.CreatedAt,
+                    IsAmended = mg.IsAmended,
+                    IsCurrent = mg.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetNWDTLiquidityVersionLookupsAsync(string childId)
+        {
+            var results = await _context.NDWTLiquidityReturns
+                .AsNoTracking()
+                .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
+                .Select(mg => new VersionLookup
+                {
+                    Id = mg.ReturnId,
+                    PreviousReturnId = mg.PreviousReturnId,
+                    CreatedAt = mg.CreatedAt,
+                    IsAmended = mg.IsAmended,
+                    IsCurrent = mg.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetNWDTDepositVersionLookupsAsync(string childId)
+        {
+            var results = await _context.NWDTDepositReturns
+                .AsNoTracking()
+                .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
+                .Select(mg => new VersionLookup
+                {
+                    Id = mg.ReturnId,
+                    PreviousReturnId = mg.PreviousReturnId,
+                    CreatedAt = mg.CreatedAt,
+                    IsAmended = mg.IsAmended,
+                    IsCurrent = mg.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetNWDTRiskClassificationVersionLookupsAsync(string childId)
+        {
+            var results = await _context.NWDTRiskClassificationReturns
+                .AsNoTracking()
+                .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
+                .Select(mg => new VersionLookup
+                {
+                    Id = mg.ReturnId,
+                    PreviousReturnId = mg.PreviousReturnId,
+                    CreatedAt = mg.CreatedAt,
+                    IsAmended = mg.IsAmended,
+                    IsCurrent = mg.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetNWDTInvestmentVersionLookupsAsync(string childId)
+        {
+            var results = await _context.NWDTInvestmentReturns
+                .AsNoTracking()
+                .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
+                .Select(mg => new VersionLookup
+                {
+                    Id = mg.ReturnId,
+                    PreviousReturnId = mg.PreviousReturnId,
+                    CreatedAt = mg.CreatedAt,
+                    IsAmended = mg.IsAmended,
+                    IsCurrent = mg.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetNWDTFinancialPositionVersionLookupsAsync(string childId)
+        {
+            var results = await _context.NWDTFinancialPositionReturns
+                .AsNoTracking()
+                .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
+                .Select(mg => new VersionLookup
+                {
+                    Id = mg.ReturnId,
+                    PreviousReturnId = mg.PreviousReturnId,
+                    CreatedAt = mg.CreatedAt,
+                    IsAmended = mg.IsAmended,
+                    IsCurrent = mg.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+        private async Task<Dictionary<string, VersionLookup>> GetNWDTComprehensiveIncomeVersionLookupsAsync(string childId)
+        {
+            var results = await _context.NWDTComprehensiveIncomeReturns
+                .AsNoTracking()
+                .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
+                .Select(mg => new VersionLookup
+                {
+                    Id = mg.ReturnId,
+                    PreviousReturnId = mg.PreviousReturnId,
+                    CreatedAt = mg.CreatedAt,
+                    IsAmended = mg.IsAmended,
+                    IsCurrent = mg.IsCurrent
+                })
+                .ToListAsync();
+
+            return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
+        }
+
+
+        public async Task<List<VersionChoice>> GetCapitalAdequacyVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetDepositReturnVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<DepositReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetComprehensiveIncomeVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetFinancialPositionVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetLiquidityVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<DTLiquidityReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetRiskClassificationVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetInvestmentVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<DTInvestmentReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetManagementVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<ManagementReturn>(childId, saccoType);
+        }
+        public async Task<List<VersionChoice>> GetNWDTCapitalAdequacyVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<NWDTCapitalAdequacyReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetNWDTLiquidityVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<NWDTLiquidityReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetNWDTDepositReturnVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<NWDTDepositReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetNWDTRiskClassificationVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<NWDTRiskClassificationReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetNWDTInvestmentVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<NWDTInvestmentReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetNWDTFinancialPositionVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<NWDTFinancialPositionReturn>(childId, saccoType);
+        }
+
+        public async Task<List<VersionChoice>> GetNWDTComprehensiveIncomeVersionChoicesAsync(string childId, string saccoType)
+        {
+            return await GetPreviousVersionChoicesAsync<NWDTComprehensiveIncomeReturn>(childId, saccoType);
+        }
 
 
 

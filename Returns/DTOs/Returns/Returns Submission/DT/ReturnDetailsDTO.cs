@@ -37,11 +37,11 @@ namespace Returns.DTOs.Returns_Submission.DT
         public CapitalAdequacyDTO? CapitalAdequacy { get; set; }
         public ManagementReturnDTO? ManagementReturn { get; set; }
         public LiquidityStatementDTO? LiquidityStatement { get; set; }
-        public List<RiskClassificationDTO> RiskClassifications { get; set; } = new List<RiskClassificationDTO>();
+        public RiskClassificationDTO? RiskClassifications { get; set; }
         public InvestmentReturnDTO? Investment { get; set; }
         public ComprehesiveIncomeStatementDTO? IncomeStatement { get; set; }
         public FinancialPositionDTO? FinancialPosition { get; set; }
-        public List<DepositReturnDto> DepositReturn { get; set; }
+        public DepositReturnDto DepositReturn { get; set; }
         public List<OtherReturnDTO> OtherReturns { get; set; } = new List<OtherReturnDTO>();
         public SectoralLendingDTO SectoralLending { get; set; } = new SectoralLendingDTO();
         public List<CommentDetails> ApprovalComments { get; set; } = new List<CommentDetails>();

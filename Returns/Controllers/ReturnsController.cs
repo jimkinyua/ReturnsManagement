@@ -1231,11 +1231,11 @@ namespace Returns.Controllers
                         CoreCapitalToAssetsRatio = capEntity.CoreCapitalToAssetsRatio,
                         CoreCapitalToAssetsRatioExcessDeficiency = capEntity.CoreCapitalToAssetsRatioExcessDeficiency,
                         InstitutionalCapitalToAssetsRatio = capEntity.InstitutionalCapitalToAssetsRatio,
-                        InstitutionalCapitalToAssetsRatioExcessDeficiency =
-                            capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
+                        InstitutionalCapitalToAssetsRatioExcessDeficiency =capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
                         CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
                         CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
-                        FilePath = capEntity.FilePath
+                        FilePath = capEntity.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ReturnId, hdr.SaccoType)
                     };
                 }
 
@@ -1246,16 +1246,28 @@ namespace Returns.Controllers
                     .ToListAsync();
 
                 int depositDaysLate = depositEntities.FirstOrDefault()?.DaysLateBy ?? 0;
-                var depositReturn = depositEntities.Select(dr => new DepositReturnDto
+                DepositReturnDto? depositReturn = null;
+                if (depositEntities.Any())
                 {
-                    RangeName = dr.RangeName,
-                    FormId = dr?.FormId ?? string.Empty,
-                    RequiresResubmission = dr.RequiresResubmission,
-                    DepositType = dr.DepositType,
-                    NumberOfAccounts = dr.NumberOfAccounts,
-                    Amount = dr.AmountInKshs000,
-                    FilePath = dr.FilePath
-                }).ToList();
+                    depositReturn = new DepositReturnDto
+                    {
+                        FormId = depositEntities.FirstOrDefault()?.FormId ?? string.Empty,
+                        RequiresResubmission = depositEntities.FirstOrDefault()?.RequiresResubmission ?? false,
+                        //FilePath = depositEntities.FirstOrDefault()?.FilePath ?? string.Empty,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DepositReturn>(depositEntities.FirstOrDefault()?.ReturnId ?? string.Empty, hdr.SaccoType),
+                        //NWDTDepositReturnData = new List<NWDTDepositReturnData>()
+                    };
+                    foreach (var dr in depositEntities)
+                    {
+                        depositReturn.DepositReturnData.Add(new DTOs.Returns_Submission.Returns_Submission.DT.DepositReturnData
+                        {
+                            RangeName = dr.RangeName,
+                            DepositType = dr.DepositType,
+                            NumberOfAccounts = dr.NumberOfAccounts,
+                            Amount = dr.AmountInKshs000
+                        });
+                    }
+                }
 
                 // 2-c  Comprehensive-Income (single row)
                 var incomeEntity = await _context.DTComprehensiveIncomeReturns
@@ -1294,7 +1306,8 @@ namespace Returns.Controllers
                         NonOperatingExpense = incomeEntity.NonOperatingExpense,
                         Taxes = incomeEntity.Taxes,
                         Donations = incomeEntity.Donations,
-                        FilePath = incomeEntity.FilePath
+                        FilePath = incomeEntity.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ReturnId, hdr.SaccoType)
                     };
                 }
 
@@ -1343,7 +1356,8 @@ namespace Returns.Controllers
                         PriorYearsRetainedEarnings = balanceEntity.PriorYearsRetainedEarnings,
                         CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
                         StatutoryReserve = balanceEntity.StatutoryReserve,
-                        FilePath = balanceEntity.FilePath
+                        FilePath = balanceEntity.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ReturnId, hdr.SaccoType)
                     };
                 }
 
@@ -1387,7 +1401,8 @@ namespace Returns.Controllers
                         LiquidityRatioExcessDeficit = liquidityEntity.LiquidityRatioExcessDeficit,
                         NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
                         NetBankBalances = liquidityEntity.NetBankBalances,
-                        FilePath = liquidityEntity.FilePath
+                        FilePath = liquidityEntity.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ReturnId, hdr.SaccoType)
                     };
                 }
 
@@ -1398,31 +1413,49 @@ namespace Returns.Controllers
                     .ToListAsync();
 
                 int riskDaysLate = riskEntities.FirstOrDefault()?.DaysLateBy ?? 0;
-                var riskClassifications = riskEntities.Select(rc => new RiskClassificationDTO
+                var riskClassifications = new RiskClassificationDTO();
+                
+                if (riskEntities.Any())
                 {
-                    LoanType = rc.LoanType,
-                    FormId = rc.FormId ?? string.Empty,
-                    RequiresResubmission = rc.RequiresResubmission,
-                    Classification = rc.Classification,
-                    NumberOfAccounts = rc.NumberOfAccounts,
-                    OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
-                    RequiredProvision = rc.RequiredProvision,
-                    RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                    FilePath = rc.FilePath
-                }).ToList();
+                    var firstEntity = riskEntities.First();
+                    riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
+                    riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
+                    //riskClassifications.FilePath = firstEntity.FilePath;
+                    riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ReturnId, hdr.SaccoType);
+                    
+                    foreach (var rc in riskEntities)
+                    {
+                        riskClassifications.RiskClassificationData.Add(new RiskClassificationData
+                        {
+                            LoanType = rc.LoanType,
+                            Classification = rc.Classification,
+                            NumberOfAccounts = rc.NumberOfAccounts,
+                            OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                            RequiredProvision = rc.RequiredProvision,
+                            RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                            FilePath = rc.FilePath
+                        });
+                    }
+                }
 
                 // 2-g  Other returns (multi-row, simple)
-                var otherReturns = await _context.OtherReturns
+                var otherReturnsEntities = await _context.OtherReturns
                     .AsNoTracking()
                     .Where(o => o.ReturnId == returnId)
-                    .Select(o => new OtherReturnDTO
+                    .ToListAsync();
+
+                var otherReturns = new List<OtherReturnDTO>();
+                foreach (var o in otherReturnsEntities)
+                {
+                    otherReturns.Add(new OtherReturnDTO
                     {
                         FormName = o.FormName,
                         FileUrl = o.FileUrl,
                         RequiresResubmission = o.RequiresResubmission,
                         FormId = o.FormId ?? string.Empty,
-                    })
-                    .ToListAsync();
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<OtherReturn>(o.ReturnId, hdr.SaccoType)
+                    });
+                }
 
                 // 2-h  Investment (single row)
                 var investmentEntity = await _context.DTInvestmentReturns
@@ -1459,7 +1492,8 @@ namespace Returns.Controllers
                         FinancialInvestmentsToDepositsRatio = investmentEntity.FinancialInvestmentsToDepositsRatio,
                         FinancialInvestmentsToDepositsExcessDeficiency =
                             investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
-                        FilePath = investmentEntity.FilePath
+                        FilePath = investmentEntity.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ReturnId, hdr.SaccoType)
                     };
                 }
 
@@ -1501,7 +1535,8 @@ namespace Returns.Controllers
                         OverallRiskProfileWeightedScore =
                             managementEntity.OverallRiskProfileWeightedScore,
 
-                        MRating = managementEntity.MRating
+                        MRating = managementEntity.MRating,
+                        //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<ManagementReturn>(managementEntity.ReturnId, hdr.SaccoType)
                     };
                 }
 
@@ -1543,9 +1578,6 @@ namespace Returns.Controllers
                     CanReportBeViewed = hdr.CanReportBeViewed
                 };
 
-
-                dto.PreviousVersionIds =
-                    await helper.GetPreviousVersionChoicesAsync(hdr);
 
                 List<CommentDetails> commentDetails = new List<CommentDetails>();
 
@@ -1592,6 +1624,7 @@ namespace Returns.Controllers
                     {
                         StartDate = sectoral.StartDate,
                         EndDate = sectoral.EndDate,
+                        //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<SectoralLendingReport>(sectoral.ReturnId, hdr.SaccoType),
                         SubSectorData = sectoralData.Select(sd => new SectoralLendingDataDTO
                         {
                             Amount = sd.Amount,
@@ -2523,20 +2556,30 @@ namespace Returns.Controllers
                         CoreCapitalToDepositsRatio = ca.CoreCapitalToDepositsRatio,
                         CoreCapitalToDepositsRatioExcessDeficiency =
                             ca.CoreCapitalToDepositsExcessDeficiency,
-                        FilePath = ca.FilePath
+                        FilePath = ca.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<NWDTCapitalAdequacyReturn>(ca.ReturnId, hdr.SaccoType)
                     },
 
                     // deposit list
-                    NWDTDepositReturn = deposits.Select(dr => new NWDTDepositReturnDto
-                    {
-                        FormId = dr.FormId,
-                        RequiresResubmission = dr.RequiresResubmission,
-                        RangeName = dr.RangeName,
-                        DepositType = dr.DepositType,
-                        NumberOfAccounts = dr.NumberOfAccounts,
-                        Amount = dr.AmountInKshs000,
-                        FilePath = dr.FilePath
-                    }).ToList(),
+                    NWDTDepositReturn = deposits.Count == 0
+                        ? null
+                        : new NWDTDepositReturnDto
+                        {
+                            FormId = deposits[0].FormId ?? string.Empty,
+                            RequiresResubmission = deposits[0].RequiresResubmission,
+                            PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<NWDTDepositReturn>(
+                                                       deposits[0].ReturnId, hdr.SaccoType),
+
+                            DepositReturnData = deposits.Select(dr => new NWDTDepositReturnData   // <-- fixed name
+                            {
+                                RangeName = dr.RangeName ?? string.Empty,
+                                DepositType = dr.DepositType ?? string.Empty,
+                                NumberOfAccounts = dr.NumberOfAccounts,
+                                Amount = dr.AmountInKshs000,
+                                FilePath = dr.FilePath ?? string.Empty
+                            }).ToList()
+                        },
+
 
                     // income statement
                     NWDTIncomeStatement = inc == null ? null : new NWDTComprehesiveIncomeStatementDTO
@@ -2582,7 +2625,8 @@ namespace Returns.Controllers
                         NetIncomeAfterTaxes = inc.NetIncomeAfterTaxesBeforeDonations,
                         Donations = inc.Donations,
                         NetIncomeAfterTaxesAndDonations = inc.NetIncomeAfterTaxesAndDonations,
-                        FilePath = inc.FilePath
+                        FilePath = inc.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<NWDTComprehensiveIncomeReturn>(inc.ReturnId, hdr.SaccoType)
                     },
 
                     // financial position
@@ -2643,7 +2687,8 @@ namespace Returns.Controllers
                         AdjustmentToEquity = fp.AdjustmentToEquity,
                         TotalOtherEquityAccounts = fp.OtherEquityAccounts,
                         TotalEquity = fp.TotalEquity,
-                        FilePath = fp.FilePath
+                        FilePath = fp.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<NWDTFinancialPositionReturn>(fp.ReturnId, hdr.SaccoType)
                     },
 
                     // liquidity
@@ -2672,22 +2717,27 @@ namespace Returns.Controllers
                         LiquidityRatio = liq.LiquidityRatio,
                         LiquidityRatioExcessDeficit = liq.LiquidityRatioExcessDeficit,
                         NetFinancialInstitutionBalances = liq.NetFinancialInstitutionBalances,
-                        NetBankBalances = liq.NetBankBalances
+                        NetBankBalances = liq.NetBankBalances,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<NWDTLiquidityReturn>(liq.ReturnId, hdr.SaccoType)
                     },
 
                     // risks
-                    NWDTRiskClassifications = risks.Select(rc => new NWDTRiskClassificationDTO
+                    NWDTRiskClassifications = risks.Count == 0 ? null : new NWDTRiskClassificationDTO
                     {
-                        FormId = rc.FormId,
-                        RequiresResubmission = rc.RequiresResubmission,
-                        LoanType = rc.LoanType,
-                        Classification = rc.Classification,
-                        NumberOfAccounts = rc.NumberOfAccounts,
-                        OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
-                        RequiredProvision = rc.RequiredProvision,
-                        RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                        FilePath = rc.FilePath
-                    }).ToList(),
+                        FormId = risks[0].FormId,
+                        RequiresResubmission = risks[0].RequiresResubmission,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<NWDTRiskClassificationReturn>(risks[0].ReturnId, hdr.SaccoType),
+                        NWDTRiskClassificationData = risks.Select(rc => new NWDTRiskClassificationData
+                        {
+                            LoanType = rc.LoanType,
+                            Classification = rc.Classification, 
+                            NumberOfAccounts = rc.NumberOfAccounts,
+                            OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                            RequiredProvision = rc.RequiredProvision,
+                            RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                            FilePath = rc.FilePath
+                        }).ToList()
+                    },
 
                     // other returns
                     OtherReturns = others.Select(o => new OtherReturnDTO
@@ -2732,7 +2782,8 @@ namespace Returns.Controllers
                         FinancialInvestmentsToDepositsExcessDeficiency = inv.TotalDeposits > 0
                             ? inv.FinancialAssets / inv.TotalDeposits * 100 -
                               inv.MaxEquityInvestmentsToTotalDeposits * 100 : 0,
-                        FilePath = inv.FilePath
+                        FilePath = inv.FilePath,
+                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<NWDTInvestmentReturn>(inv.ReturnId, hdr.SaccoType)
                     },
 
                     // management
@@ -2769,8 +2820,8 @@ namespace Returns.Controllers
                 };
 
                 // previous-version IDs
-                dto.PreviousVersionIds =
-                    await helper.GetPreviousVersionChoicesAsync(hdr);
+                /*dto.PreviousVersionIds =
+                    await helper.GetPreviousVersionChoicesAsync(hdr);*/
                 List<CommentDetails> commentDetails = new List<CommentDetails>();
 
                 foreach (var comment in ApprovalComments)

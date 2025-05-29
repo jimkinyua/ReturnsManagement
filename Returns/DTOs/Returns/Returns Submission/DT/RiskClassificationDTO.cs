@@ -8,6 +8,10 @@ namespace Returns.DTOs.Returns_Submission.DT
 {
     public class RiskClassificationDTO:CommonFormDTO
     {
+        public List<RiskClassificationData> RiskClassificationData { get; set; } = new List<RiskClassificationData>(); 
+    }
+    public class RiskClassificationData
+    {
         public string LoanType { get; set; }
         public string Classification { get; set; }
         public int? NumberOfAccounts { get; set; }

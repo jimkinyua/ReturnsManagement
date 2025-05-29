@@ -8,6 +8,10 @@ namespace Returns.DTOs.Returns_Submission.NWDT
 {
     public class NWDTDepositReturnDto:CommonFormDTO
     {
+         public List<NWDTDepositReturnData> DepositReturnData { get; set; } = new List<NWDTDepositReturnData>();
+    }   
+    public class NWDTDepositReturnData
+    {
         public string? RangeName { get; set; }
         public string? DepositType { get; set; }
         public int NumberOfAccounts { get; set; }

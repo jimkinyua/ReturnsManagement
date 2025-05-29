@@ -26,13 +26,13 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public int DepositReturnDaysLate { get; set; }
         public NWDTCapitalAdequacyDTO? NWDTCapitalAdequacy { get; set; }
         public NWDTLiquidityStatementDTO? NWDTLiquidityStatement { get; set; }
-        public List<NWDTRiskClassificationDTO> NWDTRiskClassifications { get; set; } = new List<NWDTRiskClassificationDTO>();
+        public NWDTRiskClassificationDTO? NWDTRiskClassifications { get; set; }
         public NWDTInvestmentReturnDTO? NWDTInvestment { get; set; }
         public ManagementReturnDTO? ManagementReturn { get; set; }
 
         public NWDTComprehesiveIncomeStatementDTO? NWDTIncomeStatement { get; set; }
         public NWDTFinancialPositionDTO? NWDTFinancialPosition { get; set; }
-        public List<NWDTDepositReturnDto> NWDTDepositReturn { get; set; } = new List<NWDTDepositReturnDto>();
+        public NWDTDepositReturnDto? NWDTDepositReturn { get; set; }
         public List<CommentDetails> ApprovalComments { get; set; } = new List<CommentDetails>();
         public List<OtherReturnDTO> OtherReturns { get; set; } = new List<OtherReturnDTO>();
         public SectoralLendingDTO SectoralLending { get; set; } = new SectoralLendingDTO();

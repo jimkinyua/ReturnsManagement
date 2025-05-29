@@ -6,7 +6,11 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.Returns_Submission.DT
 {
-    public class DepositReturnDto: CommonFormDTO
+    public class DepositReturnDto : CommonFormDTO
+    {
+        public List<DepositReturnData> DepositReturnData { get; set; } = new List<DepositReturnData>();
+    }
+    public class DepositReturnData
     {
         public string RangeName { get; set; }
         public string DepositType { get; set; }
