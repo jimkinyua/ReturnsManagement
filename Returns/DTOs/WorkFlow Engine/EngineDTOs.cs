@@ -57,6 +57,7 @@ namespace Returns.DTOs.WorkFlow_Engine
     {
         [Required] public string WorkFlowInstanceId { get; set; } = string.Empty;
         [Required] public string Reason { get; init; } = string.Empty;
+        public string? Classification { get; init; }
     }
 
     public sealed record ReturnWithReservationsRequest
