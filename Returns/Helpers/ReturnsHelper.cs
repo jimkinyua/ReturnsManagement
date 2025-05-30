@@ -2745,7 +2745,7 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessForm2A(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "")
+        public async Task ProcessForm2A(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string PrevId = "")
         {
 
             try

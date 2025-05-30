@@ -128,6 +128,7 @@ internal class Program
         builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
         builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
         builder.Services.AddTransient<IEnforcementService, EnforcementService>();
+        builder.Services.AddTransient<IReturnChild, ChildGetterService>();
 
         //builder.Services.AddScoped<FormProcessingService>();    
         //builder.Services.AddScoped<ReturnsReminderService>();

@@ -42,11 +42,12 @@ namespace Returns.Controllers
         private readonly ICamelsAnalysisService  camelsAnalysisService;
         private readonly IComplianceService complianceService;
         private readonly FormResubmissionService _resubmissionService;
+        private readonly IReturnChild _returnChild; 
 
 
 
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger,  IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger,  IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild)
         {
             _context = context;
             _logger = logger;
@@ -56,6 +57,7 @@ namespace Returns.Controllers
             _workflowService = workflowService;
             this.camelsAnalysisService = camelsAnalysisService;
             this.complianceService = compliance;
+            _returnChild = returnChild;
             _resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
 
         }
@@ -327,8 +329,6 @@ namespace Returns.Controllers
             {
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-
-
         }
 
         private async Task<(
@@ -550,6 +550,38 @@ namespace Returns.Controllers
             }
         }
 
+        [HttpGet("GetChildDetails/{ChildId/FormId/ReturnId}")]
+        public async Task<IActionResult> GetChildDetails(string ChildId, string FormId, string ReturnId)
+        {
+            try
+            {
+              var FormDetails = await _context.ReturnForms
+                    .Include(f => f.Period)
+                    .FirstOrDefaultAsync(f => f.Id == ChildId);
+                if (FormDetails == null)
+                {
+                    return NotFound("Form not found");
+                }
+                var ReturnDetails =  await _context.Returns.FindAsync(ReturnId);
+                if (ReturnDetails == null)
+                {
+                    return NotFound("Return not found");
+                }
+                var FormType = _formProcessor.GetFormTypeFromForm(FormDetails);
+                var SaccoType = ReturnDetails.SaccoType;
+
+                var childDetails = await _returnChild.GetChildDetailsByFormType(ChildId, FormType, SaccoType);
+
+               return Ok(childDetails);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching child details");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+
 
         // File Return
         [HttpPost("FileReturns")]
@@ -738,7 +770,6 @@ namespace Returns.Controllers
             }
 
         }
-
 
         // Re assign Return 
         [HttpPost("ReassignReturn")]
@@ -963,7 +994,6 @@ namespace Returns.Controllers
             return Ok(results);
         }
 
-
         [HttpGet("GetSubmittedNWDTReturnsForSacco")]
         public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedNWDTReturnsForSacco()
         {
@@ -1173,7 +1203,6 @@ namespace Returns.Controllers
         }
 
         
-
         [HttpGet("GetReturnDetails/{returnId}")]
         public async Task<ActionResult<ReturnDetailsDTO>> GetReturnDetails(string returnId)
         {

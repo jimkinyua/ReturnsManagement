@@ -2371,7 +2371,7 @@ namespace Returns.Helpers
                     switch (formType)
                     {
                         case "CapitalAdequacy":
-                            await returnsHelper.ProcessForm2A(formFile, returnId, _logger, form, IsAmendMent, ExistingChildId);
+                            await returnsHelper.ProcessForm2A(formFile, returnId, _logger, form, ExistingChildId);
                             break;
 
                         case "Management":
@@ -2422,7 +2422,7 @@ namespace Returns.Helpers
         }
 
         // Helper method to determine form type
-        private string GetFormTypeFromForm(ReturnForm form)
+        public string GetFormTypeFromForm(ReturnForm form)
         {
             if (form.IsCapitalAdequencyForm) return "CapitalAdequacy";
             if (form.IsLiquidityStatement) return "Liquidity";
