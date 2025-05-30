@@ -50,7 +50,7 @@ namespace Returns.Helpers
             _emailService = emailService;
         }
 
-        public async Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId)
+        public async Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto,string userId)
         {
             using var tx = await _db.Database.BeginTransactionAsync();
 
@@ -60,12 +60,25 @@ namespace Returns.Helpers
                 ?? throw new Exception("Workflow not found.");
 
             if (inst.UserId != userId)
-            {
                 throw new UnauthorizedAccessException("Step not assigned to you.");
-            }
 
-            var ReturnToApprove = await _db.Returns.FindAsync(inst.ReturnId)
+            var returnToApprove = await _db.Returns.FindAsync(inst.ReturnId)
                 ?? throw new Exception("Return not found.");
+
+            Boolean isLastStep = false;
+
+            var lastSeq = await _db.WorkFlowSteps
+                           .Where(s => s.WorkFlowTemplateId == inst.WorkflowTemplateId)
+                           .MaxAsync(s => s.Sequence);
+
+            if (inst.CurrentStep.Sequence >= lastSeq)
+            {
+                isLastStep = true; 
+            }
+            else
+            {
+                isLastStep = false; 
+            }
 
             _db.ApprovalActions.Add(new ApprovalAction
             {
@@ -77,25 +90,32 @@ namespace Returns.Helpers
                 CreatedAt = DateTime.Now
             });
 
-            var next = await GetNextStepIdAsync(inst, bypassRating: true);
-            if (next is null)
+            if (isLastStep)
             {
+                //  Final approver: hand off to Enforcement
                 inst.CurrentStepId = null;
                 inst.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
+                inst.SaccoId = returnToApprove.SaccoId;
+
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
-                // Notify Enfocment Module
+
+                // TODO: call enforcement module / raise domain event here
+                // await _enforcementService.NotifyAsync(inst.Id);
 
                 return ConvertToDto(inst);
             }
 
-            // 3️⃣ assign to next approver
-            var nextApprover = await GetApproverForStep(next, inst.TeamId)
-                ?? throw new Exception($"No approver found for next step '{next.Id}'.");
+            //  otherwise, hand over to the next approver
+            var nextStep = await GetNextStepIdAsync(inst, bypassRating: true)
+                ?? throw new Exception("Template expects another step but none was found.");
 
-            inst.CurrentStepId = next.Id;
+            var nextApprover = await GetApproverForStep(nextStep, inst.TeamId)
+                ?? throw new Exception($"No approver found for next step '{nextStep.Id}'.");
+
+            inst.CurrentStepId = nextStep.Id;
             inst.UserId = nextApprover.UserId;
-            inst.SaccoId = ReturnToApprove.SaccoId;
+            inst.SaccoId = returnToApprove.SaccoId;
             inst.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
 
             await _db.SaveChangesAsync();
@@ -104,9 +124,11 @@ namespace Returns.Helpers
             await _emailService.SendEmailAsync(
                 nextApprover.Email,
                 "Return recommended for endorsement",
-                $"A return has been recommended for endorsement and awaits your action.");
+                "A return has been recommended for endorsement and awaits your action.");
+
             return ConvertToDto(inst);
         }
+
 
         public async Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest req, string userId)
         {
