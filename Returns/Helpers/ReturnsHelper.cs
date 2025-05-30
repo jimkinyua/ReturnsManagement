@@ -2745,7 +2745,7 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessForm2A(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string PrevId = "")
+        public async Task ProcessForm2A(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
 
             try
@@ -2766,7 +2766,9 @@ namespace Returns.Helpers
 
                 var DaysLateBy = CalculateDaysLate(form, DateTime.Now, form2A.EndDate);
                 string EffectiveReturnId = returnId;
-                string PreviousReturnId = PrevId;
+                string PreviousReturnId = ExistingChildId;
+                bool IsAmendMent = !string.IsNullOrEmpty(ExistingChildId);
+
                 NWDTCapitalAdequacyReturn? capitalAdequacy = null;
 
                 if (!IsAmendMent)

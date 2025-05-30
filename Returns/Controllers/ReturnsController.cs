@@ -550,7 +550,7 @@ namespace Returns.Controllers
             }
         }
 
-        [HttpGet("GetChildDetails/{ChildId/FormId/ReturnId}")]
+        [HttpGet("GetChildDetails/{ChildId}/{FormId}/{ReturnId}")]
         public async Task<IActionResult> GetChildDetails(string ChildId, string FormId, string ReturnId)
         {
             try
