@@ -1,5 +1,6 @@
 ﻿using Azure.Core;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Returns.DTOs.WorkFlow_Engine;
@@ -95,7 +96,13 @@ namespace Returns.Controllers
             }
             try
             {
-                var result = await _workflowService.RecommendForEnforcementAsync(rejectStepRequestDTO, loggedInSacco.UserId);
+                var bearer = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(bearer) ||!bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                return Unauthorized();
+
+                var accessToken = bearer["Bearer ".Length..].Trim();   // strip the prefix
+
+                var result = await _workflowService.RecommendForEnforcementAsync(rejectStepRequestDTO, loggedInSacco.UserId, accessToken);
                 //var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, "7ded1b0a-bca9-491e-8880-3743d4b3cae5", rejectStepRequestDTO);
                 return Ok(result);
             }
@@ -110,7 +117,7 @@ namespace Returns.Controllers
             }
         }
 
-
+        //[Authorize(AuthenticationSchemes = "Bearer")]
         [HttpPost("RejectWithReservations")]
         public async Task<IActionResult> RejectWithReservations([FromBody] ReturnWithReservationsRequest rejectStepRequestDTO)
         {

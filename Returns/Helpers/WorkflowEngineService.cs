@@ -1,5 +1,7 @@
 ﻿using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
+using Returns.DTOs.Compliance;
+using Returns.DTOs.Enforcement;
 using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.WorkFlowTemplate;
 using Returns.Helpers.Enums;
@@ -16,6 +18,7 @@ namespace Returns.Helpers
         private readonly ReturnsDbContext _db;
         private readonly IComplianceService _complianceService;
         private readonly IEmailService _emailService;
+        private readonly IEnforcementService _enforcementService;
 
         public enum ApprovalStatus
         {
@@ -42,15 +45,15 @@ namespace Returns.Helpers
             return attr?.Description ?? value.ToString();
         }
 
-
-        public WorkflowEngineService(ReturnsDbContext db, IComplianceService complianceService, IEmailService emailService)
+        public WorkflowEngineService(ReturnsDbContext db, IComplianceService complianceService, IEmailService emailService, IEnforcementService enforcementService)
         {
             _db = db;
             _complianceService = complianceService;
             _emailService = emailService;
+            _enforcementService = enforcementService;
         }
 
-        public async Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto,string userId)
+        public async Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto,string userId, string LoggedInUserToken)
         {
             using var tx = await _db.Database.BeginTransactionAsync();
 
@@ -59,8 +62,8 @@ namespace Returns.Helpers
                 .FirstOrDefaultAsync(w => w.Id == dto.WorkFlowInstanceId)
                 ?? throw new Exception("Workflow not found.");
 
-            if (inst.UserId != userId)
-                throw new UnauthorizedAccessException("Step not assigned to you.");
+           /* if (inst.UserId != userId)
+                throw new Exception("Step not assigned to you.");*/
 
             var returnToApprove = await _db.Returns.FindAsync(inst.ReturnId)
                 ?? throw new Exception("Return not found.");
@@ -98,14 +101,36 @@ namespace Returns.Helpers
                 inst.SaccoId = returnToApprove.SaccoId;
 
                 await _db.SaveChangesAsync();
-                await tx.CommitAsync();
 
-                // TODO: call enforcement module / raise domain event here
-                // await _enforcementService.NotifyAsync(inst.Id);
+                var caseDto = new EnforcementCaseRequestDTO
+                {
+                    Title = "Enforcement Case for Return",
+                    Description = dto.Reason.Trim(),
+                    SaccoId = inst.SaccoId,
+                    SaccoName = "Sacco Name",
+                    Source = "Returns Module",
+                    SourceReferenceNo = inst.Id,
+                    Classification = dto.Classification ?? "Minor", // Default classification if not provided
+                    DateRequested = DateTime.Now,
+                    //SupportingFile = dt,  
+                    Remarks = dto.Reason.Trim()
+                };
 
-                return ConvertToDto(inst);
+                try
+                {
+                    await _enforcementService.SubmitCaseAsync(caseDto, LoggedInUserToken);
+                    await tx.CommitAsync();
+                    return ConvertToDto(inst);
+                }
+                catch (Exception)
+                {
+                    await tx.RollbackAsync();
+                    throw;
+                }
+
             }
 
+          
             //  otherwise, hand over to the next approver
             var nextStep = await GetNextStepIdAsync(inst, bypassRating: true)
                 ?? throw new Exception("Template expects another step but none was found.");

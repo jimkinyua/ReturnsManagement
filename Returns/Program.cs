@@ -17,6 +17,7 @@ using System.Net.Mail;
 using System.Net;
 using FluentEmail.Core;
 using FluentEmail.Smtp;
+using Returns.DTOs.Compliance;
 
 internal class Program
 {
@@ -64,6 +65,13 @@ internal class Program
                                .AllowAnyMethod());
         });
 
+        builder.Services.AddHttpClient<IEnforcementService, EnforcementService>(c =>
+        {
+            c.BaseAddress = new Uri("https://sasra-backend.agilebiz.co.ke/gateway/api/enforcement/");
+        });
+
+
+
         // Add DbContext with SQL Server connection
         builder.Services.AddDbContext<ReturnsDbContext>(options =>
             options.UseSqlServer(connectionString));
@@ -72,6 +80,7 @@ internal class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddControllers();
+
 
         // Register application services
         RegisterApplicationServices(builder);
@@ -118,10 +127,12 @@ internal class Program
         builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
         builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
         builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
+        builder.Services.AddTransient<IEnforcementService, EnforcementService>();
 
         //builder.Services.AddScoped<FormProcessingService>();    
         //builder.Services.AddScoped<ReturnsReminderService>();
         builder.Services.AddLogging();
+
 
         //builder.Services.AddTransient<IPdfReportService, PdfReportService>();
     }

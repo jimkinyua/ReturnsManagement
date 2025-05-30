@@ -14,7 +14,7 @@ namespace Returns.Helpers
         Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId);
         Task<List<CommentDetails>> GetComments(string StepId);
         Task<string> GetReturnStatus(string returnId);
-        Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId);
+        Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId, string LoggedInUserToken);
         Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest dto, string userId);
     }
 }
