@@ -4,11 +4,14 @@ namespace Returns.DTOs.WorkFlow_Engine
 {
     public class WorkflowStateDto
     {
-        public string WorkflowId { get; set; }
+        public string WorkflowInstanceId { get; set; }
         public string ReturnId { get; set; }
-        public string CurrentStep { get; set; }
+        public string CurrentStepId { get; set; }
+        public string CurrentApproverId { get; set; }
         public string Status { get; set; } // "Pending", "RecommendForApproval", "Rejected"
         public int? Rating { get; set; }
+        public Boolean IsFirst { get; set; } = false;
+        public Boolean IsLast { get; set; } = false;
         public List<WorkflowStepDto> NextSteps { get; set; } = new();
     }
 
@@ -19,6 +22,8 @@ namespace Returns.DTOs.WorkFlow_Engine
         public string Approver { get; set; }
         public string ApproverRole { get; set; }
         public string ApproverUserId { get; set; }
+        public Boolean IsFirst { get; set; } = false;
+        public Boolean IsLast { get; set; } = false;
     }
 
    

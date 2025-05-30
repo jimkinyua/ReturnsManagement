@@ -219,39 +219,47 @@ namespace Returns.Helpers
         {
             var instance = await _db.WorkflowInstances
                 .Include(w => w.CurrentStep)
-                .FirstOrDefaultAsync(w => w.ReturnId == returnId);
+                .FirstOrDefaultAsync(w => w.ReturnId == returnId)
+                ?? throw new Exception("Workflow not found for this return");
 
-            if (instance == null)
-                throw new Exception("Workflow not found for this return");
-
-            var nextSteps = await _db.WorkFlowSteps
-                .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId && s.Sequence > instance.CurrentStep.Sequence)
+            var allSteps = await _db.WorkFlowSteps
+                .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId)
                 .OrderBy(s => s.Sequence)
                 .ToListAsync();
 
+            var firstSeq = allSteps.First().Sequence;
+            var lastSeq = allSteps.Last().Sequence;
+
+            var nextSteps = allSteps
+                .Where(s => s.Sequence > instance.CurrentStep.Sequence)
+                .ToList();
+
             var nextStepDtos = new List<WorkflowStepDto>();
+
             foreach (var step in nextSteps)
             {
-                var approver = await GetApproverForStep(step, instance.TeamId);
-                if (approver == null)
-                {
-                    throw new Exception($"No approver found for step {step.Id}.");
-                }
-               nextStepDtos.Add(new WorkflowStepDto
+                var approver = await GetApproverForStep(step, instance.TeamId)
+                              ?? throw new Exception($"No approver found for step {step.Id}.");
+
+                nextStepDtos.Add(new WorkflowStepDto
                 {
                     StepId = step.Id,
                     ApproverRole = step.RoleName,
-                    ApproverUserId = approver.UserId
+                    ApproverUserId = approver.UserId,
+                    IsFirst = step.Sequence == firstSeq,   
+                    IsLast = step.Sequence == lastSeq  
                 });
             }
 
             return new WorkflowStateDto
             {
-                WorkflowId = instance.Id,
-                ReturnId = instance.ReturnId,
-                CurrentStep = instance.CurrentStep?.RoleName,
+                WorkflowInstanceId = instance.Id,
                 Status = instance.Status,
                 Rating = instance.Rating,
+                CurrentStepId = instance.CurrentStepId,
+                CurrentApproverId = instance.UserId,
+                IsFirst = instance.CurrentStep.Sequence == firstSeq,
+                IsLast = instance.CurrentStep.Sequence == lastSeq,
                 NextSteps = nextStepDtos
             };
         }
@@ -634,9 +642,9 @@ namespace Returns.Helpers
         {
             return new WorkflowStateDto
             {
-                WorkflowId = workflow.Id,
+                WorkflowInstanceId = workflow.Id,
                 ReturnId = workflow.ReturnId,
-                CurrentStep = workflow.CurrentStep?.RoleName,
+                CurrentStepId = workflow.CurrentStep?.RoleName,
                 Status = workflow.Status,
                 Rating = workflow.Rating
             };
