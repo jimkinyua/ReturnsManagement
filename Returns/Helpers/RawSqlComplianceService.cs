@@ -97,7 +97,7 @@ namespace Returns.Helpers
                             [TeamId],
                             T.TeamName
                             JOIN Teams T On T.Id = u.TeamId
-                        FROM [IdentityDatabase].[dbo].[Saccos]";
+                        FROM [Saccos]";
 
                     using (var command = new SqlCommand(sql, connection))
                     {
@@ -156,7 +156,7 @@ namespace Returns.Helpers
                     [CooperativeSocietyNo],
                     [TeamId],
                     [TeamName]
-                FROM [IdentityDatabase].[dbo].[Saccos]
+                FROM [Saccos]
                 WHERE Id = @saccoId";
 
                     using (var command = new SqlCommand(sql, connection))
@@ -308,8 +308,8 @@ namespace Returns.Helpers
                            u.Email,
                            r.Id AS RoleId,
                            R.Name AS RoleName
-                        FROM [IdentityDatabase].dbo.AspNetUsers U
-                        INNER JOIN [IdentityDatabase].dbo.AspNetRoles R
+                        FROM AspNetUsers U
+                        INNER JOIN AspNetRoles R
                            ON R.Id = CAST(U.Role AS NVARCHAR(450))
                           AND R.Id = @RoleId ";
                     using (var command = new SqlCommand(sql, connection))
