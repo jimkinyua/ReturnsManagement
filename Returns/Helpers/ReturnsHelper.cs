@@ -103,76 +103,76 @@ namespace Returns.Helpers
         }
 
 
-        private async Task<Dictionary<string, VersionLookup>> GetVersionLookupsAsync<T>(string ReturnId, string saccoType) where T : class
+        private async Task<Dictionary<string, VersionLookup>> GetVersionLookupsAsync<T>(string ChildId, string saccoType) where T : class
         {
             return typeof(T) switch
             {
                 // Capital Adequacy
                 _ when typeof(T) == typeof(DTCapitalAdequacyReturn) =>
-                    await GetCapitalAdequacyVersionLookupsAsync(ReturnId),
+                    await GetCapitalAdequacyVersionLookupsAsync(ChildId),
 
                 // Deposit Return
                 _ when typeof(T) == typeof(DepositReturn) =>
-                    await GetDepositReturnVersionLookupsAsync(ReturnId),
+                    await GetDepositReturnVersionLookupsAsync(ChildId),
 
                 // Comprehensive Income
                 _ when typeof(T) == typeof(DTComprehensiveIncomeReturn) =>
-                    await GetComprehensiveIncomeVersionLookupsAsync(ReturnId),
+                    await GetComprehensiveIncomeVersionLookupsAsync(ChildId),
 
                 // Financial Position
                 _ when typeof(T) == typeof(DTFinancialPositionReturn) =>
-                    await GetFinancialPositionVersionLookupsAsync(ReturnId),
+                    await GetFinancialPositionVersionLookupsAsync(ChildId),
 
                 // Liquidity
                 _ when typeof(T) == typeof(DTLiquidityReturn) =>
-                    await GetLiquidityVersionLookupsAsync(ReturnId),
+                    await GetLiquidityVersionLookupsAsync(ChildId),
 
                 // Risk Classification
                 _ when typeof(T) == typeof(DTRiskClassificationReturn) =>
-                    await GetRiskClassificationVersionLookupsAsync(ReturnId),
+                    await GetRiskClassificationVersionLookupsAsync(ChildId),
 
                 // Investment
                 _ when typeof(T) == typeof(DTInvestmentReturn) =>
-                    await GetInvestmentVersionLookupsAsync(ReturnId),
+                    await GetInvestmentVersionLookupsAsync(ChildId),
 
                 // Management
                 _ when typeof(T) == typeof(ManagementReturn) =>
-                    await GetManagementVersionLookupsAsync(ReturnId),
+                    await GetManagementVersionLookupsAsync(ChildId),
 
                 // NWDT Liquidity
                 _ when typeof(T) == typeof(NWDTLiquidityReturn) =>
-                    await GetNWDTLiquidityVersionLookupsAsync(ReturnId),
+                    await GetNWDTLiquidityVersionLookupsAsync(ChildId),
 
                 // NWDT Deposit
                 _ when typeof(T) == typeof(NWDTDepositReturn) =>
-                    await GetNWDTDepositVersionLookupsAsync(ReturnId),
+                    await GetNWDTDepositVersionLookupsAsync(ChildId),
 
                 // NWDT Risk Classification
                 _ when typeof(T) == typeof(NWDTRiskClassificationReturn) =>
-                    await GetNWDTRiskClassificationVersionLookupsAsync(ReturnId),
+                    await GetNWDTRiskClassificationVersionLookupsAsync(ChildId),
 
                 // NWDT Investment
                 _ when typeof(T) == typeof(NWDTInvestmentReturn) =>
-                    await GetNWDTInvestmentVersionLookupsAsync(ReturnId),
+                    await GetNWDTInvestmentVersionLookupsAsync(ChildId),
 
                 // NWDT Financial Position
                 _ when typeof(T) == typeof(NWDTFinancialPositionReturn) =>
-                    await GetNWDTFinancialPositionVersionLookupsAsync(ReturnId),
+                    await GetNWDTFinancialPositionVersionLookupsAsync(ChildId),
 
                 // NWDT Comprehensive Income
                 _ when typeof(T) == typeof(NWDTComprehensiveIncomeReturn) =>
-                    await GetNWDTComprehensiveIncomeVersionLookupsAsync(ReturnId),
+                    await GetNWDTComprehensiveIncomeVersionLookupsAsync(ChildId),
 
                 // Default case
                 _ => new Dictionary<string, VersionLookup>()
             };
         }
 
-        private async Task<Dictionary<string, VersionLookup>> GetCapitalAdequacyVersionLookupsAsync(string ReturnId)
+        private async Task<Dictionary<string, VersionLookup>> GetCapitalAdequacyVersionLookupsAsync(string ChildId)
         {
             var results = await _context.DTCapitalAdequacyReturns
                 .AsNoTracking()
-                .Where(ca => ca.ReturnId == ReturnId)
+                .Where(ca => ca.ReturnId == ChildId)
                 .Select(ca => new VersionLookup
                 {
                     Id = ca.Id,
@@ -194,7 +194,7 @@ namespace Returns.Helpers
                 .Where(dr => dr.ReturnId == childId || dr.PreviousReturnId == childId)
                 .Select(dr => new VersionLookup
                 {
-                    Id = dr.ReturnId,
+                    Id = dr.Id,
                     PreviousReturnId = dr.PreviousReturnId,
                     CreatedAt = dr.CreatedAt,
                     IsAmended = dr.IsAmended,
@@ -212,7 +212,7 @@ namespace Returns.Helpers
                 .Where(ci => ci.ReturnId == childId || ci.PreviousReturnId == childId)
                 .Select(ci => new VersionLookup
                 {
-                    Id = ci.ReturnId,
+                    Id = ci.Id,
                     PreviousReturnId = ci.PreviousReturnId,
                     CreatedAt = ci.CreatedAt,
                     IsAmended = ci.IsAmended,
@@ -230,7 +230,7 @@ namespace Returns.Helpers
                 .Where(fp => fp.ReturnId == childId || fp.PreviousReturnId == childId)
                 .Select(fp => new VersionLookup
                 {
-                    Id = fp.ReturnId,
+                    Id = fp.Id,
                     PreviousReturnId = fp.PreviousReturnId,
                     CreatedAt = fp.CreatedAt,
                     IsAmended = fp.IsAmended,
@@ -248,7 +248,7 @@ namespace Returns.Helpers
                 .Where(lq => lq.ReturnId == childId || lq.PreviousReturnId == childId)
                 .Select(lq => new VersionLookup
                 {
-                    Id = lq.ReturnId,
+                    Id = lq.Id,
                     PreviousReturnId = lq.PreviousReturnId,
                     CreatedAt = lq.CreatedAt,
                     IsAmended = lq.IsAmended,
@@ -266,8 +266,9 @@ namespace Returns.Helpers
                 .Where(rc => rc.ReturnId == childId || rc.PreviousReturnId == childId)
                 .Select(rc => new VersionLookup
                 {
-                    Id = rc.ReturnId,
+                    Id = rc.Id,
                     PreviousReturnId = rc.PreviousReturnId,
+                    ReturnId = rc.ReturnId,
                     CreatedAt = rc.CreatedAt,
                     IsAmended = rc.IsAmended,
                     IsCurrent = rc.IsCurrent
@@ -284,8 +285,9 @@ namespace Returns.Helpers
                 .Where(inv => inv.ReturnId == childId || inv.PreviousReturnId == childId)
                 .Select(inv => new VersionLookup
                 {
-                    Id = inv.ReturnId,
+                    Id = inv.Id,
                     PreviousReturnId = inv.PreviousReturnId,
+                    ReturnId = inv.ReturnId,
                     CreatedAt = inv.CreatedAt,
                     IsAmended = inv.IsAmended,
                     IsCurrent = inv.IsCurrent
@@ -302,7 +304,8 @@ namespace Returns.Helpers
                 .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
-                    Id = mg.ReturnId,
+                    Id = mg.Id,
+                    ReturnId = mg.ReturnId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -320,7 +323,8 @@ namespace Returns.Helpers
                 .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
-                    Id = mg.ReturnId,
+                    Id = mg.Id,
+                    ReturnId = mg.ReturnId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -338,7 +342,8 @@ namespace Returns.Helpers
                 .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
-                    Id = mg.ReturnId,
+                    Id = mg.Id,
+                    ReturnId = mg.ReturnId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -356,7 +361,8 @@ namespace Returns.Helpers
                 .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
-                    Id = mg.ReturnId,
+                    Id = mg.Id,
+                    ReturnId = mg.ReturnId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -374,7 +380,8 @@ namespace Returns.Helpers
                 .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
-                    Id = mg.ReturnId,
+                    Id = mg.Id,
+                    ReturnId = mg.ReturnId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -392,7 +399,8 @@ namespace Returns.Helpers
                 .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
-                    Id = mg.ReturnId,
+                    Id = mg.Id,
+                    ReturnId = mg.ReturnId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -410,7 +418,8 @@ namespace Returns.Helpers
                 .Where(mg => mg.ReturnId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
-                    Id = mg.ReturnId,
+                    Id = mg.Id,
+                    ReturnId = mg.ReturnId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
