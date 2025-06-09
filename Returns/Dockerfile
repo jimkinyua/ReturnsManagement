@@ -25,11 +25,11 @@ FROM build AS publish
 RUN dotnet publish "Returns.csproj" -c Release -o /app/publish --verbosity minimal
 
 FROM base AS final
-WORKDIR /app
+WORKDIR /app 
 COPY --from=publish /app/publish .
 ENV ASPNETCORE_URLS=http://+:8042
 # Set development environment
 ENV ASPNETCORE_ENVIRONMENT=Development
 #ENV Variable for Where Documents are stored in the Host
 ENV HOST_STORAGE_PATH="C:\\inetpub\\wwwroot\\RBSS\\Uploads"
-ENTRYPOINT ["dotnet", "Returns.dll"]
+ENTRYPOINT ["dotnet", "Returns.dll"

@@ -20,164 +20,220 @@ namespace Returns.Helpers
 {
     public static class NWDTReportHelper
     {
+        private static readonly DeviceRgb SASRA_PRIMARY_COLOR = new DeviceRgb(13, 91, 146); // #0d5b92 - Main blue
+        private static readonly DeviceRgb SASRA_SECONDARY_COLOR = new DeviceRgb(214, 164, 39); // #D6A427 - Gold accent (from logo)
+        private static readonly DeviceRgb SASRA_LIGHT_GRAY = new DeviceRgb(229, 231, 235); // #e5e7eb - Light gray for backgrounds
+        private static readonly DeviceRgb SASRA_DARK_GRAY = new DeviceRgb(102, 102, 102); // #666666 - Dark gray for text
+        private static readonly DeviceRgb SASRA_ERROR_COLOR = new DeviceRgb(220, 53, 69); // #dc3545 - Red for errors/negative values
+        private static readonly DeviceRgb SASRA_SUCCESS_COLOR = new DeviceRgb(21, 87, 36); // #155724 - Green for success/positive indicators
 
-    public static byte[] GenerateNwdtSaccoPerformancePdfReport(NWDTPerformanceReportDTO report, string components)
-    {
-        
-
-        // Determine if we need pagination based on period count
-        bool needsPagination = report.Periods.Count > 3; // Threshold for pagination
-        int periodsPerPage = 3; // Number of periods to show per page
-
-        using (MemoryStream ms = new MemoryStream())
+        public static byte[] GenerateNwdtSaccoPerformancePdfReport(NWDTPerformanceReportDTO report, string components)
         {
-            // Create PDF document
-            PdfWriter writer = new PdfWriter(ms);
-            PdfDocument pdf = new PdfDocument(writer);
-            Document document = new Document(pdf, PageSize.A4.Rotate()); // Use landscape orientation
 
-            // Set document properties
-            document.SetMargins(36, 36, 36, 36);
 
-            // Define fonts
-            PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
-            PdfFont regularFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+            // Determine if we need pagination based on period count
+            bool needsPagination = report.Periods.Count > 3; // Threshold for pagination
+            int periodsPerPage = 3; // Number of periods to show per page
 
-            // Colors
-            DeviceRgb headerColor = new DeviceRgb(13, 91, 146); // #0d5b92
-            DeviceRgb sectionBgColor = new DeviceRgb(229, 231, 235); // Light gray background
-            DeviceRgb normalRowBgColor = new DeviceRgb(240, 240, 240); // Lighter gray for normal rows
-
-            // If we need pagination, create multiple tables
-            if (needsPagination)
+            using (MemoryStream ms = new MemoryStream())
             {
-                // Split periods into groups
-                for (int pageIndex = 0; pageIndex < Math.Ceiling((double)report.Periods.Count / periodsPerPage); pageIndex++)
-                {
-                    // Get periods for this page
-                    var periodsForPage = report.Periods
-                        .Skip(pageIndex * periodsPerPage)
-                        .Take(periodsPerPage)
-                        .ToList();
+                // Create PDF document
+                PdfWriter writer = new PdfWriter(ms);
+                PdfDocument pdf = new PdfDocument(writer);
+                Document document = new Document(pdf, PageSize.A4.Rotate()); // Use landscape orientation
 
-                    // Add header to each page
+                // Set document properties
+                document.SetMargins(36, 36, 36, 36);
+
+                // Define fonts
+                PdfFont boldFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA_BOLD);
+                PdfFont regularFont = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+
+                // Colors
+                DeviceRgb headerColor = new DeviceRgb(13, 91, 146); // #0d5b92
+                DeviceRgb sectionBgColor = new DeviceRgb(229, 231, 235); // Light gray background
+                DeviceRgb normalRowBgColor = new DeviceRgb(240, 240, 240); // Lighter gray for normal rows
+
+                // If we need pagination, create multiple tables
+                if (needsPagination)
+                {
+                    // Split periods into groups
+                    for (int pageIndex = 0; pageIndex < Math.Ceiling((double)report.Periods.Count / periodsPerPage); pageIndex++)
+                    {
+                        // Get periods for this page
+                        var periodsForPage = report.Periods
+                            .Skip(pageIndex * periodsPerPage)
+                            .Take(periodsPerPage)
+                            .ToList();
+
+                        // Add header to each page
+                        AddReportHeader(document, headerColor, boldFont, report.SaccoName);
+
+                        // Add report metadata with page indicator
+                        document.Add(new Paragraph().SetMarginTop(20));
+                        string pageIndicator = needsPagination ? $" (Page {pageIndex + 1} of {Math.Ceiling((double)report.Periods.Count / periodsPerPage)})" : "";
+                        Paragraph reportDatePara = new Paragraph($"Report Date: {report.ReportDate:dd MMMM, yyyy}{pageIndicator}")
+                            .SetFont(boldFont)
+                            .SetFontSize(12)
+                            .SetMarginBottom(20);
+                        document.Add(reportDatePara);
+
+                        // Create table for this page's periods
+                        int columnCount = 2 + periodsForPage.Count; // Metric name, standard, and period columns
+                        Table tableForPage = new Table(UnitValue.CreatePercentArray(columnCount))
+                            .SetWidth(UnitValue.CreatePercentValue(100));
+
+                        // Generate table with only these periods
+                        GenerateNwdtReportTable(tableForPage, report, periodsForPage, components, boldFont, regularFont, sectionBgColor, normalRowBgColor);
+
+                        document.Add(tableForPage);
+
+                        // Add footer
+                        AddReportFooter(document);
+
+                        // Add page break if not the last page
+                        if (pageIndex < Math.Ceiling((double)report.Periods.Count / periodsPerPage) - 1)
+                        {
+                            document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
+                        }
+                    }
+                }
+                else
+                {
+                    // Add header
                     AddReportHeader(document, headerColor, boldFont, report.SaccoName);
 
-                    // Add report metadata with page indicator
+                    // Add report metadata
                     document.Add(new Paragraph().SetMarginTop(20));
-                    string pageIndicator = needsPagination ? $" (Page {pageIndex + 1} of {Math.Ceiling((double)report.Periods.Count / periodsPerPage)})" : "";
-                    Paragraph reportDatePara = new Paragraph($"Report Date: {report.ReportDate:dd MMMM, yyyy}{pageIndicator}")
+                    Paragraph reportDatePara = new Paragraph($"Report Date: {report.ReportDate:dd MMMM, yyyy}")
                         .SetFont(boldFont)
                         .SetFontSize(12)
                         .SetMarginBottom(20);
                     document.Add(reportDatePara);
 
-                    // Create table for this page's periods
-                    int columnCount = 2 + periodsForPage.Count; // Metric name, standard, and period columns
-                    Table tableForPage = new Table(UnitValue.CreatePercentArray(columnCount))
+                    // Create a single table with all periods
+                    int columnCount = 2 + report.Periods.Count;
+                    Table mainTable = new Table(UnitValue.CreatePercentArray(columnCount))
                         .SetWidth(UnitValue.CreatePercentValue(100));
 
-                    // Generate table with only these periods
-                    GenerateNwdtReportTable(tableForPage, report, periodsForPage, components, boldFont, regularFont, sectionBgColor, normalRowBgColor);
+                    GenerateNwdtReportTable(mainTable, report, report.Periods, components, boldFont, regularFont, sectionBgColor, normalRowBgColor);
 
-                    document.Add(tableForPage);
+                    document.Add(mainTable);
 
                     // Add footer
                     AddReportFooter(document);
-
-                    // Add page break if not the last page
-                    if (pageIndex < Math.Ceiling((double)report.Periods.Count / periodsPerPage) - 1)
-                    {
-                        document.Add(new AreaBreak(AreaBreakType.NEXT_PAGE));
-                    }
                 }
+
+                // Close the document
+                document.Close();
+
+                return ms.ToArray();
             }
-            else
+        }
+
+        // Add report header
+        private static void AddReportHeader(Document document, DeviceRgb headerColor, PdfFont boldFont, string saccoName)
+        {
+            // local supporting colours & regular font
+            DeviceRgb sasraNavy = new DeviceRgb(13, 59, 102);   // #0D3B66
+            DeviceRgb sasraGrey = new DeviceRgb(102, 102, 102); // #666666
+            PdfFont regular = PdfFontFactory.CreateFont(StandardFonts.HELVETICA);
+
+            try
             {
-                // Add header
-                AddReportHeader(document, headerColor, boldFont, report.SaccoName);
+                // ─── Logo ─────────────────────────────────────────────────────────
+                ImageData logoData = ImageDataFactory.Create(GetSasraLogoBytes());
+                Image logo = new Image(logoData)
+                                    .SetHeight(60)
+                                    .SetAutoScale(true);
 
-                // Add report metadata
-                document.Add(new Paragraph().SetMarginTop(20));
-                Paragraph reportDatePara = new Paragraph($"Report Date: {report.ReportDate:dd MMMM, yyyy}")
+                // ─── Right-hand block (org name, tagline, contacts) ───────────────
+                Paragraph orgName = new Paragraph("SACCO Societies Regulatory Authority (SASRA)")
+                                    .SetFont(boldFont)
+                                    .SetFontColor(ColorConstants.BLACK)
+                                    .SetFontSize(16)
+                                    .SetMarginBottom(3);
+
+                Paragraph tagline = new Paragraph("Securing SACCO Funds")
+                                    .SetFont(regular)
+                                    .SetFontColor(ColorConstants.BLACK)
+                                    .SetFontSize(11)
+                                    .SetMarginBottom(6);
+
+                Paragraph contacts = new Paragraph(
+                        "UAP Old Mutual Tower, 19ᵗʰ Floor, Upper Hill Road, Nairobi, Kenya\n" +
+                        "P.O. Box 25089 – 00100 Nairobi  |  Tel: +254 (20) 293 5100/101  |  Toll-Free: 0800 724 422\n" +
+                        "Email: info@sasra.go.ke  |  www.sasra.go.ke")
+                    .SetFont(regular)
+                    .SetFontColor(ColorConstants.BLACK)
+                    .SetFontSize(9);
+
+                // ─── Two-column table layout ──────────────────────────────────────
+                Table hdr = new Table(UnitValue.CreatePercentArray(new float[] { 1, 4 }))
+                                .SetWidth(UnitValue.CreatePercentValue(100))
+                                .SetBorder(Border.NO_BORDER);
+
+                hdr.AddCell(new Cell()
+                    .SetBorder(Border.NO_BORDER)
+                    .SetVerticalAlignment(VerticalAlignment.MIDDLE)
+                    .Add(logo));
+
+                hdr.AddCell(new Cell()
+                    .SetBorder(Border.NO_BORDER)
+                    .Add(orgName)
+                    .Add(tagline)
+                    .Add(contacts));
+
+                // wrap table in coloured div for padding
+                Div headerDiv = new Div()
+                    .SetPadding(16)
+                    .Add(hdr);
+
+                document.Add(headerDiv);
+
+                // thin separator below header
+                document.Add(new LineSeparator(new SolidLine())
+                                 .SetStrokeColor(headerColor)
+                                 .SetMarginTop(6)
+                                 .SetMarginBottom(12));
+
+                // Add SACCO name as title
+                Paragraph saccoTitle = new Paragraph($"{saccoName} Performance Report")
                     .SetFont(boldFont)
-                    .SetFontSize(12)
-                    .SetMarginBottom(20);
-                document.Add(reportDatePara);
+                    .SetFontColor(ColorConstants.BLACK)
+                    .SetFontSize(14)
+                    .SetTextAlignment(TextAlignment.CENTER)
+                    .SetMarginTop(12);
 
-                // Create a single table with all periods
-                int columnCount = 2 + report.Periods.Count;
-                Table mainTable = new Table(UnitValue.CreatePercentArray(columnCount))
-                    .SetWidth(UnitValue.CreatePercentValue(100));
-
-                GenerateNwdtReportTable(mainTable, report, report.Periods, components, boldFont, regularFont, sectionBgColor, normalRowBgColor);
-
-                document.Add(mainTable);
-
-                // Add footer
-                AddReportFooter(document);
+                document.Add(saccoTitle);
             }
-
-            // Close the document
-            document.Close();
-
-            return ms.ToArray();
+            catch
+            {
+                document.Add(
+                    new Div()
+                        .SetBackgroundColor(headerColor)
+                        .SetPadding(18)
+                        .Add(new Paragraph($"SACCO Societies Regulatory Authority (SASRA)\n{saccoName} Performance Report")
+                                 .SetFont(boldFont)
+                                 .SetFontColor(ColorConstants.WHITE)
+                                 .SetFontSize(16)
+                                 .SetTextAlignment(TextAlignment.CENTER))
+                );
+            }
         }
-    }
 
-    // Add report header
-    private static void AddReportHeader(Document document, DeviceRgb headerColor, PdfFont boldFont, string saccoName)
-    {
-        try
+        // Add report footer
+        private static void AddReportFooter(Document document)
         {
-            // Replace with actual path to logo or embedded resource
-            ImageData logoData = ImageDataFactory.Create(GetSasraLogoBytes());
-            Image logo = new Image(logoData).SetHeight(60);
+            document.Add(new Paragraph().SetMarginTop(20));
+            Paragraph footer = new Paragraph("SASRA - SACCO Societies Regulatory Authority\n" +
+                                             "Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"))
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetFontSize(9)
+                .SetFontColor(SASRA_DARK_GRAY); // #666666
 
-            Paragraph headerPara = new Paragraph($"SASRA - {saccoName} Performance Report")
-                .SetFont(boldFont)
-                .SetFontColor(ColorConstants.WHITE)
-                .SetFontSize(18)
-                .SetTextAlignment(TextAlignment.CENTER);
-
-            Div headerDiv = new Div()
-                .SetBackgroundColor(headerColor)
-                .SetPadding(20)
-                .Add(new Paragraph().Add(logo).SetTextAlignment(TextAlignment.CENTER))
-                .Add(headerPara);
-
-            document.Add(headerDiv);
+            document.Add(footer);
         }
-        catch (Exception ex)
-        {
-            // If logo loading fails, just add the text header
-            Paragraph headerPara = new Paragraph($"SASRA - {saccoName} Performance Report")
-                .SetFont(boldFont)
-                .SetFontColor(ColorConstants.WHITE)
-                .SetFontSize(18)
-                .SetTextAlignment(TextAlignment.CENTER);
-
-            Div headerDiv = new Div()
-                .SetBackgroundColor(headerColor)
-                .SetPadding(20)
-                .Add(headerPara);
-
-            document.Add(headerDiv);
-        }
-    }
-
-    // Add report footer
-    private static void AddReportFooter(Document document)
-    {
-        document.Add(new Paragraph().SetMarginTop(20));
-        Paragraph footer = new Paragraph("SASRA - SACCO Societies Regulatory Authority\n" +
-                                         "Generated on: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm"))
-            .SetTextAlignment(TextAlignment.CENTER)
-            .SetFontSize(9)
-            .SetFontColor(new DeviceRgb(102, 102, 102)); // #666666
-
-        document.Add(footer);
-    }
 
         // Helper method to generate table for a given set of periods
         /// <summary>
@@ -439,107 +495,107 @@ namespace Returns.Helpers
 
         // Define format types
         public enum FormatType
-    {
-        Currency,
-        Percentage,
-        Number
-    }
-
-    // Add a section header to the table
-    private static void AddSectionHeader(Table table, string sectionName, int columnCount, PdfFont boldFont, DeviceRgb bgColor)
-    {
-        Cell sectionHeader = new Cell(1, columnCount)
-            .Add(new Paragraph(sectionName).SetFont(boldFont))
-            .SetBackgroundColor(bgColor)
-            .SetPadding(10)
-            .SetBorder(Border.NO_BORDER);
-        table.AddCell(sectionHeader);
-    }
-
-    // Add a metric row to the table
-    private static void AddMetricRow(Table table, string metricName, string standard, List<decimal> values,
-        FormatType formatType, PdfFont boldFont, PdfFont regularFont, DeviceRgb bgColor)
-    {
-        // Add metric name cell
-        Cell metricCell = new Cell(1, 1)
-            .Add(new Paragraph(metricName).SetFont(regularFont))
-            .SetBackgroundColor(bgColor)
-            .SetPadding(8)
-            .SetBorder(Border.NO_BORDER);
-        table.AddCell(metricCell);
-
-        // Add standard cell
-        Cell standardCell = new Cell(1, 1)
-            .Add(new Paragraph(standard).SetFont(regularFont))
-            .SetBackgroundColor(bgColor)
-            .SetPadding(8)
-            .SetTextAlignment(TextAlignment.CENTER)
-            .SetBorder(Border.NO_BORDER);
-        table.AddCell(standardCell);
-
-        // Add value cells
-        foreach (var value in values)
         {
-            string formattedValue;
+            Currency,
+            Percentage,
+            Number
+        }
 
-            // Format the value based on type
-            switch (formatType)
-            {
-                case FormatType.Currency:
-                    formattedValue = FormatCurrency(value);
-                    break;
-                case FormatType.Percentage:
-                    formattedValue = FormatPercentage(value);
-                    break;
-                default:
-                    formattedValue = value.ToString("0.00");
-                    break;
-            }
+        // Add a section header to the table
+        private static void AddSectionHeader(Table table, string sectionName, int columnCount, PdfFont boldFont, DeviceRgb bgColor)
+        {
+            Cell sectionHeader = new Cell(1, columnCount)
+                .Add(new Paragraph(sectionName).SetFont(boldFont))
+                .SetBackgroundColor(bgColor)
+                .SetPadding(10)
+                .SetBorder(Border.NO_BORDER);
+            table.AddCell(sectionHeader);
+        }
 
-            Paragraph valuePara = new Paragraph(formattedValue)
-                .SetFont(regularFont)
-                .SetTextAlignment(TextAlignment.RIGHT);
-
-            // Color negative values in red
-            if (value < 0)
-            {
-                valuePara.SetFontColor(new DeviceRgb(220, 53, 69));
-            }
-
-            Cell valueCell = new Cell(1, 1)
-                .Add(valuePara)
+        // Add a metric row to the table
+        private static void AddMetricRow(Table table, string metricName, string standard, List<decimal> values,
+            FormatType formatType, PdfFont boldFont, PdfFont regularFont, DeviceRgb bgColor)
+        {
+            // Add metric name cell
+            Cell metricCell = new Cell(1, 1)
+                .Add(new Paragraph(metricName).SetFont(regularFont))
                 .SetBackgroundColor(bgColor)
                 .SetPadding(8)
                 .SetBorder(Border.NO_BORDER);
+            table.AddCell(metricCell);
 
-            table.AddCell(valueCell);
+            // Add standard cell
+            Cell standardCell = new Cell(1, 1)
+                .Add(new Paragraph(standard).SetFont(regularFont))
+                .SetBackgroundColor(bgColor)
+                .SetPadding(8)
+                .SetTextAlignment(TextAlignment.CENTER)
+                .SetBorder(Border.NO_BORDER);
+            table.AddCell(standardCell);
+
+            // Add value cells
+            foreach (var value in values)
+            {
+                string formattedValue;
+
+                // Format the value based on type
+                switch (formatType)
+                {
+                    case FormatType.Currency:
+                        formattedValue = FormatCurrency(value);
+                        break;
+                    case FormatType.Percentage:
+                        formattedValue = FormatPercentage(value);
+                        break;
+                    default:
+                        formattedValue = value.ToString("0.00");
+                        break;
+                }
+
+                Paragraph valuePara = new Paragraph(formattedValue)
+                    .SetFont(regularFont)
+                    .SetTextAlignment(TextAlignment.RIGHT);
+
+                // Color negative values in red
+                if (value < 0)
+                {
+                    valuePara.SetFontColor(new DeviceRgb(220, 53, 69));
+                }
+
+                Cell valueCell = new Cell(1, 1)
+                    .Add(valuePara)
+                    .SetBackgroundColor(bgColor)
+                    .SetPadding(8)
+                    .SetBorder(Border.NO_BORDER);
+
+                table.AddCell(valueCell);
+            }
+        }
+
+        // Format decimal as currency
+        private static string FormatCurrency(decimal value)
+        {
+            // Show as is without rounding to match the displayed format in images
+            return value.ToString("N2", CultureInfo.InvariantCulture);
+        }
+
+        // Format decimal as percentage
+        private static string FormatPercentage(decimal value)
+        {
+            // Show as is without rounding to match the displayed format in images
+            return value.ToString("0.00") + "%";
+        }
+
+        // Helper method to get logo bytes
+        private static byte[] GetSasraLogoBytes()
+        {
+            // Use a placeholder image for testing
+            return Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
+
+            // TODO: Replace with your actual logo
+            // return File.ReadAllBytes("path/to/logo.png");
+            // OR
+            // return Convert.FromBase64String("YOUR_BASE64_STRING");
         }
     }
-
-    // Format decimal as currency
-    private static string FormatCurrency(decimal value)
-    {
-        // Show as is without rounding to match the displayed format in images
-        return value.ToString("N2", CultureInfo.InvariantCulture);
-    }
-
-    // Format decimal as percentage
-    private static string FormatPercentage(decimal value)
-    {
-        // Show as is without rounding to match the displayed format in images
-        return value.ToString("0.00") + "%";
-    }
-
-    // Helper method to get logo bytes
-    private static byte[] GetSasraLogoBytes()
-    {
-        // Use a placeholder image for testing
-        return Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=");
-
-        // TODO: Replace with your actual logo
-        // return File.ReadAllBytes("path/to/logo.png");
-        // OR
-        // return Convert.FromBase64String("YOUR_BASE64_STRING");
-    }
-}
 }

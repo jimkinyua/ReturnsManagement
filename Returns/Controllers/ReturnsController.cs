@@ -1212,7 +1212,7 @@ namespace Returns.Controllers
 
                 Return? hdr = await _context.Returns
                     .AsNoTracking()
-                    .Where(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                    .Where(r => r.Id == returnId)
                     .FirstOrDefaultAsync();
                 if (hdr == null) {
                     return new ReturnDetailsDTO();   
@@ -1704,7 +1704,7 @@ namespace Returns.Controllers
                 var report = new SaccoPerformanceReportDTO();
 
                 // Find current return
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString());
+                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
                 if (currentReturn == null)
                 {
                     return BadRequest("Return not found");
@@ -2477,9 +2477,7 @@ namespace Returns.Controllers
               
                 var hdr = await _context.Returns
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(r =>
-                        r.Id == returnId &&
-                        r.SaccoType == Constants.SaccoType.NWDT.ToString());
+                    .FirstOrDefaultAsync(r => r.Id == returnId);
 
                 if (hdr == null) return new NWDTReturnDetailsDTO();
 
@@ -2916,7 +2914,7 @@ namespace Returns.Controllers
         public async Task<ActionResult<CamelsRatingsDTO>> CalculateNwdtAnalysis(string returnId)
         {
             // Retrieve current return and historical returns
-            var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.NWDT.ToString());
+            var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
 
             if (currentReturn == null)
             {
@@ -2945,7 +2943,7 @@ namespace Returns.Controllers
             {
                 var report = new NWDTPerformanceReportDTO();
 
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.NWDT.ToString());
+                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
                 if (currentReturn == null)
                 {
                     return BadRequest("Return not found");
@@ -3218,7 +3216,7 @@ namespace Returns.Controllers
                                        .Where(c => "CAMELS".Contains(c))
                                        .Distinct()
                                        .ToArray());
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.NWDT.ToString());
+                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
                 if (currentReturn == null)
                 {
                     return BadRequest("Return not found");
