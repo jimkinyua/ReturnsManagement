@@ -175,29 +175,32 @@ namespace Returns.Helpers
                 .Where(rc => rc.Id == childId)
                 .ToListAsync();
 
-            NWDTRiskClassificationDTO? nwdtRiskClassifications = null;
+            NWDTRiskClassificationDTO? nwdtRiskClassification = null;
 
             if (risks.Count > 0)
             {
-                nwdtRiskClassifications = new NWDTRiskClassificationDTO
+                nwdtRiskClassification = new NWDTRiskClassificationDTO();
+
+                var firstItem = risks.First();
+                nwdtRiskClassification.FormId = firstItem.FormId;
+                nwdtRiskClassification.RequiresResubmission = firstItem.RequiresResubmission;
+
+                // Populate the NWDTRiskClassificationData list with all risk records
+                nwdtRiskClassification.NWDTRiskClassificationData = risks.Select(rc => new NWDTRiskClassificationData
                 {
-                    FormId = risks[0].FormId,
-                    RequiresResubmission = risks[0].RequiresResubmission,
-                    NWDTRiskClassificationData = risks.Select(rc => new NWDTRiskClassificationData
-                    {
-                        LoanType = rc.LoanType,
-                        Classification = rc.Classification,
-                        NumberOfAccounts = rc.NumberOfAccounts,
-                        OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
-                        RequiredProvision = rc.RequiredProvision,
-                        RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                        FilePath = rc.FilePath
-                    }).ToList()
-                };
+                    LoanType = rc.LoanType,
+                    Classification = rc.Classification,
+                    NumberOfAccounts = rc.NumberOfAccounts,
+                    OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                    RequiredProvision = rc.RequiredProvision,
+                    RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                    FilePath = rc.FilePath
+                }).ToList();
             }
 
-            return nwdtRiskClassifications;
+            return nwdtRiskClassification;
         }
+
         public async Task<NWDTFinancialPositionDTO?> GetNWDTFinancialPositionDT(string childId)
         {
             var fp = await _context.NWDTFinancialPositionReturns

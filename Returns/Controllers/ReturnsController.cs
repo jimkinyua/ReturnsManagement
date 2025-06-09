@@ -550,14 +550,14 @@ namespace Returns.Controllers
             }
         }
 
-        [HttpGet("GetChildDetails/{ChildId}/{FormId}/{ReturnId}")]
-        public async Task<IActionResult> GetChildDetails(string ChildId, string FormId, string ReturnId)
+        [HttpGet("GetChildDetails")]
+        public async Task<IActionResult> GetChildDetails([FromQuery] string ChildId, [FromQuery] string FormId, [FromQuery] string ReturnId)
         {
             try
             {
               var FormDetails = await _context.ReturnForms
                     .Include(f => f.Period)
-                    .FirstOrDefaultAsync(f => f.Id == ChildId);
+                    .FirstOrDefaultAsync(f => f.Id == FormId);
                 if (FormDetails == null)
                 {
                     return NotFound("Form not found");
