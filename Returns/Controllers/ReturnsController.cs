@@ -1620,13 +1620,13 @@ namespace Returns.Controllers
                     }
                     else
                     {
-                        Name = UserDetails.FullName;
+                        Name = UserDetails.FullName ?? string.Empty;
                     }
                     commentDetails.Add(new CommentDetails
                     {
                         Comment = comment.Comment,
                         UserId = comment.UserId,
-                        ApproverName = UserDetails.FullName??"Not Found", //Name,
+                        ApproverName = Name,
                         Status = comment.Status,
                         CreatedAt = comment.CreatedAt
                     });
