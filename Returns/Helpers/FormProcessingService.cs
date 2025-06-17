@@ -2321,7 +2321,7 @@ namespace Returns.Helpers
                 }
 
                 // Process the form based on SACCO type and form type
-                if (isDepositTaking)
+               if (isDepositTaking)
                 {
                     // Handle Deposit Taking SACCO forms
                     switch (formType)

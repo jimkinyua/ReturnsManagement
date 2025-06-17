@@ -29,7 +29,7 @@ namespace Returns.Helpers
             public string Year { get; set; } = string.Empty;
             public string Month { get; set; } = string.Empty;
             public string SaccoType { get; set; } = string.Empty;
-            public DateTime StartDate { get; set; } 
+            public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public List<CategoryDto> Categories { get; set; } = new List<CategoryDto>();
         }
@@ -438,12 +438,12 @@ namespace Returns.Helpers
         public class InsiderLendingReportDTO
         {
             public string SaccoName { get; set; } = null!;
-            public string SaccoSocietyCsNumber { get; set; } =null!;
+            public string SaccoSocietyCsNumber { get; set; } = null!;
             public DateTime StartDate { get; set; }
             public DateTime EndDate { get; set; }
             public DateTime SubmissionDate { get; set; }
             public string Year { get; set; } = null!;
-            public string Quarter { get; set; } =null!;
+            public string Quarter { get; set; } = null!;
             public decimal TotalNewLoansAmount { get; set; }
             public decimal TotalOutstandingLoansAmount { get; set; }
             public int TotalLoansCount { get; set; }
@@ -472,186 +472,223 @@ namespace Returns.Helpers
 
         public static InsiderLendingReportDTO ImportInsiderLendingReport(IFormFile file, ILogger logger)
         {
+            logger.LogInformation("Processing Insider Lending Report: " + file.FileName);
+
+            ValidateFile(file, logger);
+
+            using (var stream = new MemoryStream())
+            {
+                logger.LogInformation("Copying file to memory stream");
+                file.CopyTo(stream);
+
+                return ProcessWorkbook(stream, file, logger);
+            }
+        }
+
+        private static void ValidateFile(IFormFile file, ILogger logger)
+        {
+            if (file == null)
+            {
+                logger.LogError("File is null");
+                throw new ArgumentNullException(nameof(file), "No file was provided for processing");
+            }
+
+            if (file.Length == 0)
+            {
+                throw new ArgumentException("The uploaded file is empty", nameof(file));
+            }
+
+            var extension = Path.GetExtension(file.FileName).ToLower();
+            if (extension != ".xlsx")
+            {
+                throw new ValidationException(
+                     $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                     "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                     "Please save the sheet in .xlsx format and upload again.");
+            }
+        }
+
+        private static InsiderLendingReportDTO ProcessWorkbook(MemoryStream stream, IFormFile file, ILogger logger)
+        {
             try
             {
-                logger.LogInformation("Processing Insider Lending Report: " + file.FileName);
-                if (file == null)
+                using (var workbook = new XLWorkbook(stream))
                 {
-                    logger.LogError("File is null");
-                    throw new ArgumentNullException(nameof(file), "No file was provided for processing");
-                }
+                    logger.LogInformation("Workbook opened");
+                    var worksheet = workbook.Worksheets.First();
 
-                if (file.Length == 0)
-                {
-                    throw new ArgumentException("The uploaded file is empty", nameof(file));
-                }
-
-                // Check file extension
-                var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
-                {
-                    throw new ValidationException(
-                         $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
-                         "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
-                         "Please save the sheet in .xlsx format and upload again.");
-                }
-
-                using (var stream = new MemoryStream())
-                {
-                    // Copy the file to a memory stream
-                    logger.LogInformation("Copying file to memory stream");
-                    file.CopyTo(stream);
-
-                    // This will hold all insider loans (both new and outstanding)
+                    var reportDTO = CreateReportHeader(worksheet);
                     var insiderLoans = new List<InsiderLoanDTO>();
 
-                    // Open the Excel workbook
-                    using (var workbook = new XLWorkbook(stream))
-                    {
-                        logger.LogInformation("Workbook opened");
-                        // Get the first worksheet (Insider return)
-                        var worksheet = workbook.Worksheets.First();
+                    ProcessNewLoans(worksheet, insiderLoans, logger);
+                    ProcessOutstandingLoans(worksheet, insiderLoans, logger);
 
-                        // Create the header DTO
-                        var reportDTO = new InsiderLendingReportDTO
-                        {
-                            SaccoName = GetCellValueOrEmpty(worksheet.Cell("C3")),
-                            SaccoSocietyCsNumber = GetCellValueOrEmpty(worksheet.Cell("C4")),
-                            StartDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C5"))).Value,
-                            EndDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))).Value,
-                            SubmissionDate = DateTime.Now,
-                            Year = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))).Value.Year.ToString(),
-                            Quarter = $"Q{(DateTime.Now.Month - 1) / 3 + 1}"
-                        };
+                    UpdateReportSummary(reportDTO, insiderLoans);
 
-                        // Find section markers
-                        int newLoansHeaderRow = FindRowWithText(worksheet, "New loans Granted", "C");
-                        int outstandingLoansHeaderRow = FindRowWithText(worksheet, "PERFORMANCE OF INSIDER OUTSTANDING LOAN", "C");
-                        int totalNewLoansRow = FindRowWithText(worksheet, "TOTAL LOANS GRANTED FOR INSIDERS", "C");
-                        int totalOutstandingLoansRow = FindRowWithText(worksheet, "TOTAL OUTSTANDING LOANS FOR INSIDERS AS AT END OF MONTH", "C");
-
-                        // Process new loans section
-                        if (newLoansHeaderRow > 0 && totalNewLoansRow > 0)
-                        {
-                            int firstNewLoanRow = newLoansHeaderRow + 3; // Skip the header and column titles rows
-                            int lastNewLoanRow = totalNewLoansRow - 1;   // Stop before the total row
-
-                            // Process new loans dynamically for all rows in section
-                            for (int rowNum = firstNewLoanRow; rowNum <= lastNewLoanRow; rowNum++)
-                            {
-                                var row = worksheet.Row(rowNum);
-
-                                // Skip if no borrower name
-                                string nameOfBorrower = GetCellValueOrEmpty(row.Cell(3));
-                                if (string.IsNullOrWhiteSpace(nameOfBorrower))
-                                    continue;
-
-                                var loanDTO = new InsiderLoanDTO
-                                {
-                                    LoanCategory = "New", // Mark as a new loan
-                                    NameOfBorrower = nameOfBorrower,
-                                    MemberNumber = GetCellValueOrEmpty(row.Cell(4)),
-                                    PositionHeld = GetCellValueOrEmpty(row.Cell(5)),
-                                    LoanTypeName = GetCellValueOrEmpty(row.Cell(6)),
-                                    AmountAppliedFor = GetDecimalOrZero(row.Cell(7)),
-                                    AmountGranted = GetDecimalOrZero(row.Cell(8)),
-                                    DateApprovedOrRatified = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(9))).Value,
-                                    AmountOfBosaDeposits = GetDecimalOrZero(row.Cell(10)),
-                                    NatureOfSecurity = GetCellValueOrEmpty(row.Cell(11)),
-                                    RepaymentCommencementDate = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(12))).Value,
-                                    RepaymentPeriod = GetCellValueOrEmpty(row.Cell(13)),
-                                    OtherRemarks = GetCellValueOrEmpty(row.Cell(14)),
-                                    OutstandingAmount = GetDecimalOrZero(row.Cell(8)), // For new loans, initially outstanding = amount granted
-                                    PerfomanceCategory = "Performing", // New loans are initially performing
-                                    RepaymentStatus = "Current"
-                                };
-
-                                insiderLoans.Add(loanDTO);
-                            }
-                        }
-
-                        // Process outstanding loans section
-                        if (outstandingLoansHeaderRow > 0 && totalOutstandingLoansRow > 0)
-                        {
-                            int firstOutstandingLoanRow = outstandingLoansHeaderRow + 1; // Skip the header and column titles rows
-                            int lastOutstandingLoanRow = totalOutstandingLoansRow - 1;   // Stop before the total row
-
-                            // Process outstanding loans dynamically for all rows in section
-                            for (int rowNum = firstOutstandingLoanRow; rowNum <= lastOutstandingLoanRow; rowNum++)
-                            {
-                                var row = worksheet.Row(rowNum);
-
-                                // Skip if no borrower name
-                                string nameOfBorrower = GetCellValueOrEmpty(row.Cell(3));
-                                if (string.IsNullOrWhiteSpace(nameOfBorrower))
-                                    continue;
-
-                                var loanDTO = new InsiderLoanDTO
-                                {
-                                    LoanCategory = "Outstanding", // Mark as an outstanding loan
-                                    NameOfBorrower = nameOfBorrower,
-                                    MemberNumber = GetCellValueOrEmpty(row.Cell(4)),
-                                    PositionHeld = GetCellValueOrEmpty(row.Cell(5)),
-                                    LoanTypeName = GetCellValueOrEmpty(row.Cell(6)),
-                                    AmountAppliedFor = GetDecimalOrZero(row.Cell(7)),
-                                    AmountGranted = GetDecimalOrZero(row.Cell(8)),
-                                    DateApprovedOrRatified = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(9))).Value,
-                                    AmountOfBosaDeposits = GetDecimalOrZero(row.Cell(10)),
-                                    NatureOfSecurity = GetCellValueOrEmpty(row.Cell(11)),
-                                    RepaymentCommencementDate = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(12))).Value,
-                                    RepaymentPeriod = GetCellValueOrEmpty(row.Cell(13)),
-                                    OutstandingAmount = GetDecimalOrZero(row.Cell(14)),
-                                    PerfomanceCategory = GetCellValueOrEmpty(row.Cell(15)) ?? "Not Specified",
-                                    RepaymentStatus = "Existing",
-                                    OtherRemarks = null
-                                };
-
-                                insiderLoans.Add(loanDTO);
-                            }
-                        }
-
-                        // Calculate summary statistics
-                        reportDTO.TotalNewLoansAmount = insiderLoans
-                            .Where(l => l.LoanCategory == "New")
-                            .Sum(l => l.AmountGranted);
-
-                        reportDTO.TotalOutstandingLoansAmount = insiderLoans
-                            .Where(l => l.LoanCategory == "Outstanding")
-                            .Sum(l => l.OutstandingAmount ?? 0);
-
-                        reportDTO.TotalLoansCount = insiderLoans.Count;
-
-                        // Attach loans to report
-                        reportDTO.Loans = insiderLoans;
-
-                        return reportDTO;
-                    }
+                    return reportDTO;
                 }
-            }
-            catch (ArgumentNullException ex)
-            {
-                logger.LogError(ex, "No file was provided for processing");
-                throw;// new ArgumentNullException("No file was provided for processing", ex);
-            }
-            catch (ArgumentException ex)
-            {
-                logger.LogError(ex, "Invalid file type or empty file");
-                throw;// new ArgumentException("Invalid file type or empty file", ex);
             }
             catch (FileFormatException ex)
             {
-                    throw new ValidationException(
-                      $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
-                      "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
-                      "Please save the sheet in .xlsx format and upload again.", ex);
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.", ex);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportInsiderLendingReport");
                 throw;
-                /*new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
+        }
+
+        private static InsiderLendingReportDTO CreateReportHeader(IXLWorksheet worksheet)
+        {
+            var saccoName = GetCellValueOrEmpty(worksheet.Cell("B3"));
+            if (string.IsNullOrEmpty(saccoName))
+            {
+                throw new ValidationException("SACCO name is required but was not found in cell B3");
+            }
+
+            var csNumber = GetCellValueOrEmpty(worksheet.Cell("B4"));
+            if (string.IsNullOrEmpty(csNumber))
+            {
+                throw new ValidationException("CS Number is required but was not found in cell B4");
+            }
+
+            var startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("B5")));
+            if (!startDate.HasValue)
+            {
+                throw new ValidationException("Start date is required but was not found in cell B5");
+            }
+
+            var endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("B6")));
+            if (!endDate.HasValue)
+            {
+                throw new ValidationException("End date is required but was not found in cell B6");
+            }
+
+            return new InsiderLendingReportDTO
+            {
+                SaccoName = saccoName,
+                SaccoSocietyCsNumber = csNumber,
+                StartDate = startDate.Value,
+                EndDate = endDate.Value,
+                SubmissionDate = DateTime.Now,
+                Year = endDate.Value.Year.ToString(),
+                Quarter = $"Q{(DateTime.Now.Month - 1) / 3 + 1}",
+                Loans = new List<InsiderLoanDTO>()
+            };
+        }
+
+        private static void ProcessNewLoans(IXLWorksheet worksheet, List<InsiderLoanDTO> insiderLoans, ILogger logger)
+        {
+            int newLoansHeaderRow = FindRowWithText(worksheet, "New loans Granted", "B");
+            int totalNewLoansRow = FindRowWithText(worksheet, "TOTAL LOANS GRANTED FOR INSIDERS", "B");
+
+            if (newLoansHeaderRow <= 0 || totalNewLoansRow <= 0)
+            {
+                logger.LogWarning("New loans section not found in worksheet");
+                return;
+            }
+
+            int firstNewLoanRow = newLoansHeaderRow + 3;
+            int lastNewLoanRow = totalNewLoansRow - 1;
+
+            for (int rowNum = firstNewLoanRow; rowNum <= lastNewLoanRow; rowNum++)
+            {
+                var row = worksheet.Row(rowNum);
+                string nameOfBorrower = GetCellValueOrEmpty(row.Cell(2));
+
+                if (string.IsNullOrWhiteSpace(nameOfBorrower))
+                    continue;
+
+                var loanDTO = new InsiderLoanDTO
+                {
+                    LoanCategory = "New",
+                    NameOfBorrower = nameOfBorrower,
+                    MemberNumber = GetCellValueOrEmpty(row.Cell(3)),
+                    PositionHeld = GetCellValueOrEmpty(row.Cell(4)),
+                    LoanTypeName = GetCellValueOrEmpty(row.Cell(5)),
+                    AmountAppliedFor = GetDecimalOrZero(row.Cell(6)),
+                    AmountGranted = GetDecimalOrZero(row.Cell(7)),
+                    DateApprovedOrRatified = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(8))) ?? DateTime.Now,
+                    AmountOfBosaDeposits = GetDecimalOrZero(row.Cell(9)),
+                    NatureOfSecurity = GetCellValueOrEmpty(row.Cell(10)),
+                    RepaymentCommencementDate = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(11))) ?? DateTime.Now,
+                    RepaymentPeriod = GetCellValueOrEmpty(row.Cell(12)),
+                    OtherRemarks = GetCellValueOrEmpty(row.Cell(13)),
+                    OutstandingAmount = GetDecimalOrZero(row.Cell(7)), // For new loans, initially outstanding = amount granted
+                    PerfomanceCategory = "Performing", // New loans are initially performing
+                    RepaymentStatus = "Current"
+                };
+
+                insiderLoans.Add(loanDTO);
+            }
+        }
+
+        private static void ProcessOutstandingLoans(IXLWorksheet worksheet, List<InsiderLoanDTO> insiderLoans, ILogger logger)
+        {
+            int outstandingLoansHeaderRow = FindRowWithText(worksheet, "PERFORMANCE OF INSIDER OUTSTANDING LOAN", "B");
+            int totalOutstandingLoansRow = 5; //FindRowWithText(worksheet, "TOTAL OUTSTANDING LOANS FOR INSIDERS AS AT END OF MONTH", "B");
+
+            if (outstandingLoansHeaderRow <= 0 || totalOutstandingLoansRow <= 0)
+            {
+                logger.LogWarning("Outstanding loans section not found in worksheet");
+                return;
+            }
+
+            int firstOutstandingLoanRow = outstandingLoansHeaderRow + 1;
+            int lastOutstandingLoanRow = totalOutstandingLoansRow - 1;
+
+            for (int rowNum = firstOutstandingLoanRow; rowNum <= lastOutstandingLoanRow; rowNum++)
+            {
+                var row = worksheet.Row(rowNum);
+                string nameOfBorrower = GetCellValueOrEmpty(row.Cell(3));
+
+                if (string.IsNullOrWhiteSpace(nameOfBorrower))
+                    continue;
+
+                var loanDTO = CreateOutstandingLoanDTO(row);
+                insiderLoans.Add(loanDTO);
+            }
+        }
+
+        private static InsiderLoanDTO CreateOutstandingLoanDTO(IXLRow row)
+        {
+            return new InsiderLoanDTO
+            {
+                LoanCategory = "Outstanding",
+                NameOfBorrower = GetCellValueOrEmpty(row.Cell(2)),
+                MemberNumber = GetCellValueOrEmpty(row.Cell(3)),
+                PositionHeld = GetCellValueOrEmpty(row.Cell(4)),
+                LoanTypeName = GetCellValueOrEmpty(row.Cell(5)),
+                AmountAppliedFor = GetDecimalOrZero(row.Cell(6)),
+                AmountGranted = GetDecimalOrZero(row.Cell(7)),
+                DateApprovedOrRatified = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(8))) ?? DateTime.Now,
+                AmountOfBosaDeposits = GetDecimalOrZero(row.Cell(9)),
+                NatureOfSecurity = GetCellValueOrEmpty(row.Cell(10)),
+                RepaymentCommencementDate = ParseDateOrNull(GetCellValueOrEmpty(row.Cell(11))) ?? DateTime.Now,
+                RepaymentPeriod = GetCellValueOrEmpty(row.Cell(12)),
+                OutstandingAmount = GetDecimalOrZero(row.Cell(13)),
+                PerfomanceCategory = GetCellValueOrEmpty(row.Cell(14)) ?? "Not Specified",
+                RepaymentStatus = "Existing",
+                OtherRemarks = null
+            };
+        }
+
+        private static void UpdateReportSummary(InsiderLendingReportDTO reportDTO, List<InsiderLoanDTO> insiderLoans)
+        {
+            reportDTO.TotalNewLoansAmount = insiderLoans
+                .Where(l => l.LoanCategory == "New")
+                .Sum(l => l.AmountGranted);
+
+            reportDTO.TotalOutstandingLoansAmount = insiderLoans
+                .Where(l => l.LoanCategory == "Outstanding")
+                .Sum(l => l.OutstandingAmount ?? 0);
+
+            reportDTO.TotalLoansCount = insiderLoans.Count;
+            reportDTO.Loans = insiderLoans;
         }
 
         public static DailyLiquidityStatement ImportDailyLiquidityRows(IFormFile file, ILogger logger)
@@ -698,8 +735,8 @@ namespace Returns.Helpers
                         var worksheet = workbook.Worksheets.First();
 
                         // Extract SACCO details and report date
-                        dailyLiquidityStatement.SACCOName = GetCellValueOrEmpty(worksheet.Cell("D5"));
-                        dailyLiquidityStatement.CSNO = GetCellValueOrEmpty(worksheet.Cell("F5"));
+                        dailyLiquidityStatement.SACCOName = GetCellValueOrEmpty(worksheet.Cell("C5"));
+                        dailyLiquidityStatement.CSNO = GetCellValueOrEmpty(worksheet.Cell("E5"));
                         dailyLiquidityStatement.ReportDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("E6"))) ?? DateTime.Now;
 
                         // Opening Balances
@@ -757,16 +794,16 @@ namespace Returns.Helpers
             catch (FileFormatException)
             {
                 throw;
-                    /*new FileFormatException(
-                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
-                    "Please ensure you're uploading a valid Excel workbook.");*/
+                /*new FileFormatException(
+                $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
+                "Please ensure you're uploading a valid Excel workbook.");*/
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "Error processing ImportDailyLiquidityRows");
-                throw; 
-                   /* new Exception(
-                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
+                throw;
+                /* new Exception(
+                 $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
 
@@ -811,7 +848,7 @@ namespace Returns.Helpers
                     throw new ArgumentException("The uploaded file is empty", nameof(file));
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" )
+                if (extension != ".xlsx")
                     throw new ValidationException($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " + "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " + "Please save the sheet in .xlsx format and upload again.");
 
                 using (var stream = new MemoryStream())
@@ -948,7 +985,7 @@ namespace Returns.Helpers
                                     currentSubCategory.EconomicSectors.Add(econSector);
                                 }
                             }
-                        } 
+                        }
 
                         return reportDto;
                     }
@@ -1016,7 +1053,7 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" )
+                if (extension != ".xlsx")
                 {
                     throw new ValidationException(
                                         $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -1111,7 +1148,7 @@ namespace Returns.Helpers
             }
         }
 
-     
+
 
         private static List<SectoralLendingDataRow> ExtractSectoralData(IXLWorksheet worksheet, int headerRow)
         {
@@ -1596,7 +1633,7 @@ namespace Returns.Helpers
 
                         int firstDataRow = 2;
                         int lastDataRow = 7;
-                        var rowData = new List< ManagementReportDTO>();
+                        var rowData = new List<ManagementReportDTO>();
 
                         /*   var lastRow = 0; //worksheet.LastRowUsed();
                            int lastRowNumber = 7; //lastRow.RowNumber();*/
@@ -1608,7 +1645,7 @@ namespace Returns.Helpers
                             var row = worksheet.Row(rowNum);
 
                             // Extract cells
-                            string? category =  row.Cell(2).GetString(); // Column C
+                            string? category = row.Cell(2).GetString(); // Column C
                             decimal? score = GetDecimalOrNull((row.Cell(3))); // Column C
                             decimal? weight = GetDecimalOrNull((row.Cell(4))); // Column D
                             decimal? weightedScore = GetDecimalOrNull(row.Cell(5)); // Column E
@@ -1923,7 +1960,7 @@ namespace Returns.Helpers
                 }
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" )
+                if (extension != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2093,7 +2130,7 @@ namespace Returns.Helpers
             catch (ArgumentException ex)
             {
                 logger.LogError(ex, "Invalid file type or empty file");
-                    throw;
+                throw;
             }
             catch (FileFormatException ex)
             {
@@ -2367,7 +2404,7 @@ namespace Returns.Helpers
             catch (ArgumentNullException ex)
             {
                 logger.LogError(ex, "No file was provided for processing");
-                    throw;
+                throw;
             }
             catch (ArgumentException ex)
             {
@@ -2506,7 +2543,7 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" )
+                if (extension != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2602,7 +2639,7 @@ namespace Returns.Helpers
                 }
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx" )
+                if (extension != ".xlsx")
                 {
                     throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
                 }
@@ -2714,10 +2751,10 @@ namespace Returns.Helpers
                 var extension = Path.GetExtension(file.FileName).ToLower();
                 if (extension != ".xlsx")
                 {
-                   throw new ValidationException(
-                     $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
-                     "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
-                     "Please save the sheet in .xlsx format and upload again.");
+                    throw new ValidationException(
+                      $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                      "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                      "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -2838,8 +2875,33 @@ namespace Returns.Helpers
             if (string.IsNullOrWhiteSpace(dateString))
                 return null;
 
+            // Try standard DateTime.Parse first
             if (DateTime.TryParse(dateString, out DateTime result))
                 return result;
+
+            // Try common date formats
+            string[] formats = {
+                "dd/MM/yyyy", "d/M/yyyy",
+                "dd-MM-yyyy", "d-M-yyyy",
+                "dd.MM.yyyy", "d.M.yyyy",
+                "MM/dd/yyyy", "M/d/yyyy",
+                "yyyy/MM/dd", "yyyy-MM-dd",
+                "dd MMM yyyy", "dd MMMM yyyy",
+                "MMM dd yyyy", "MMMM dd yyyy"
+            };
+
+            if (DateTime.TryParseExact(dateString, formats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out DateTime parsedDate))
+            {
+                return parsedDate;
+            }
+
+            // Try to clean the string and parse again
+            string cleaned = new string(dateString.Where(c => char.IsDigit(c) || c == '/' || c == '-' || c == '.').ToArray());
+            if (DateTime.TryParse(cleaned, out DateTime cleanedResult))
+                return cleanedResult;
 
             return null;
         }

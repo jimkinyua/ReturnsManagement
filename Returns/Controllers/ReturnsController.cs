@@ -26,6 +26,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using System.ComponentModel.DataAnnotations;
 using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.Returns.Returns_Analysis;
+using System.Text;
 
 namespace Returns.Controllers
 {
@@ -39,15 +40,15 @@ namespace Returns.Controllers
         private readonly IEmailService _emailService;
         private readonly IReturnAssignmentService _returnAssignmentService;
         private readonly IWorkflowEngineService _workflowService;
-        private readonly ICamelsAnalysisService  camelsAnalysisService;
+        private readonly ICamelsAnalysisService camelsAnalysisService;
         private readonly IComplianceService complianceService;
         private readonly FormResubmissionService _resubmissionService;
-        private readonly IReturnChild _returnChild; 
+        private readonly IReturnChild _returnChild;
 
 
 
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger,  IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild)
         {
             _context = context;
             _logger = logger;
@@ -64,7 +65,7 @@ namespace Returns.Controllers
 
         [HttpPost("CheckConsistency")]
         public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
-        {   
+        {
 
             try
             {
@@ -109,24 +110,24 @@ namespace Returns.Controllers
                         }, TaskContinuationOptions.OnlyOnRanToCompletion);
 
 
-                         _ = Task.Run(async () =>
-                        {
-                          try
-                             {
-                                 await _emailService.SendEmailWithAttachmentAsync(
-                                     SaccoDetails.OfficialSaccoEmail,
-                                     "Validation Report - Consistency Errors",
-                                     "PFA",
-                                     ConsistencyReport,
-                                     $"ValidationReport_{CommonPeriod}.pdf"
-                                 );
-                                 _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                             }
-                             catch (Exception ex)
-                             {
-                                 _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                             }
-                         });
+                        _ = Task.Run(async () =>
+                       {
+                           try
+                           {
+                               await _emailService.SendEmailWithAttachmentAsync(
+                                    SaccoDetails.OfficialSaccoEmail,
+                                    "Validation Report - Consistency Errors",
+                                    "PFA",
+                                    ConsistencyReport,
+                                    $"ValidationReport_{CommonPeriod}.pdf"
+                                );
+                               _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                           }
+                           catch (Exception ex)
+                           {
+                               _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                           }
+                       });
 
                         return BadRequest(ConsistencyErrors);
                     }
@@ -194,8 +195,8 @@ namespace Returns.Controllers
             }
             catch (Exception ex)
             {
-               var errors = CustomErrorHandler.HandleException(ex);
-               var errorsasString = string.Join(", ", errors);
+                var errors = CustomErrorHandler.HandleException(ex);
+                var errorsasString = string.Join(", ", errors);
                 return StatusCode(500, errorsasString);
 
             }
@@ -525,9 +526,9 @@ namespace Returns.Controllers
                 if (!isValid)
                 {
                     ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                   /* IDocument report = new ConsistencyReport(validationResult, "Test", "System");
-                    var pdfBytes = report.GeneratePdf();
-                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");*/
+                    /* IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                     var pdfBytes = report.GeneratePdf();
+                     await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");*/
 
                 }
             }
@@ -555,14 +556,14 @@ namespace Returns.Controllers
         {
             try
             {
-              var FormDetails = await _context.ReturnForms
-                    .Include(f => f.Period)
-                    .FirstOrDefaultAsync(f => f.Id == FormId);
+                var FormDetails = await _context.ReturnForms
+                      .Include(f => f.Period)
+                      .FirstOrDefaultAsync(f => f.Id == FormId);
                 if (FormDetails == null)
                 {
                     return NotFound("Form not found");
                 }
-                var ReturnDetails =  await _context.Returns.FindAsync(ReturnId);
+                var ReturnDetails = await _context.Returns.FindAsync(ReturnId);
                 if (ReturnDetails == null)
                 {
                     return NotFound("Return not found");
@@ -572,7 +573,7 @@ namespace Returns.Controllers
 
                 var childDetails = await _returnChild.GetChildDetailsByFormType(ChildId, FormType, SaccoType);
 
-               return Ok(childDetails);
+                return Ok(childDetails);
             }
             catch (Exception ex)
             {
@@ -612,20 +613,24 @@ namespace Returns.Controllers
                     var form = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == upload.FormId);
                     if (form != null)
                     {
-                        var (endDate, year) = await _formProcessor.ExtractReportingEndDate(upload.formFile, form, loggedInSacco.SaccoType);
-
-                        if (endDate != DateTime.MinValue && !string.IsNullOrEmpty(year))
+                        // Skip validation for management forms since they don't have periods
+                        if (!form.IsManagement)
                         {
-                            if (PeriodToUse == string.Empty)
+                            var (endDate, year) = await _formProcessor.ExtractReportingEndDate(upload.formFile, form, loggedInSacco.SaccoType);
+
+                            if (endDate != DateTime.MinValue && !string.IsNullOrEmpty(year))
                             {
-                                // First valid form sets the period
-                                PeriodToUse = year;
-                            }
-                            else if (PeriodToUse != year)
-                            {
-                                // If we find a different period, flag inconsistency
-                                ConError.Add($"Form {form.FormName} has period {year} which differs from {PeriodToUse}. Are you using the Correct template? ");
-                                IsConsistent = false;
+                                if (PeriodToUse == string.Empty)
+                                {
+                                    // First valid form sets the period
+                                    PeriodToUse = year;
+                                }
+                                else if (PeriodToUse != year)
+                                {
+                                    // If we find a different period, flag inconsistency
+                                    ConError.Add($"Form {form.Code} has period {year} which differs from {PeriodToUse}. Are you using the Correct template? ");
+                                    IsConsistent = false;
+                                }
                             }
                         }
                     }
@@ -675,7 +680,7 @@ namespace Returns.Controllers
                         var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
                         if (!isValid)
                         {
-                    
+
                             ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
                         }
                     }
@@ -706,59 +711,49 @@ namespace Returns.Controllers
                 }
                 var ratingResult = await camelsAnalysisService.CalculateAnalysisAsync(PreviousReturnDetails.Id, PreviousReturnDetails.SaccoType);
                 var WorkFlowResult = await _workflowService.StartWorkflowAsync(PreviousReturnDetails, ratingResult.OverallRating);
-                
+
                 await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
-                // Loop thru the Forms, Check If nay is late then send an Email saying the same 
+
+                var lateForms = new List<(string FormName, DateTime DueDate, DateTime SubmissionDate)>();
+                var saccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
                 foreach (var form in createFormDTO.FormUploads)
                 {
                     if (form.formFile == null) continue;
+
                     var formDetails = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
-                    var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
                     if (formDetails != null)
                     {
                         (DateTime reportingStartDate, DateTime reportingEndDate) = returnsHelper.GetReportingPeriod(formDetails, DateTime.Now);
-
                         DateTime dueDate = returnsHelper.GetDueDate(formDetails, reportingEndDate);
 
-                        // is today after due date?
+                        // Check if submission is late
                         if (DateTime.Now > dueDate)
                         {
-                            var subject = $"Late Submission – {formDetails.FormName} Return";
-
-                            var body = $"""
-                            Dear {SaccoDetails.SaccoName} Team,
-
-                            Thank you for submitting your **{formDetails.FormName}** return.  
-                            Please note that it was received **after the statutory deadline**.  
-                            Under the Regulations, late submissions may attract penalties or additional supervisory follow-up.
-
-                            Kindly ensure future returns are lodged on or before their due dates to remain in full compliance.
-
-                            Regards,
-
-                            Compliance Desk
-                            """;
-
-                            _ = _emailService
-                            .SendEmailAsync(
-                                SaccoDetails.OfficialSaccoEmail,
-                                subject,
-                                body)
-                            .ContinueWith(t =>
-                            {
-                                if (t.IsFaulted)
-                                {
-                                    _logger.LogError(t.Exception, "Failed to send validation-report email.");
-                                }
-                                else
-                                {
-                                    _logger.LogInformation("Validation-report email sent successfully.");
-                                }
-                            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                            lateForms.Add((formDetails.FormName, dueDate, DateTime.Now));
                         }
-                       
-
                     }
+                }
+                if (lateForms.Any())
+                {
+                    var subject = lateForms.Count == 1
+                        ? $"Late Submission – {lateForms.First().FormName} Return"
+                        : $"Late Submissions – {lateForms.Count} Returns";
+
+                    var body = GenerateLateFormsEmailBody(saccoDetails.SaccoName, lateForms);
+
+                    await _emailService
+                        .SendEmailAsync(saccoDetails.OfficialSaccoEmail, subject, body)
+                        .ContinueWith(t =>
+                        {
+                            if (t.IsFaulted)
+                            {
+                                _logger.LogError(t.Exception, "Failed to send late forms notification email.");
+                            }
+                            else
+                            {
+                                _logger.LogInformation($"Late forms notification email sent successfully for {lateForms.Count} form(s).");
+                            }
+                        });
                 }
 
                 return Ok(processingMessages);
@@ -770,6 +765,40 @@ namespace Returns.Controllers
             }
 
         }
+
+        private string GenerateLateFormsEmailBody(string saccoName, List<(string FormName, DateTime DueDate, DateTime SubmissionDate)> lateForms)
+        {
+            var body = new StringBuilder();
+            body.AppendLine($"Dear {saccoName} Team,");
+            body.AppendLine();
+
+            if (lateForms.Count == 1)
+            {
+                var form = lateForms.First();
+                body.AppendLine($"Thank you for submitting your **{form.FormName}** return.");
+                body.AppendLine($"Please note that it was received **after the statutory deadline** of {form.DueDate:dd MMM yyyy}.");
+            }
+            else
+            {
+                body.AppendLine($"Thank you for submitting your returns. However, we note that the following {lateForms.Count} returns were received **after their statutory deadlines**:");
+                body.AppendLine();
+
+                foreach (var form in lateForms)
+                {
+                    body.AppendLine($"• **{form.FormName}** - Due: {form.DueDate:dd MMM yyyy}, Submitted: {form.SubmissionDate:dd MMM yyyy}");
+                }
+            }
+
+            body.AppendLine();
+            body.AppendLine("Under the Regulations, late submissions may attract penalties or additional supervisory follow-up.");
+            body.AppendLine("Kindly ensure future returns are lodged on or before their due dates to remain in full compliance.");
+            body.AppendLine();
+            body.AppendLine("Regards,");
+            body.AppendLine("Compliance Desk");
+
+            return body.ToString();
+        }
+
 
         // Re assign Return 
         [HttpPost("ReassignReturn")]
@@ -794,7 +823,7 @@ namespace Returns.Controllers
         }
 
         [HttpGet("GetSubmittedReturns")]
-        public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedReturns() 
+        public async Task<ActionResult<List<SubmittedReturnDTO>>> GetSubmittedReturns()
         {
             ReturnsHelper returnsHelper = new ReturnsHelper(_context);
             // 1. Load active assignments + their Returns
@@ -825,7 +854,8 @@ namespace Returns.Controllers
                 .Where(r => r.SaccoType == Constants.SaccoType.DepositTaking.ToString())
                 .Where(r => saccoIds.Contains(r.SaccoId))
                 .Where(r => years.Contains(r.ReturnFor.Year))
-                .Select(r => new {
+                .Select(r => new
+                {
                     r.Id,
                     r.PreviousVersionId,
                     r.SaccoId,
@@ -905,7 +935,7 @@ namespace Returns.Controllers
             var activeAssignments = await _context.Returns
                 .Where(a =>
                     a.SaccoType == Constants.SaccoType.DepositTaking.ToString() &&
-                    a.SaccoId == loggedInSacco.SaccoId 
+                    a.SaccoId == loggedInSacco.SaccoId
                 )
                 .ToListAsync();
 
@@ -928,7 +958,8 @@ namespace Returns.Controllers
                 .Where(r => r.SaccoType == Constants.SaccoType.DepositTaking.ToString())
                 .Where(r => saccoIds.Contains(r.SaccoId))
                 .Where(r => years.Contains(r.ReturnFor.Year))
-                .Select(r => new {
+                .Select(r => new
+                {
                     r.Id,
                     r.PreviousVersionId,
                     r.SaccoId,
@@ -1032,7 +1063,8 @@ namespace Returns.Controllers
                 .Where(r => r.SaccoType == Constants.SaccoType.NWDT.ToString())
                 .Where(r => requiredSaccoIds.Contains(r.SaccoId))
                 .Where(r => requiredYears.Contains(r.ReturnFor.Year))
-                .Select(r => new {
+                .Select(r => new
+                {
                     r.Id,
                     r.PreviousVersionId,
                     r.SaccoId,
@@ -1134,7 +1166,8 @@ namespace Returns.Controllers
                 .Where(r => r.SaccoType == Constants.SaccoType.NWDT.ToString())
                 .Where(r => requiredSaccoIds.Contains(r.SaccoId))
                 .Where(r => requiredYears.Contains(r.ReturnFor.Year))
-                .Select(r => new {
+                .Select(r => new
+                {
                     r.Id,
                     r.PreviousVersionId,
                     r.SaccoId,
@@ -1202,7 +1235,7 @@ namespace Returns.Controllers
             return Ok(results);
         }
 
-        
+
         [HttpGet("GetReturnDetails/{returnId}")]
         public async Task<ActionResult<ReturnDetailsDTO>> GetReturnDetails(string returnId)
         {
@@ -1214,8 +1247,9 @@ namespace Returns.Controllers
                     .AsNoTracking()
                     .Where(r => r.Id == returnId)
                     .FirstOrDefaultAsync();
-                if (hdr == null) {
-                    return new ReturnDetailsDTO();   
+                if (hdr == null)
+                {
+                    return new ReturnDetailsDTO();
                 }
 
                 var ApprovalStatus = await _workflowService.GetReturnStatus(hdr.Id);
@@ -1232,7 +1266,7 @@ namespace Returns.Controllers
                     capitalDaysLate = capEntity.DaysLateBy;
                     capitalAdequacy = new CapitalAdequacyDTO
                     {
-                        FormId = capEntity.FormId?? string.Empty,
+                        FormId = capEntity.FormId ?? string.Empty,
                         RequiresResubmission = capEntity.RequiresResubmission,
                         ShareCapital = capEntity.ShareCapital,
                         StatutoryReserves = capEntity.StatutoryReserves,
@@ -1260,7 +1294,7 @@ namespace Returns.Controllers
                         CoreCapitalToAssetsRatio = capEntity.CoreCapitalToAssetsRatio,
                         CoreCapitalToAssetsRatioExcessDeficiency = capEntity.CoreCapitalToAssetsRatioExcessDeficiency,
                         InstitutionalCapitalToAssetsRatio = capEntity.InstitutionalCapitalToAssetsRatio,
-                        InstitutionalCapitalToAssetsRatioExcessDeficiency =capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
+                        InstitutionalCapitalToAssetsRatioExcessDeficiency = capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
                         CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
                         CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
                         FilePath = capEntity.FilePath,
@@ -1443,7 +1477,7 @@ namespace Returns.Controllers
 
                 int riskDaysLate = riskEntities.FirstOrDefault()?.DaysLateBy ?? 0;
                 var riskClassifications = new RiskClassificationDTO();
-                
+
                 if (riskEntities.Any())
                 {
                     var firstEntity = riskEntities.First();
@@ -1451,7 +1485,7 @@ namespace Returns.Controllers
                     riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
                     //riskClassifications.FilePath = firstEntity.FilePath;
                     riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ReturnId, hdr.SaccoType);
-                    
+
                     foreach (var rc in riskEntities)
                     {
                         riskClassifications.RiskClassificationData.Add(new RiskClassificationData
@@ -1569,7 +1603,7 @@ namespace Returns.Controllers
                     };
                 }
 
-       
+
                 var dto = new ReturnDetailsDTO
                 {
                     // header
@@ -1953,7 +1987,7 @@ namespace Returns.Controllers
                               / SavedFinancialPositionStatement.TotalDepositLiabilities
                             : 0,
 
-                    EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
+                        EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
                         NetIncomeToAverageAssets = netIncomeToAverageAssetsRatio,
                         YieldOnGrossLoans = yieldOnGrossLoans,
                         TotalExpenseToTotalIncome = totalExpenseToTotalIncome,
@@ -2445,7 +2479,7 @@ namespace Returns.Controllers
 
                 var approvals = await _context.ApprovalActions
                     .Where(r => r.ReturnId == returnId)
-                    .Include(r=>r.WorkFlowStep)
+                    .Include(r => r.WorkFlowStep)
                     .ToListAsync();
                 report.approvalActions = approvals;
 
@@ -2474,7 +2508,7 @@ namespace Returns.Controllers
         {
             try
             {
-              
+
                 var hdr = await _context.Returns
                     .AsNoTracking()
                     .FirstOrDefaultAsync(r => r.Id == returnId);
@@ -2483,7 +2517,7 @@ namespace Returns.Controllers
 
                 var helper = new ReturnsHelper(_context);
 
-       
+
                 var ca = await _context.NWDTCapitalAdequacyReturns
                                              .AsNoTracking()
                                              .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
@@ -2554,7 +2588,7 @@ namespace Returns.Controllers
                     // capital adequacy
                     NWDTCapitalAdequacy = ca == null ? null : new NWDTCapitalAdequacyDTO
                     {
-                        FormId = ca.Id,
+                        FormId = ca.FormId,
                         RequiresResubmission = ca.RequiresResubmission,
                         ShareCapital = ca.ShareCapital,
                         StatutoryReserves = ca.StatutoryReserves,
@@ -2757,7 +2791,7 @@ namespace Returns.Controllers
                         NWDTRiskClassificationData = risks.Select(rc => new NWDTRiskClassificationData
                         {
                             LoanType = rc.LoanType,
-                            Classification = rc.Classification, 
+                            Classification = rc.Classification,
                             NumberOfAccounts = rc.NumberOfAccounts,
                             OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
                             RequiredProvision = rc.RequiredProvision,
@@ -2924,7 +2958,7 @@ namespace Returns.Controllers
             try
             {
                 var result = await camelsAnalysisService.CalculateAnalysisAsync(currentReturn.Id, currentReturn.SaccoType);
-            
+
                 return Ok(result);
             }
             catch (Exception ex)
@@ -2932,7 +2966,7 @@ namespace Returns.Controllers
                 CustomErrorHandler.LogException(ex);
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-        
+
         }
 
 
@@ -3706,7 +3740,7 @@ namespace Returns.Controllers
                 depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
                 financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
         }
-      
+
 
 
     }

@@ -1449,6 +1449,7 @@ namespace Returns.Helpers
                 {
                     var loan = new InsiderLoan
                     {
+                        SaccoCsNumber = ImportedLendingReport.SaccoSocietyCsNumber,
                         InsiderLendingHeaderId = insiderLendingHeader.Id,
                         LoanCategory = loanDTO.LoanCategory,
                         NameOfBorrower = loanDTO.NameOfBorrower,
@@ -1552,6 +1553,7 @@ namespace Returns.Helpers
                     dailyLiquidity.DaysLateBy = DaysLateBy;
                     dailyLiquidity.SACCOName = liquidityData.SACCOName;
                     dailyLiquidity.CSNO = liquidityData.CSNO;
+                    dailyLiquidity.SaccoCsNumber = liquidityData.CSNO;
 
                 }
 
@@ -3569,6 +3571,7 @@ namespace Returns.Helpers
                             var econData = new EconomicSectorData
                             {
                                 Amount = econDto.Amount,
+                                SaccoCsNumber = ImportedSectoralReport.SaccoCsNumber,
                                 SaccoType = SaccoType,
                                 Category = categoryEntity.CategoryName,
                                 SubCategory = subCategoryEntity.Name,

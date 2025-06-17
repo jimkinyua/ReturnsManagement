@@ -168,8 +168,8 @@ namespace Returns.Helpers
                 var fullFileName = safeFileName + fileExtension;
 
                 // Get the configured storage path from environment variable with proper handling for different path formats
-                string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
-                return "SAVING FILES DISABLED";
+                string hostStoragePath = "C:/inetpub/wwwroot/RBSS/Uploads"; //Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
+                //return "SAVING FILES DISABLED";
                 if (string.IsNullOrEmpty(hostStoragePath))
                 {
                     throw new Exception("HOST_STORAGE_PATH environment variable is not set.");
@@ -211,43 +211,43 @@ namespace Returns.Helpers
         }
 
 
-  
-        public static async Task<string?> SaveReportAsync( byte[] bytes,string folder,string? fileName = null,string extension = ".pdf",CancellationToken ct = default)
-            {
+
+        public static async Task<string?> SaveReportAsync(byte[] bytes, string folder, string? fileName = null, string extension = ".pdf", CancellationToken ct = default)
+        {
             //return "SAVING FILES DISABLED";
             if (bytes is null || bytes.Length == 0)
-                {
-                    return null;
-                }
-
-                folder = string.IsNullOrWhiteSpace(folder) ? "SystemReports"
-                        : new string(folder.Where(c => !Path.GetInvalidPathChars().Contains(c)).ToArray());
-
-                var invalid = Path.GetInvalidFileNameChars();
-
-                var safeName = string.IsNullOrWhiteSpace(fileName)
-                             ? Guid.NewGuid().ToString()
-                             : new string(fileName.Where(ch => !invalid.Contains(ch)).ToArray());
-
-                safeName = $"{safeName}_{DateTime.Now:yyyyMMddHHmmss}{extension}";
-
-                var root = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
-                if (string.IsNullOrWhiteSpace(root))
-                    throw new InvalidOperationException("HOST_STORAGE_PATH environment variable is not set.");
-
-                root = root.Replace('\\', '/'); // normalize
-                var targetDir = Path.Combine(root, folder);
-                Directory.CreateDirectory(targetDir);          // idempotent
-
-                var fullPath = Path.Combine(targetDir, safeName);
-                await File.WriteAllBytesAsync(fullPath, bytes, ct);
-                var endpoint = Environment.GetEnvironmentVariable("FILE_API_ENDPOINT") ?? "/api/files";
-                if (!endpoint.StartsWith('/')) endpoint = '/' + endpoint;
-
-                var url = $"/gateway{endpoint}/{folder}/{safeName}";
-                return url;
+            {
+                return null;
             }
-        
+
+            folder = string.IsNullOrWhiteSpace(folder) ? "SystemReports"
+                    : new string(folder.Where(c => !Path.GetInvalidPathChars().Contains(c)).ToArray());
+
+            var invalid = Path.GetInvalidFileNameChars();
+
+            var safeName = string.IsNullOrWhiteSpace(fileName)
+                         ? Guid.NewGuid().ToString()
+                         : new string(fileName.Where(ch => !invalid.Contains(ch)).ToArray());
+
+            safeName = $"{safeName}_{DateTime.Now:yyyyMMddHHmmss}{extension}";
+
+            var root = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
+            if (string.IsNullOrWhiteSpace(root))
+                throw new InvalidOperationException("HOST_STORAGE_PATH environment variable is not set.");
+
+            root = root.Replace('\\', '/'); // normalize
+            var targetDir = Path.Combine(root, folder);
+            Directory.CreateDirectory(targetDir);          // idempotent
+
+            var fullPath = Path.Combine(targetDir, safeName);
+            await File.WriteAllBytesAsync(fullPath, bytes, ct);
+            var endpoint = Environment.GetEnvironmentVariable("FILE_API_ENDPOINT") ?? "/api/files";
+            if (!endpoint.StartsWith('/')) endpoint = '/' + endpoint;
+
+            var url = $"/gateway{endpoint}/{folder}/{safeName}";
+            return url;
+        }
+
 
 
         // DeleteFile

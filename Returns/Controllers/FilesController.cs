@@ -21,7 +21,7 @@ namespace Returns.Controllers
         public FilesController(ILogger<FilesController> logger)
         {
             _logger = logger;
-            _hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH") ?? "C:/inetpub/wwwroot/RBSS/Uploads";
+            _hostStoragePath = "C:/inetpub/wwwroot/RBSS/Uploads"; //Environment.GetEnvironmentVariable("HOST_STORAGE_PATH") ?? "C:/inetpub/wwwroot/RBSS/Uploads";
             _contentTypeProvider = new FileExtensionContentTypeProvider();
             AddContentTypeMappings(_contentTypeProvider.Mappings);
         }
