@@ -168,7 +168,7 @@ namespace Returns.Helpers
                 var fullFileName = safeFileName + fileExtension;
 
                 // Get the configured storage path from environment variable with proper handling for different path formats
-                string hostStoragePath = "C:/inetpub/wwwroot/RBSS/Uploads"; //Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
+                string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH") ?? "C:/inetpub/wwwroot/RBSS/Uploads";
                 //return "SAVING FILES DISABLED";
                 if (string.IsNullOrEmpty(hostStoragePath))
                 {
