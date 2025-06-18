@@ -140,8 +140,15 @@ namespace Returns.Helpers
 
             try
             {
-                folder = string.IsNullOrEmpty(folder) ? "default" :
-                    new string(folder.Where(c => !Path.GetInvalidPathChars().Contains(c)).ToArray());
+                // Clean and validate folder name
+                folder = string.IsNullOrEmpty(folder) ? "default" :new string(folder.Where(c => !Path.GetInvalidPathChars().Contains(c)).ToArray());
+                var ModuleFolder = "Returns";
+                folder = Path.Combine(ModuleFolder, folder);
+                // Ensure the folder name is safe
+                if (folder.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
+                {
+                    throw new ArgumentException("Folder name contains invalid characters.");
+                }
 
                 string safeFileName;
                 if (string.IsNullOrEmpty(fileName))
@@ -161,21 +168,18 @@ namespace Returns.Helpers
                 string fileExtension = Path.GetExtension(file.FileName);
                 if (string.IsNullOrEmpty(fileExtension))
                 {
-                    // Default to .bin if no extension
                     fileExtension = ".bin";
                 }
 
                 var fullFileName = safeFileName + fileExtension;
 
-                // Get the configured storage path from environment variable with proper handling for different path formats
+                // Get storage path
                 string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH") ?? "C:/inetpub/wwwroot/RBSS/Uploads";
-                //return "SAVING FILES DISABLED";
+
                 if (string.IsNullOrEmpty(hostStoragePath))
                 {
                     throw new Exception("HOST_STORAGE_PATH environment variable is not set.");
                 }
-
-                hostStoragePath = hostStoragePath.Replace('\\', '/'); // Normalize path separators
 
                 var targetFolderPath = Path.Combine(hostStoragePath, folder);
 
@@ -197,14 +201,18 @@ namespace Returns.Helpers
                     fileEndpoint = "/" + fileEndpoint;
                 }
 
+                // URL encode the folder and filename to handle spaces and special characters
+                string encodedFolder = Uri.EscapeDataString(folder);
+                string encodedFileName = Uri.EscapeDataString(fullFileName);
+
                 // Generate URL for the file that works with API Gateway
-                string fileUrl = $"/gateway{fileEndpoint}/{folder}/{fullFileName}";
+                string fileUrl = $"/gateway{fileEndpoint}/{encodedFolder}/{encodedFileName}";
 
                 return fileUrl;
             }
             catch (Exception ex)
             {
-                // Log the exception
+                // Log the exception (consider using proper logging instead of Console.WriteLine)
                 Console.WriteLine($"Error saving file: {ex.Message}");
                 return null;
             }
