@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Returns.Controllers
 {
-    [Route("api/returns")]
+    [Route("api/files")]
     [ApiController]
     public class FilesController : ControllerBase
     {
