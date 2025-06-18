@@ -55,36 +55,50 @@ namespace Returns.Controllers
             mappings[".rar"] = "application/x-rar-compressed";
         }
 
-        [HttpGet("{folder}/{filename}")]
-        public async Task<IActionResult> GetFile(string folder, string filename, [FromQuery] bool download = false)
+        [HttpGet("{*filepath}")]
+        public async Task<IActionResult> GetFile(string filepath, [FromQuery] bool download = false)
         {
             try
             {
                 // Validate input to prevent path traversal attacks
-                if (string.IsNullOrEmpty(folder) || string.IsNullOrEmpty(filename) ||
-                    folder.Contains("..") || filename.Contains("..") ||
-                    Path.GetInvalidPathChars().Any(c => folder.Contains(c) || filename.Contains(c)))
+                if (string.IsNullOrEmpty(filepath) ||
+                    filepath.Contains("..") ||
+                    Path.GetInvalidPathChars().Any(c => filepath.Contains(c)))
                 {
-                    return BadRequest("Invalid folder or filename");
+                    return BadRequest("Invalid file path");
                 }
 
-                var filePath = Path.Combine(_hostStoragePath, folder, filename);
-
-                // Check if file exists
-                if (!System.IO.File.Exists(filePath))
+                // Split the path to get folder structure and filename
+                var pathParts = filepath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (pathParts.Length == 0)
                 {
-                    _logger.LogWarning($"File not found: {filePath}");
+                    return BadRequest("Invalid file path");
+                }
+
+                var filename = pathParts.Last();
+                var folderPath = string.Join(Path.DirectorySeparatorChar, pathParts.Take(pathParts.Length - 1));
+                var fullPath = string.IsNullOrEmpty(folderPath)? Path.Combine(_hostStoragePath, filename):Path.Combine(_hostStoragePath, folderPath, filename);
+
+                // Security check: ensure the resolved path is within the storage directory
+                var resolvedPath = Path.GetFullPath(fullPath);
+                var storagePath = Path.GetFullPath(_hostStoragePath);
+                if (!resolvedPath.StartsWith(storagePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("Access to the specified file is denied.");
+                }
+
+                if (!System.IO.File.Exists(resolvedPath))
+                {
+                    _logger.LogWarning($"File not found: {resolvedPath}");
                     return NotFound($"The file {filename} was not found.");
                 }
 
-                // Determine content type
-                if (!_contentTypeProvider.TryGetContentType(filePath, out var contentType))
+                if (!_contentTypeProvider.TryGetContentType(resolvedPath, out var contentType))
                 {
                     contentType = "application/octet-stream";
                 }
 
-                // Read the file
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+                var fileBytes = await System.IO.File.ReadAllBytesAsync(resolvedPath);
 
                 // Determine if the file should be shown inline or as an attachment
                 string disposition = download ? "attachment" : "inline";
@@ -103,37 +117,43 @@ namespace Returns.Controllers
 
                 // Set content disposition header
                 Response.Headers.Append("Content-Disposition", $"{disposition}; filename=\"{filename}\"");
-
+               
                 return File(
-                    fileBytes,
-                    contentType,
-                    enableRangeProcessing: true);
+                  fileBytes,
+                  contentType,
+                  enableRangeProcessing: true
+                );
+
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error retrieving file {folder}/{filename}");
+                _logger.LogError(ex, $"Error retrieving file {filepath}");
                 return StatusCode(500, "An error occurred while retrieving the file.");
             }
         }
 
-        [HttpGet("list/{folder?}")]
-        public IActionResult ListFiles(string folder = "")
+        [HttpGet("list/{*folderPath}")]
+        public IActionResult ListFiles(string folderPath = "")
         {
             try
             {
-                // Validate folder name
-                if (folder != null && (folder.Contains("..") || Path.GetInvalidPathChars().Any(c => folder.Contains(c))))
+                // Handle URL decoding and path validation
+                if (!string.IsNullOrEmpty(folderPath))
                 {
-                    return BadRequest("Invalid folder name");
+                    folderPath = Uri.UnescapeDataString(folderPath);
+                    if (folderPath.Contains("..") || Path.GetInvalidPathChars().Any(c => folderPath.Contains(c)))
+                    {
+                        return BadRequest("Invalid folder path");
+                    }
                 }
 
-                string targetPath = string.IsNullOrEmpty(folder)
+                string targetPath = string.IsNullOrEmpty(folderPath)
                     ? _hostStoragePath
-                    : Path.Combine(_hostStoragePath, folder);
+                    : Path.Combine(_hostStoragePath, folderPath);
 
                 if (!Directory.Exists(targetPath))
                 {
-                    return NotFound($"Folder '{folder}' not found");
+                    return NotFound($"Folder '{folderPath}' not found");
                 }
 
                 var files = Directory.GetFiles(targetPath)
@@ -144,16 +164,31 @@ namespace Returns.Controllers
                         size = fileInfo.Length,
                         lastModified = fileInfo.LastWriteTime,
                         type = GetFileType(fileInfo.Extension),
-                        url = $"/gateway/api/files/{folder}/{fileInfo.Name}",
-                        downloadUrl = $"/gateway/api/files/{folder}/{fileInfo.Name}?download=true"
+                        relativePath = string.IsNullOrEmpty(folderPath)
+                            ? fileInfo.Name
+                            : $"{folderPath}/{fileInfo.Name}",
+                        url = $"/gateway/api/files/{(string.IsNullOrEmpty(folderPath) ? fileInfo.Name : $"{folderPath}/{fileInfo.Name}")}",
+                        downloadUrl = $"/gateway/api/files/{(string.IsNullOrEmpty(folderPath) ? fileInfo.Name : $"{folderPath}/{fileInfo.Name}")}?download=true"
                     })
                     .ToList();
 
-                return Ok(new { files });
+                var folders = Directory.GetDirectories(targetPath)
+                    .Select(dirPath => new DirectoryInfo(dirPath))
+                    .Select(dirInfo => new
+                    {
+                        name = dirInfo.Name,
+                        type = "folder",
+                        relativePath = string.IsNullOrEmpty(folderPath)
+                            ? dirInfo.Name
+                            : $"{folderPath}/{dirInfo.Name}"
+                    })
+                    .ToList();
+
+                return Ok(new { files, folders });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error listing files in folder '{folder}'");
+                _logger.LogError(ex, $"Error listing files in folder '{folderPath}'");
                 return StatusCode(500, "An error occurred while listing files");
             }
         }
