@@ -44,12 +44,18 @@ namespace Returns.Controllers
         private readonly IComplianceService complianceService;
         private readonly FormResubmissionService _resubmissionService;
         private readonly IReturnChild _returnChild;
-
-
-
+        private readonly IConfiguration _configuration;
 
         public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild)
         {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            _configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json")
+                .AddJsonFile($"appsettings.{environment}.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+
             _context = context;
             _logger = logger;
             _formProcessor = new FormProcessingService(context, logger);
@@ -1241,6 +1247,8 @@ namespace Returns.Controllers
         {
             try
             {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+
                 var helper = new ReturnsHelper(_context);
 
                 Return? hdr = await _context.Returns
@@ -1297,7 +1305,7 @@ namespace Returns.Controllers
                         InstitutionalCapitalToAssetsRatioExcessDeficiency = capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
                         CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
                         CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
-                        FilePath = capEntity.FilePath,
+                        FilePath = $"{baseUrl}{capEntity.FilePath}",
                         PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ReturnId, hdr.SaccoType)
                     };
                 }
@@ -1369,7 +1377,7 @@ namespace Returns.Controllers
                         NonOperatingExpense = incomeEntity.NonOperatingExpense,
                         Taxes = incomeEntity.Taxes,
                         Donations = incomeEntity.Donations,
-                        FilePath = incomeEntity.FilePath,
+                        FilePath = $"{baseUrl}{incomeEntity.FilePath}",
                         PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ReturnId, hdr.SaccoType)
                     };
                 }
@@ -1419,7 +1427,7 @@ namespace Returns.Controllers
                         PriorYearsRetainedEarnings = balanceEntity.PriorYearsRetainedEarnings,
                         CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
                         StatutoryReserve = balanceEntity.StatutoryReserve,
-                        FilePath = balanceEntity.FilePath,
+                        FilePath = $"{baseUrl}{balanceEntity.FilePath}",
                         PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ReturnId, hdr.SaccoType)
                     };
                 }
@@ -1464,7 +1472,7 @@ namespace Returns.Controllers
                         LiquidityRatioExcessDeficit = liquidityEntity.LiquidityRatioExcessDeficit,
                         NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
                         NetBankBalances = liquidityEntity.NetBankBalances,
-                        FilePath = liquidityEntity.FilePath,
+                        FilePath = $"{baseUrl}{liquidityEntity.FilePath}",
                         PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ReturnId, hdr.SaccoType)
                     };
                 }
@@ -1496,7 +1504,7 @@ namespace Returns.Controllers
                             OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
                             RequiredProvision = rc.RequiredProvision,
                             RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                            FilePath = rc.FilePath
+                            FilePath = $"{baseUrl}{rc.FilePath}"
                         });
                     }
                 }
@@ -1555,7 +1563,7 @@ namespace Returns.Controllers
                         FinancialInvestmentsToDepositsRatio = investmentEntity.FinancialInvestmentsToDepositsRatio,
                         FinancialInvestmentsToDepositsExcessDeficiency =
                             investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
-                        FilePath = investmentEntity.FilePath,
+                        FilePath = $"{baseUrl}{investmentEntity.FilePath}",
                         PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ReturnId, hdr.SaccoType)
                     };
                 }
