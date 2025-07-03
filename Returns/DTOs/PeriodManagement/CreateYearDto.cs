@@ -7,7 +7,8 @@ namespace Returns.DTOs.PeriodManagement
         [Required]
         [Range(2000, 2100, ErrorMessage = "Year must be between 2000 and 2100")]
         public int Year { get; set; }
-
+        public DateTime EndDateDate { get; set; }
+        public DateTime StartDate { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

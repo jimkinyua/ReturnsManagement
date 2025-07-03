@@ -34,7 +34,10 @@ namespace Returns.Controllers
                     IsActive = y.IsActive,
                     CreatedAt = y.CreatedAt,
                     CreatedBy = y.CreatedBy,
-                    PeriodCount = y.Periods.Count
+                    PeriodCount = y.Periods.Count,
+                    EndDateDate = y.EndDateDate,
+                    StartDate = y.StartDate
+
                 })
                 .ToListAsync();
 
@@ -55,7 +58,9 @@ namespace Returns.Controllers
                     IsActive = y.IsActive,
                     CreatedAt = y.CreatedAt,
                     CreatedBy = y.CreatedBy,
-                    PeriodCount = y.Periods.Count
+                    PeriodCount = y.Periods.Count,
+                    EndDateDate = y.EndDateDate,
+                    StartDate = y.StartDate
                 })
                 .FirstOrDefaultAsync();
 
@@ -88,7 +93,9 @@ namespace Returns.Controllers
                     Year = createYearDto.Year,
                     IsActive = createYearDto.IsActive,
                     CreatedBy = currentUser,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now,
+                    StartDate = createYearDto.StartDate,
+                    EndDateDate = createYearDto.EndDateDate
                 };
 
                 _context.ReportingYears.Add(reportingYear);
@@ -101,6 +108,8 @@ namespace Returns.Controllers
                     IsActive = reportingYear.IsActive,
                     CreatedAt = reportingYear.CreatedAt,
                     CreatedBy = reportingYear.CreatedBy,
+                    StartDate = reportingYear.StartDate,
+                    EndDateDate = reportingYear.EndDateDate,
                     PeriodCount = 0
                 };
 

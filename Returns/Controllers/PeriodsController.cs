@@ -118,7 +118,7 @@ namespace Returns.Controllers
             {
                 foreach (var q in periodDTO.QuarterDates)
                 {
-                    var startParts = q.StartDate.Split(' ');
+                    var startParts = q.EndDateDate.Split(' ');
                     var endParts = q.EndDate.Split(' ');
 
                     var quarterDate = new QuarterDates
@@ -188,7 +188,7 @@ namespace Returns.Controllers
                 foreach (var q in periodDTO.QuarterDates)
                 {
                     var existingQD = existingQuarterDates.FirstOrDefault(x => x.Id == q.Id);
-                    var startParts = q.StartDate.Split(' ');
+                    var startParts = q.EndDateDate.Split(' ');
                     var endParts = q.EndDate.Split(' ');
 
                     if (existingQD != null)

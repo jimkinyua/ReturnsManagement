@@ -12,6 +12,9 @@ namespace Returns.Models
         [Required]
         public int Year { get; set; } // e.g., 2025
 
+        public DateTime EndDateDate { get; set; }
+        public DateTime StartDate { get; set; }
+        
         [Required]
         public bool IsActive { get; set; } = true;
 

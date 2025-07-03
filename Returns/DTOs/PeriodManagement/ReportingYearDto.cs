@@ -6,6 +6,8 @@ namespace Returns.DTOs.PeriodManagement
         public int Year { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+        public DateTime EndDateDate { get; set; }
+        public DateTime StartDate { get; set; }
         public string CreatedBy { get; set; } = null!;
         public int PeriodCount { get; set; } // Count of periods in this year
     }
