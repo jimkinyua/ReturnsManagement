@@ -24,6 +24,9 @@ namespace Returns.Models.Data
             // optionsBuilder.UseSqlServer(config.GetConnectionString("DefaultConnection"));
         }
 
+        // Period Management Tables
+        public DbSet<FrequencyCatalog> FrequencyCatalogs { get; set; }
+        public DbSet<ReportingYear> ReportingYears { get; set; }
         public DbSet<Period> Periods { get; set; }
         //public DbSet<QuarterDates> QuarterDates { get; set; }
         public DbSet<ReturnForm> ReturnForms { get; set; }
@@ -70,6 +73,42 @@ namespace Returns.Models.Data
         public DbSet<WorkflowInstance> WorkflowInstances { get; set; }
         public DbSet<FormResubmissionRequest> FormResubmissionRequests { get; set; }
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Configure FrequencyCatalog
+            modelBuilder.Entity<FrequencyCatalog>(entity =>
+            {
+                entity.HasIndex(e => e.Code).IsUnique();
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            // Configure ReportingYear
+            modelBuilder.Entity<ReportingYear>(entity =>
+            {
+                entity.HasIndex(e => e.Year).IsUnique();
+            });
+
+            // Configure Period
+            modelBuilder.Entity<Period>(entity =>
+            {
+                entity.HasIndex(e => new { e.YearId, e.FrequencyId, e.SequenceNo }).IsUnique();
+                entity.HasIndex(e => new { e.FrequencyId, e.StartDate });
+                entity.HasIndex(e => new { e.YearId, e.Name });
+                
+                // Configure relationships
+                entity.HasOne(p => p.ReportingYear)
+                    .WithMany(y => y.Periods)
+                    .HasForeignKey(p => p.YearId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                    
+                entity.HasOne(p => p.FrequencyCatalog)
+                    .WithMany(f => f.Periods)
+                    .HasForeignKey(p => p.FrequencyId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+        }
     }   
 
 }

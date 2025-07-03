@@ -287,6 +287,95 @@ namespace Returns.Helpers
             context.IndicatorRatingThresholds.AddRange(ratingThresholds);
             context.SaveChanges();
         }
+        
+        public void SeedFrequencyCatalog(ReturnsDbContext context)
+        {
+            // Check if any frequency catalogs already exist
+            if (!context.FrequencyCatalogs.Any())
+            {
+                var frequencyCatalogs = new List<Models.FrequencyCatalog>
+                {
+                    new Models.FrequencyCatalog 
+                    { 
+                        Code = "DAY",
+                        Name = "Daily",
+                        IntervalDays = 1,
+                        DefaultDeadlineOffset = 1,
+                        LabelStrategy = "DATE",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog 
+                    { 
+                        Code = "WK",
+                        Name = "Weekly",
+                        IntervalDays = 7,
+                        DefaultDeadlineOffset = 3,
+                        LabelStrategy = "ISO_WEEK",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog 
+                    { 
+                        Code = "BWK",
+                        Name = "Bi-Weekly",
+                        IntervalDays = 14,
+                        DefaultDeadlineOffset = 5,
+                        LabelStrategy = "BI_WEEK",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog 
+                    { 
+                        Code = "MTH",
+                        Name = "Monthly",
+                        IntervalDays = 30, // Approximate, actual generation will handle month variations
+                        DefaultDeadlineOffset = 15,
+                        LabelStrategy = "MONTH",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog 
+                    { 
+                        Code = "QTR",
+                        Name = "Quarterly",
+                        IntervalDays = 90, // Approximate, actual generation will handle quarter variations
+                        DefaultDeadlineOffset = 30,
+                        LabelStrategy = "QUARTER",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog 
+                    { 
+                        Code = "SEMI",
+                        Name = "Semi-Annual",
+                        IntervalDays = 180, // Approximate
+                        DefaultDeadlineOffset = 45,
+                        LabelStrategy = "SEMI_ANNUAL",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog 
+                    { 
+                        Code = "FY",
+                        Name = "Annual",
+                        IntervalDays = 365, // Approximate, actual generation will handle year variations
+                        DefaultDeadlineOffset = 60,
+                        LabelStrategy = "YEAR",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    }
+                };
+
+                context.FrequencyCatalogs.AddRange(frequencyCatalogs);
+                context.SaveChanges();
+                Console.WriteLine("FrequencyCatalog table seeded successfully.");
+            }
+            else
+            {
+                Console.WriteLine("FrequencyCatalog table already contains data. Skipping seed operation.");
+            }
+        }
     }
 }
 

@@ -229,6 +229,7 @@ internal class Program
                 var dbInitializer = services.GetRequiredService<DbInitializer>();
                 dbInitializer.IntialiseCamelData(context);
                 dbInitializer.SeedPeriods(context);
+                dbInitializer.SeedFrequencyCatalog(context);
 
                 Console.WriteLine("Database migration and seeding complete");
                 return; // Success - exit the retry loop
