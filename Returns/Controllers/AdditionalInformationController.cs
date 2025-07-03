@@ -315,7 +315,7 @@ namespace Returns.Controllers
             if (loggedPerson == null || string.IsNullOrEmpty(loggedPerson.UserId))
             {
                 return StatusCode(401);
-            }
+            } 
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);

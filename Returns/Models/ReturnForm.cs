@@ -23,9 +23,9 @@ namespace Returns.Models
         public bool IsDepositReturnForm { get; set; } = false;
         [ForeignKey("Period")]
         public string PeriodId { get; set; } = null!;
-        public Period Period { get; set; } = null!;
-        //[ForeignKey("Period")]
+        public ReturnPeriods Period { get; set; } = null!;
+        //[ForeignKey("ReturnPeriods")]
         //public string PeriodId { get; set; } = null!;
-        //public Period Period { get; set; } = null!;
+        //public ReturnPeriods ReturnPeriods { get; set; } = null!;
     }
 }

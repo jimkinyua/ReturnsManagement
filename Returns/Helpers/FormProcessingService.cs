@@ -377,7 +377,7 @@ namespace Returns.Helpers
                         SaccoCsNumber = OldReturn.SaccoCsNumber,
                         SaccoType = OldReturn.SaccoType,
                         SaccoName = OldReturn.SaccoName,
-                        Period = OldReturn.Period,
+                        ReturnPeriods = OldReturn.ReturnPeriods,
                         Year = OldReturn.Year,
                         SubmittedAt = DateTime.Now,
                         ReturnFor = OldReturn.ReturnFor,

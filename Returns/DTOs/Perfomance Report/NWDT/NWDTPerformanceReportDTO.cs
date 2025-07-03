@@ -13,7 +13,7 @@ namespace Returns.DTOs.Perfomance_Report.NWDT
 
         public class NWDTPeriodData
         {
-            // Period Information
+            // ReturnPeriods Information
             public string PeriodLabel { get; set; }
             public string PeriodType { get; set; }
             public DateTime PeriodDate { get; set; }

@@ -24,7 +24,7 @@ namespace Returns.Controllers
         [HttpGet("GetPeriods")]
         public async Task<ActionResult<IEnumerable<PeriodDTO>>> GetPeriods()
         {
-            var periodsList = await _context.Periods
+            var periodsList = await _context.ReturnPeriods
                 .ToListAsync();
 
             List<PeriodDTO> periods = periodsList.Select(period => new PeriodDTO
@@ -42,11 +42,11 @@ namespace Returns.Controllers
         }
 
 
-        // GET: api/Periods/5
+        // GET: api/ReturnPeriods/5
        /* [HttpGet("{id}")]
         public async Task<ActionResult<PeriodDTO>> GetPeriod(string id)
         {
-            var period = await _context.Periods
+            var period = await _context.ReturnPeriods
                 .Include(p => p.QuarterDates)
                 .Include(p => p.ReturnForms)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -93,12 +93,12 @@ namespace Returns.Controllers
             return Ok(periodDTO);
         }*/
 
-        // POST: api/Periods
+        // POST: api/ReturnPeriods
        /* [HttpPost]
         public async Task<ActionResult<PeriodDTO>> CreatePeriod(PeriodDTO periodDTO)
         {
-            // Create Period object
-            var period = new Period
+            // Create ReturnPeriods object
+            var period = new ReturnPeriods
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = periodDTO.Name,
@@ -138,14 +138,14 @@ namespace Returns.Controllers
                 }
             }
 
-            _context.Periods.Add(period);
+            _context.ReturnPeriods.Add(period);
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetPeriod), new { id = period.Id }, periodDTO);
         }*/
 
 
-        // PUT: api/Periods/5
+        // PUT: api/ReturnPeriods/5
         /*[HttpPut("{id}")]
         public async Task<IActionResult> UpdatePeriod(string id, PeriodDTO periodDTO)
         {
@@ -154,7 +154,7 @@ namespace Returns.Controllers
                 return BadRequest();
             }
 
-            var period = await _context.Periods
+            var period = await _context.ReturnPeriods
                 .Include(p => p.QuarterDates) // Include related QuarterDates
                 .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -163,7 +163,7 @@ namespace Returns.Controllers
                 return NotFound();
             }
 
-            // Update main Period fields
+            // Update main ReturnPeriods fields
             period.Name = periodDTO.Name;
             period.IsQuaterly = periodDTO.IsQuartely;
             period.DeadlineDay = int.Parse(periodDTO.Deadline.Split(' ')[1]);
@@ -244,17 +244,17 @@ namespace Returns.Controllers
         }*/
 
 
-        // DELETE: api/Periods/5
+        // DELETE: api/ReturnPeriods/5
       /*  [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePeriod(string id)
         {
-            var period = await _context.Periods.FindAsync(id);
+            var period = await _context.ReturnPeriods.FindAsync(id);
             if (period == null)
             {
                 return NotFound();
             }
 
-            _context.Periods.Remove(period);
+            _context.ReturnPeriods.Remove(period);
             await _context.SaveChangesAsync();
 
             return NoContent();
@@ -262,7 +262,7 @@ namespace Returns.Controllers
 
         private bool PeriodExists(string id)
         {
-            return _context.Periods.Any(e => e.Id == id);
+            return _context.ReturnPeriods.Any(e => e.Id == id);
         }*/
     }
 }

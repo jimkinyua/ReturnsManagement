@@ -13,7 +13,7 @@ namespace Returns.Models
         public int DeadlineDay { get; set; }
         [ForeignKey("Period")]
         public string PeriodId { get; set; } = null!;
-        public Period Period { get; set; } = null!;
+        public ReturnPeriods Period { get; set; } = null!;
 
     }
 }

@@ -8,29 +8,30 @@ namespace Returns.Helpers
     public class DbInitializer
     {
 
-        public  void SeedPeriods(ReturnsDbContext context)
+        public void SeedPeriods(ReturnsDbContext context)
         {
             // Check if any periods already exist
-            if (!context.Periods.Any())
+            if (!context.ReturnPeriods.Any())
             {
                 // Define the standard periods
-                var periods = new List<Models.Period>
-                {
-                    new Models.Period { Name = "Daily" },
-                    new Models.Period { Name = "Monthly" },
-                    new Models.Period { Name = "Quarterly" },
-                    new Models.Period { Name = "Semi-Annual" },
-                    new Models.Period { Name = "Annual" },
-                    new Models.Period { Name = "Bi-Monthly" }
-            };
+                /*    var periods = new List<Models.ReturnPeriods>
+                    {
+                        new Models.ReturnPeriods { Name = "Daily", CreatedBy = "System" },
+                        new Models.ReturnPeriods { Name = "Monthly" , CreatedBy = "System" },
+                        new Models.ReturnPeriods { Name = "Quarterly", CreatedBy = "System" },
+                        new Models.ReturnPeriods { Name = "Semi-Annual", CreatedBy = "System" },
+                        new Models.ReturnPeriods { Name = "Annual" , CreatedBy = "System"},
+                        new Models.ReturnPeriods { Name = "Bi-Monthly", CreatedBy = "System" }
+                };
 
-                context.Periods.AddRange(periods);
-                context.SaveChanges();
-                Console.WriteLine("Period table seeded successfully.");
-            }
-            else
-            {
-                Console.WriteLine("Period table already contains data. Skipping seed operation.");
+                    context.ReturnPeriods.AddRange(periods);
+                    context.SaveChanges();
+                    Console.WriteLine("Period table seeded successfully.");
+                }
+                else
+                {
+                    Console.WriteLine("Period table already contains data. Skipping seed operation.");
+                }*/
             }
         }
         public void IntialiseCamelData(ReturnsDbContext context)
@@ -286,6 +287,95 @@ namespace Returns.Helpers
 
             context.IndicatorRatingThresholds.AddRange(ratingThresholds);
             context.SaveChanges();
+        }
+
+        public void SeedFrequencyCatalog(ReturnsDbContext context)
+        {
+            // Check if any frequency catalogs already exist
+            if (!context.FrequencyCatalogs.Any())
+            {
+                var frequencyCatalogs = new List<Models.FrequencyCatalog>
+                {
+                    new Models.FrequencyCatalog
+                    {
+                        Code = "DAY",
+                        Name = "Daily",
+                        IntervalDays = 1,
+                        DefaultDeadlineOffset = 1,
+                        LabelStrategy = "DATE",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog
+                    {
+                        Code = "WK",
+                        Name = "Weekly",
+                        IntervalDays = 7,
+                        DefaultDeadlineOffset = 3,
+                        LabelStrategy = "ISO_WEEK",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog
+                    {
+                        Code = "BWK",
+                        Name = "Bi-Weekly",
+                        IntervalDays = 14,
+                        DefaultDeadlineOffset = 5,
+                        LabelStrategy = "BI_WEEK",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog
+                    {
+                        Code = "MTH",
+                        Name = "Monthly",
+                        IntervalDays = 30, // Approximate, actual generation will handle month variations
+                        DefaultDeadlineOffset = 15,
+                        LabelStrategy = "MONTH",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog
+                    {
+                        Code = "QTR",
+                        Name = "Quarterly",
+                        IntervalDays = 90, // Approximate, actual generation will handle quarter variations
+                        DefaultDeadlineOffset = 30,
+                        LabelStrategy = "QUARTER",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog
+                    {
+                        Code = "SEMI",
+                        Name = "Semi-Annual",
+                        IntervalDays = 180, // Approximate
+                        DefaultDeadlineOffset = 45,
+                        LabelStrategy = "SEMI_ANNUAL",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    },
+                    new Models.FrequencyCatalog
+                    {
+                        Code = "FY",
+                        Name = "Annual",
+                        IntervalDays = 365, // Approximate, actual generation will handle year variations
+                        DefaultDeadlineOffset = 60,
+                        LabelStrategy = "YEAR",
+                        IsActive = true,
+                        CreatedBy = "System"
+                    }
+                };
+
+                context.FrequencyCatalogs.AddRange(frequencyCatalogs);
+                context.SaveChanges();
+                Console.WriteLine("FrequencyCatalog table seeded successfully.");
+            }
+            else
+            {
+                Console.WriteLine("FrequencyCatalog table already contains data. Skipping seed operation.");
+            }
         }
     }
 }

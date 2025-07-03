@@ -144,7 +144,7 @@ namespace Returns.Helpers
 
 
                    var mgtRating  = AnalyzeManagement(managementReturn);
-                    //mgtRating.Period = p.CreatedAt.ToString("yyyy-MM-dd");
+                    //mgtRating.ReturnPeriods = p.CreatedAt.ToString("yyyy-MM-dd");
                     dto.ManagementRatingResults.Add(mgtRating);
 
                     var earnRatings = await AnalyzeEarnings(incomeStmt, balanceSheet);

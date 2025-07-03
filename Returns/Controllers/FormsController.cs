@@ -177,7 +177,7 @@ namespace Returns.Controllers
                                 Id = form.Id,
                                 Name = form.FormName,
                                 Code = form.Code,
-                                // PeriodName = form.Period.Name,
+                                // PeriodName = form.ReturnPeriods.Name,
                                 ReportingPeriodStart = reportingStartDate,
                                 ReportingPeriodEnd = reportingEndDate,
                                 SubmissionDeadLine = dueDate,
@@ -430,7 +430,7 @@ namespace Returns.Controllers
             return false;
         }
 
-        // Get Forms Given Period
+        // Get Forms Given ReturnPeriods
         [HttpGet("GetFormsByPeriod/{periodId}")]
         public async Task<ActionResult<List<FormDTO>>> GetFormsByPeriodAsync([FromQuery] string periodId)
         {
