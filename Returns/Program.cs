@@ -129,6 +129,7 @@ internal class Program
         builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
         builder.Services.AddTransient<IEnforcementService, EnforcementService>();
         builder.Services.AddTransient<IReturnChild, ChildGetterService>();
+        builder.Services.AddTransient<IPeriodGenerator, PeriodGenerator>();
 
         //builder.Services.AddScoped<FormProcessingService>();    
         //builder.Services.AddScoped<ReturnsReminderService>();
