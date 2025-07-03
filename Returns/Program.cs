@@ -80,6 +80,7 @@ internal class Program
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
         builder.Services.AddControllers();
+        builder.Services.AddMemoryCache();
 
 
         // Register application services
@@ -130,6 +131,7 @@ internal class Program
         builder.Services.AddTransient<IEnforcementService, EnforcementService>();
         builder.Services.AddTransient<IReturnChild, ChildGetterService>();
         builder.Services.AddTransient<IPeriodGenerator, PeriodGenerator>();
+        builder.Services.AddTransient<IReturnFormAttachmentService, ReturnFormAttachmentService>();
 
         //builder.Services.AddScoped<FormProcessingService>();    
         //builder.Services.AddScoped<ReturnsReminderService>();
