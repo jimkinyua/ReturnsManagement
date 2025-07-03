@@ -31,6 +31,7 @@ namespace Returns.Models.Data
 
         //public DbSet<QuarterDates> QuarterDates { get; set; }
         public DbSet<ReturnForm> ReturnForms { get; set; }
+        public DbSet<ExpectedReturn> ExpectedReturns { get; set; }
         public DbSet<OtherReturn> OtherReturns { get; set; }
         public DbSet<Return> Returns { get; set; }
         public DbSet<DepositReturn> DepositReturns { get; set; }

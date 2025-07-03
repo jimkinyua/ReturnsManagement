@@ -9,7 +9,7 @@ using Returns.DTOs.Returns_Analysis;
 using Returns.DTOs.Returns_Submission;
 using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
 using Returns.DTOs.WorkFlow_Engine;
-using static Returns.Helpers.ReturnsHelper;
+//using static Returns.Helpers.ReturnsHelper;
 
 namespace Returns.DTOs.Returns_Submission.DT
 {
@@ -52,7 +52,7 @@ namespace Returns.DTOs.Returns_Submission.DT
         public bool IsActiveVersion { get; set; }
         public DateTime? AmendmentDate { get; set; }
         public string? PreviousVersionId { get; set; }
-        public List<VersionChoice> PreviousVersionIds { get; set; } = new List<VersionChoice>();
+        //public List<VersionChoice> PreviousVersionIds { get; set; } = new List<VersionChoice>();
 
     }
 }

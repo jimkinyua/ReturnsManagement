@@ -1,7 +1,7 @@
 using Returns.DTOs.Returns.Returns_Submission.DT;
 using Returns.DTOs.Returns.Returns_Submission.NWDT;
 using Returns.DTOs.WorkFlow_Engine;
-using static Returns.Helpers.ReturnsHelper;
+//using static Returns.Helpers.ReturnsHelper;
 
 namespace Returns.DTOs.Returns_Submission.NWDT
 {
@@ -41,6 +41,6 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public DateTime? AmendmentDate { get; set; }
         public string? PreviousVersionId { get; set; }
         public Boolean CanReportBeViewed { get; set; } = false;
-        public List<VersionChoice> PreviousVersionIds { get; set; } = new List<VersionChoice>();
+        //public List<VersionChoice> PreviousVersionIds { get; set; } = new List<VersionChoice>();
     }
 }

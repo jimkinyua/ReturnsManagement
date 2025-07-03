@@ -5,7 +5,7 @@ namespace Returns.Helpers
 {
     public static class FormsHelper
     {
-        public static async Task ValidateFormTypeUniqueness(CreateFormDTO createFormDTO)
+/*        public static async Task ValidateFormTypeUniqueness(CreateFormDTO createFormDTO)
         {
             var context = new ReturnsDbContext();
             // Get existing forms for this Sacco type and frequency that are not deleted
@@ -87,7 +87,7 @@ namespace Returns.Helpers
                     "A Deposit Return form already exists for this frequency and Sacco type.");
             }
         }
-
+*/
         public static bool IsValidExcelFile(IFormFile file)
         {
             // 1. Check file extension

@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿/*using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SqlServer.Server;
@@ -439,7 +439,7 @@ namespace Returns.Controllers
                 var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
 
                 var forms = await _context.ReturnForms
-                    .Where(f => f.PeriodId == periodId)
+                    //.Where(f => f.PeriodId == periodId)
                     .ToListAsync();
 
                 var formDTOs = new List<FormDTO>();
@@ -477,3 +477,4 @@ namespace Returns.Controllers
 
     }
 }
+*/

@@ -79,7 +79,7 @@ namespace Returns.Helpers
                     Value = item.Id
                 });
             }
-          
+
 
             return versionChoices;
         }
@@ -98,7 +98,7 @@ namespace Returns.Helpers
 
         private bool PreviousVersionExists(Dictionary<string, VersionLookup> lookups, string previousReturnId)
         {
-            return !string.IsNullOrEmpty(previousReturnId) && 
+            return !string.IsNullOrEmpty(previousReturnId) &&
                    lookups.ContainsKey(previousReturnId);
         }
 
@@ -579,19 +579,19 @@ namespace Returns.Helpers
             return false;
         }
 
-        /*   public static (bool IsCapitalAdequacyLate, bool IsLiquidityReturnLate, bool IsRiskClassificationLate, bool IsInvestmentReturnLate, bool IsStatementOfFinancialPositionLate, bool IsStatementOfComprehensiveIncomeLate, bool IsSaccoAnalysisLate, bool IsDepositReturnLate) CheckLateReturns(Return returnItem)
-           {
-               bool isCapitalAdequacyLate = returnItem.CapitalAdequencies.Any() && HowLate(returnItem.CapitalAdequencies.First().RespondedAt, returnItem.ReturnFor) > 0;
-               bool isLiquidityReturnLate = returnItem.DTLiquidityReturns.Any() && HowLate(returnItem.DTLiquidityReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
-               bool isRiskClassificationLate = returnItem.DTRiskClassificationReturns.Any() && HowLate(returnItem.DTRiskClassificationReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
-               bool isInvestmentReturnLate = returnItem.DTInvestmentReturns.Any() && HowLate(returnItem.DTInvestmentReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
-               bool isStatementOfFinancialPositionLate = returnItem.DTFinancialPositionReturns.Any() && HowLate(returnItem.DTFinancialPositionReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
-               bool isStatementOfComprehensiveIncomeLate = returnItem.DTComprehensiveIncomeReturns.Any() && HowLate(returnItem.DTComprehensiveIncomeReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
-               bool isSaccoAnalysisLate = returnItem.SaccoAnalysis.Any() && HowLate(returnItem.SaccoAnalysis.First().RespondedAt, returnItem.ReturnFor) > 0;
-               bool isDepositReturnLate = returnItem.DepositReturns.Any() && HowLate(returnItem.DepositReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+       /* public static (bool IsCapitalAdequacyLate, bool IsLiquidityReturnLate, bool IsRiskClassificationLate, bool IsInvestmentReturnLate, bool IsStatementOfFinancialPositionLate, bool IsStatementOfComprehensiveIncomeLate, bool IsSaccoAnalysisLate, bool IsDepositReturnLate) CheckLateReturns(Return returnItem)
+        {
+            bool isCapitalAdequacyLate = returnItem.CapitalAdequencies.Any() && HowLate(returnItem.CapitalAdequencies.First().RespondedAt, returnItem.ReturnFor) > 0;
+            bool isLiquidityReturnLate = returnItem.DTLiquidityReturns.Any() && HowLate(returnItem.DTLiquidityReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+            bool isRiskClassificationLate = returnItem.DTRiskClassificationReturns.Any() && HowLate(returnItem.DTRiskClassificationReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+            bool isInvestmentReturnLate = returnItem.DTInvestmentReturns.Any() && HowLate(returnItem.DTInvestmentReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+            bool isStatementOfFinancialPositionLate = returnItem.DTFinancialPositionReturns.Any() && HowLate(returnItem.DTFinancialPositionReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+            bool isStatementOfComprehensiveIncomeLate = returnItem.DTComprehensiveIncomeReturns.Any() && HowLate(returnItem.DTComprehensiveIncomeReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
+            bool isSaccoAnalysisLate = returnItem.SaccoAnalysis.Any() && HowLate(returnItem.SaccoAnalysis.First().RespondedAt, returnItem.ReturnFor) > 0;
+            bool isDepositReturnLate = returnItem.DepositReturns.Any() && HowLate(returnItem.DepositReturns.First().RespondedAt, returnItem.ReturnFor) > 0;
 
-               return (isCapitalAdequacyLate, isLiquidityReturnLate, isRiskClassificationLate, isInvestmentReturnLate, isStatementOfFinancialPositionLate, isStatementOfComprehensiveIncomeLate, isSaccoAnalysisLate, isDepositReturnLate);
-           }*/
+            return (isCapitalAdequacyLate, isLiquidityReturnLate, isRiskClassificationLate, isInvestmentReturnLate, isStatementOfFinancialPositionLate, isStatementOfComprehensiveIncomeLate, isSaccoAnalysisLate, isDepositReturnLate);
+        }*/
         public (int CapitalAdequacyDaysLate, int LiquidityReturnDaysLate, int RiskClassificationDaysLate, int InvestmentReturnDaysLate, int StatementOfFinancialPositionDaysLate, int StatementOfComprehensiveIncomeDaysLate, int SaccoAnalysisDaysLate, int DepositReturnDaysLate) CalculateDaysLateForChildren(Return returnItem)
         {
             int capitalAdequacyDaysLate = returnItem.CapitalAdequencies.Any() ? HowLate(returnItem.CapitalAdequencies.First().CreatedAt, returnItem.ReturnFor) : 0;
@@ -671,8 +671,8 @@ namespace Returns.Helpers
 
         public int CalculateDaysLate(ReturnForm form, DateTime currentDate, DateTime EndDate)
         {
-            var periodName = form.Period.Name;
-            DateTime dueDate = CalculateDueDate(EndDate, form.Period.Name);
+            var periodName = "TEST"; //form.Period.Name;
+            DateTime dueDate = CalculateDueDate(EndDate, periodName);//form.Period.Name);
 
             // Calculate the difference in days
             TimeSpan difference = currentDate - dueDate;
@@ -688,7 +688,7 @@ namespace Returns.Helpers
             return createFormDTO.FormUploads != null && createFormDTO.FormUploads.Any(f => f.formFile != null);
         }
 
-        public DateTime GetDueDate(ReturnForm form, DateTime reportingPeriodEndDate)
+       /* public DateTime GetDueDate(ReturnForm form, DateTime reportingPeriodEndDate)
         {
             if (reportingPeriodEndDate == DateTime.MinValue)
             {
@@ -757,8 +757,8 @@ namespace Returns.Helpers
                     return DateTime.MaxValue;
             }
         }
-
-        public (DateTime start, DateTime end) GetReportingPeriod(ReturnForm form, DateTime currentDate)
+*/
+/*        public (DateTime start, DateTime end) GetReportingPeriod(ReturnForm form, DateTime currentDate)
         {
             var periodName = form.Period.Name;
 
@@ -861,8 +861,8 @@ namespace Returns.Helpers
                     return (DateTime.MinValue, DateTime.MinValue);
             }
         }
-
-        public bool IsFormDueForSubmission(ReturnForm form, DateTime currentDate)
+*/
+/*        public bool IsFormDueForSubmission(ReturnForm form, DateTime currentDate)
         {
             var periodName = form.Period.Name;
 
@@ -914,7 +914,7 @@ namespace Returns.Helpers
                     return false;
             }
         }
-
+*/
         public async Task ProcessManagementReturn(IFormFile file, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
@@ -1036,7 +1036,7 @@ namespace Returns.Helpers
                 {
                     DaysLateBy = CalculateDaysLate(form, DateTime.Now, Form1Statement.EndDate);
                 }
-               
+
 
                 // Create new Capital Adequacy form
                 DTCapitalAdequacyReturn capitalAdequacy = new DTCapitalAdequacyReturn
@@ -1046,7 +1046,7 @@ namespace Returns.Helpers
                     Year = Form1Statement.Period,
                     StartDate = Form1Statement.StartDate,
                     EndDate = Form1Statement.EndDate,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = Form1Statement.SaccoCsNumber,
                     FormId = form.Id,
@@ -1226,7 +1226,7 @@ namespace Returns.Helpers
             }
         }
 
-        private string GetFormTypeFromForm(ReturnForm form)
+      /*  private string GetFormTypeFromForm(ReturnForm form)
         {
             if (form.IsCapitalAdequencyForm) return "CapitalAdequacy";
             if (form.IsLiquidityStatement) return "Liquidity";
@@ -1240,13 +1240,13 @@ namespace Returns.Helpers
             if (form.IsManagement) return "Management";
             if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
             return null;
-        }
+        }*/
 
         private async Task MarkPreviousFormAsAmended(string ExistingChildId, ReturnForm form, string SaccoType)
         {
             try
             {
-                string formType = GetFormTypeFromForm(form);
+                string formType = "tes"; //GetFormTypeFromForm(form);
                 bool isDepositTaking = SaccoType == Constants.SaccoType.DepositTaking.ToString();
 
                 bool result = false;
@@ -1629,7 +1629,7 @@ namespace Returns.Helpers
 
 
 
-        public async Task<List<string>> GetMissingRequiredFormsAsync(NewReturnDTO createFormDTO, string SaccoType)
+        /*public async Task<List<string>> GetMissingRequiredFormsAsync(NewReturnDTO createFormDTO, string SaccoType)
         {
 
 
@@ -1655,9 +1655,9 @@ namespace Returns.Helpers
                     missingForms.Add(requiredForm.FormName);
             }
             return missingForms;
-        }
+        }*/
 
-        public async Task ValidateUploadedForms(NewReturnDTO createFormDTO)
+      /*  public async Task ValidateUploadedForms(NewReturnDTO createFormDTO)
         {
 
 
@@ -1704,9 +1704,9 @@ namespace Returns.Helpers
                     "All required forms must be submitted."
                 );
             }
-        }
+        }*/
 
-        public async Task NWDTValidateUploadedForms(NWDTNewReturnDTO createFormNWDTDTO)
+     /*   public async Task NWDTValidateUploadedForms(NWDTNewReturnDTO createFormNWDTDTO)
         {
 
 
@@ -1753,7 +1753,7 @@ namespace Returns.Helpers
                     "All required forms must be submitted."
                 );
             }
-        }
+        }*/
         public async Task ProcessForm2B(IFormFile formFile, string returnId, ILogger _logger, ReturnForm form, string ExistingChildId = "")
         {
             try
@@ -1783,7 +1783,7 @@ namespace Returns.Helpers
                 {
                     ReturnId = returnId,
                     Period = form2BData.Period,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     DaysLateBy = DaysLateBy,
                     StartDate = form2BData.StartDate,
                     EndDate = form2BData.EndDate,
@@ -1917,7 +1917,7 @@ namespace Returns.Helpers
                     FormId = form.Id,
                     StartDate = form2.StartDate,
                     EndDate = form2.EndDate,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     FilePath = Path,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = form2.SaccoCsNumber,
@@ -2055,7 +2055,7 @@ namespace Returns.Helpers
                         Year = form3.Period,
                         StartDate = form3.StartDate,
                         EndDate = form3.EndDate,
-                        Frequency = form.Period.Name,
+                        //Frequency = form.Period.Name,
                         FilePath = FilePath,
                         DaysLateBy = DaysLateBy,
                         SaccoCsNumber = form3.SaccoCsNumber,
@@ -2124,7 +2124,7 @@ namespace Returns.Helpers
                         StartDate = form2CData.StartDate,
                         EndDate = form2CData.EndDate,
                         Period = form2CData.Period,
-                        Frequency = form.Period.Name,
+                        //Frequency = form.Period.Name,
                         DaysLateBy = DaysLateBy,
                         FilePath = FilePath,
                         SaccoCsNumber = form2CData.SaccoCsNumber,
@@ -2212,7 +2212,7 @@ namespace Returns.Helpers
                         ReturnId = returnId,
                         FormId = form.Id,
                         Period = form2DData.Period,
-                        Frequency = form.Period.Name,
+                        //Frequency = form.Period.Name,
                         StartDate = form2DData.StartDate,
                         EndDate = form2DData.EndDate,
                         FilePath = filePath,
@@ -2292,11 +2292,11 @@ namespace Returns.Helpers
                         RequiredProvision = row.RequiredProvision,
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
                         ReturnId = returnId,
-                        FormId = form.Id, 
+                        FormId = form.Id,
                         Year = form4.Period,
                         StartDate = form4.StartDate,
                         EndDate = form4.EndDate,
-                        Frequency = form.Period.Name,
+                        //Frequency = form.Period.Name,
                         FilePath = FilePath,
                         DaysLateBy = DaysLateBy,
                         SaccoCsNumber = form4.SaccoCsNumber,
@@ -2357,7 +2357,7 @@ namespace Returns.Helpers
                     FormId = form.Id,
                     StartDate = form5.StartDate,
                     EndDate = form5.EndDate,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = form5.SaccoCsNumber,
@@ -2469,7 +2469,7 @@ namespace Returns.Helpers
                     StartDate = Form2E.StartDate,
                     EndDate = Form2E.EndDate,
                     Period = Form2E.Period,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
                     ReturnId = returnId,
@@ -2620,7 +2620,7 @@ namespace Returns.Helpers
                     StartDate = form6.StartDate,
                     EndDate = form6.EndDate,
                     FormId = form.Id,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
                     SaccoCsNumber = form6.SaccoCsNumber,
@@ -2792,7 +2792,7 @@ namespace Returns.Helpers
                         FilePath = Path,
                         FormId = form.Id,
                         Period = form2A.Period,
-                        Frequency = form.Period.Name,
+                        //Frequency = form.Period.Name,
                         DaysLateBy = DaysLateBy,
                         IsAmended = false,
                         IsCurrent = true,
@@ -2970,7 +2970,7 @@ namespace Returns.Helpers
                     StartDate = form2F.StartDate,
                     EndDate = form2F.EndDate,
                     Period = form2F.Period,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     FilePath = Path,
                     DaysLateBy = DaysLateBy,
                     FormId = form.Id,
@@ -3145,7 +3145,7 @@ namespace Returns.Helpers
                     StartDate = form2G.StartDate,
                     EndDate = form2G.EndDate,
                     Period = form2G.Period,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     FilePath = Path,
                     DaysLateBy = DaysLateBy,
                     FormId = form.Id,
@@ -3342,7 +3342,7 @@ namespace Returns.Helpers
                     Year = form7.Period,
                     StartDate = form7.StartDate,
                     EndDate = form7.EndDate,
-                    Frequency = form.Period.Name,
+                    //Frequency = form.Period.Name,
                     FilePath = FilePath,
                     FormId = form.Id,
                     DaysLateBy = DaysLateBy,

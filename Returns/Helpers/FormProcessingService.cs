@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Drawing;
+﻿/*using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
@@ -40,14 +40,14 @@ namespace Returns.Helpers
                 .ToListAsync();
 
             // 3. Check if all required forms are present
-            bool hasAllRequiredForms =
-                forms.Any(f => f.IsCapitalAdequencyForm) &&
+            bool hasAllRequiredForms = true;
+                *//*forms.Any(f => f.IsCapitalAdequencyForm) &&
                 forms.Any(f => f.IsLiquidityStatement) &&
                 forms.Any(f => f.IsRiskClassification) &&
                 forms.Any(f => f.IsInvestmentReturn) &&
                 forms.Any(f => f.IsFinancialPosition) &&
                 forms.Any(f => f.IsStatementOfComprehensiveIncome) &&
-                forms.Any(f => f.IsDepositReturnForm);
+                forms.Any(f => f.IsDepositReturnForm);*//*
 
             return hasAllRequiredForms;
         }
@@ -306,7 +306,7 @@ namespace Returns.Helpers
                 string effectiveReturnId = EffectiveReturnId;
 
                 // If it's an amendment, create a new version
-            /*    if (IsAmendment)
+            *//*    if (IsAmendment)
                 {
                     _logger.LogInformation($"Form {form.FormName} is being processed as an amendment");
 
@@ -318,7 +318,7 @@ namespace Returns.Helpers
                     }
 
                     //effectiveReturnId = newReturnId;
-                }*/
+                }*//*
 
                 // Process the form content
                 var (success, message) = await ProcessFormByType(formFile, form, effectiveReturnId, saccoType, false);
@@ -372,7 +372,7 @@ namespace Returns.Helpers
                     OldReturn.AmendmentDate = DateTime.Now;
                     _context.Returns.Update(OldReturn);
 
-                    /*var newReturn = new Return
+                    *//*var newReturn = new Return
                     {
                         SaccoCsNumber = OldReturn.SaccoCsNumber,
                         SaccoType = OldReturn.SaccoType,
@@ -389,7 +389,7 @@ namespace Returns.Helpers
                         PreviousVersionId = OldReturn.Id
                     };
 
-                    await _context.Return.AddAsync(newReturn);*/
+                    await _context.Return.AddAsync(newReturn);*//*
                     await _context.SaveChangesAsync();
 
                     // Copy all child records from the original return to the new one
@@ -2625,3 +2625,4 @@ namespace Returns.Helpers
         }
     }
 }
+*/
