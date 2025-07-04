@@ -201,6 +201,356 @@ namespace Returns.Controllers
             }
         }
 
+        /// <summary>
+        /// Get forms due for a specific year and month
+        /// </summary>
+        /// <param name="year">The year (e.g., 2024)</param>
+        /// <param name="month">The month (1-12)</param>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpGet("GetFormsDueByMonth")]
+        public async Task<ActionResult<List<FormsDueByMonthDTO>>> GetFormsDueByMonth(
+            [FromQuery] int year,
+            [FromQuery] int month,
+            [FromQuery] string? saccoTypeId = null)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+
+                // Validate input
+                if (month < 1 || month > 12)
+                {
+                    return BadRequest("Month must be between 1 and 12");
+                }
+
+                // Get the first and last day of the specified month
+                var firstDayOfMonth = new DateTime(year, month, 1);
+                var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
+                // Find all periods that overlap with this month
+                var periodsQuery = _context.ReturnPeriods
+                    .Include(p => p.ReportingYear)
+                    .Include(p => p.FrequencyCatalog)
+                    .Where(p => p.IsLocked && 
+                               p.StartDate <= lastDayOfMonth && 
+                               p.EndDate >= firstDayOfMonth);
+
+                var periods = await periodsQuery.ToListAsync();
+
+                if (!periods.Any())
+                {
+                    return Ok(new List<FormsDueByMonthDTO>());
+                }
+
+                // Get all expected returns for these periods
+                var expectedReturnsQuery = _context.ExpectedReturns
+                    .Include(er => er.ReturnForm)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.FrequencyCatalog)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.ReportingYear)
+                    .Where(er => periods.Select(p => p.Id).Contains(er.PeriodId) && 
+                                er.IsActive);
+
+                // Filter by sacco type if provided
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == saccoTypeId);
+                }
+
+                var expectedReturns = await expectedReturnsQuery.ToListAsync();
+
+                // Map to DTOs
+                var formsDue = expectedReturns.Select(er => new FormsDueByMonthDTO
+                {
+                    FormId = er.ReturnFormId,
+                    FormName = er.ReturnForm.FormName,
+                    FormCode = er.ReturnForm.Code,
+                    PeriodId = er.PeriodId,
+                    PeriodName = er.Period.Name,
+                    PeriodStartDate = er.Period.StartDate,
+                    PeriodEndDate = er.Period.EndDate,
+                    FilingDeadline = er.FilingDeadline,
+                    Status = er.Status,
+                    TemplateUrl = er.ReturnForm.IsOtherForm ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                    SaccoTypeId = er.ReturnForm.SaccoTypeId
+                })
+                .OrderBy(f => f.FilingDeadline)
+                .ThenBy(f => f.FormName)
+                .ToList();
+
+                return Ok(formsDue);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Enable or disable a form
+        /// </summary>
+        [HttpPut("ToggleFormStatus/{formId}")]
+        public async Task<ActionResult> ToggleFormStatus(string formId, [FromQuery] bool isActive)
+        {
+            try
+            {
+                var form = await _context.ReturnForms.FindAsync(formId);
+                if (form == null)
+                {
+                    return NotFound();
+                }
+
+                form.IsActive = isActive;
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = $"Form {(isActive ? "enabled" : "disabled")} successfully" });
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Get all forms (with optional filtering)
+        /// </summary>
+        [HttpGet("GetAllForms")]
+        public async Task<ActionResult<List<FormDTO>>> GetAllForms(
+            [FromQuery] string? saccoTypeId = null,
+            [FromQuery] bool? isActive = null)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+
+                var formsQuery = _context.ReturnForms.AsQueryable();
+
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    formsQuery = formsQuery.Where(f => f.SaccoTypeId == saccoTypeId);
+                }
+
+                if (isActive.HasValue)
+                {
+                    formsQuery = formsQuery.Where(f => f.IsActive == isActive.Value);
+                }
+
+                var forms = await formsQuery
+                    .Select(f => new FormDTO
+                    {
+                        Id = f.Id,
+                        Name = f.FormName,
+                        DisplayName = f.Code,
+                        SaccoTypeId = f.SaccoTypeId,
+                        IsCapitalAdequencyForm = f.IsCapitalAdequencyForm,
+                        IsRiskClassification = f.IsRiskClassification,
+                        IsInvestmentReturn = f.IsInvestmentReturn,
+                        IsManagement = f.IsManagement,
+                        IsFinancialPosition = f.IsFinancialPosition,
+                        IsDailyLiquidity = f.IsDailyLiquidity,
+                        IsSectoralLending = f.IsSectoralLending,
+                        IsInsiderLending = f.IsInsiderLending,
+                        IsStatementOfComprehensiveIncome = f.IsStatementOfComprehensiveIncome,
+                        IsDepositReturnForm = f.IsDepositReturnForm,
+                        IsLiquidityStatement = f.IsLiquidityStatement,
+                        IsOtherForm = f.IsOtherForm,
+                        IsActive = f.IsActive,
+                        TemplateUrl = f.IsOtherForm ? "" : $"{baseUrl}{f.TemplateUrl}"
+                    })
+                    .OrderBy(f => f.Name)
+                    .ToListAsync();
+
+                return Ok(forms);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Get a yearly summary of forms due
+        /// </summary>
+        /// <param name="year">The year (e.g., 2024)</param>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpGet("GetFormsDueByYear")]
+        public async Task<ActionResult<List<FormsDueByMonthDTO>>> GetFormsDueByYear(
+            [FromQuery] int year,
+            [FromQuery] string? saccoTypeId = null)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+
+                // Get the first and last day of the year
+                var firstDayOfYear = new DateTime(year, 1, 1);
+                var lastDayOfYear = new DateTime(year, 12, 31);
+
+                // Find all periods that overlap with this year
+                var periodsQuery = _context.ReturnPeriods
+                    .Include(p => p.ReportingYear)
+                    .Include(p => p.FrequencyCatalog)
+                    .Where(p => p.IsLocked && 
+                               p.StartDate <= lastDayOfYear && 
+                               p.EndDate >= firstDayOfYear);
+
+                var periods = await periodsQuery.ToListAsync();
+
+                if (!periods.Any())
+                {
+                    return Ok(new List<FormsDueByMonthDTO>());
+                }
+
+                // Get all expected returns for these periods
+                var expectedReturnsQuery = _context.ExpectedReturns
+                    .Include(er => er.ReturnForm)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.FrequencyCatalog)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.ReportingYear)
+                    .Where(er => periods.Select(p => p.Id).Contains(er.PeriodId) && 
+                                er.IsActive);
+
+                // Filter by sacco type if provided
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == saccoTypeId);
+                }
+
+                var expectedReturns = await expectedReturnsQuery.ToListAsync();
+
+                // Map to DTOs
+                var formsDue = expectedReturns.Select(er => new FormsDueByMonthDTO
+                {
+                    FormId = er.ReturnFormId,
+                    FormName = er.ReturnForm.FormName,
+                    FormCode = er.ReturnForm.Code,
+                    PeriodId = er.PeriodId,
+                    PeriodName = er.Period.Name,
+                    PeriodStartDate = er.Period.StartDate,
+                    PeriodEndDate = er.Period.EndDate,
+                    FilingDeadline = er.FilingDeadline,
+                    Status = er.Status,
+                    TemplateUrl = er.ReturnForm.IsOtherForm ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                    SaccoTypeId = er.ReturnForm.SaccoTypeId
+                })
+                .OrderBy(f => f.FilingDeadline)
+                .ThenBy(f => f.FormName)
+                .ToList();
+
+                return Ok(formsDue);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Get a summary of forms due with counts by status
+        /// </summary>
+        /// <param name="year">Optional: Filter by year</param>
+        /// <param name="month">Optional: Filter by month (requires year)</param>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpGet("GetFormsDueSummary")]
+        public async Task<ActionResult<FormsDueSummaryDTO>> GetFormsDueSummary(
+            [FromQuery] int? year = null,
+            [FromQuery] int? month = null,
+            [FromQuery] string? saccoTypeId = null)
+        {
+            try
+            {
+                // Build the date range
+                DateTime? startDate = null;
+                DateTime? endDate = null;
+
+                if (year.HasValue)
+                {
+                    if (month.HasValue)
+                    {
+                        if (month.Value < 1 || month.Value > 12)
+                        {
+                            return BadRequest("Month must be between 1 and 12");
+                        }
+                        startDate = new DateTime(year.Value, month.Value, 1);
+                        endDate = startDate.Value.AddMonths(1).AddDays(-1);
+                    }
+                    else
+                    {
+                        startDate = new DateTime(year.Value, 1, 1);
+                        endDate = new DateTime(year.Value, 12, 31);
+                    }
+                }
+
+                // Build the query
+                var expectedReturnsQuery = _context.ExpectedReturns
+                    .Include(er => er.ReturnForm)
+                    .Include(er => er.Period)
+                    .Where(er => er.IsActive);
+
+                // Apply date filter if provided
+                if (startDate.HasValue && endDate.HasValue)
+                {
+                    expectedReturnsQuery = expectedReturnsQuery.Where(er => 
+                        er.Period.StartDate <= endDate.Value && 
+                        er.Period.EndDate >= startDate.Value);
+                }
+
+                // Apply sacco type filter if provided
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    expectedReturnsQuery = expectedReturnsQuery.Where(er => 
+                        er.ReturnForm.SaccoTypeId == saccoTypeId);
+                }
+
+                var expectedReturns = await expectedReturnsQuery.ToListAsync();
+
+                var currentDate = DateTime.Now;
+
+                // Calculate overall summary
+                var summary = new FormsDueSummaryDTO
+                {
+                    TotalExpectedReturns = expectedReturns.Count,
+                    DueCount = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
+                    LateCount = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late || 
+                                                           (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
+                    FiledCount = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
+                    WaivedCount = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived)
+                };
+
+                // Group by form for detailed breakdown
+                var byForm = expectedReturns
+                    .GroupBy(er => new { er.ReturnForm.FormName, er.ReturnForm.Code })
+                    .Select(g => new FormsDueSummaryByFormDTO
+                    {
+                        FormName = g.Key.FormName,
+                        FormCode = g.Key.Code,
+                        TotalExpected = g.Count(),
+                        DueCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
+                        LateCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late || 
+                                                 (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
+                        FiledCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
+                        WaivedCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived)
+                    })
+                    .OrderBy(f => f.FormName)
+                    .ToList();
+
+                summary.ByForm = byForm;
+
+                return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
 
      
 

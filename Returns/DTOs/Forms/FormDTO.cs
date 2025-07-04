@@ -19,5 +19,6 @@
         public Boolean IsDailyLiquidity { get; set; } = false;
         public Boolean IsInsiderLending { get; set; } = false;
         public Boolean IsOtherForm { get; set; } = false;
+        public Boolean IsActive { get; set; } = true;
     }
 }
