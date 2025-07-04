@@ -110,6 +110,48 @@ namespace Returns.Models.Data
                     .HasForeignKey(p => p.FrequencyId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+            // Configure ExpectedReturn
+            modelBuilder.Entity<ExpectedReturn>(entity =>
+            {
+                entity.HasIndex(e => new { e.SaccoId, e.PeriodId, e.FormId }).IsUnique();
+                entity.HasIndex(e => e.DueDate);
+                entity.HasIndex(e => e.IsWaived);
+
+                // Configure relationships
+                entity.HasOne(e => e.Period)
+                    .WithMany()
+                    .HasForeignKey(e => e.PeriodId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Form)
+                    .WithMany()
+                    .HasForeignKey(e => e.FormId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Ignore calculated property
+                entity.Ignore(e => e.Status);
+                entity.Ignore(e => e.HasAssociatedReturn);
+            });
+
+            // Configure Return
+            modelBuilder.Entity<Return>(entity =>
+            {
+                entity.HasIndex(e => new { e.SaccoId, e.PeriodId }).HasFilter("[IsActiveVersion] = 1");
+                entity.HasIndex(e => e.SubmittedAt);
+
+                // Configure relationship with Period
+                entity.HasOne(r => r.Period)
+                    .WithMany()
+                    .HasForeignKey(r => r.PeriodId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Configure self-referencing relationship for versioning
+                entity.HasOne(r => r.PreviousVersion)
+                    .WithMany()
+                    .HasForeignKey(r => r.PreviousVersionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
         }
     }
 
