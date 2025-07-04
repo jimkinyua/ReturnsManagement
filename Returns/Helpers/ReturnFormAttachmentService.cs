@@ -55,7 +55,7 @@ namespace Returns.Helpers
             var periodQuery = _context.ReturnPeriods
                 .Include(p => p.ReportingYear)
                 .Include(p => p.FrequencyCatalog)
-                .Where(p => p.IsLocked);
+                .AsQueryable();
 
            /* if (request.ApplyToAllPeriodsInYear && !string.IsNullOrEmpty(request.YearId.ToString()))
             {
