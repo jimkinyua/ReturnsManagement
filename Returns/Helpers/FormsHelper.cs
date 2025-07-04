@@ -1,93 +1,37 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Returns.DTOs.Forms;
 using Returns.Models.Data;
 
 namespace Returns.Helpers
 {
     public static class FormsHelper
     {
-/*        public static async Task ValidateFormTypeUniqueness(CreateFormDTO createFormDTO)
+        public static async Task ValidateFormTypeUniqueness(CreateFormDTO createFormDTO, ReturnsDbContext context)
         {
-            var context = new ReturnsDbContext();
-            // Get existing forms for this Sacco type and frequency that are not deleted
-            var existingForms = await context.ReturnForms.ToListAsync();
+            // Check if a form with the same category already exists for this Sacco type
+            bool exists = await context.ReturnForms.AnyAsync(f =>
+                f.Category == createFormDTO.Category &&
+                f.SaccoTypeId == createFormDTO.SaccoTypeId &&
+                f.IsActive);
 
-            // Check for Capital Adequacy Form
-            if (createFormDTO.IsCapitalAdequencyForm)
+            if (exists)
             {
-                bool exists = existingForms.Any(f =>
-                    f.IsCapitalAdequencyForm &&
-                    f.PeriodId == createFormDTO.PeriodId &&
-                    f.SaccoTypeId == createFormDTO.SaccoTypeId);
-
-                if (exists)
-                {
-                    throw new Exception(
-                        "A Capital Adequacy form already exists for this period and Sacco type.");
-                }
+                var categoryName = createFormDTO.Category.ToString().Replace("_", " ");
+                throw new Exception(
+                    $"A {categoryName} form already exists for this Sacco type. Please deactivate the existing form before creating a new one.");
             }
 
-            // Check for Liquidity Statement
-            if (createFormDTO.IsLiquidityStatement)
-            {
-                bool exists = existingForms.Any(f =>
-                    f.IsLiquidityStatement &&
-                    f.PeriodId == createFormDTO.PeriodId &&
-                    f.SaccoTypeId == createFormDTO.SaccoTypeId);
+            // Also check if the form code is unique
+            bool codeExists = await context.ReturnForms.AnyAsync(f =>
+                f.Code == createFormDTO.DisplayName &&
+                f.SaccoTypeId == createFormDTO.SaccoTypeId);
 
-                if (exists)
-                {
-                    throw new Exception(
-                        "A Liquidity Statement form already exists for this frequency and Sacco type.");
-                }
-            }
-
-            // Similar checks for other form types
-            if (createFormDTO.IsRiskClassification &&
-                existingForms.Any(f => f.IsRiskClassification &&
-                f.PeriodId == createFormDTO.PeriodId &&
-                f.SaccoTypeId == createFormDTO.SaccoTypeId))
+            if (codeExists)
             {
                 throw new Exception(
-                    "A Risk Classification form already exists for this frequency and Sacco type.");
-            }
-
-            if (createFormDTO.IsInvestmentReturn &&
-                existingForms.Any(f => f.IsInvestmentReturn &&
-                f.PeriodId == createFormDTO.PeriodId &&
-                f.SaccoTypeId == createFormDTO.SaccoTypeId))
-            {
-                throw new Exception(
-                    "An Investment Return form already exists for this frequency and Sacco type.");
-            }
-
-            if (createFormDTO.IsFinancialPosition &&
-                existingForms.Any(f => f.IsFinancialPosition &&
-                f.PeriodId == createFormDTO.PeriodId &&
-                f.SaccoTypeId == createFormDTO.SaccoTypeId))
-            {
-                throw new Exception(
-                    "A Financial Position form already exists for this frequency and Sacco type.");
-            }
-
-            if (createFormDTO.IsStatementOfComprehensiveIncome &&
-                existingForms.Any(f => f.IsStatementOfComprehensiveIncome &&
-                f.PeriodId == createFormDTO.PeriodId &&
-                f.SaccoTypeId == createFormDTO.SaccoTypeId))
-            {
-                throw new Exception(
-                    "A Statement of Comprehensive Income form already exists for this frequency and Sacco type.");
-            }
-
-            if (createFormDTO.IsDepositReturnForm &&
-                existingForms.Any(f => f.IsDepositReturnForm &&
-                f.PeriodId == createFormDTO.PeriodId &&
-                f.SaccoTypeId == createFormDTO.SaccoTypeId))
-            {
-                throw new Exception(
-                    "A Deposit Return form already exists for this frequency and Sacco type.");
+                    $"A form with code '{createFormDTO.DisplayName}' already exists for this Sacco type. Please use a unique code.");
             }
         }
-*/
         public static bool IsValidExcelFile(IFormFile file)
         {
             // 1. Check file extension
@@ -137,11 +81,11 @@ namespace Returns.Helpers
             {
                 return null;
             }
-
+            return "y";
             try
             {
                 // Clean and validate folder name
-                folder = string.IsNullOrEmpty(folder) ? "default" :new string(folder.Where(c => !Path.GetInvalidPathChars().Contains(c)).ToArray());
+                folder = string.IsNullOrEmpty(folder) ? "default" : new string(folder.Where(c => !Path.GetInvalidPathChars().Contains(c)).ToArray());
                 var ModuleFolder = "Returns";
                 folder = Path.Combine(ModuleFolder, folder);
                 // Ensure the folder name is safe
@@ -259,7 +203,7 @@ namespace Returns.Helpers
 
 
         // DeleteFile
-        public static async Task<bool> DeleteFile(string filePath)
+        public static bool DeleteFile(string filePath)
         {
             try
             {
@@ -267,6 +211,15 @@ namespace Returns.Helpers
                 {
                     return false;
                 }
+
+                // Extract the actual file path from the URL if it's a gateway URL
+                if (filePath.StartsWith("/gateway"))
+                {
+                    // Remove gateway prefix and extract the relative path
+                    var parts = filePath.Split('/').Skip(3).ToArray(); // Skip empty, "gateway", and "api/files"
+                    filePath = string.Join("/", parts);
+                }
+
                 // Get the configured storage path from environment variable
                 string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH");
                 if (string.IsNullOrEmpty(hostStoragePath))
@@ -274,6 +227,10 @@ namespace Returns.Helpers
                     throw new Exception("HOST_STORAGE_PATH environment variable is not set.");
                 }
                 hostStoragePath = hostStoragePath.Replace('\\', '/'); // Normalize path separators
+
+                // URL decode the file path to handle encoded spaces and special characters
+                filePath = Uri.UnescapeDataString(filePath);
+
                 var fullFilePath = Path.Combine(hostStoragePath, filePath);
                 if (File.Exists(fullFilePath))
                 {

@@ -33,11 +33,11 @@ namespace Returns.Helpers
             var expectedReturns = new List<ExpectedReturnPreviewDto>();
 
             // Validate request
-           /* if (!request.PeriodIds.Any() && !request.ApplyToAllPeriodsInYear)
-            {
-                preview.Warnings.Add("No periods specified for attachment.");
-                return preview;
-            }*/
+            /* if (!request.PeriodIds.Any() && !request.ApplyToAllPeriodsInYear)
+             {
+                 preview.Warnings.Add("No periods specified for attachment.");
+                 return preview;
+             }*/
 
             if (!request.PeriodIds.Any())
             {
@@ -55,16 +55,16 @@ namespace Returns.Helpers
             var periodQuery = _context.ReturnPeriods
                 .Include(p => p.ReportingYear)
                 .Include(p => p.FrequencyCatalog)
-                .Where(p => p.IsLocked);
+                .AsQueryable();
 
-           /* if (request.ApplyToAllPeriodsInYear && !string.IsNullOrEmpty(request.YearId.ToString()))
-            {
-                periodQuery = periodQuery.Where(p => p.YearId == request.YearId.Value);
-            }
-            else
-            {*/
-                periodQuery = periodQuery.Where(p => request.PeriodIds.Contains(p.Id));
-           /* }*/
+            /* if (request.ApplyToAllPeriodsInYear && !string.IsNullOrEmpty(request.YearId.ToString()))
+             {
+                 periodQuery = periodQuery.Where(p => p.YearId == request.YearId.Value);
+             }
+             else
+             {*/
+            periodQuery = periodQuery.Where(p => request.PeriodIds.Contains(p.Id));
+            /* }*/
 
             var periods = await periodQuery.ToListAsync();
 

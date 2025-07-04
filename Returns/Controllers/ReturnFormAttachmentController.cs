@@ -10,7 +10,7 @@ using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Controllers
 {
-    [Authorize]
+    //[Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ReturnFormAttachmentController : ControllerBase
