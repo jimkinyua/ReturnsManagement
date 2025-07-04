@@ -45,9 +45,9 @@ namespace Returns.Controllers
                 // baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
 
                 // Check if form of this type already exists
-                await FormsHelper.ValidateFormTypeUniqueness(createFormDTO);
+                await FormsHelper.ValidateFormTypeUniqueness(createFormDTO, _context);
                 var templatePath = "";
-                if (!createFormDTO.IsOtherForm)
+                if (createFormDTO.Category != Helpers.Enums.FormCategory.Other)
                 {
                     // we need it to be an excel file
                     if (!FormsHelper.IsValidExcelFile(createFormDTO.Template))
@@ -70,22 +70,11 @@ namespace Returns.Controllers
                 var form = new ReturnForm
                 {
                     FormName = createFormDTO.Name,
-                    PeriodId = createFormDTO.PeriodId,
-                    SaccoTypeId = createFormDTO.SaccoTypeId,
-                    IsCapitalAdequencyForm = createFormDTO.IsCapitalAdequencyForm,
                     Code = createFormDTO.DisplayName,
+                    SaccoTypeId = createFormDTO.SaccoTypeId,
+                    Category = createFormDTO.Category,
                     TemplateUrl = templatePath,
-                    IsLiquidityStatement = createFormDTO.IsLiquidityStatement,
-                    IsManagement = createFormDTO.IsManagement,
-                    IsRiskClassification = createFormDTO.IsRiskClassification,
-                    IsInvestmentReturn = createFormDTO.IsInvestmentReturn,
-                    IsFinancialPosition = createFormDTO.IsFinancialPosition,
-                    IsInsiderLending = createFormDTO.IsInsiderLending,
-                    IsDailyLiquidity = createFormDTO.IsDailyLiquidity,
-                    IsSectoralLending = createFormDTO.IsSectoralLending,
-                    IsStatementOfComprehensiveIncome = createFormDTO.IsStatementOfComprehensiveIncome,
-                    IsDepositReturnForm = createFormDTO.IsDepositReturnForm,
-                    IsOtherForm = createFormDTO.IsOtherForm
+                    IsActive = true
                 };
 
                 _context.ReturnForms.Add(form);
@@ -96,19 +85,9 @@ namespace Returns.Controllers
                     Name = form.FormName,
                     DisplayName = form.Code,
                     SaccoTypeId = form.SaccoTypeId,
-                    IsCapitalAdequencyForm = form.IsCapitalAdequencyForm,
-                    IsRiskClassification = createFormDTO.IsRiskClassification,
-                    IsInvestmentReturn = createFormDTO.IsInvestmentReturn,
-                    IsManagement = createFormDTO.IsManagement,
-                    IsFinancialPosition = createFormDTO.IsFinancialPosition,
-                    IsDailyLiquidity = createFormDTO.IsDailyLiquidity,
-                    IsSectoralLending = createFormDTO.IsSectoralLending,
-                    IsInsiderLending = createFormDTO.IsInsiderLending,
-                    IsStatementOfComprehensiveIncome = createFormDTO.IsStatementOfComprehensiveIncome,
-                    IsDepositReturnForm = createFormDTO.IsDepositReturnForm,
-                    IsLiquidityStatement = createFormDTO.IsLiquidityStatement,
-                    IsOtherForm = createFormDTO.IsOtherForm,
-                    TemplateUrl = form.IsOtherForm ? "" : $"{baseUrl}{form.TemplateUrl}"
+                    Category = form.Category,
+                    IsActive = form.IsActive,
+                    TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
                 };
 
                 return StatusCode(201, m);
@@ -177,21 +156,10 @@ namespace Returns.Controllers
                 form.FormName = updateFormDTO.Name;
                 form.Code = updateFormDTO.DisplayName;
                 form.SaccoTypeId = updateFormDTO.SaccoTypeId;
-                form.IsCapitalAdequencyForm = updateFormDTO.IsCapitalAdequencyForm;
-                form.IsLiquidityStatement = updateFormDTO.IsLiquidityStatement;
-                form.IsManagement = updateFormDTO.IsManagement;
-                form.IsRiskClassification = updateFormDTO.IsRiskClassification;
-                form.IsInvestmentReturn = updateFormDTO.IsInvestmentReturn;
-                form.IsFinancialPosition = updateFormDTO.IsFinancialPosition;
-                form.IsInsiderLending = updateFormDTO.IsInsiderLending;
-                form.IsDailyLiquidity = updateFormDTO.IsDailyLiquidity;
-                form.IsSectoralLending = updateFormDTO.IsSectoralLending;
-                form.IsStatementOfComprehensiveIncome = updateFormDTO.IsStatementOfComprehensiveIncome;
-                form.IsDepositReturnForm = updateFormDTO.IsDepositReturnForm;
-                form.IsOtherForm = updateFormDTO.IsOtherForm;
+                form.Category = updateFormDTO.Category;
 
                 // Handle template update if requested
-                if (updateFormDTO.UpdateTemplate && !updateFormDTO.IsOtherForm)
+                if (updateFormDTO.UpdateTemplate && updateFormDTO.Category != Helpers.Enums.FormCategory.Other)
                 {
                     if (updateFormDTO.Template == null)
                     {
@@ -218,7 +186,7 @@ namespace Returns.Controllers
 
                     form.TemplateUrl = templatePath;
                 }
-                else if (updateFormDTO.IsOtherForm)
+                else if (updateFormDTO.Category == Helpers.Enums.FormCategory.Other)
                 {
                     // If changing to "other form", remove template
                     if (!string.IsNullOrEmpty(form.TemplateUrl))
@@ -236,20 +204,9 @@ namespace Returns.Controllers
                     Name = form.FormName,
                     DisplayName = form.Code,
                     SaccoTypeId = form.SaccoTypeId,
-                    IsCapitalAdequencyForm = form.IsCapitalAdequencyForm,
-                    IsRiskClassification = form.IsRiskClassification,
-                    IsInvestmentReturn = form.IsInvestmentReturn,
-                    IsManagement = form.IsManagement,
-                    IsFinancialPosition = form.IsFinancialPosition,
-                    IsDailyLiquidity = form.IsDailyLiquidity,
-                    IsSectoralLending = form.IsSectoralLending,
-                    IsInsiderLending = form.IsInsiderLending,
-                    IsStatementOfComprehensiveIncome = form.IsStatementOfComprehensiveIncome,
-                    IsDepositReturnForm = form.IsDepositReturnForm,
-                    IsLiquidityStatement = form.IsLiquidityStatement,
-                    IsOtherForm = form.IsOtherForm,
+                    Category = form.Category,
                     IsActive = form.IsActive,
-                    TemplateUrl = form.IsOtherForm ? "" : $"{baseUrl}{form.TemplateUrl}"
+                    TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
                 };
 
                 return Ok(responseDto);
@@ -277,8 +234,7 @@ namespace Returns.Controllers
                 DateTime requestDate = DateTime.Now;
 
                 var allForms = await _context.ReturnForms
-                  .Where(x => x.SaccoTypeId == loggedInSacco.SaccoType)
-                  .Include(f => f.Period)
+                  .Where(x => x.SaccoTypeId == loggedInSacco.SaccoType && x.IsActive)
                   .ToListAsync();
 
                 var relevantForms = new List<FormsToSubmitDTO>();
@@ -301,7 +257,7 @@ namespace Returns.Controllers
                             ReportingPeriodEnd = reportingEndDate,
                             SubmissionDeadLine = dueDate,
                             IsLate = requestDate > dueDate,
-                            TemplateUrl = $"{baseUrl}{form.TemplateUrl}"
+                            TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{form.TemplateUrl}"
                         };
 
                         formDto.IsSubmitted = false; //await IsFormSubmittedAsync(form, requestDate);
@@ -391,7 +347,7 @@ namespace Returns.Controllers
                     PeriodEndDate = er.Period.EndDate,
                     FilingDeadline = er.FilingDeadline,
                     Status = er.Status,
-                    TemplateUrl = er.ReturnForm.IsOtherForm ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                    TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
                     SaccoTypeId = er.ReturnForm.SaccoTypeId
                 })
                 .OrderBy(f => f.FilingDeadline)
@@ -464,20 +420,9 @@ namespace Returns.Controllers
                         Name = f.FormName,
                         DisplayName = f.Code,
                         SaccoTypeId = f.SaccoTypeId,
-                        IsCapitalAdequencyForm = f.IsCapitalAdequencyForm,
-                        IsRiskClassification = f.IsRiskClassification,
-                        IsInvestmentReturn = f.IsInvestmentReturn,
-                        IsManagement = f.IsManagement,
-                        IsFinancialPosition = f.IsFinancialPosition,
-                        IsDailyLiquidity = f.IsDailyLiquidity,
-                        IsSectoralLending = f.IsSectoralLending,
-                        IsInsiderLending = f.IsInsiderLending,
-                        IsStatementOfComprehensiveIncome = f.IsStatementOfComprehensiveIncome,
-                        IsDepositReturnForm = f.IsDepositReturnForm,
-                        IsLiquidityStatement = f.IsLiquidityStatement,
-                        IsOtherForm = f.IsOtherForm,
+                        Category = f.Category,
                         IsActive = f.IsActive,
-                        TemplateUrl = f.IsOtherForm ? "" : $"{baseUrl}{f.TemplateUrl}"
+                        TemplateUrl = f.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{f.TemplateUrl}"
                     })
                     .OrderBy(f => f.Name)
                     .ToListAsync();
@@ -554,7 +499,7 @@ namespace Returns.Controllers
                     PeriodEndDate = er.Period.EndDate,
                     FilingDeadline = er.FilingDeadline,
                     Status = er.Status,
-                    TemplateUrl = er.ReturnForm.IsOtherForm ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                    TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
                     SaccoTypeId = er.ReturnForm.SaccoTypeId
                 })
                 .OrderBy(f => f.FilingDeadline)
@@ -662,6 +607,89 @@ namespace Returns.Controllers
                 summary.ByForm = byForm;
 
                 return Ok(summary);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Get forms by category
+        /// </summary>
+        /// <param name="category">The form category</param>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpGet("GetFormsByCategory")]
+        public async Task<ActionResult<List<FormDTO>>> GetFormsByCategory(
+            [FromQuery] Helpers.Enums.FormCategory category,
+            [FromQuery] string? saccoTypeId = null)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+
+                var formsQuery = _context.ReturnForms
+                    .Where(f => f.Category == category && f.IsActive);
+
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    formsQuery = formsQuery.Where(f => f.SaccoTypeId == saccoTypeId);
+                }
+
+                var forms = await formsQuery
+                    .Select(f => new FormDTO
+                    {
+                        Id = f.Id,
+                        Name = f.FormName,
+                        DisplayName = f.Code,
+                        SaccoTypeId = f.SaccoTypeId,
+                        Category = f.Category,
+                        IsActive = f.IsActive,
+                        TemplateUrl = f.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{f.TemplateUrl}"
+                    })
+                    .OrderBy(f => f.Name)
+                    .ToListAsync();
+
+                return Ok(forms);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Get a summary of forms grouped by category
+        /// </summary>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpGet("GetFormCategorySummary")]
+        public async Task<ActionResult<List<FormCategorySummaryDTO>>> GetFormCategorySummary(
+            [FromQuery] string? saccoTypeId = null)
+        {
+            try
+            {
+                var formsQuery = _context.ReturnForms.AsQueryable();
+
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    formsQuery = formsQuery.Where(f => f.SaccoTypeId == saccoTypeId);
+                }
+
+                var groupedForms = await formsQuery
+                    .GroupBy(f => f.Category)
+                    .Select(g => new FormCategorySummaryDTO
+                    {
+                        Category = g.Key,
+                        FormCount = g.Count(),
+                        ActiveFormCount = g.Count(f => f.IsActive),
+                        InactiveFormCount = g.Count(f => !f.IsActive)
+                    })
+                    .OrderBy(g => g.Category)
+                    .ToListAsync();
+
+                return Ok(groupedForms);
             }
             catch (Exception ex)
             {

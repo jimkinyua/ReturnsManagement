@@ -1,35 +1,31 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
+using Returns.Helpers.Enums;
 
-public class CreateFormDTO : IValidatableObject
+namespace Returns.DTOs.Forms
 {
-    [Required]
-    public string Name { get; set; } = null!;
-    [Required]
-    public string PeriodId { get; set; } = null!;
-    [Required]
-    public string DisplayName { get; set; } = null!;
-    [Required]
-    public string SaccoTypeId { get; set; } = null!;
-    public Boolean IsCapitalAdequencyForm { get; set; } = false;
-    public Boolean IsDepositReturnForm { get; set; } = false;
-    public Boolean IsLiquidityStatement { get; set; } = false;
-    public Boolean IsRiskClassification { get; set; } = false;
-    public Boolean IsInvestmentReturn { get; set; } = false;
-    public Boolean IsFinancialPosition { get; set; } = false;
-    public Boolean IsInsiderLending { get; set; } = false;
-    public Boolean IsSectoralLending { get; set; } = false;
-    public Boolean IsDailyLiquidity { get; set; } = false;
-    public Boolean IsManagement { get; set; } = false;
-    public Boolean IsStatementOfComprehensiveIncome { get; set; } = false;
-    [Required]
-    public Boolean IsOtherForm { get; set; } = false;
-    public IFormFile? Template { get; set; }
-
-    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    public class CreateFormDTO : IValidatableObject
     {
-        if (!IsOtherForm && Template == null)
+        [Required]
+        public string Name { get; set; } = null!;
+        
+        [Required]
+        public string DisplayName { get; set; } = null!;  // This is the Code
+        
+        [Required]
+        public string SaccoTypeId { get; set; } = null!;
+        
+        [Required]
+        public FormCategory Category { get; set; }
+        
+        public IFormFile? Template { get; set; }  // Required unless Category is Other
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            yield return new ValidationResult("Template is required if the form is not of type OtherForm.", new[] { nameof(Template) });
+            if (Category != FormCategory.Other && Template == null)
+            {
+                yield return new ValidationResult("Template is required unless the form category is 'Other'.", new[] { nameof(Template) });
+            }
         }
     }
 }
