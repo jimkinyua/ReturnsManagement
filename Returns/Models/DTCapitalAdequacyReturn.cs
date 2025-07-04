@@ -52,9 +52,9 @@ namespace Returns.Models
         public decimal CoreCapitalToDepositsRatioExcessDeficiency { get; set; }
 
         // related entities
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
+        [ForeignKey("ReturnSubmission")]
+        public Guid ReturnSubmissionId { get; set; }
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
         public string FilePath { get; set; } = null!;
         public string Year { get; set; } = null!;
         public DateTime StartDate { get; set; } 

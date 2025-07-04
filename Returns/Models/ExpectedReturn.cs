@@ -20,7 +20,7 @@ namespace Returns.Models
         public ReturnForm ReturnForm { get; set; } = null!;
 
         public DateTime FilingDeadline { get; set; }
-        public ExpectedStatus Status { get; set; }  // enum { Due, Late, Filed, Waived }
+        public ExpectedStatus Status { get; set; }  //  { IGNORE THIS ITS NOT USED}
         public bool IsActive { get; set; } = true;
     }
 }
