@@ -18,5 +18,8 @@ namespace Returns.Models
         public string Frequency { get; set; } = null!;
         public string FilePath { get; set; } = null!;
         public int DaysLateBy { get; set; }
+        
+        public Guid ReturnSubmissionId { get; set; }           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

@@ -297,5 +297,8 @@ namespace Returns.Models
         public string ReturnId { get; set; } = null!;
         public virtual Return Return { get; set; } = null!;
         public string FilePath { get; set; } = null!;
+        
+        public Guid ReturnSubmissionId { get; set; }           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

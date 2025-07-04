@@ -23,5 +23,8 @@ namespace Returns.Models
         {
             get; set;
         }
+        
+        public Guid ReturnSubmissionId { get; set; }           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }
