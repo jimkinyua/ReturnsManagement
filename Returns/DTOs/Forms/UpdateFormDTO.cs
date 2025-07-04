@@ -9,6 +9,7 @@ namespace Returns.DTOs.Forms
         public string DisplayName { get; set; } = null!;  // This is the Code
         public string SaccoTypeId { get; set; } = null!;
         public FormCategory Category { get; set; }
+        public string Frequency { get; set; } = "ALL";
         public IFormFile? Template { get; set; }  // Optional - only if updating template
         public bool UpdateTemplate { get; set; } = false;  // Flag to indicate if template should be updated
     }

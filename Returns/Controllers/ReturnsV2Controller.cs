@@ -170,9 +170,12 @@ namespace Returns.Controllers
         /// <summary>
         /// Waive a return requirement (Admin only)
         /// </summary>
-        [HttpPost("waive/{expectedReturnId}")]
+        /// <param name="periodId">The period ID</param>
+        /// <param name="formId">The form ID</param>
+        [HttpPost("waive/{periodId}/{formId}")]
         public async Task<ActionResult> WaiveReturn(
-            string expectedReturnId,
+            string periodId,
+            string formId,
             [FromBody] WaiveReturnRequest request)
         {
             try
@@ -184,9 +187,17 @@ namespace Returns.Controllers
                 }
 
                 // TODO: Add authorization check to ensure user is admin
+                // For now, we'll assume the endpoint requires a SaccoId to be passed
+                if (string.IsNullOrEmpty(request.SaccoId))
+                {
+                    return BadRequest("SaccoId is required");
+                }
+
+                // Build composite ID
+                var compositeId = $"{request.SaccoId}_{periodId}_{formId}";
 
                 var success = await _submissionService.WaiveReturnAsync(
-                    expectedReturnId,
+                    compositeId,
                     request.Reason,
                     loggedInEntity.UserId);
 
@@ -196,13 +207,75 @@ namespace Returns.Controllers
                 }
                 else
                 {
-                    return BadRequest(new { message = "Failed to waive return" });
+                    return BadRequest(new { message = "Failed to waive return. It may already be waived." });
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error waiving return");
                 return StatusCode(500, "An error occurred while waiving the return");
+            }
+        }
+
+        /// <summary>
+        /// Get expected returns for a specific month
+        /// </summary>
+        [HttpGet("expected/month")]
+        public async Task<ActionResult<List<ExpectedReturnDto>>> GetExpectedReturnsByMonth(
+            [FromQuery] int year,
+            [FromQuery] int month)
+        {
+            try
+            {
+                var loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInEntity == null || string.IsNullOrEmpty(loggedInEntity.SaccoId))
+                {
+                    return Unauthorized();
+                }
+
+                var expectedReturns = await _submissionService.GetExpectedReturnsByMonthAsync(
+                    loggedInEntity.SaccoId, 
+                    year, 
+                    month);
+
+                return Ok(expectedReturns);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting expected returns by month");
+                return StatusCode(500, "An error occurred while fetching expected returns");
+            }
+        }
+
+        /// <summary>
+        /// Get expected returns for a specific year
+        /// </summary>
+        [HttpGet("expected/year")]
+        public async Task<ActionResult<List<ExpectedReturnDto>>> GetExpectedReturnsByYear(
+            [FromQuery] int year)
+        {
+            try
+            {
+                var loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInEntity == null || string.IsNullOrEmpty(loggedInEntity.SaccoId))
+                {
+                    return Unauthorized();
+                }
+
+                var expectedReturns = await _submissionService.GetExpectedReturnsByYearAsync(
+                    loggedInEntity.SaccoId, 
+                    year);
+
+                return Ok(expectedReturns);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting expected returns by year");
+                return StatusCode(500, "An error occurred while fetching expected returns");
             }
         }
     }
@@ -216,6 +289,7 @@ namespace Returns.Controllers
 
     public class WaiveReturnRequest
     {
+        public string SaccoId { get; set; } = "";
         public string Reason { get; set; } = "";
     }
 }

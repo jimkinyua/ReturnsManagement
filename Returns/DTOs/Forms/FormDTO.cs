@@ -10,6 +10,7 @@ namespace Returns.DTOs.Forms
         public string SaccoTypeId { get; set; } = null!;
         public string TemplateUrl { get; set; } = null!;
         public FormCategory Category { get; set; }
+        public string Frequency { get; set; } = "ALL";
         public Boolean IsActive { get; set; } = true;
     }
 }

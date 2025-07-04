@@ -11,6 +11,12 @@ namespace Returns.Helpers.Interfaces
         // Get returns that are due or late
         Task<List<ExpectedReturnDto>> GetDueReturnsAsync(string saccoId);
         
+        // Get expected returns for a specific month/year
+        Task<List<ExpectedReturnDto>> GetExpectedReturnsByMonthAsync(string saccoId, int year, int month);
+        
+        // Get expected returns for a specific year
+        Task<List<ExpectedReturnDto>> GetExpectedReturnsByYearAsync(string saccoId, int year);
+        
         // Check if a SACCO can file returns for a specific period
         Task<ReturnFilingEligibility> CheckFilingEligibilityAsync(string saccoId, string periodId, List<string> formIds);
         

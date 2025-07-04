@@ -16,6 +16,7 @@ namespace Returns.Helpers
         private readonly IReturnAssignmentService _assignmentService;
         private readonly IWorkflowEngineService _workflowService;
         private readonly ICamelsAnalysisService _analysisService;
+        private readonly IComplianceService _complianceService;
 
         public ReturnsSubmissionService(
             ReturnsDbContext context,
@@ -24,7 +25,8 @@ namespace Returns.Helpers
             IEmailService emailService,
             IReturnAssignmentService assignmentService,
             IWorkflowEngineService workflowService,
-            ICamelsAnalysisService analysisService)
+            ICamelsAnalysisService analysisService,
+            IComplianceService complianceService)
         {
             _context = context;
             _logger = logger;
@@ -33,67 +35,119 @@ namespace Returns.Helpers
             _assignmentService = assignmentService;
             _workflowService = workflowService;
             _analysisService = analysisService;
+            _complianceService = complianceService;
         }
 
         public async Task<List<ExpectedReturnDto>> GetExpectedReturnsAsync(string saccoId, string? periodId = null)
         {
             try
             {
-                var query = _context.ExpectedReturns
-                    .Include(e => e.Period)
-                        .ThenInclude(p => p.ReportingYear)
-                    .Include(e => e.Period)
-                        .ThenInclude(p => p.FrequencyCatalog)
-                    .Include(e => e.Form)
-                    .Where(e => e.SaccoId == saccoId);
-
-                if (!string.IsNullOrEmpty(periodId))
+                // Get SACCO details to know when they were onboarded
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoId);
+                if (saccoDetails == null)
                 {
-                    query = query.Where(e => e.PeriodId == periodId);
+                    return new List<ExpectedReturnDto>();
                 }
 
-                var expectedReturns = await query.ToListAsync();
+                // Build query for periods
+                var periodsQuery = _context.ReturnPeriods
+                    .Include(p => p.ReportingYear)
+                    .Include(p => p.FrequencyCatalog)
+                    .Where(p => p.IsActive);
 
-                // Get all returns for this SACCO to check which are filed
+                // If specific period requested
+                if (!string.IsNullOrEmpty(periodId))
+                {
+                    periodsQuery = periodsQuery.Where(p => p.Id == periodId);
+                }
+                else
+                {
+                    // Get periods from SACCO onboarding date onwards
+                    var onboardingDate = saccoDetails.CreatedAt ?? DateTime.Now.AddYears(-1);
+                    periodsQuery = periodsQuery.Where(p => p.StartDate >= onboardingDate.Date);
+                }
+
+                var periods = await periodsQuery.ToListAsync();
+
+                // Get all active forms for this SACCO type
+                var forms = await _context.ReturnForms
+                    .Where(f => f.IsActive && f.SaccoTypeId == saccoDetails.SaccoType)
+                    .ToListAsync();
+
+                // Get already filed returns
                 var filedReturns = await _context.Returns
                     .Where(r => r.SaccoId == saccoId && r.IsActiveVersion)
                     .Select(r => new { r.PeriodId, r.Id, r.SubmittedAt })
                     .ToListAsync();
 
-                var filedReturnsByPeriod = filedReturns
+                var filedByPeriod = filedReturns
                     .GroupBy(r => r.PeriodId)
                     .ToDictionary(g => g.Key, g => g.First());
 
-                // Map to DTOs with calculated status
-                var dtos = expectedReturns.Select(e =>
+                // Get waived returns
+                var waivedReturns = await _context.WaivedReturns
+                    .Where(w => w.SaccoId == saccoId)
+                    .ToListAsync();
+
+                var waivedLookup = waivedReturns
+                    .ToLookup(w => new { w.PeriodId, w.FormId });
+
+                // Calculate expected returns
+                var expectedReturns = new List<ExpectedReturnDto>();
+
+                foreach (var period in periods)
                 {
-                    var hasFiled = filedReturnsByPeriod.TryGetValue(e.PeriodId, out var filedReturn);
-                    e.HasAssociatedReturn = hasFiled;
+                    // Get forms applicable for this period's frequency
+                    var applicableForms = forms
+                        .Where(f => f.Frequency == period.FrequencyCatalog.Code || f.Frequency == "ALL")
+                        .ToList();
 
-                    return new ExpectedReturnDto
+                    foreach (var form in applicableForms)
                     {
-                        Id = e.Id,
-                        PeriodId = e.PeriodId,
-                        PeriodName = e.Period.Name,
-                        PeriodStartDate = e.Period.StartDate,
-                        PeriodEndDate = e.Period.EndDate,
-                        FormId = e.FormId,
-                        FormCode = e.Form.Code,
-                        FormName = e.Form.FormName,
-                        DueDate = e.DueDate,
-                        Status = e.Status,
-                        DaysUntilDue = e.DaysUntilDue(),
-                        CanFile = e.CanFileReturn(),
-                        IsWaived = e.IsWaived,
-                        WaivedReason = e.WaivedReason,
-                        WaivedDate = e.WaivedDate,
-                        ReturnId = filedReturn?.Id,
-                        FiledDate = filedReturn?.SubmittedAt,
-                        IsLate = hasFiled && filedReturn.SubmittedAt > e.DueDate
-                    };
-                }).ToList();
+                        var dueDate = period.GetDueDate();
+                        var hasFiled = filedByPeriod.TryGetValue(period.Id, out var filedReturn);
+                        var isWaived = waivedLookup.Contains(new { PeriodId = period.Id, FormId = form.Id });
+                        var waiverInfo = isWaived ? waivedLookup[new { PeriodId = period.Id, FormId = form.Id }].First() : null;
 
-                return dtos;
+                        // Calculate status
+                        ExpectedStatus status;
+                        if (isWaived)
+                            status = ExpectedStatus.Waived;
+                        else if (hasFiled)
+                            status = ExpectedStatus.Filed;
+                        else if (DateTime.Now > dueDate)
+                            status = ExpectedStatus.Late;
+                        else
+                            status = ExpectedStatus.Due;
+
+                        expectedReturns.Add(new ExpectedReturnDto
+                        {
+                            Id = $"{period.Id}_{form.Id}", // Composite ID
+                            PeriodId = period.Id,
+                            PeriodName = period.Name,
+                            PeriodStartDate = period.StartDate,
+                            PeriodEndDate = period.EndDate,
+                            FormId = form.Id,
+                            FormCode = form.Code,
+                            FormName = form.FormName,
+                            DueDate = dueDate,
+                            Status = status,
+                            DaysUntilDue = (dueDate - DateTime.Now).Days,
+                            CanFile = !isWaived && !hasFiled,
+                            IsWaived = isWaived,
+                            WaivedReason = waiverInfo?.WaivedReason,
+                            WaivedDate = waiverInfo?.WaivedDate,
+                            ReturnId = filedReturn?.Id,
+                            FiledDate = filedReturn?.SubmittedAt,
+                            IsLate = hasFiled && filedReturn.SubmittedAt > dueDate
+                        });
+                    }
+                }
+
+                return expectedReturns
+                    .OrderBy(e => e.DueDate)
+                    .ThenBy(e => e.FormName)
+                    .ToList();
             }
             catch (Exception ex)
             {
@@ -132,19 +186,12 @@ namespace Returns.Helpers
                     };
                 }
 
-                // Check if period is still open for filing
                 var dueDate = period.GetDueDate();
                 var eligibility = new ReturnFilingEligibility
                 {
                     PeriodName = period.Name,
                     DueDate = dueDate
                 };
-
-                // Get expected returns for this period
-                var expectedReturns = await _context.ExpectedReturns
-                    .Include(e => e.Form)
-                    .Where(e => e.SaccoId == saccoId && e.PeriodId == periodId)
-                    .ToListAsync();
 
                 // Check if there's already an active return for this period
                 var existingReturn = await _context.Returns
@@ -159,13 +206,33 @@ namespace Returns.Helpers
                     return eligibility;
                 }
 
-                // Check for missing required forms
-                var requiredFormIds = expectedReturns
-                    .Where(e => !e.IsWaived)
-                    .Select(e => e.FormId)
-                    .ToList();
+                // Get SACCO details
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoId);
+                if (saccoDetails == null)
+                {
+                    eligibility.CanFile = false;
+                    eligibility.ReasonIfCannot = "SACCO not found";
+                    return eligibility;
+                }
 
-                eligibility.MissingForms = requiredFormIds
+                // Get forms required for this period
+                var requiredForms = await _context.ReturnForms
+                    .Where(f => f.IsActive 
+                        && f.SaccoTypeId == saccoDetails.SaccoType
+                        && (f.Frequency == period.FrequencyCatalog.Code || f.Frequency == "ALL"))
+                    .Select(f => f.Id)
+                    .ToListAsync();
+
+                // Check for waived forms
+                var waivedForms = await _context.WaivedReturns
+                    .Where(w => w.SaccoId == saccoId && w.PeriodId == periodId)
+                    .Select(w => w.FormId)
+                    .ToListAsync();
+
+                // Remove waived forms from required
+                var actuallyRequired = requiredForms.Except(waivedForms).ToList();
+
+                eligibility.MissingForms = actuallyRequired
                     .Except(formIds)
                     .ToList();
 
@@ -317,21 +384,25 @@ namespace Returns.Helpers
                     .OrderByDescending(r => r.SubmittedAt)
                     .ToListAsync();
 
-                // Get expected returns to compare
-                var periodIds = returns.Select(r => r.PeriodId).Distinct().ToList();
-                var expectedReturns = await _context.ExpectedReturns
-                    .Include(e => e.Form)
-                    .Where(e => e.SaccoId == saccoId && periodIds.Contains(e.PeriodId))
-                    .ToListAsync();
-
-                var expectedByPeriod = expectedReturns
-                    .GroupBy(e => e.PeriodId)
-                    .ToDictionary(g => g.Key, g => g.ToList());
+                // Get SACCO details
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoId);
 
                 // Map to DTOs
                 var summaries = new List<SubmittedReturnSummaryDto>();
                 foreach (var ret in returns)
                 {
+                    // Get expected forms for this period
+                    var expectedForms = await _context.ReturnForms
+                        .Where(f => f.IsActive 
+                            && f.SaccoTypeId == saccoDetails.SaccoType
+                            && (f.Frequency == ret.Period.FrequencyCatalog.Code || f.Frequency == "ALL"))
+                        .CountAsync();
+
+                    // Get waived forms count
+                    var waivedCount = await _context.WaivedReturns
+                        .Where(w => w.SaccoId == saccoId && w.PeriodId == ret.PeriodId)
+                        .CountAsync();
+
                     var summary = new SubmittedReturnSummaryDto
                     {
                         ReturnId = ret.Id,
@@ -349,25 +420,20 @@ namespace Returns.Helpers
                         VersionNumber = ret.VersionNumber,
                         IsActiveVersion = ret.IsActiveVersion,
                         PreviousVersionId = ret.PreviousVersionId,
-                        ApprovalStatus = "Pending" // Get from workflow
+                        ApprovalStatus = "Pending", // Get from workflow
+                        TotalFormsExpected = expectedForms - waivedCount
                     };
 
-                    // Calculate form counts
-                    if (expectedByPeriod.TryGetValue(ret.PeriodId, out var expected))
+                    // Count submitted forms based on SACCO type
+                    if (ret.SaccoType == Constants.SaccoType.DepositTaking.ToString())
                     {
-                        summary.TotalFormsExpected = expected.Count(e => !e.IsWaived);
-                        
-                        // Count submitted forms based on SACCO type
-                        if (ret.SaccoType == Constants.SaccoType.DepositTaking.ToString())
-                        {
-                            summary.TotalFormsSubmitted = CountSubmittedFormsDT(ret);
-                            summary.LateSubmissions = CountLateFormsDT(ret);
-                        }
-                        else
-                        {
-                            summary.TotalFormsSubmitted = CountSubmittedFormsNWDT(ret);
-                            summary.LateSubmissions = CountLateFormsNWDT(ret);
-                        }
+                        summary.TotalFormsSubmitted = CountSubmittedFormsDT(ret);
+                        summary.LateSubmissions = CountLateFormsDT(ret);
+                    }
+                    else
+                    {
+                        summary.TotalFormsSubmitted = CountSubmittedFormsNWDT(ret);
+                        summary.LateSubmissions = CountLateFormsNWDT(ret);
                     }
 
                     summaries.Add(summary);
@@ -379,31 +445,6 @@ namespace Returns.Helpers
             {
                 _logger.LogError(ex, "Error getting submitted returns");
                 throw;
-            }
-        }
-
-        public async Task<bool> WaiveReturnAsync(string expectedReturnId, string reason, string waivedBy)
-        {
-            try
-            {
-                var expectedReturn = await _context.ExpectedReturns
-                    .FirstOrDefaultAsync(e => e.Id == expectedReturnId);
-
-                if (expectedReturn == null)
-                    return false;
-
-                expectedReturn.IsWaived = true;
-                expectedReturn.WaivedReason = reason;
-                expectedReturn.WaivedDate = DateTime.Now;
-                expectedReturn.WaivedBy = waivedBy;
-
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error waiving return");
-                return false;
             }
         }
 
@@ -461,6 +502,291 @@ namespace Returns.Helpers
             if (ret.NWDTFinancialPositionReturns.Any(f => f.DaysLateBy > 0)) count++;
             if (ret.NWDTComprehensiveIncomeReturns.Any(f => f.DaysLateBy > 0)) count++;
             return count;
+        }
+
+        public async Task<bool> WaiveReturnAsync(string expectedReturnId, string reason, string waivedBy)
+        {
+            try
+            {
+                // Parse the composite ID (periodId_formId)
+                var parts = expectedReturnId.Split('_');
+                if (parts.Length != 3) // Should be saccoId_periodId_formId
+                    return false;
+
+                var saccoId = parts[0];
+                var periodId = parts[1];
+                var formId = parts[2];
+
+                // Check if already waived
+                var existingWaiver = await _context.WaivedReturns
+                    .FirstOrDefaultAsync(w => w.SaccoId == saccoId 
+                        && w.PeriodId == periodId 
+                        && w.FormId == formId);
+
+                if (existingWaiver != null)
+                    return false; // Already waived
+
+                var waivedReturn = new WaivedReturn
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    SaccoId = saccoId,
+                    PeriodId = periodId,
+                    FormId = formId,
+                    WaivedReason = reason,
+                    WaivedDate = DateTime.Now,
+                    WaivedBy = waivedBy
+                };
+
+                _context.WaivedReturns.Add(waivedReturn);
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error waiving return");
+                return false;
+            }
+        }
+
+        public async Task<List<ExpectedReturnDto>> GetExpectedReturnsByMonthAsync(string saccoId, int year, int month)
+        {
+            try
+            {
+                // Validate input
+                if (month < 1 || month > 12)
+                {
+                    throw new ArgumentException("Month must be between 1 and 12");
+                }
+
+                // Get SACCO details
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoId);
+                if (saccoDetails == null)
+                {
+                    return new List<ExpectedReturnDto>();
+                }
+
+                var firstDayOfMonth = new DateTime(year, month, 1);
+                var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
+                // Get periods where due date falls within this month
+                var periods = await _context.ReturnPeriods
+                    .Include(p => p.ReportingYear)
+                    .Include(p => p.FrequencyCatalog)
+                    .Where(p => p.IsActive)
+                    .ToListAsync();
+
+                // Filter periods by due date in memory since GetDueDate() is a method
+                var periodsInMonth = periods
+                    .Where(p => {
+                        var dueDate = p.GetDueDate();
+                        return dueDate >= firstDayOfMonth && dueDate <= lastDayOfMonth;
+                    })
+                    .ToList();
+
+                // Get applicable forms
+                var forms = await _context.ReturnForms
+                    .Where(f => f.IsActive && f.SaccoTypeId == saccoDetails.SaccoType)
+                    .ToListAsync();
+
+                // Get filed returns for these periods
+                var periodIds = periodsInMonth.Select(p => p.Id).ToList();
+                var filedReturns = await _context.Returns
+                    .Where(r => r.SaccoId == saccoId 
+                        && r.IsActiveVersion 
+                        && periodIds.Contains(r.PeriodId))
+                    .Select(r => new { r.PeriodId, r.Id, r.SubmittedAt })
+                    .ToListAsync();
+
+                var filedByPeriod = filedReturns
+                    .GroupBy(r => r.PeriodId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                // Get waived returns
+                var waivedReturns = await _context.WaivedReturns
+                    .Where(w => w.SaccoId == saccoId && periodIds.Contains(w.PeriodId))
+                    .ToListAsync();
+
+                var waivedLookup = waivedReturns
+                    .ToLookup(w => new { w.PeriodId, w.FormId });
+
+                // Build expected returns
+                var expectedReturns = new List<ExpectedReturnDto>();
+
+                foreach (var period in periodsInMonth)
+                {
+                    var applicableForms = forms
+                        .Where(f => f.Frequency == period.FrequencyCatalog.Code || f.Frequency == "ALL")
+                        .ToList();
+
+                    foreach (var form in applicableForms)
+                    {
+                        var dueDate = period.GetDueDate();
+                        var hasFiled = filedByPeriod.TryGetValue(period.Id, out var filedReturn);
+                        var isWaived = waivedLookup.Contains(new { PeriodId = period.Id, FormId = form.Id });
+                        var waiverInfo = isWaived ? waivedLookup[new { PeriodId = period.Id, FormId = form.Id }].First() : null;
+
+                        // Calculate status
+                        ExpectedStatus status;
+                        if (isWaived)
+                            status = ExpectedStatus.Waived;
+                        else if (hasFiled)
+                            status = ExpectedStatus.Filed;
+                        else if (DateTime.Now > dueDate)
+                            status = ExpectedStatus.Late;
+                        else
+                            status = ExpectedStatus.Due;
+
+                        expectedReturns.Add(new ExpectedReturnDto
+                        {
+                            Id = $"{period.Id}_{form.Id}",
+                            PeriodId = period.Id,
+                            PeriodName = period.Name,
+                            PeriodStartDate = period.StartDate,
+                            PeriodEndDate = period.EndDate,
+                            FormId = form.Id,
+                            FormCode = form.Code,
+                            FormName = form.FormName,
+                            DueDate = dueDate,
+                            Status = status,
+                            DaysUntilDue = (dueDate - DateTime.Now).Days,
+                            CanFile = !isWaived && !hasFiled,
+                            IsWaived = isWaived,
+                            WaivedReason = waiverInfo?.WaivedReason,
+                            WaivedDate = waiverInfo?.WaivedDate,
+                            ReturnId = filedReturn?.Id,
+                            FiledDate = filedReturn?.SubmittedAt,
+                            IsLate = hasFiled && filedReturn.SubmittedAt > dueDate
+                        });
+                    }
+                }
+
+                return expectedReturns
+                    .OrderBy(e => e.DueDate)
+                    .ThenBy(e => e.FormName)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting expected returns by month");
+                throw;
+            }
+        }
+
+        public async Task<List<ExpectedReturnDto>> GetExpectedReturnsByYearAsync(string saccoId, int year)
+        {
+            try
+            {
+                // Get SACCO details
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoId);
+                if (saccoDetails == null)
+                {
+                    return new List<ExpectedReturnDto>();
+                }
+
+                var firstDayOfYear = new DateTime(year, 1, 1);
+                var lastDayOfYear = new DateTime(year, 12, 31);
+
+                // Get periods where due date falls within this year
+                var periods = await _context.ReturnPeriods
+                    .Include(p => p.ReportingYear)
+                    .Include(p => p.FrequencyCatalog)
+                    .Where(p => p.IsActive && p.ReportingYear.Year == year)
+                    .ToListAsync();
+
+                // Further filter by due date and SACCO onboarding date
+                var onboardingDate = saccoDetails.CreatedAt ?? DateTime.Now.AddYears(-1);
+                var periodsInYear = periods
+                    .Where(p => {
+                        var dueDate = p.GetDueDate();
+                        return dueDate >= firstDayOfYear 
+                            && dueDate <= lastDayOfYear
+                            && p.StartDate >= onboardingDate.Date;
+                    })
+                    .ToList();
+
+                // The rest is similar to GetExpectedReturnsByMonthAsync
+                var forms = await _context.ReturnForms
+                    .Where(f => f.IsActive && f.SaccoTypeId == saccoDetails.SaccoType)
+                    .ToListAsync();
+
+                var periodIds = periodsInYear.Select(p => p.Id).ToList();
+                var filedReturns = await _context.Returns
+                    .Where(r => r.SaccoId == saccoId 
+                        && r.IsActiveVersion 
+                        && periodIds.Contains(r.PeriodId))
+                    .Select(r => new { r.PeriodId, r.Id, r.SubmittedAt })
+                    .ToListAsync();
+
+                var filedByPeriod = filedReturns
+                    .GroupBy(r => r.PeriodId)
+                    .ToDictionary(g => g.Key, g => g.First());
+
+                var waivedReturns = await _context.WaivedReturns
+                    .Where(w => w.SaccoId == saccoId && periodIds.Contains(w.PeriodId))
+                    .ToListAsync();
+
+                var waivedLookup = waivedReturns
+                    .ToLookup(w => new { w.PeriodId, w.FormId });
+
+                var expectedReturns = new List<ExpectedReturnDto>();
+
+                foreach (var period in periodsInYear)
+                {
+                    var applicableForms = forms
+                        .Where(f => f.Frequency == period.FrequencyCatalog.Code || f.Frequency == "ALL")
+                        .ToList();
+
+                    foreach (var form in applicableForms)
+                    {
+                        var dueDate = period.GetDueDate();
+                        var hasFiled = filedByPeriod.TryGetValue(period.Id, out var filedReturn);
+                        var isWaived = waivedLookup.Contains(new { PeriodId = period.Id, FormId = form.Id });
+                        var waiverInfo = isWaived ? waivedLookup[new { PeriodId = period.Id, FormId = form.Id }].First() : null;
+
+                        ExpectedStatus status;
+                        if (isWaived)
+                            status = ExpectedStatus.Waived;
+                        else if (hasFiled)
+                            status = ExpectedStatus.Filed;
+                        else if (DateTime.Now > dueDate)
+                            status = ExpectedStatus.Late;
+                        else
+                            status = ExpectedStatus.Due;
+
+                        expectedReturns.Add(new ExpectedReturnDto
+                        {
+                            Id = $"{period.Id}_{form.Id}",
+                            PeriodId = period.Id,
+                            PeriodName = period.Name,
+                            PeriodStartDate = period.StartDate,
+                            PeriodEndDate = period.EndDate,
+                            FormId = form.Id,
+                            FormCode = form.Code,
+                            FormName = form.FormName,
+                            DueDate = dueDate,
+                            Status = status,
+                            DaysUntilDue = (dueDate - DateTime.Now).Days,
+                            CanFile = !isWaived && !hasFiled,
+                            IsWaived = isWaived,
+                            WaivedReason = waiverInfo?.WaivedReason,
+                            WaivedDate = waiverInfo?.WaivedDate,
+                            ReturnId = filedReturn?.Id,
+                            FiledDate = filedReturn?.SubmittedAt,
+                            IsLate = hasFiled && filedReturn.SubmittedAt > dueDate
+                        });
+                    }
+                }
+
+                return expectedReturns
+                    .OrderBy(e => e.DueDate)
+                    .ThenBy(e => e.FormName)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting expected returns by year");
+                throw;
+            }
         }
     }
 }

@@ -73,6 +73,7 @@ namespace Returns.Controllers
                     Code = createFormDTO.DisplayName,
                     SaccoTypeId = createFormDTO.SaccoTypeId,
                     Category = createFormDTO.Category,
+                    Frequency = createFormDTO.Frequency,
                     TemplateUrl = templatePath,
                     IsActive = true
                 };
@@ -86,6 +87,7 @@ namespace Returns.Controllers
                     DisplayName = form.Code,
                     SaccoTypeId = form.SaccoTypeId,
                     Category = form.Category,
+                    Frequency = form.Frequency,
                     IsActive = form.IsActive,
                     TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
                 };
@@ -106,15 +108,15 @@ namespace Returns.Controllers
                     return NotFound();
                 }
 
-                // Check if form has any expected returns
-                var hasExpectedReturns = await _context.ExpectedReturns
-                    .AnyAsync(er => er.ReturnFormId == formId && er.IsActive);
+                // Check if form has been used in any returns
+                var hasBeenUsed = await _context.Returns
+                    .AnyAsync(r => r.IsActiveVersion);
 
-                if (hasExpectedReturns)
+                if (hasBeenUsed)
                 {
                     return BadRequest(new
                     {
-                        error = "Cannot delete form that has expected returns. Please remove all expected returns first or disable the form instead."
+                        error = "Cannot delete form that has been used in returns. Please disable the form instead."
                     });
                 }
 
@@ -158,6 +160,7 @@ namespace Returns.Controllers
                 form.Code = updateFormDTO.DisplayName;
                 form.SaccoTypeId = updateFormDTO.SaccoTypeId;
                 form.Category = updateFormDTO.Category;
+                form.Frequency = updateFormDTO.Frequency;
 
                 // Handle template update if requested
                 if (updateFormDTO.UpdateTemplate && updateFormDTO.Category != Helpers.Enums.FormCategory.Other)
@@ -206,6 +209,7 @@ namespace Returns.Controllers
                     DisplayName = form.Code,
                     SaccoTypeId = form.SaccoTypeId,
                     Category = form.Category,
+                    Frequency = form.Frequency,
                     IsActive = form.IsActive,
                     TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
                 };
@@ -246,45 +250,62 @@ namespace Returns.Controllers
                 var firstDayOfMonth = new DateTime(year, month, 1);
                 var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
 
-                // Find all expected returns where the filing deadline falls within this month
-                var expectedReturnsQuery = _context.ExpectedReturns
-                    .Include(er => er.ReturnForm)
-                    .Include(er => er.Period)
-                        .ThenInclude(p => p.FrequencyCatalog)
-                    .Include(er => er.Period)
-                        .ThenInclude(p => p.ReportingYear)
-                    .Where(er => er.FilingDeadline.Date.Month >= firstDayOfMonth.Date.Month &&
-                                er.FilingDeadline.Date.Month <= lastDayOfMonth.Date.Month &&
-                                er.IsActive);
+                // Get all periods where due date falls within this month
+                var periods = await _context.ReturnPeriods
+                    .Include(p => p.FrequencyCatalog)
+                    .Include(p => p.ReportingYear)
+                    .Where(p => p.IsActive)
+                    .ToListAsync();
 
-                // Filter by sacco type if provided
+                // Filter periods by due date in memory
+                var periodsInMonth = periods
+                    .Where(p => {
+                        var dueDate = p.GetDueDate();
+                        return dueDate >= firstDayOfMonth && dueDate <= lastDayOfMonth;
+                    })
+                    .ToList();
+
+                // Get all forms
+                var formsQuery = _context.ReturnForms.Where(f => f.IsActive);
                 if (!string.IsNullOrEmpty(saccoTypeId))
                 {
-                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == saccoTypeId);
+                    formsQuery = formsQuery.Where(f => f.SaccoTypeId == saccoTypeId);
+                }
+                var forms = await formsQuery.ToListAsync();
+
+                // Build the list of forms due
+                var formsDue = new List<FormsDueByMonthDTO>();
+
+                foreach (var period in periodsInMonth)
+                {
+                    // Get forms applicable for this period's frequency
+                    var applicableForms = forms
+                        .Where(f => f.Frequency == period.FrequencyCatalog.Code || f.Frequency == "ALL")
+                        .ToList();
+
+                    foreach (var form in applicableForms)
+                    {
+                        formsDue.Add(new FormsDueByMonthDTO
+                        {
+                            FormId = form.Id,
+                            FormName = form.FormName,
+                            FormCode = form.Code,
+                            PeriodId = period.Id,
+                            PeriodName = period.Name,
+                            PeriodStartDate = period.StartDate,
+                            PeriodEndDate = period.EndDate,
+                            FilingDeadline = period.GetDueDate(),
+                            Status = ExpectedStatus.Due, // Default status - actual status would need to check filed returns
+                            TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{form.TemplateUrl}",
+                            SaccoTypeId = form.SaccoTypeId
+                        });
+                    }
                 }
 
-                var expectedReturns = await expectedReturnsQuery.ToListAsync();
-
-                // Map to DTOs
-                var formsDue = expectedReturns.Select(er => new FormsDueByMonthDTO
-                {
-                    FormId = er.ReturnFormId,
-                    FormName = er.ReturnForm.FormName,
-                    FormCode = er.ReturnForm.Code,
-                    PeriodId = er.PeriodId,
-                    PeriodName = er.Period.Name,
-                    PeriodStartDate = er.Period.StartDate,
-                    PeriodEndDate = er.Period.EndDate,
-                    FilingDeadline = er.FilingDeadline,
-                    Status = er.Status,
-                    TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
-                    SaccoTypeId = er.ReturnForm.SaccoTypeId
-                })
-                .OrderBy(f => f.FilingDeadline)
-                .ThenBy(f => f.FormName)
-                .ToList();
-
-                return Ok(formsDue);
+                return Ok(formsDue
+                    .OrderBy(f => f.FilingDeadline)
+                    .ThenBy(f => f.FormName)
+                    .ToList());
             }
             catch (Exception ex)
             {
@@ -351,6 +372,7 @@ namespace Returns.Controllers
                         DisplayName = f.Code,
                         SaccoTypeId = f.SaccoTypeId,
                         Category = f.Category,
+                        Frequency = f.Frequency,
                         IsActive = f.IsActive,
                         TemplateUrl = f.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{f.TemplateUrl}"
                     })
@@ -561,6 +583,7 @@ namespace Returns.Controllers
                         DisplayName = f.Code,
                         SaccoTypeId = f.SaccoTypeId,
                         Category = f.Category,
+                        Frequency = f.Frequency,
                         IsActive = f.IsActive,
                         TemplateUrl = f.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{f.TemplateUrl}"
                     })

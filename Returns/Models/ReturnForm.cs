@@ -11,5 +11,9 @@ namespace Returns.Models
         public string SaccoTypeId { get; set; } = null!;  // FK → SaccoTypes
         public FormCategory Category { get; set; }
         public bool IsActive { get; set; } = true;
+        
+        // Frequency this form applies to (e.g., "MTH", "QTR", "FY", "ALL")
+        // "ALL" means it applies to all frequencies
+        public string Frequency { get; set; } = "ALL";
     }
 }

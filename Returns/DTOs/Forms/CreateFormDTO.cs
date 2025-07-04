@@ -18,6 +18,9 @@ namespace Returns.DTOs.Forms
         [Required]
         public FormCategory Category { get; set; }
 
+        // Frequency this form applies to (default to "ALL")
+        public string Frequency { get; set; } = "ALL";
+
         public IFormFile? Template { get; set; }  // Required unless Category is Other
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)

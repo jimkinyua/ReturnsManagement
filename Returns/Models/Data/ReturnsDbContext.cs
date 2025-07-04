@@ -28,10 +28,10 @@ namespace Returns.Models.Data
         public DbSet<FrequencyCatalog> FrequencyCatalogs { get; set; }
         public DbSet<ReportingYear> ReportingYears { get; set; }
         public DbSet<ReturnPeriods> ReturnPeriods { get; set; }
+        public DbSet<WaivedReturn> WaivedReturns { get; set; }
 
         //public DbSet<QuarterDates> QuarterDates { get; set; }
         public DbSet<ReturnForm> ReturnForms { get; set; }
-        public DbSet<ExpectedReturn> ExpectedReturns { get; set; }
         public DbSet<OtherReturn> OtherReturns { get; set; }
         public DbSet<Return> Returns { get; set; }
         public DbSet<DepositReturn> DepositReturns { get; set; }
@@ -111,27 +111,22 @@ namespace Returns.Models.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Configure ExpectedReturn
-            modelBuilder.Entity<ExpectedReturn>(entity =>
+            // Configure WaivedReturn
+            modelBuilder.Entity<WaivedReturn>(entity =>
             {
                 entity.HasIndex(e => new { e.SaccoId, e.PeriodId, e.FormId }).IsUnique();
-                entity.HasIndex(e => e.DueDate);
-                entity.HasIndex(e => e.IsWaived);
+                entity.HasIndex(e => e.WaivedDate);
 
                 // Configure relationships
-                entity.HasOne(e => e.Period)
+                entity.HasOne(w => w.Period)
                     .WithMany()
-                    .HasForeignKey(e => e.PeriodId)
+                    .HasForeignKey(w => w.PeriodId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasOne(e => e.Form)
+                entity.HasOne(w => w.Form)
                     .WithMany()
-                    .HasForeignKey(e => e.FormId)
+                    .HasForeignKey(w => w.FormId)
                     .OnDelete(DeleteBehavior.Restrict);
-
-                // Ignore calculated property
-                entity.Ignore(e => e.Status);
-                entity.Ignore(e => e.HasAssociatedReturn);
             });
 
             // Configure Return
@@ -154,5 +149,4 @@ namespace Returns.Models.Data
             });
         }
     }
-
 }
