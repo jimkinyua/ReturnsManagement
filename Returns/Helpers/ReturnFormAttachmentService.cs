@@ -171,6 +171,7 @@ namespace Returns.Helpers
 
                 // Get periods and forms
                 var periods = await _context.ReturnPeriods
+                    .Include(x=>x.FrequencyCatalog)
                     .Where(p => periodIds!.Contains(p.Id))
                     .ToListAsync();
 
@@ -213,7 +214,6 @@ namespace Returns.Helpers
                             // Create new
                             var expectedReturn = new ExpectedReturn
                             {
-                                Id = Guid.NewGuid().ToString(),
                                 PeriodId = period.Id,
                                 ReturnFormId = form.Id,
                                 FilingDeadline = CalculateFilingDeadline(

@@ -246,29 +246,15 @@ namespace Returns.Controllers
                 var firstDayOfMonth = new DateTime(year, month, 1);
                 var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
 
-                // Find all periods that overlap with this month
-                var periodsQuery = _context.ReturnPeriods
-                    .Include(p => p.ReportingYear)
-                    .Include(p => p.FrequencyCatalog)
-                    .Where(p => p.IsLocked &&
-                               p.StartDate <= lastDayOfMonth &&
-                               p.EndDate >= firstDayOfMonth);
-
-                var periods = await periodsQuery.ToListAsync();
-
-                if (!periods.Any())
-                {
-                    return Ok(new List<FormsDueByMonthDTO>());
-                }
-
-                // Get all expected returns for these periods
+                // Find all expected returns where the filing deadline falls within this month
                 var expectedReturnsQuery = _context.ExpectedReturns
                     .Include(er => er.ReturnForm)
                     .Include(er => er.Period)
                         .ThenInclude(p => p.FrequencyCatalog)
                     .Include(er => er.Period)
                         .ThenInclude(p => p.ReportingYear)
-                    .Where(er => periods.Select(p => p.Id).Contains(er.PeriodId) &&
+                    .Where(er => er.FilingDeadline.Date.Month >= firstDayOfMonth.Date.Month &&
+                                er.FilingDeadline.Date.Month <= lastDayOfMonth.Date.Month &&
                                 er.IsActive);
 
                 // Filter by sacco type if provided
@@ -398,29 +384,15 @@ namespace Returns.Controllers
                 var firstDayOfYear = new DateTime(year, 1, 1);
                 var lastDayOfYear = new DateTime(year, 12, 31);
 
-                // Find all periods that overlap with this year
-                var periodsQuery = _context.ReturnPeriods
-                    .Include(p => p.ReportingYear)
-                    .Include(p => p.FrequencyCatalog)
-                    .Where(p => p.IsLocked &&
-                               p.StartDate <= lastDayOfYear &&
-                               p.EndDate >= firstDayOfYear);
-
-                var periods = await periodsQuery.ToListAsync();
-
-                if (!periods.Any())
-                {
-                    return Ok(new List<FormsDueByMonthDTO>());
-                }
-
-                // Get all expected returns for these periods
+                // Find all expected returns where the filing deadline falls within this year
                 var expectedReturnsQuery = _context.ExpectedReturns
                     .Include(er => er.ReturnForm)
                     .Include(er => er.Period)
                         .ThenInclude(p => p.FrequencyCatalog)
                     .Include(er => er.Period)
                         .ThenInclude(p => p.ReportingYear)
-                    .Where(er => periods.Select(p => p.Id).Contains(er.PeriodId) &&
+                    .Where(er => er.FilingDeadline >= firstDayOfYear.Date &&
+                                er.FilingDeadline <= lastDayOfYear.Date &&
                                 er.IsActive);
 
                 // Filter by sacco type if provided
@@ -505,8 +477,8 @@ namespace Returns.Controllers
                 if (startDate.HasValue && endDate.HasValue)
                 {
                     expectedReturnsQuery = expectedReturnsQuery.Where(er =>
-                        er.Period.StartDate <= endDate.Value &&
-                        er.Period.EndDate >= startDate.Value);
+                        er.FilingDeadline >= startDate.Value &&
+                        er.FilingDeadline <= endDate.Value);
                 }
 
                 // Apply sacco type filter if provided
