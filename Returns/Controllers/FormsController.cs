@@ -126,6 +126,18 @@ namespace Returns.Controllers
                 {
                     return NotFound();
                 }
+                
+                // Check if form has any expected returns
+                var hasExpectedReturns = await _context.ExpectedReturns
+                    .AnyAsync(er => er.ReturnFormId == formId && er.IsActive);
+                
+                if (hasExpectedReturns)
+                {
+                    return BadRequest(new { 
+                        error = "Cannot delete form that has expected returns. Please remove all expected returns first or disable the form instead." 
+                    });
+                }
+                
                 // Delete the file from the server if it exists
                 if (!string.IsNullOrEmpty(form.TemplateUrl))
                 {
@@ -134,6 +146,113 @@ namespace Returns.Controllers
                 _context.ReturnForms.Remove(form);
                 await _context.SaveChangesAsync();
                 return NoContent();
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        // update form
+        [HttpPut("UpdateForm/{formId}")]
+        public async Task<ActionResult<FormDTO>> UpdateFormAsync(string formId, [FromForm] UpdateFormDTO updateFormDTO)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+
+                var form = await _context.ReturnForms.FindAsync(formId);
+                if (form == null)
+                {
+                    return NotFound();
+                }
+
+                // Update basic properties
+                form.FormName = updateFormDTO.Name;
+                form.Code = updateFormDTO.DisplayName;
+                form.SaccoTypeId = updateFormDTO.SaccoTypeId;
+                form.IsCapitalAdequencyForm = updateFormDTO.IsCapitalAdequencyForm;
+                form.IsLiquidityStatement = updateFormDTO.IsLiquidityStatement;
+                form.IsManagement = updateFormDTO.IsManagement;
+                form.IsRiskClassification = updateFormDTO.IsRiskClassification;
+                form.IsInvestmentReturn = updateFormDTO.IsInvestmentReturn;
+                form.IsFinancialPosition = updateFormDTO.IsFinancialPosition;
+                form.IsInsiderLending = updateFormDTO.IsInsiderLending;
+                form.IsDailyLiquidity = updateFormDTO.IsDailyLiquidity;
+                form.IsSectoralLending = updateFormDTO.IsSectoralLending;
+                form.IsStatementOfComprehensiveIncome = updateFormDTO.IsStatementOfComprehensiveIncome;
+                form.IsDepositReturnForm = updateFormDTO.IsDepositReturnForm;
+                form.IsOtherForm = updateFormDTO.IsOtherForm;
+
+                // Handle template update if requested
+                if (updateFormDTO.UpdateTemplate && !updateFormDTO.IsOtherForm)
+                {
+                    if (updateFormDTO.Template == null)
+                    {
+                        return BadRequest("Template file is required when UpdateTemplate is true");
+                    }
+
+                    if (!FormsHelper.IsValidExcelFile(updateFormDTO.Template))
+                    {
+                        return StatusCode(500, "Only Excel files with .xlsx extension are allowed.");
+                    }
+
+                    // Delete old template file if exists
+                    if (!string.IsNullOrEmpty(form.TemplateUrl))
+                    {
+                        FormsHelper.DeleteFile(form.TemplateUrl);
+                    }
+
+                    // Save new template
+                    var templatePath = await FormsHelper.SaveFileAsync(updateFormDTO.Template, "Templates", updateFormDTO.DisplayName);
+                    if (templatePath == null)
+                    {
+                        return StatusCode(500, "Failed to save template file.");
+                    }
+
+                    form.TemplateUrl = templatePath;
+                }
+                else if (updateFormDTO.IsOtherForm)
+                {
+                    // If changing to "other form", remove template
+                    if (!string.IsNullOrEmpty(form.TemplateUrl))
+                    {
+                        FormsHelper.DeleteFile(form.TemplateUrl);
+                        form.TemplateUrl = "";
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+
+                var responseDto = new FormDTO
+                {
+                    Id = form.Id,
+                    Name = form.FormName,
+                    DisplayName = form.Code,
+                    SaccoTypeId = form.SaccoTypeId,
+                    IsCapitalAdequencyForm = form.IsCapitalAdequencyForm,
+                    IsRiskClassification = form.IsRiskClassification,
+                    IsInvestmentReturn = form.IsInvestmentReturn,
+                    IsManagement = form.IsManagement,
+                    IsFinancialPosition = form.IsFinancialPosition,
+                    IsDailyLiquidity = form.IsDailyLiquidity,
+                    IsSectoralLending = form.IsSectoralLending,
+                    IsInsiderLending = form.IsInsiderLending,
+                    IsStatementOfComprehensiveIncome = form.IsStatementOfComprehensiveIncome,
+                    IsDepositReturnForm = form.IsDepositReturnForm,
+                    IsLiquidityStatement = form.IsLiquidityStatement,
+                    IsOtherForm = form.IsOtherForm,
+                    IsActive = form.IsActive,
+                    TemplateUrl = form.IsOtherForm ? "" : $"{baseUrl}{form.TemplateUrl}"
+                };
+
+                return Ok(responseDto);
             }
             catch (Exception ex)
             {
