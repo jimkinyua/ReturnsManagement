@@ -614,8 +614,214 @@ namespace Returns.Controllers
             }
         }
 
+        /// <summary>
+        /// Get forms due for a specific year and month, grouped by frequency
+        /// </summary>
+        /// <param name="year">The year (e.g., 2024)</param>
+        /// <param name="month">The month (1-12)</param>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpGet("GetFormsDueByMonthGrouped")]
+        public async Task<ActionResult<FormsDueGroupedResponseDTO>> GetFormsDueByMonthGrouped(
+            [FromQuery] int year,
+            [FromQuery] int month,
+            [FromQuery] string? saccoTypeId = null)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
 
+                // Validate input
+                if (month < 1 || month > 12)
+                {
+                    return BadRequest("Month must be between 1 and 12");
+                }
 
+                // Get the first and last day of the specified month
+                var firstDayOfMonth = new DateTime(year, month, 1);
+                var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+
+                // Find all expected returns where the filing deadline falls within this month
+                var expectedReturnsQuery = _context.ExpectedReturns
+                    .Include(er => er.ReturnForm)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.FrequencyCatalog)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.ReportingYear)
+                    .Where(er => er.FilingDeadline.Date.Month >= firstDayOfMonth.Date.Month &&
+                                er.FilingDeadline.Date.Month <= lastDayOfMonth.Date.Month &&
+                                er.IsActive);
+
+                // Filter by sacco type if provided
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == saccoTypeId);
+                }
+
+                var expectedReturns = await expectedReturnsQuery.ToListAsync();
+                var currentDate = DateTime.Now;
+
+                // Group by frequency
+                var groupedData = expectedReturns
+                    .GroupBy(er => new { er.Period.FrequencyCatalog.Code, er.Period.FrequencyCatalog.Name })
+                    .Select(g => new GroupedFormsDueDTO
+                    {
+                        FrequencyCode = g.Key.Code,
+                        FrequencyName = g.Key.Name,
+                        TotalFormsInGroup = g.Count(),
+                        FiledCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
+                        DueCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
+                        LateCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
+                                                 (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
+                        WaivedCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived),
+                        Forms = g.Select(er => new FormsDueByMonthDTO
+                        {
+                            FormId = er.ReturnFormId,
+                            FormName = er.ReturnForm.FormName,
+                            FormCode = er.ReturnForm.Code,
+                            PeriodId = er.PeriodId,
+                            PeriodName = er.Period.Name,
+                            PeriodStartDate = er.Period.StartDate,
+                            PeriodEndDate = er.Period.EndDate,
+                            FilingDeadline = er.FilingDeadline,
+                            Status = er.Status,
+                            TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                            SaccoTypeId = er.ReturnForm.SaccoTypeId
+                        })
+                        .OrderBy(f => f.FilingDeadline)
+                        .ThenBy(f => f.FormName)
+                        .ToList()
+                    })
+                    .OrderBy(g => g.FrequencyCode)
+                    .ToList();
+
+                var response = new FormsDueGroupedResponseDTO
+                {
+                    TotalExpectedReturns = expectedReturns.Count,
+                    TotalFiled = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
+                    TotalDue = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
+                    TotalLate = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
+                                                           (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
+                    TotalWaived = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived),
+                    GroupedByFrequency = groupedData
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Get a yearly summary of forms due, grouped by frequency
+        /// </summary>
+        /// <param name="year">The year (e.g., 2024)</param>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpGet("GetFormsDueByYearGrouped")]
+        public async Task<ActionResult<FormsDueGroupedResponseDTO>> GetFormsDueByYearGrouped(
+            [FromQuery] int year,
+            [FromQuery] string? saccoTypeId = null)
+        {
+            try
+            {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+
+                // Get the first and last day of the year
+                var firstDayOfYear = new DateTime(year, 1, 1);
+                var lastDayOfYear = new DateTime(year, 12, 31);
+
+                // Find all expected returns where the filing deadline falls within this year
+                var expectedReturnsQuery = _context.ExpectedReturns
+                    .Include(er => er.ReturnForm)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.FrequencyCatalog)
+                    .Include(er => er.Period)
+                        .ThenInclude(p => p.ReportingYear)
+                    .Where(er => er.FilingDeadline >= firstDayOfYear.Date &&
+                                er.FilingDeadline <= lastDayOfYear.Date &&
+                                er.IsActive);
+
+                // Filter by sacco type if provided
+                if (!string.IsNullOrEmpty(saccoTypeId))
+                {
+                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == saccoTypeId);
+                }
+
+                var expectedReturns = await expectedReturnsQuery.ToListAsync();
+                var currentDate = DateTime.Now;
+
+                // Group by frequency
+                var groupedData = expectedReturns
+                    .GroupBy(er => new { er.Period.FrequencyCatalog.Code, er.Period.FrequencyCatalog.Name })
+                    .Select(g => new GroupedFormsDueDTO
+                    {
+                        FrequencyCode = g.Key.Code,
+                        FrequencyName = g.Key.Name,
+                        TotalFormsInGroup = g.Count(),
+                        FiledCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
+                        DueCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
+                        LateCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
+                                                 (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
+                        WaivedCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived),
+                        Forms = g.Select(er => new FormsDueByMonthDTO
+                        {
+                            FormId = er.ReturnFormId,
+                            FormName = er.ReturnForm.FormName,
+                            FormCode = er.ReturnForm.Code,
+                            PeriodId = er.PeriodId,
+                            PeriodName = er.Period.Name,
+                            PeriodStartDate = er.Period.StartDate,
+                            PeriodEndDate = er.Period.EndDate,
+                            FilingDeadline = er.FilingDeadline,
+                            Status = er.Status,
+                            TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                            SaccoTypeId = er.ReturnForm.SaccoTypeId
+                        })
+                        .OrderBy(f => f.FilingDeadline)
+                        .ThenBy(f => f.FormName)
+                        .ToList()
+                    })
+                    .OrderBy(g => GetFrequencyOrder(g.FrequencyCode))
+                    .ToList();
+
+                var response = new FormsDueGroupedResponseDTO
+                {
+                    TotalExpectedReturns = expectedReturns.Count,
+                    TotalFiled = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
+                    TotalDue = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
+                    TotalLate = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
+                                                           (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
+                    TotalWaived = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived),
+                    GroupedByFrequency = groupedData
+                };
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                CustomErrorHandler.LogException(ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        /// <summary>
+        /// Helper method to order frequencies logically
+        /// </summary>
+        private int GetFrequencyOrder(string frequencyCode)
+        {
+            return frequencyCode?.ToUpper() switch
+            {
+                "DAY" => 1,
+                "WK" => 2,
+                "BWK" => 3,
+                "MTH" => 4,
+                "QTR" => 5,
+                "FY" => 6,
+                _ => 99
+            };
+        }
 
     }
 }
