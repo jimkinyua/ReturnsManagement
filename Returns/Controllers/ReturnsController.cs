@@ -1,4 +1,4 @@
-﻿/*using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Perfomance_Report;
 using Returns.DTOs.Returns_Analysis;
@@ -532,9 +532,9 @@ namespace Returns.Controllers
                 if (!isValid)
                 {
                     ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                    *//* IDocument report = new ConsistencyReport(validationResult, "Test", "System");
-                     var pdfBytes = report.GeneratePdf();
-                     await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");*//*
+                    IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                    var pdfBytes = report.GeneratePdf();
+                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
 
                 }
             }
@@ -2889,8 +2889,8 @@ namespace Returns.Controllers
                 };
 
                 // previous-version IDs
-                *//*dto.PreviousVersionIds =
-                    await helper.GetPreviousVersionChoicesAsync(hdr);*//*
+                dto.PreviousVersionIds =
+                    await helper.GetPreviousVersionChoicesAsync(hdr);
                 List<CommentDetails> commentDetails = new List<CommentDetails>();
 
                 foreach (var comment in ApprovalComments)
@@ -3737,9 +3737,9 @@ namespace Returns.Controllers
                 if (!isValid)
                 {
                     ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                    *//*IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                    IDocument report = new ConsistencyReport(validationResult, "Test", "System");
                     var pdfBytes = report.GeneratePdf();
-                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");*//*
+                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
 
                 }
             }
@@ -3753,4 +3753,3 @@ namespace Returns.Controllers
 
     }
 }
-*/

@@ -1,4 +1,4 @@
-﻿/*using DocumentFormat.OpenXml.Drawing;
+﻿using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
@@ -22,7 +22,7 @@ namespace Returns.Helpers
             _logger = logger;
         }
 
-        public  async Task<bool> ShouldConsistencyChecksBeDone(ReturnsDbContext dbContext,NewReturnDTO submissionDto)
+        public async Task<bool> ShouldConsistencyChecksBeDone(ReturnsDbContext dbContext, NewReturnDTO submissionDto)
         {
             // 1. collect all non-empty FormIds that the user submitted
             var formIds = submissionDto.FormUploads
@@ -41,18 +41,18 @@ namespace Returns.Helpers
 
             // 3. Check if all required forms are present
             bool hasAllRequiredForms = true;
-                *//*forms.Any(f => f.IsCapitalAdequencyForm) &&
-                forms.Any(f => f.IsLiquidityStatement) &&
-                forms.Any(f => f.IsRiskClassification) &&
-                forms.Any(f => f.IsInvestmentReturn) &&
-                forms.Any(f => f.IsFinancialPosition) &&
-                forms.Any(f => f.IsStatementOfComprehensiveIncome) &&
-                forms.Any(f => f.IsDepositReturnForm);*//*
+            forms.Any(f => f.IsCapitalAdequencyForm) &&
+            forms.Any(f => f.IsLiquidityStatement) &&
+            forms.Any(f => f.IsRiskClassification) &&
+            forms.Any(f => f.IsInvestmentReturn) &&
+            forms.Any(f => f.IsFinancialPosition) &&
+            forms.Any(f => f.IsStatementOfComprehensiveIncome) &&
+            forms.Any(f => f.IsDepositReturnForm);
 
             return hasAllRequiredForms;
         }
 
-        public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync( NewReturnDTO batchDTO,LoggedInEntity loggedInSacco, bool isConsistent,List<string> consistencyErrors,string periodToUse)
+        public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync(NewReturnDTO batchDTO, LoggedInEntity loggedInSacco, bool isConsistent, List<string> consistencyErrors, string periodToUse)
         {
             var processingSummary = new List<string>();
             Boolean IsAmendment = false;
@@ -293,11 +293,11 @@ namespace Returns.Helpers
                 await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error creating batch amendment");
                 throw; // Rethrow the exception to be handled by the caller
-               // return (false, string.Empty, $"Error creating batch amendment: {ex.Message}");
+                       // return (false, string.Empty, $"Error creating batch amendment: {ex.Message}");
             }
         }
 
-        public async Task<(bool Success, string Message)> ProcessFormAsync( Boolean IsAmendment,  IFormFile formFile, ReturnForm form, string EffectiveReturnId, string saccoId, string saccoType, string OldReturnId = "")
+        public async Task<(bool Success, string Message)> ProcessFormAsync(Boolean IsAmendment, IFormFile formFile, ReturnForm form, string EffectiveReturnId, string saccoId, string saccoType, string OldReturnId = "")
         {
             try
             {
@@ -306,7 +306,7 @@ namespace Returns.Helpers
                 string effectiveReturnId = EffectiveReturnId;
 
                 // If it's an amendment, create a new version
-            *//*    if (IsAmendment)
+                if (IsAmendment)
                 {
                     _logger.LogInformation($"Form {form.FormName} is being processed as an amendment");
 
@@ -318,7 +318,7 @@ namespace Returns.Helpers
                     }
 
                     //effectiveReturnId = newReturnId;
-                }*//*
+                }
 
                 // Process the form content
                 var (success, message) = await ProcessFormByType(formFile, form, effectiveReturnId, saccoType, false);
@@ -372,7 +372,7 @@ namespace Returns.Helpers
                     OldReturn.AmendmentDate = DateTime.Now;
                     _context.Returns.Update(OldReturn);
 
-                    *//*var newReturn = new Return
+                    var newReturn = new Return
                     {
                         SaccoCsNumber = OldReturn.SaccoCsNumber,
                         SaccoType = OldReturn.SaccoType,
@@ -389,7 +389,7 @@ namespace Returns.Helpers
                         PreviousVersionId = OldReturn.Id
                     };
 
-                    await _context.Return.AddAsync(newReturn);*//*
+                    await _context.Return.AddAsync(newReturn);
                     await _context.SaveChangesAsync();
 
                     // Copy all child records from the original return to the new one
@@ -575,7 +575,7 @@ namespace Returns.Helpers
                     return true;
 
                 }
-               if (form.IsCapitalAdequencyForm)
+                if (form.IsCapitalAdequencyForm)
                 {
                     var capitalAdequacy = await _context.DTCapitalAdequacyReturns.Where(c => c.ReturnId == OldReturnId).ToListAsync();
                     if (capitalAdequacy == null)
@@ -1109,7 +1109,7 @@ namespace Returns.Helpers
                         CSNO = ExistingInsiderLendingHeader.CSNO,
                         FilePath = ExistingInsiderLendingHeader.FilePath,
                         Version = ExistingInsiderLendingHeader.Version + 1,
-                        StartDate = ExistingInsiderLendingHeader    .StartDate,
+                        StartDate = ExistingInsiderLendingHeader.StartDate,
                         EndDate = ExistingInsiderLendingHeader.EndDate,
                         IsAmended = false,
                         IsCurrent = true,
@@ -1904,7 +1904,7 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task<(bool ReturnExists, string ReturnId)> IsThereAnyExistingReturn( ReturnForm form, DateTime ReportingEndDate, string SaccoType, string SaccoId)
+        public async Task<(bool ReturnExists, string ReturnId)> IsThereAnyExistingReturn(ReturnForm form, DateTime ReportingEndDate, string SaccoType, string SaccoId)
         {
             try
             {
@@ -2321,7 +2321,7 @@ namespace Returns.Helpers
                 }
 
                 // Process the form based on SACCO type and form type
-               if (isDepositTaking)
+                if (isDepositTaking)
                 {
                     // Handle Deposit Taking SACCO forms
                     switch (formType)
@@ -2397,7 +2397,7 @@ namespace Returns.Helpers
                             await returnsHelper.ProcessForm2F(formFile, returnId, _logger, form, ExistingChildId);
                             break;
                         case "SectoralLending":
-                           await returnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, ExistingChildId, saccoType);
+                            await returnsHelper.ProcessSectoralLendingForm(formFile, returnId, _logger, form, IsAmendMent, ExistingChildId, saccoType);
                             break;
                         case "DailyLiquidity":
                             await returnsHelper.ProcessDailyLiquidityForm(formFile, returnId, _logger, form, IsAmendMent, ExistingChildId);
@@ -2431,9 +2431,9 @@ namespace Returns.Helpers
             if (form.IsInvestmentReturn) return "Investment";
             if (form.IsFinancialPosition) return "FinancialPosition";
             if (form.IsSectoralLending) return "SectoralLending";
-            if(form.IsDailyLiquidity) return "DailyLiquidity";
-            if(form.IsInsiderLending) return "InsiderLending";
-            if(form.IsManagement) return "Management";
+            if (form.IsDailyLiquidity) return "DailyLiquidity";
+            if (form.IsInsiderLending) return "InsiderLending";
+            if (form.IsManagement) return "Management";
             if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
             return null;
         }
@@ -2625,4 +2625,3 @@ namespace Returns.Helpers
         }
     }
 }
-*/
