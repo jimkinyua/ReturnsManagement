@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class NWDTFinancialPositionReturn:FormBase
+    public class NWDTFinancialPositionReturn : FormBase
     {
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
@@ -28,15 +28,15 @@ namespace Returns.Models
         }
 
         // Prepayments & Sundry Receivables
-        
+
         public decimal PrepaymentsAndSundryReceivables { get; set; }
         // Financial Investments Section
-        public decimal GovernmentSecurities { get; set; }        
-        public decimal PlacementInFinancialInstitutions { get; set; }        
-        public decimal CommercialPapers { get; set; }        
-        public decimal CollectiveInvestmentSchemes { get; set; }        
-        public decimal Derivatives { get; set; }        
-        public decimal EquityInvestments { get; set; }        
+        public decimal GovernmentSecurities { get; set; }
+        public decimal PlacementInFinancialInstitutions { get; set; }
+        public decimal CommercialPapers { get; set; }
+        public decimal CollectiveInvestmentSchemes { get; set; }
+        public decimal Derivatives { get; set; }
+        public decimal EquityInvestments { get; set; }
         public decimal InvestmentInCompanies { get; set; }
 
         // Calculated Financial Investments with storage field
@@ -59,8 +59,8 @@ namespace Returns.Models
         }
 
         // Loan Portfolio Section
-        
-        public decimal GrossLoanPortfolio { get; set; }        
+
+        public decimal GrossLoanPortfolio { get; set; }
         public decimal AllowanceForLoanLoss { get; set; }
 
         // Calculated Net Loan Portfolio with storage field
@@ -81,9 +81,9 @@ namespace Returns.Models
         }
 
         // Accounts Receivables Section
-        
-        public decimal TaxRecoverable { get; set; }        
-        public decimal DeferredTaxAssets { get; set; }        
+
+        public decimal TaxRecoverable { get; set; }
+        public decimal DeferredTaxAssets { get; set; }
         public decimal RetirementBenefitAssets { get; set; }
 
         // Calculated Accounts Receivables with storage field
@@ -104,10 +104,10 @@ namespace Returns.Models
         }
 
         // Property & Equipment Section
-        public decimal InvestmentProperties { get; set; }        
-        public decimal PropertyAndEquipment { get; set; }        
-        public decimal PrepaidLeaseRentals { get; set; }        
-        public decimal IntangibleAssets { get; set; }        
+        public decimal InvestmentProperties { get; set; }
+        public decimal PropertyAndEquipment { get; set; }
+        public decimal PrepaidLeaseRentals { get; set; }
+        public decimal IntangibleAssets { get; set; }
         public decimal OtherAssets { get; set; }
 
         // Calculated Property Equipment and Other Assets with storage field
@@ -149,7 +149,7 @@ namespace Returns.Models
 
         // LIABILITIES
         // Deposits Section
-        
+
         public decimal NonWithdrawableDeposits { get; set; }
 
         // Total Deposit Liabilities with storage field
@@ -170,12 +170,12 @@ namespace Returns.Models
         }
 
         // Accounts Payable Section
-        
-        public decimal TaxPayable { get; set; }        
-        public decimal DividendsPayable { get; set; }        
-        public decimal DeferredTaxLiability { get; set; }        
-        public decimal RetirementBenefitsLiability { get; set; }        
-        public decimal OtherLiabilities { get; set; }        
+
+        public decimal TaxPayable { get; set; }
+        public decimal DividendsPayable { get; set; }
+        public decimal DeferredTaxLiability { get; set; }
+        public decimal RetirementBenefitsLiability { get; set; }
+        public decimal OtherLiabilities { get; set; }
         public decimal ExternalBorrowings { get; set; }
 
         // Calculated Accounts Payable and Other Liabilities with storage field
@@ -242,9 +242,9 @@ namespace Returns.Models
 
         // Other Equity Accounts Section
         public decimal StatutoryReserve { get; set; }
-        public decimal OtherReserves { get; set; }        
-        public decimal RevaluationReserves { get; set; }        
-        public decimal ProposedDividends { get; set; }        
+        public decimal OtherReserves { get; set; }
+        public decimal RevaluationReserves { get; set; }
+        public decimal ProposedDividends { get; set; }
         public decimal AdjustmentToEquity { get; set; }
 
         // Calculated Other Equity Accounts with storage field
@@ -316,14 +316,12 @@ namespace Returns.Models
             StoredTotalEquity = TotalEquity;
             StoredTotalLiabilitiesAndEquity = TotalLiabilitiesAndEquity;
         }
-
-        // Foreign key relationship
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
         public string Period { get; set; } = null!;
         public string Frequency { get; set; } = null!;
         public string FilePath { get; set; } = null!;
         public int DaysLateBy { get; set; }
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

@@ -31,14 +31,15 @@ namespace Returns.Models
         public decimal NonEarningAssetsToTotalAssetsRatio { get; set; }
         public decimal MaxNonEarningAssetsToTotalAssetsRatio { get; set; } = 10; // 10%
         public decimal NonEarningAssetsRatioExcessDeficiency { get; set; }
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
+
         public string Year { get; set; } = null!;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public string Frequency { get; set; } = null!;
         public string FilePath { get; set; } = null!;
         public int DaysLateBy { get; set; }
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

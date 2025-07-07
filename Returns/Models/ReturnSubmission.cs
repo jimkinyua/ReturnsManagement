@@ -3,15 +3,32 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class ReturnSubmission:CommonFields
+    public class ReturnSubmission : CommonFields
     {
         [ForeignKey("ExpectedReturn")]
-        public string ExpectedReturnId { get; set; } = null!;  
+        public string ExpectedReturnId { get; set; } = null!;
         public ExpectedReturn ExpectedReturn { get; set; } = null!;
         public string SaccoId { get; set; } = null!;
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
-        public string FileUrl { get; set; } = null!;  
+        public string FileUrl { get; set; } = null!;
         public bool IsActive { get; set; } = true;
-        public ICollection<DTCapitalAdequacyReturn> CapitalAdequacies { get; set; }= new List<DTCapitalAdequacyReturn>();
+
+        //DT Returns
+        public ICollection<DTCapitalAdequacyReturn> DTCapitalAdequacyReturns { get; set; } = new List<DTCapitalAdequacyReturn>();
+        public ICollection<DTComprehensiveIncomeReturn> DTComprehensiveIncomeReturns { get; set; } = new List<DTComprehensiveIncomeReturn>();
+        public ICollection<DTFinancialPositionReturn> DTFinancialPositionReturns { get; set; } = new List<DTFinancialPositionReturn>();
+        public ICollection<DTInvestmentReturn> DTInvestmentReturns { get; set; } = new List<DTInvestmentReturn>();
+        public ICollection<DTLiquidityReturn> DTLiquidityReturns { get; set; } = new List<DTLiquidityReturn>();
+        public ICollection<DTRiskClassificationReturn> DTRiskClassificationReturns { get; set; } = new List<DTRiskClassificationReturn>();
+        public ICollection<DepositReturn> DepositReturns { get; set; } = new List<DepositReturn>();
+
+        //NWDT Returns
+        public ICollection<NWDTCapitalAdequacyReturn> NWDTCapitalAdequacyReturns { get; set; } = new List<NWDTCapitalAdequacyReturn>();
+        public ICollection<NWDTLiquidityReturn> NWDTLiquidityReturns { get; set; } = new List<NWDTLiquidityReturn>();
+        public ICollection<NWDTDepositReturn> NWDTDepositReturns { get; set; } = new List<NWDTDepositReturn>();
+        public ICollection<NWDTInvestmentReturn> NWDTInvestmentReturns { get; set; } = new List<NWDTInvestmentReturn>();
+        public ICollection<NWDTFinancialPositionReturn> NWDTFinancialPositionReturns { get; set; } = new List<NWDTFinancialPositionReturn>();
+        public ICollection<NWDTComprehensiveIncomeReturn> NWDTComprehensiveIncomeReturns { get; set; } = new List<NWDTComprehensiveIncomeReturn>();
+        public ICollection<NWDTRiskClassificationReturn> NWDTRiskClassificationReturns { get; set; } = new List<NWDTRiskClassificationReturn>();
     }
 }

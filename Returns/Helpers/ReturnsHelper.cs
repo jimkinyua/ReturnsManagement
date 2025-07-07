@@ -57,7 +57,7 @@ namespace Returns.Helpers
 
 
 
-        public async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync<T>(string ReturnId, string saccoType) where T : class
+        /*public async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync<T>(string ReturnId, string saccoType) where T : class
         {
             // Step 1: Get all version data for this return type
             var versionLookups = await GetVersionLookupsAsync<T>(ReturnId, saccoType);
@@ -82,7 +82,7 @@ namespace Returns.Helpers
 
 
             return versionChoices;
-        }
+        }*/
 
         private bool HasPreviousVersion(Dictionary<string, VersionLookup> lookups, string returnId)
         {
@@ -103,7 +103,7 @@ namespace Returns.Helpers
         }
 
 
-        private async Task<Dictionary<string, VersionLookup>> GetVersionLookupsAsync<T>(string ChildId, string saccoType) where T : class
+       /* private async Task<Dictionary<string, VersionLookup>> GetVersionLookupsAsync<T>(string ChildId, string saccoType) where T : class
         {
             return typeof(T) switch
             {
@@ -167,8 +167,8 @@ namespace Returns.Helpers
                 _ => new Dictionary<string, VersionLookup>()
             };
         }
-
-        private async Task<Dictionary<string, VersionLookup>> GetCapitalAdequacyVersionLookupsAsync(string ChildId)
+*/
+  /*      private async Task<Dictionary<string, VersionLookup>> GetCapitalAdequacyVersionLookupsAsync(string ChildId)
         {
             var results = await _context.DTCapitalAdequacyReturns
                 .AsNoTracking()
@@ -429,9 +429,9 @@ namespace Returns.Helpers
 
             return results.GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First());
         }
+*/
 
-
-        public async Task<List<VersionChoice>> GetCapitalAdequacyVersionChoicesAsync(string childId, string saccoType)
+       /* public async Task<List<VersionChoice>> GetCapitalAdequacyVersionChoicesAsync(string childId, string saccoType)
         {
             return await GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(childId, saccoType);
         }
@@ -503,7 +503,7 @@ namespace Returns.Helpers
         public async Task<List<VersionChoice>> GetNWDTComprehensiveIncomeVersionChoicesAsync(string childId, string saccoType)
         {
             return await GetPreviousVersionChoicesAsync<NWDTComprehensiveIncomeReturn>(childId, saccoType);
-        }
+        }*/
 
 
 
@@ -1041,7 +1041,7 @@ namespace Returns.Helpers
                 // Create new Capital Adequacy form
                 DTCapitalAdequacyReturn capitalAdequacy = new DTCapitalAdequacyReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     FilePath = Path,
                     Year = Form1Statement.Period,
                     StartDate = Form1Statement.StartDate,
@@ -1781,7 +1781,7 @@ namespace Returns.Helpers
                 // Create new Liquidity return object
                 var liquidityStatement = new NWDTLiquidityReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     Period = form2BData.Period,
                     //Frequency = form.Period.Name,
                     DaysLateBy = DaysLateBy,
@@ -1912,7 +1912,7 @@ namespace Returns.Helpers
 
                 var liquidityStatement = new DTLiquidityReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     Year = form2.Period,
                     FormId = form.Id,
                     StartDate = form2.StartDate,
@@ -2046,7 +2046,7 @@ namespace Returns.Helpers
                 {
                     var depositReturn = new DepositReturn
                     {
-                        ReturnId = returnId,
+                        //ReturnId = returnId,
                         FormId = form.Id,
                         RangeName = row.RangeName,
                         DepositType = row.DepositType,
@@ -2128,7 +2128,7 @@ namespace Returns.Helpers
                         DaysLateBy = DaysLateBy,
                         FilePath = FilePath,
                         SaccoCsNumber = form2CData.SaccoCsNumber,
-                        ReturnId = returnId,
+                        //ReturnId = returnId,
                         FormId = form.Id,
                         AmountInKshs000 = row.Amount,
                         RangeName = row.Range,
@@ -2209,7 +2209,7 @@ namespace Returns.Helpers
                         OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
                         RequiredProvision = row.RequiredProvision,
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
-                        ReturnId = returnId,
+                        //ReturnId = returnId,
                         FormId = form.Id,
                         Period = form2DData.Period,
                         //Frequency = form.Period.Name,
@@ -2291,7 +2291,7 @@ namespace Returns.Helpers
                         OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
                         RequiredProvision = row.RequiredProvision,
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
-                        ReturnId = returnId,
+                        //ReturnId = returnId,
                         FormId = form.Id,
                         Year = form4.Period,
                         StartDate = form4.StartDate,
@@ -2352,7 +2352,7 @@ namespace Returns.Helpers
 
                 var investmentReturn = new DTInvestmentReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     Year = form5.Period,
                     FormId = form.Id,
                     StartDate = form5.StartDate,
@@ -2472,7 +2472,7 @@ namespace Returns.Helpers
                     //Frequency = form.Period.Name,
                     FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     FormId = form.Id,
                     RequiresResubmission = false,
                     CreatedAt = DateTime.Now
@@ -2615,7 +2615,7 @@ namespace Returns.Helpers
                 var FilePath = await FormsHelper.SaveFileAsync(formFile, "Statement of Financial Position Returns");
                 var statement = new DTFinancialPositionReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     Year = form6.Period,
                     StartDate = form6.StartDate,
                     EndDate = form6.EndDate,
@@ -2786,7 +2786,7 @@ namespace Returns.Helpers
                 {
                     capitalAdequacy = new NWDTCapitalAdequacyReturn
                     {
-                        ReturnId = returnId,
+                        //ReturnId = returnId,
                         StartDate = form2A.StartDate,
                         EndDate = form2A.EndDate,
                         FilePath = Path,
@@ -2802,7 +2802,7 @@ namespace Returns.Helpers
                 }
                 else
                 {
-                    capitalAdequacy = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                   /* capitalAdequacy = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
                     if (capitalAdequacy == null)
                     {
                         throw new Exception(
@@ -2810,7 +2810,7 @@ namespace Returns.Helpers
                     }
                     capitalAdequacy.PreviousReturnId = PreviousReturnId;
                     capitalAdequacy.IsAmended = false;
-                    capitalAdequacy.IsCurrent = true;
+                    capitalAdequacy.IsCurrent = true;*/
                 }
 
 
@@ -2966,7 +2966,7 @@ namespace Returns.Helpers
 
                 var comprehensiveIncome = new NWDTComprehensiveIncomeReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     StartDate = form2F.StartDate,
                     EndDate = form2F.EndDate,
                     Period = form2F.Period,
@@ -3141,7 +3141,7 @@ namespace Returns.Helpers
 
                 var financialPosition = new NWDTFinancialPositionReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     StartDate = form2G.StartDate,
                     EndDate = form2G.EndDate,
                     Period = form2G.Period,
@@ -3338,7 +3338,7 @@ namespace Returns.Helpers
                 var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
                 var statement = new DTComprehensiveIncomeReturn
                 {
-                    ReturnId = returnId,
+                    //ReturnId = returnId,
                     Year = form7.Period,
                     StartDate = form7.StartDate,
                     EndDate = form7.EndDate,

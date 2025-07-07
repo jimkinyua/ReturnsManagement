@@ -11,9 +11,6 @@ namespace Returns.Models
         public decimal? OutstandingLoanPortfolio { get; set; }
         public decimal? RequiredProvision { get; set; }
         public decimal? RequiredProvisionAmount { get; set; }
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public string Period { get; set; } = null!;
@@ -23,5 +20,8 @@ namespace Returns.Models
         {
             get; set;
         }
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

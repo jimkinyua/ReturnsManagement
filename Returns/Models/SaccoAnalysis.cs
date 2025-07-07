@@ -40,7 +40,7 @@ namespace Returns.Models
         public string ActionRequired { get; set; }  // What needs to be done
 
         public DateTime AnalysisDate { get; set; }
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
+        public Guid ReturnSubmissionId { get; set; }           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

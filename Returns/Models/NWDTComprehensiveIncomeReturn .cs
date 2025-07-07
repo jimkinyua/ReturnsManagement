@@ -18,68 +18,68 @@ namespace Returns.Models
 
         public decimal InterestOnLoanPortfolio { get; set; }
 
-        
+
         public decimal FeesCommissionOnLoanPortfolio { get; set; }
 
-        
+
         public decimal GovernmentSecuritiesIncome { get; set; }
 
-        
+
         public decimal PlacementInBanksIncome { get; set; }
 
-        
+
         public decimal CommercialPapersIncome { get; set; }
 
-        
+
         public decimal CollectiveInvestmentSchemesIncome { get; set; }
 
-        
+
         public decimal DerivativesIncome { get; set; }
 
-        
+
         public decimal EquityInvestmentsIncome { get; set; }
 
-        
+
         public decimal InvestmentInCompaniesIncome { get; set; }
 
         // Financial Expense
-        
+
         public decimal InterestExpenseOnDeposits { get; set; }
 
-        
+
         public decimal CostOfExternalBorrowings { get; set; }
 
-        
+
         public decimal DividendExpenses { get; set; }
 
-        
+
         public decimal OtherFinancialExpense { get; set; }
 
-        
+
         public decimal FeesCommissionExpense { get; set; }
-        
+
         public decimal OtherExpense { get; set; }
         // Loan Loss
-        
-        public decimal ProvisionForLoanLosses { get; set; }        
+
+        public decimal ProvisionForLoanLosses { get; set; }
         public decimal ValueOfLoansRecovered { get; set; }
 
         // Operating Expenses
-        
-        public decimal PersonnelExpenses { get; set; }        
-        public decimal GovernanceExpenses { get; set; }        
-        public decimal MarketingExpenses { get; set; }        
-        public decimal DepreciationAmortizationCharges { get; set; }        
+
+        public decimal PersonnelExpenses { get; set; }
+        public decimal GovernanceExpenses { get; set; }
+        public decimal MarketingExpenses { get; set; }
+        public decimal DepreciationAmortizationCharges { get; set; }
         public decimal AdministrativeExpenses { get; set; }
         // Non-Operating Income/Expense
-        
-        public decimal NonOperatingIncome { get; set; }        
+
+        public decimal NonOperatingIncome { get; set; }
         public decimal NonOperatingExpense { get; set; }
 
         // Taxes and Donations
-        
+
         public decimal Taxes { get; set; }
-        
+
         public decimal Donations { get; set; }
 
         // Private backing fields for calculated values
@@ -287,10 +287,8 @@ namespace Returns.Models
             StoredNetIncomeAfterTaxesBeforeDonations = NetIncomeAfterTaxesBeforeDonations;
             StoredNetIncomeAfterTaxesAndDonations = NetIncomeAfterTaxesAndDonations;
         }
-
-        // Foreign key relationship
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

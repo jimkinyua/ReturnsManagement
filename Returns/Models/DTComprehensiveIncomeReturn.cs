@@ -69,10 +69,6 @@ namespace Returns.Models
         // 13 & 14. Donations and Final Net Income
         public decimal Donations { get; set; }
         public decimal NetIncomeAfterTaxesAndDonations => NetIncomeAfterTaxes + Donations;
-
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
         public string Year { get; set; } = null!;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
@@ -82,5 +78,8 @@ namespace Returns.Models
         {
             get; set;
         }
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }

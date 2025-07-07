@@ -191,10 +191,10 @@ namespace Returns.Models
             get => _liquidityRatioExcessDeficit == 0 ? LiquidityRatioExcessDeficit : _liquidityRatioExcessDeficit;
             set => _liquidityRatioExcessDeficit = value;
         }
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
 
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
         public void CalculateAndStoreTotals()
         {
             StoredTotalNotesAndCoins = TotalNotesAndCoins;

@@ -291,11 +291,9 @@ namespace Returns.Models
             StoredCoreCapitalToDepositsRatio = CoreCapitalToDepositsRatio;
             StoredCoreCapitalToDepositsExcessDeficiency = CoreCapitalToDepositsExcessDeficiency;
         }
-
-        // Foreign key relationship
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
         public string FilePath { get; set; } = null!;
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
+        public ReturnSubmission ReturnSubmission { get; set; } = null!;
     }
 }
