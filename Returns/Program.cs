@@ -132,6 +132,10 @@ internal class Program
         builder.Services.AddTransient<IReturnChild, ChildGetterService>();
         builder.Services.AddTransient<IPeriodGenerator, PeriodGenerator>();
         builder.Services.AddTransient<IReturnFormAttachmentService, ReturnFormAttachmentService>();
+        
+        // Add Excel parsing and return submission services
+        builder.Services.AddTransient<IExcelParser, ExcelParserService>();
+        builder.Services.AddTransient<IReturnSubmissionService, ReturnSubmissionService>();
 
         //builder.Services.AddScoped<FormProcessingService>();    
         //builder.Services.AddScoped<ReturnsReminderService>();

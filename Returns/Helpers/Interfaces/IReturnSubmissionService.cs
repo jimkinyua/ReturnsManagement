@@ -5,6 +5,7 @@ namespace Returns.Helpers.Interfaces
 {
     public interface IReturnSubmissionService
     {
-        Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto);
+        Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, string SaccoType, string SaccoId);
+        Task<IList<SubmissionResultDto>> SubmitFinalAsync(string submissionId);
     }
 }
