@@ -133,6 +133,12 @@ internal class Program
         builder.Services.AddTransient<IPeriodGenerator, PeriodGenerator>();
         builder.Services.AddTransient<IReturnFormAttachmentService, ReturnFormAttachmentService>();
 
+        // New services for draft/submit workflow
+        builder.Services.AddTransient<IExcelImportService, UnifiedExcelImportService>();
+        builder.Services.AddTransient<DraftReturnService>();
+        builder.Services.AddTransient<ReturnSubmissionService>();
+        builder.Services.AddTransient<FormResubmissionService>();
+
         //builder.Services.AddScoped<FormProcessingService>();    
         //builder.Services.AddScoped<ReturnsReminderService>();
         builder.Services.AddLogging();

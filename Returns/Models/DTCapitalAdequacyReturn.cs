@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class DTCapitalAdequacyReturn : FormBase
+    public class DTCapitalAdequacyReturn : CommonFields
     {
 
         // CAPITAL COMPONENTS
@@ -61,6 +61,11 @@ namespace Returns.Models
         public DateTime EndDate { get; set; }
         public string Frequency { get; set; } = null!;
         public int DaysLateBy { get; set; }
+
+        public bool IsDraft { get; set; } = false;
+        public bool IsCurrent { get; set; } = true;
+        public bool IsAmended { get; set; } = false;
+        public string? PreviousReturnId { get; set; }
 
     }
 }

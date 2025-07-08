@@ -14,6 +14,9 @@ namespace Returns.Models
         public Boolean IsNotConsistent { get; set; } = false;
         public string? ConsistentErrorMessage { get; set; }
 
+        // DRAFT STATUS
+        public bool IsDraft { get; set; } = false;
+
         // TRACKING 
         public int VersionNumber { get; set; } = 1;
         public bool IsActiveVersion { get; set; } = true;
