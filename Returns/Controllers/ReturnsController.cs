@@ -45,8 +45,9 @@ namespace Returns.Controllers
         private readonly FormResubmissionService _resubmissionService;
         private readonly IReturnChild _returnChild;
         private readonly IConfiguration _configuration;
+        private readonly IReturnSubmissionService _returnSubmissionService;
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService)
         {
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             _configuration = new ConfigurationBuilder()
@@ -66,6 +67,7 @@ namespace Returns.Controllers
             this.complianceService = compliance;
             _returnChild = returnChild;
             _resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
+            _returnSubmissionService = returnSubmissionService;
 
         }
 
@@ -3771,7 +3773,52 @@ namespace Returns.Controllers
                 financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
         }
 
+        [HttpPost("{returnId}/forms")]
+        public async Task<IActionResult> ProcessForm(
+            string returnId, 
+            [FromForm] IFormFile file, 
+            [FromForm] string formType)
+        {
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "File is required" });
+            }
 
+            var userId = HttpContext.User?.Identity?.Name ?? "System";
+            
+            var result = await _returnSubmissionService.ProcessFormSubmissionAsync(
+                file, 
+                returnId, 
+                formType, 
+                userId);
+
+            if (result.Status == SubmissionStatus.Success)
+            {
+                return Ok(result);
+            }
+            else if (result.Status == SubmissionStatus.ValidationError)
+            {
+                return BadRequest(result);
+            }
+            else
+            {
+                return StatusCode(500, result);
+            }
+        }
+
+        [HttpGet("{returnId}/status")]
+        public async Task<IActionResult> GetReturnStatus(string returnId)
+        {
+            var status = await _returnSubmissionService.GetReturnStatusAsync(returnId);
+            return Ok(status);
+        }
+
+        [HttpGet("{returnId}/submissions")]
+        public async Task<IActionResult> GetSubmissions(string returnId)
+        {
+            var submissions = await _returnSubmissionService.GetSubmissionsAsync(returnId);
+            return Ok(submissions);
+        }
 
     }
 }
