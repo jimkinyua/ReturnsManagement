@@ -64,14 +64,14 @@ namespace Returns.Helpers
                                 return await ParseFinancialPosition(file);
                             case FormCategory.StatementOfComprehensiveIncome:
                                 return await ParseComprehensiveIncome(file);
-                            case FormCategory.Management:
+                       /*     case FormCategory.Management:
                                 return await ParseManagementReturn(file);
-                           /* case FormCategory.SectoralLending:
+                            case FormCategory.SectoralLending:
                                 return await ParseSectoralLending(file, SaccoType);
                             case FormCategory.DailyLiquidity:
                                 return await ParseDailyLiquidity(file, SaccoType);
                             case FormCategory.InsiderLending:
-                                return await ParseInsiderLending(file, saccoType);*/
+                                return await ParseInsiderLending(file, SaccoType);*/
                             default:
                                 result.Success = false;
                                 result.Errors.Add($"Unknown form category for DepositTaking: {formCategory}");
@@ -95,14 +95,14 @@ namespace Returns.Helpers
                                 return await ParseNWDTFinancialPosition(file);
                             case FormCategory.StatementOfComprehensiveIncome:
                                 return await ParseNWDTComprehensiveIncome(file);
-                            case FormCategory.Management:
+                         /*   case FormCategory.Management:
                                 return await ParseManagementReturn(file);
-                           /* case FormCategory.SectoralLending:
-                                return await ParseSectoralLending(file, saccoType);
+                            case FormCategory.SectoralLending:
+                                return await ParseSectoralLending(file, SaccoType);
                             case FormCategory.DailyLiquidity:
-                                return await ParseDailyLiquidity(file, saccoType);
+                                return await ParseDailyLiquidity(file, SaccoType);
                             case FormCategory.InsiderLending:
-                                return await ParseInsiderLending(file, saccoType);*/
+                                return await ParseInsiderLending(file, SaccoType);*/
                             default:
                                 result.Success = false;
                                 result.Errors.Add($"Unknown form category for NonDepositTaking: {formCategory}");
@@ -292,20 +292,550 @@ namespace Returns.Helpers
         }
 
         // Placeholder methods for remaining form types
-        private async Task<ExcelParseResult> ParseRiskClassification(IFormFile file) => await ParseNotImplemented("Risk Classification");
-        private async Task<ExcelParseResult> ParseInvestment(IFormFile file) => await ParseNotImplemented("Investment");
-        private async Task<ExcelParseResult> ParseFinancialPosition(IFormFile file) => await ParseNotImplemented("Financial Position");
-        private async Task<ExcelParseResult> ParseComprehensiveIncome(IFormFile file) => await ParseNotImplemented("Comprehensive Income");
-        private async Task<ExcelParseResult> ParseNWDTLiquidity(IFormFile file) => await ParseNotImplemented("NWDT Liquidity");
-        private async Task<ExcelParseResult> ParseNWDTDeposit(IFormFile file) => await ParseNotImplemented("NWDT Deposit");
-        private async Task<ExcelParseResult> ParseNWDTRiskClassification(IFormFile file) => await ParseNotImplemented("NWDT Risk Classification");
-        private async Task<ExcelParseResult> ParseNWDTInvestment(IFormFile file) => await ParseNotImplemented("NWDT Investment");
-        private async Task<ExcelParseResult> ParseNWDTComprehensiveIncome(IFormFile file) => await ParseNotImplemented("NWDT Comprehensive Income");
-        private async Task<ExcelParseResult> ParseNWDTFinancialPosition(IFormFile file) => await ParseNotImplemented("NWDT Financial Position");
-        private async Task<ExcelParseResult> ParseManagementReturn(IFormFile file) => await ParseNotImplemented("Management");
-        private async Task<ExcelParseResult> ParseSectoralLending(IFormFile file) => await ParseNotImplemented("Sectoral Lending");
-        private async Task<ExcelParseResult> ParseDailyLiquidity(IFormFile file) => await ParseNotImplemented("Daily Liquidity");
-        private async Task<ExcelParseResult> ParseInsiderLending(IFormFile file) => await ParseNotImplemented("Insider Lending");
+        private async Task<ExcelParseResult> ParseRiskClassification(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportRiskClassificationRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Risk Classification Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "DTRiskClassification";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new RiskClassificationParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseInvestment(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportInvestmentRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Investment Return Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "DTInvestment";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new InvestmentParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseFinancialPosition(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportFinancialPositionRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Financial Position Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "DTFinancialPosition";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new FinancialPositionParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseComprehensiveIncome(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportStatementOfComprehensiveIncomeRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Comprehensive Income Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "DTComprehensiveIncome";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new ComprehensiveIncomeParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseNWDTLiquidity(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportForm2BStatement(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in NWDT Liquidity Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "NWDTLiquidity";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new NWDTLiquidityParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseNWDTDeposit(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportForm2CDataRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in NWDT Deposit Return Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "NWDTDepositReturn";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new NWDTDepositParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseNWDTRiskClassification(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportForm2DRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in NWDT Risk Classification Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "NWDTRiskClassification";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.CsNumber;
+
+                    var parsedRow = new NWDTRiskClassificationParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseNWDTInvestment(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportForm2ERows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in NWDT Investment Return Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "NWDTInvestment";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new NWDTInvestmentParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseNWDTComprehensiveIncome(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportForm2FRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in NWDT Comprehensive Income Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "NWDTComprehensiveIncome";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new NWDTComprehensiveIncomeParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseNWDTFinancialPosition(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportForm2GRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in NWDT Financial Position Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "NWDTFinancialPosition";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new NWDTFinancialPositionParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+       /* private async Task<ExcelParseResult> ParseManagementReturn(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportManagementRows(file, _logger);
+                    if (data == null || !data.ManagementReports.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Management Return Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "ManagementReturn";
+                    // Management returns might not have date metadata
+                    result.Metadata["MRating"] = data.MRating;
+
+                    var parsedRow = new ManagementReturnParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }*/
+
+      /*  private async Task<ExcelParseResult> ParseSectoralLending(IFormFile file, string saccoType)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportSectoralLendingReport(file, _logger, saccoType);
+                    if (data == null || !data.Categories.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Sectoral Lending Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "SectoralLending";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Year"] = data.Year;
+                    result.Metadata["Month"] = data.Month;
+                    result.Metadata["SaccoName"] = data.SaccoName;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new SectoralLendingParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }*/
+
+        /*private async Task<ExcelParseResult> ParseDailyLiquidity(IFormFile file, string saccoType)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportDailyLiquidityRows(file, _logger);
+                    if (data == null)
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Daily Liquidity Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "DailyLiquidity";
+                    result.Metadata["ReportDate"] = data.ReportDate;
+                    result.Metadata["SACCOName"] = data.SACCOName;
+                    result.Metadata["CSNO"] = data.CSNO;
+
+                    var parsedRow = new DailyLiquidityParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }*/
+
+       /* private async Task<ExcelParseResult> ParseInsiderLending(IFormFile file, string saccoType)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportInsiderLendingReport(file, _logger);
+                    if (data == null || !data.Loans.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Insider Lending Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "InsiderLending";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["SaccoName"] = data.SaccoName;
+                    result.Metadata["SaccoSocietyCsNumber"] = data.SaccoSocietyCsNumber;
+
+                    var parsedRow = new InsiderLendingParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }*/
 
         private async Task<ExcelParseResult> ParseNotImplemented(string formType)
         {
