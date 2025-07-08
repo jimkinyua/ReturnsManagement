@@ -269,6 +269,7 @@ namespace Returns.Controllers
                 var formsDue = expectedReturns.Select(er => new FormsDueByMonthDTO
                 {
                     FormId = er.ReturnFormId,
+                    ExpectedReturnId = er.Id,
                     FormName = er.ReturnForm.FormName,
                     FormCode = er.ReturnForm.Code,
                     PeriodId = er.PeriodId,

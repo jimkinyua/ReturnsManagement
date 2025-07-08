@@ -18,7 +18,6 @@ namespace Returns.Models
         [ForeignKey("ReturnForm")]
         public string ReturnFormId { get; set; } = null!;  // FK → ReturnForm
         public ReturnForm ReturnForm { get; set; } = null!;
-
         public DateTime FilingDeadline { get; set; }
         public ExpectedStatus Status { get; set; }  //  { IGNORE THIS ITS NOT USED}
         public bool IsActive { get; set; } = true;

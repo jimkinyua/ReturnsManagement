@@ -5,6 +5,7 @@ namespace Returns.DTOs.Forms
     public class FormsDueByMonthDTO
     {
         public string FormId { get; set; } = null!;
+        public string ExpectedReturnId { get; set; } = null!;
         public string FormName { get; set; } = null!;
         public string FormCode { get; set; } = null!;
         public string PeriodId { get; set; } = null!;

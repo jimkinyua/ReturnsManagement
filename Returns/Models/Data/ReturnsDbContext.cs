@@ -28,6 +28,7 @@ namespace Returns.Models.Data
         public DbSet<FrequencyCatalog> FrequencyCatalogs { get; set; }
         public DbSet<ReportingYear> ReportingYears { get; set; }
         public DbSet<ReturnPeriods> ReturnPeriods { get; set; }
+        public DbSet<ReturnSubmission> ReturnSubmissions { get; set; }
 
         //public DbSet<QuarterDates> QuarterDates { get; set; }
         public DbSet<ReturnForm> ReturnForms { get; set; }

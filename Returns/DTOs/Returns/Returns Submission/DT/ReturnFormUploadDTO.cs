@@ -10,6 +10,7 @@ namespace Returns.DTOs.Returns_Submission.DT
     public class ReturnFormUploadDTO
     {
         public IFormFile?  formFile {  get; set; }
+        public string ExpectedReturnId { get; set; } = null!;
         public string? FormId { get; set; }
     }
 }

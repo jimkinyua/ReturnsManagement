@@ -588,10 +588,32 @@ namespace Returns.Controllers
             }
         }
 
+        [HttpPost("Draft")]
+        public async Task<IActionResult> FileDraftReturnsAsync([FromForm] NewReturnDTO dto)
+        {
 
+            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+            {
+                return StatusCode(401);
+            }
 
-        // File Return
-        [HttpPost("FileReturns")]
+            foreach (var upload in dto.FormUploads)
+            {
+                  var expected = await _context.ExpectedReturns
+                    .Include(er => er.ReturnForm)
+                    .ThenInclude(f => f.Category)
+                    .FirstOrDefaultAsync(er => er.Id == upload.ExpectedReturnId);
+
+                if (expected == null)
+                {
+                 
+                }
+            }
+        }
+
+            // File Return
+         [HttpPost("Draft")]
         public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
         {
 
@@ -3562,7 +3584,7 @@ namespace Returns.Controllers
                 throw new Exception("No attachments found. Please attach at least one form");
             }
 
-            // await returnsHelper.ValidateUploadedForms(createFormDTO);
+            // await returnsHelper.ValidateUploadedForms(Dto);
             Form1Statement form1Statement = null;
             Form2Statement Form2 = null;
             Form3Statement Form3 = null;
