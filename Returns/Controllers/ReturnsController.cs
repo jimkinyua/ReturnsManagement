@@ -42,11 +42,12 @@ namespace Returns.Controllers
         private readonly IWorkflowEngineService _workflowService;
         private readonly ICamelsAnalysisService camelsAnalysisService;
         private readonly IComplianceService complianceService;
-        private readonly FormResubmissionService _resubmissionService;
+        //private readonly FormResubmissionService _resubmissionService;
+        private readonly IReturnSubmissionService _returnSubmissionService;
         private readonly IReturnChild _returnChild;
         private readonly IConfiguration _configuration;
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService)
         {
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             _configuration = new ConfigurationBuilder()
@@ -60,285 +61,286 @@ namespace Returns.Controllers
             _logger = logger;
             _formProcessor = new FormProcessingService(context, logger);
             _emailService = emailService;
+            //_resubmissionService = returnAssignmentService;
             _returnAssignmentService = returnAssignmentService;
             _workflowService = workflowService;
             this.camelsAnalysisService = camelsAnalysisService;
             this.complianceService = compliance;
             _returnChild = returnChild;
-            _resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
-
+            //_resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
+            _returnSubmissionService = returnSubmissionService;
         }
 
-        [HttpPost("CheckConsistency")]
-        public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
-        {
-
-            try
+        /*    [HttpPost("CheckConsistency")]
+            public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
             {
-                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-                {
-                    return StatusCode(401);
-                }
-                var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
-                if (SaccoDetails == null)
-                {
-                    return NotFound("Sacco not found");
-                }
 
-                if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                try
                 {
-                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                    if (!HasConsistencyBeenChecked)
+                    LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                    if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                     {
-                        return StatusCode(409, string.Join(", ", processingSummary));
+                        return StatusCode(401);
                     }
-                    if (!isValid)
+                    var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
+                    if (SaccoDetails == null)
                     {
-                        string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
-                        byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
+                        return NotFound("Sacco not found");
+                    }
 
-                        _ = _emailService
-                        .SendEmailAsync(
-                            SaccoDetails.OfficialSaccoEmail,
-                            "Validation Report - Consistency Errors",
-                            htmlReport)
-                        .ContinueWith(t =>
+                    if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                    {
+                        var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
+                        if (!HasConsistencyBeenChecked)
                         {
-                            if (t.IsFaulted)
-                            {
-                                _logger.LogError(t.Exception, "Failed to send validation-report email.");
-                            }
-                            else
-                            {
-                                _logger.LogInformation("Validation-report email sent successfully.");
-                            }
-                        }, TaskContinuationOptions.OnlyOnRanToCompletion);
-
-
-                        _ = Task.Run(async () =>
-                       {
-                           try
-                           {
-                               await _emailService.SendEmailWithAttachmentAsync(
-                                    SaccoDetails.OfficialSaccoEmail,
-                                    "Validation Report - Consistency Errors",
-                                    "PFA",
-                                    ConsistencyReport,
-                                    $"ValidationReport_{CommonPeriod}.pdf"
-                                );
-                               _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                           }
-                           catch (Exception ex)
-                           {
-                               _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                           }
-                       });
-
-                        return BadRequest(ConsistencyErrors);
-                    }
-                }
-                else
-                {
-                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                    if (!HasConsistencyBeenChecked)
-                    {
-                        return StatusCode(409, string.Join(", ", processingSummary));
-                    }
-
-                    if (!isValid)
-                    {
+                            return StatusCode(409, string.Join(", ", processingSummary));
+                        }
                         if (!isValid)
                         {
                             string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
                             byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
 
                             _ = _emailService
-                      .SendEmailAsync(
-                          SaccoDetails.OfficialSaccoEmail,
-                          "Validation Report - Consistency Errors",
-                          htmlReport)
-                      .ContinueWith(t =>
-                      {
-                          if (t.IsFaulted)
-                          {
-                              _logger.LogError(t.Exception, "Failed to send validation-report email.");
-                          }
-                          else
-                          {
-                              _logger.LogInformation("Validation-report email sent successfully.");
-                          }
-                      }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                            .SendEmailAsync(
+                                SaccoDetails.OfficialSaccoEmail,
+                                "Validation Report - Consistency Errors",
+                                htmlReport)
+                            .ContinueWith(t =>
+                            {
+                                if (t.IsFaulted)
+                                {
+                                    _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                                }
+                                else
+                                {
+                                    _logger.LogInformation("Validation-report email sent successfully.");
+                                }
+                            }, TaskContinuationOptions.OnlyOnRanToCompletion);
 
 
                             _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await _emailService.SendEmailWithAttachmentAsync(
+                           {
+                               try
+                               {
+                                   await _emailService.SendEmailWithAttachmentAsync(
                                         SaccoDetails.OfficialSaccoEmail,
                                         "Validation Report - Consistency Errors",
-                                        $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
+                                        "PFA",
                                         ConsistencyReport,
                                         $"ValidationReport_{CommonPeriod}.pdf"
                                     );
-                                    _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                                }
-                            });
+                                   _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                               }
+                               catch (Exception ex)
+                               {
+                                   _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                               }
+                           });
 
                             return BadRequest(ConsistencyErrors);
                         }
-
-                        return BadRequest(ConsistencyErrors);
                     }
+                    else
+                    {
+                        var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
+                        if (!HasConsistencyBeenChecked)
+                        {
+                            return StatusCode(409, string.Join(", ", processingSummary));
+                        }
+
+                        if (!isValid)
+                        {
+                            if (!isValid)
+                            {
+                                string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
+                                byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
+
+                                _ = _emailService
+                          .SendEmailAsync(
+                              SaccoDetails.OfficialSaccoEmail,
+                              "Validation Report - Consistency Errors",
+                              htmlReport)
+                          .ContinueWith(t =>
+                          {
+                              if (t.IsFaulted)
+                              {
+                                  _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                              }
+                              else
+                              {
+                                  _logger.LogInformation("Validation-report email sent successfully.");
+                              }
+                          }, TaskContinuationOptions.OnlyOnRanToCompletion);
+
+
+                                _ = Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await _emailService.SendEmailWithAttachmentAsync(
+                                            SaccoDetails.OfficialSaccoEmail,
+                                            "Validation Report - Consistency Errors",
+                                            $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
+                                            ConsistencyReport,
+                                            $"ValidationReport_{CommonPeriod}.pdf"
+                                        );
+                                        _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                                    }
+                                });
+
+                                return BadRequest(ConsistencyErrors);
+                            }
+
+                            return BadRequest(ConsistencyErrors);
+                        }
+                    }
+
+                    return Ok();
+                }
+                catch (Exception ex)
+                {
+                    var errors = CustomErrorHandler.HandleException(ex);
+                    var errorsasString = string.Join(", ", errors);
+                    return StatusCode(500, errorsasString);
+
                 }
 
-                return Ok();
             }
-            catch (Exception ex)
+
+            [HttpPost("RequestFormResubmission")]
+            public async Task<IActionResult> RequestFormResubmission([FromBody] ResubmissionRequestDto request)
             {
-                var errors = CustomErrorHandler.HandleException(ex);
-                var errorsasString = string.Join(", ", errors);
-                return StatusCode(500, errorsasString);
-
-            }
-
-        }
-
-        [HttpPost("RequestFormResubmission")]
-        public async Task<IActionResult> RequestFormResubmission([FromBody] ResubmissionRequestDto request)
-        {
-            try
-            {
-                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                try
                 {
-                    return StatusCode(401);
-                }
+                    LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                    if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                    {
+                        return StatusCode(401);
+                    }
 
-                var returnToResubmit = await _context.Returns.FindAsync(request.ReturnId);
-                if (returnToResubmit == null)
+                    var returnToResubmit = await _context.Returns.FindAsync(request.ReturnId);
+                    if (returnToResubmit == null)
+                    {
+                        return NotFound("Return not found");
+                    }
+
+                    var formToResubmit = await _context.ReturnForms.FindAsync(request.FormId);
+                    if (formToResubmit == null)
+                    {
+                        return NotFound("Form not found");
+                    }
+
+                    var ComplianceOfficer = await complianceService.GetUserById(loggedInAdmin.UserId);
+                    var SaccoDetails = await complianceService.GetSaccoByIdAsync(returnToResubmit.SaccoId);
+
+                    var result = await _resubmissionService.RequestFormResubmissionAsync(
+                     request.ReturnId,
+                     formToResubmit,
+                     loggedInAdmin.UserId,
+                     ComplianceOfficer?.FullName ?? "Unknown Compliance Officer",
+                     loggedInAdmin.EmailAddress,
+                     request.Reason ?? "No reason provided",
+                     returnToResubmit.SaccoId,
+                     returnToResubmit.SaccoType,
+                     SaccoDetails.OfficialSaccoEmail
+                    );
+
+                    if (result.Success)
+                    {
+                        return Ok();
+                    }
+                    else
+                    {
+                        return BadRequest(result.Message);
+                    }
+
+                }
+                catch (Exception ex)
                 {
-                    return NotFound("Return not found");
+                    return StatusCode(500, CustomErrorHandler.HandleException(ex));
+
                 }
+            }*/
 
-                var formToResubmit = await _context.ReturnForms.FindAsync(request.FormId);
-                if (formToResubmit == null)
-                {
-                    return NotFound("Form not found");
-                }
+        /* [HttpPost("ResubmitForm")]
+         public async Task<IActionResult> ResubmitForm([FromForm] SaccoResubmissionDto request)
+         {
+             try
+             {
+                 var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                 if (loggedInSacco == null)
+                 {
+                     return Unauthorized();
+                 }
 
-                var ComplianceOfficer = await complianceService.GetUserById(loggedInAdmin.UserId);
-                var SaccoDetails = await complianceService.GetSaccoByIdAsync(returnToResubmit.SaccoId);
+                 if (request.FormFile == null || request.FormFile.Length == 0)
+                 {
+                     return BadRequest("Form file is required.");
+                 }
+                 if (string.IsNullOrEmpty(request.ReturnId) || string.IsNullOrEmpty(request.FormId))
+                 {
+                     return BadRequest("ReturnId and FormId are required.");
+                 }
 
-                var result = await _resubmissionService.RequestFormResubmissionAsync(
-                 request.ReturnId,
-                 formToResubmit,
-                 loggedInAdmin.UserId,
-                 ComplianceOfficer?.FullName ?? "Unknown Compliance Officer",
-                 loggedInAdmin.EmailAddress,
-                 request.Reason ?? "No reason provided",
-                 returnToResubmit.SaccoId,
-                 returnToResubmit.SaccoType,
-                 SaccoDetails.OfficialSaccoEmail
+                 var form = await _context.ReturnForms
+                             .Include(x => x.Period)
+                             .FirstOrDefaultAsync(x => x.Id == request.FormId);
+
+                 if (form == null)
+                 {
+                     return BadRequest("Form not found");
+                 }
+
+                 var returnRecord = await _context.Returns.FindAsync(request.ReturnId);
+                 if (returnRecord == null)
+                 {
+                     return BadRequest("Return not found");
+                 }
+
+                 if (returnRecord.SaccoId != loggedInSacco.SaccoId)
+                 {
+                     return StatusCode(401, "You can only resubmit your own forms");
+                 }
+
+                 var pendingRequest = await _context.FormResubmissionRequests
+                     .FirstOrDefaultAsync(r => r.ReturnId == request.ReturnId &&
+                      r.FormId == request.FormId &&
+                      r.Status == "Pending");
+
+                 if (pendingRequest == null)
+                 {
+                     return BadRequest("No pending resubmission request found for this form");
+                 }
+
+                 var result = await _resubmissionService.HandleSaccoFormResubmissionAsync(
+                    request.ReturnId,
+                    form,
+                    request.FormFile,
+                    loggedInSacco.SaccoId,
+                    loggedInSacco.SaccoType,
+                    request.ResubmissionNotes?.Trim() ?? string.Empty
                 );
 
-                if (result.Success)
-                {
-                    return Ok();
-                }
-                else
-                {
-                    return BadRequest(result.Message);
-                }
+                 if (result.Success)
+                 {
+                     return Ok();
+                 }
+                 else
+                 {
+                     return BadRequest(result.Message);
+                 }
+             }
+             catch (Exception ex)
+             {
+                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
+             }
+         }*/
 
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, CustomErrorHandler.HandleException(ex));
-
-            }
-        }
-
-        [HttpPost("ResubmitForm")]
-        public async Task<IActionResult> ResubmitForm([FromForm] SaccoResubmissionDto request)
-        {
-            try
-            {
-                var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInSacco == null)
-                {
-                    return Unauthorized();
-                }
-
-                if (request.FormFile == null || request.FormFile.Length == 0)
-                {
-                    return BadRequest("Form file is required.");
-                }
-                if (string.IsNullOrEmpty(request.ReturnId) || string.IsNullOrEmpty(request.FormId))
-                {
-                    return BadRequest("ReturnId and FormId are required.");
-                }
-
-                var form = await _context.ReturnForms
-                            .Include(x => x.Period)
-                            .FirstOrDefaultAsync(x => x.Id == request.FormId);
-
-                if (form == null)
-                {
-                    return BadRequest("Form not found");
-                }
-
-                var returnRecord = await _context.Returns.FindAsync(request.ReturnId);
-                if (returnRecord == null)
-                {
-                    return BadRequest("Return not found");
-                }
-
-                if (returnRecord.SaccoId != loggedInSacco.SaccoId)
-                {
-                    return StatusCode(401, "You can only resubmit your own forms");
-                }
-
-                var pendingRequest = await _context.FormResubmissionRequests
-                    .FirstOrDefaultAsync(r => r.ReturnId == request.ReturnId &&
-                     r.FormId == request.FormId &&
-                     r.Status == "Pending");
-
-                if (pendingRequest == null)
-                {
-                    return BadRequest("No pending resubmission request found for this form");
-                }
-
-                var result = await _resubmissionService.HandleSaccoFormResubmissionAsync(
-                   request.ReturnId,
-                   form,
-                   request.FormFile,
-                   loggedInSacco.SaccoId,
-                   loggedInSacco.SaccoType,
-                   request.ResubmissionNotes?.Trim() ?? string.Empty
-               );
-
-                if (result.Success)
-                {
-                    return Ok();
-                }
-                else
-                {
-                    return BadRequest(result.Message);
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, CustomErrorHandler.HandleException(ex));
-            }
-        }
-
-        private async Task<(
+        /*private async Task<(
             bool IsValid,
             List<string> ProcessingSummary,
             List<ValidationError> ConsistencyErrors,
@@ -543,7 +545,7 @@ namespace Returns.Controllers
                 depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
                 financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
         }
-
+*/
         public sealed class FileProcessingException : Exception
         {
             public string FileName { get; }
@@ -557,52 +559,63 @@ namespace Returns.Controllers
             }
         }
 
-        [HttpGet("GetChildDetails")]
-        public async Task<IActionResult> GetChildDetails([FromQuery] string ChildId, [FromQuery] string FormId, [FromQuery] string ReturnId)
-        {
-            try
-            {
-                var FormDetails = await _context.ReturnForms
-                      .Include(f => f.Period)
-                      .FirstOrDefaultAsync(f => f.Id == FormId);
-                if (FormDetails == null)
-                {
-                    return NotFound("Form not found");
-                }
-                var ReturnDetails = await _context.Returns.FindAsync(ReturnId);
-                if (ReturnDetails == null)
-                {
-                    return NotFound("Return not found");
-                }
-                var FormType = _formProcessor.GetFormTypeFromForm(FormDetails);
-                var SaccoType = ReturnDetails.SaccoType;
+        /* [HttpGet("GetChildDetails")]
+         public async Task<IActionResult> GetChildDetails([FromQuery] string ChildId, [FromQuery] string FormId, [FromQuery] string ReturnId)
+         {
+             try
+             {
+                 var FormDetails = await _context.ReturnForms
+                       .Include(f => f.Period)
+                       .FirstOrDefaultAsync(f => f.Id == FormId);
+                 if (FormDetails == null)
+                 {
+                     return NotFound("Form not found");
+                 }
+                 var ReturnDetails = await _context.Returns.FindAsync(ReturnId);
+                 if (ReturnDetails == null)
+                 {
+                     return NotFound("Return not found");
+                 }
+                 var FormType = _formProcessor.GetFormTypeFromForm(FormDetails);
+                 var SaccoType = ReturnDetails.SaccoType;
 
-                var childDetails = await _returnChild.GetChildDetailsByFormType(ChildId, FormType, SaccoType);
+                 var childDetails = await _returnChild.GetChildDetailsByFormType(ChildId, FormType, SaccoType);
 
-                return Ok(childDetails);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching child details");
-                return StatusCode(500, "Internal server error");
-            }
-        }
+                 return Ok(childDetails);
+             }
+             catch (Exception ex)
+             {
+                 _logger.LogError(ex, "Error fetching child details");
+                 return StatusCode(500, "Internal server error");
+             }
+         }*/
 
         [HttpPost("Draft")]
         public async Task<IActionResult> FileDraftReturnsAsync([FromForm] NewReturnDTO dto)
         {
-
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+            try
             {
-                return StatusCode(401);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return StatusCode(401);
+                }
+
+                var result = await _returnSubmissionService.UploadDraftAsync(dto,loggedInSacco.SaccoType, loggedInSacco.SaccoId);
+              
+                return Ok(result);
+            }
+            catch (Exception)
+            {
+
+                throw;
             }
 
-          
+
         }
 
-            // File Return
-         [HttpPost("Draft")]
+        // File Return
+        /* [HttpPost("Draft")]
         public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
         {
 
@@ -781,7 +794,7 @@ namespace Returns.Controllers
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
 
-        }
+        }*/
 
         private string GenerateLateFormsEmailBody(string saccoName, List<(string FormName, DateTime DueDate, DateTime SubmissionDate)> lateForms)
         {
@@ -1253,477 +1266,477 @@ namespace Returns.Controllers
         }
 
 
-        [HttpGet("GetReturnDetails/{returnId}")]
-        public async Task<ActionResult<ReturnDetailsDTO>> GetReturnDetails(string returnId)
-        {
-            try
-            {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+        /*  [HttpGet("GetReturnDetails/{returnId}")]
+          public async Task<ActionResult<ReturnDetailsDTO>> GetReturnDetails(string returnId)
+          {
+              try
+              {
+                  var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
 
-                var helper = new ReturnsHelper(_context);
+                  var helper = new ReturnsHelper(_context);
 
-                Return? hdr = await _context.Returns
-                    .AsNoTracking()
-                    .Where(r => r.Id == returnId)
-                    .FirstOrDefaultAsync();
-                if (hdr == null)
-                {
-                    return new ReturnDetailsDTO();
-                }
+                  Return? hdr = await _context.Returns
+                      .AsNoTracking()
+                      .Where(r => r.Id == returnId)
+                      .FirstOrDefaultAsync();
+                  if (hdr == null)
+                  {
+                      return new ReturnDetailsDTO();
+                  }
 
-                var ApprovalStatus = await _workflowService.GetReturnStatus(hdr.Id);
-
-
-                var capEntity = await _context.DTCapitalAdequacyReturns
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
-
-                CapitalAdequacyDTO? capitalAdequacy = null;
-                int capitalDaysLate = 0;
-                if (capEntity != null)
-                {
-                    capitalDaysLate = capEntity.DaysLateBy;
-                    capitalAdequacy = new CapitalAdequacyDTO
-                    {
-                        FormId = capEntity.FormId ?? string.Empty,
-                        RequiresResubmission = capEntity.RequiresResubmission,
-                        ShareCapital = capEntity.ShareCapital,
-                        StatutoryReserves = capEntity.StatutoryReserves,
-                        RetainedEarningsAccumulatedLosses = capEntity.RetainedEarningsAccumulatedLosses,
-                        NetSurplusAfterTaxCurrentYearToDate = capEntity.NetSurplusAfterTaxCurrentYearToDate,
-                        CapitalGrantsEquityInNature = capEntity.CapitalGrantsEquityInNature,
-                        GeneralReserves = capEntity.GeneralReserves,
-                        OtherReserves = capEntity.OtherReserves,
-                        SubTotalCoreCapital = capEntity.SubTotalCoreCapital,
-                        InvestmentsInSubsidiaryAndEquityInstruments = capEntity.InvestmentsInSubsidiaryAndEquityInstruments,
-                        OtherDeductions = capEntity.OtherDeductions,
-                        TotalDeductions = capEntity.TotalDeductions,
-                        CoreCapital = capEntity.CoreCapital,
-                        InstitutionalCapital = capEntity.InstitutionalCapital,
-                        CashLocalAndForeignCurrency = capEntity.CashLocalAndForeignCurrency,
-                        GovernmentSecurities = capEntity.GovernmentSecurities,
-                        DepositsAndBalancesAtOtherInstitutions = capEntity.DepositsAndBalancesAtOtherInstitutions,
-                        LoansAndAdvances = capEntity.LoansAndAdvances,
-                        Investments = capEntity.Investments,
-                        PropertyAndEquipment = capEntity.PropertyAndEquipment,
-                        OtherAssets = capEntity.OtherAssets,
-                        TotalOnBalanceSheetAssets = capEntity.TotalOnBalanceSheetAssets,
-                        TotalAssetsPerBalanceSheet = capEntity.TotalAssetsPerBalanceSheet,
-                        Difference = capEntity.Difference,
-                        CoreCapitalToAssetsRatio = capEntity.CoreCapitalToAssetsRatio,
-                        CoreCapitalToAssetsRatioExcessDeficiency = capEntity.CoreCapitalToAssetsRatioExcessDeficiency,
-                        InstitutionalCapitalToAssetsRatio = capEntity.InstitutionalCapitalToAssetsRatio,
-                        InstitutionalCapitalToAssetsRatioExcessDeficiency = capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
-                        CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
-                        CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
-                        FilePath = $"{baseUrl}{capEntity.FilePath}",
-                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ReturnId, hdr.SaccoType)
-                    };
-                }
-
-                // 2-b  Deposit-Range Return (multi-row)
-                var depositEntities = await _context.DepositReturns
-                    .AsNoTracking()
-                    .Where(dr => dr.ReturnId == returnId)
-                    .ToListAsync();
-
-                int depositDaysLate = depositEntities.FirstOrDefault()?.DaysLateBy ?? 0;
-                DepositReturnDto? depositReturn = null;
-                if (depositEntities.Any())
-                {
-                    depositReturn = new DepositReturnDto
-                    {
-                        FormId = depositEntities.FirstOrDefault()?.FormId ?? string.Empty,
-                        RequiresResubmission = depositEntities.FirstOrDefault()?.RequiresResubmission ?? false,
-                        //FilePath = depositEntities.FirstOrDefault()?.FilePath ?? string.Empty,
-                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DepositReturn>(depositEntities.FirstOrDefault()?.ReturnId ?? string.Empty, hdr.SaccoType),
-                        //NWDTDepositReturnData = new List<NWDTDepositReturnData>()
-                    };
-                    foreach (var dr in depositEntities)
-                    {
-                        depositReturn.DepositReturnData.Add(new DTOs.Returns_Submission.Returns_Submission.DT.DepositReturnData
-                        {
-                            RangeName = dr.RangeName,
-                            DepositType = dr.DepositType,
-                            NumberOfAccounts = dr.NumberOfAccounts,
-                            Amount = dr.AmountInKshs000
-                        });
-                    }
-                }
-
-                // 2-c  Comprehensive-Income (single row)
-                var incomeEntity = await _context.DTComprehensiveIncomeReturns
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(ci => ci.ReturnId == returnId);
-
-                ComprehesiveIncomeStatementDTO? incomeStatement = null;
-                int incomeDaysLate = 0;
-                if (incomeEntity != null)
-                {
-                    incomeDaysLate = incomeEntity.DaysLateBy;
-                    incomeStatement = new ComprehesiveIncomeStatementDTO
-                    {
-                        FormId = incomeEntity.FormId ?? string.Empty,
-                        RequiresResubmission = incomeEntity.RequiresResubmission,
-                        InterestOnLoanPortfolio = incomeEntity.InterestOnLoanPortfolio,
-                        FeesAndCommissionOnLoanPortfolio = incomeEntity.FeesAndCommissionOnLoanPortfolio,
-                        GovernmentSecurities = incomeEntity.GovernmentSecurities,
-                        DepositsWithBanks = incomeEntity.DepositsWithBanks,
-                        OtherInvestments = incomeEntity.OtherInvestments,
-                        OtherOperatingIncome = incomeEntity.OtherOperatingIncome,
-                        InterestExpenseOnDeposits = incomeEntity.InterestExpenseOnDeposits,
-                        CostOfExternalBorrowings = incomeEntity.CostOfExternalBorrowings,
-                        DividendExpenses = incomeEntity.DividendExpenses,
-                        OtherFinancialExpense = incomeEntity.OtherFinancialExpense,
-                        FeesAndCommissionExpense = incomeEntity.FeesAndCommissionExpense,
-                        OtherExpense = incomeEntity.OtherExpense,
-                        ProvisionForLoanLosses = incomeEntity.ProvisionForLoanLosses,
-                        ValueOfLoansRecovered = incomeEntity.ValueOfLoansRecovered,
-                        PersonnelExpenses = incomeEntity.PersonnelExpenses,
-                        GovernanceExpenses = incomeEntity.GovernanceExpenses,
-                        MarketingExpenses = incomeEntity.MarketingExpenses,
-                        DepreciationAndAmortization = incomeEntity.DepreciationAndAmortization,
-                        AdministrativeExpenses = incomeEntity.AdministrativeExpenses,
-                        NonOperatingIncome = incomeEntity.NonOperatingIncome,
-                        NonOperatingExpense = incomeEntity.NonOperatingExpense,
-                        Taxes = incomeEntity.Taxes,
-                        Donations = incomeEntity.Donations,
-                        FilePath = $"{baseUrl}{incomeEntity.FilePath}",
-                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ReturnId, hdr.SaccoType)
-                    };
-                }
-
-                // 2-d  Financial-Position (single row)
-                var balanceEntity = await _context.DTFinancialPositionReturns
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(fp => fp.ReturnId == returnId);
-
-                FinancialPositionDTO? financialPosition = null;
-                int balanceDaysLate = 0;
-                if (balanceEntity != null)
-                {
-                    balanceDaysLate = balanceEntity.DaysLateBy;
-                    financialPosition = new FinancialPositionDTO
-                    {
-                        FormId = balanceEntity.FormId ?? string.Empty,
-                        RequiresResubmission = balanceEntity.RequiresResubmission,
-                        CashInHand = balanceEntity.CashInHand,
-                        CashAtBank = balanceEntity.CashAtBank,
-                        PrepaymentsAndSundryReceivables = balanceEntity.PrepaymentsAndSundryReceivables,
-                        GovernmentSecurities = balanceEntity.GovernmentSecurities,
-                        OtherSecurities = balanceEntity.OtherSecurities,
-                        BalancesWithOtherSaccos = balanceEntity.BalancesWithOtherSaccos,
-                        InvestmentsInCompanies = balanceEntity.InvestmentsInCompanies,
-                        GrossLoanPortfolio = balanceEntity.GrossLoanPortfolio,
-                        AllowanceForLoanLoss = balanceEntity.AllowanceForLoanLoss,
-                        TaxRecoverable = balanceEntity.TaxRecoverable,
-                        DeferredTaxAssets = balanceEntity.DeferredTaxAssets,
-                        RetirementBenefitAssets = balanceEntity.RetirementBenefitAssets,
-                        InvestmentProperties = balanceEntity.InvestmentProperties,
-                        PropertyAndEquipment = balanceEntity.PropertyAndEquipment,
-                        PrepaidLeaseRentals = balanceEntity.PrepaidLeaseRentals,
-                        IntangibleAssets = balanceEntity.IntangibleAssets,
-                        OtherAssets = balanceEntity.OtherAssets,
-                        SavingsDeposits = balanceEntity.SavingsDeposits,
-                        ShortTermDeposits = balanceEntity.ShortTermDeposits,
-                        NonWithdrawableDeposits = balanceEntity.NonWithdrawableDeposits,
-                        TaxPayable = balanceEntity.TaxPayable,
-                        DividendsPayable = balanceEntity.DividendsPayable,
-                        DeferredTaxLiability = balanceEntity.DeferredTaxLiability,
-                        RetirementBenefitsLiability = balanceEntity.RetirementBenefitsLiability,
-                        OtherLiabilities = balanceEntity.OtherLiabilities,
-                        ExternalBorrowings = balanceEntity.ExternalBorrowings,
-                        ShareCapital = balanceEntity.ShareCapital,
-                        CapitalGrants = balanceEntity.CapitalGrants,
-                        PriorYearsRetainedEarnings = balanceEntity.PriorYearsRetainedEarnings,
-                        CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
-                        StatutoryReserve = balanceEntity.StatutoryReserve,
-                        FilePath = $"{baseUrl}{balanceEntity.FilePath}",
-                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ReturnId, hdr.SaccoType)
-                    };
-                }
-
-                // 2-e  Liquidity (single row)
-                var liquidityEntity = await _context.DTLiquidityReturns
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(liq => liq.ReturnId == returnId);
-
-                LiquidityStatementDTO? liquidityStatement = null;
-                int liquidityDaysLate = 0;
-                if (liquidityEntity != null)
-                {
-                    liquidityDaysLate = liquidityEntity.DaysLateBy;
-                    liquidityStatement = new LiquidityStatementDTO
-                    {
-                        FormId = capEntity.FormId ?? string.Empty,
-                        RequiresResubmission = liquidityEntity.RequiresResubmission,
-                        LocalNotesAndCoins = liquidityEntity.LocalNotesAndCoins,
-                        ForeignNotesAndCoins = liquidityEntity.ForeignNotesAndCoins,
-                        BalancesWithCommercialBanks = liquidityEntity.BalancesWithCommercialBanks,
-                        TimeDepositsWithBanksMoreThan90Days = liquidityEntity.TimeDepositsWithBanksMoreThan90Days,
-                        OverdraftsAndMaturedLoans = liquidityEntity.OverdraftsAndMaturedLoans,
-                        BalancesWithOtherSaccoSocieties = liquidityEntity.BalancesWithOtherSaccoSocieties,
-                        BalancesWithOtherFinancialInstitutions =
-                            liquidityEntity.BalancesWithOtherFinancialInstitutions,
-                        BalancesDueToOtherSaccoSocieties = liquidityEntity.BalancesDueToOtherSaccoSocieties,
-                        BalancesDueToFinancialInstitutions =
-                            liquidityEntity.BalancesDueToFinancialInstitutions,
-                        TreasuryBills = liquidityEntity.TreasuryBills,
-                        TreasuryBonds = liquidityEntity.TreasuryBonds,
-                        DepositsFromMembers = liquidityEntity.DepositsFromMembers,
-                        DepositsFromOtherSources = liquidityEntity.DepositsFromOtherSources,
-                        MaturedLiabilities = liquidityEntity.MaturedLiabilities,
-                        LiabilitiesMaturing91Days = liquidityEntity.LiabilitiesMaturing91Days,
-                        TotalNotesAndCoins = liquidityEntity.TotalNotesAndCoins,
-                        TotalGovernmentSecurities = liquidityEntity.TotalGovernmentSecurities,
-                        NetLiquidAssets = liquidityEntity.NetLiquidAssets,
-                        TotalDeposits = liquidityEntity.TotalDeposits,
-                        TotalOtherLiabilities = liquidityEntity.TotalOtherLiabilities,
-                        LiquidityRatio = liquidityEntity.LiquidityRatio,
-                        LiquidityRatioExcessDeficit = liquidityEntity.LiquidityRatioExcessDeficit,
-                        NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
-                        NetBankBalances = liquidityEntity.NetBankBalances,
-                        FilePath = $"{baseUrl}{liquidityEntity.FilePath}",
-                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ReturnId, hdr.SaccoType)
-                    };
-                }
-
-                // 2-f  Risk classification (multi-row)
-                var riskEntities = await _context.DTRiskClassificationReturns
-                    .AsNoTracking()
-                    .Where(rc => rc.ReturnId == returnId)
-                    .ToListAsync();
-
-                int riskDaysLate = riskEntities.FirstOrDefault()?.DaysLateBy ?? 0;
-                var riskClassifications = new RiskClassificationDTO();
-
-                if (riskEntities.Any())
-                {
-                    var firstEntity = riskEntities.First();
-                    riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
-                    riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
-                    //riskClassifications.FilePath = firstEntity.FilePath;
-                    riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ReturnId, hdr.SaccoType);
-
-                    foreach (var rc in riskEntities)
-                    {
-                        riskClassifications.RiskClassificationData.Add(new RiskClassificationData
-                        {
-                            LoanType = rc.LoanType,
-                            Classification = rc.Classification,
-                            NumberOfAccounts = rc.NumberOfAccounts,
-                            OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
-                            RequiredProvision = rc.RequiredProvision,
-                            RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                            FilePath = $"{baseUrl}{rc.FilePath}"
-                        });
-                    }
-                }
-
-                // 2-g  Other returns (multi-row, simple)
-                var otherReturnsEntities = await _context.OtherReturns
-                    .AsNoTracking()
-                    .Where(o => o.ReturnId == returnId)
-                    .ToListAsync();
-
-                var otherReturns = new List<OtherReturnDTO>();
-                foreach (var o in otherReturnsEntities)
-                {
-                    otherReturns.Add(new OtherReturnDTO
-                    {
-                        FormName = o.FormName,
-                        FileUrl = o.FileUrl,
-                        RequiresResubmission = o.RequiresResubmission,
-                        FormId = o.FormId ?? string.Empty,
-                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<OtherReturn>(o.ReturnId, hdr.SaccoType)
-                    });
-                }
-
-                // 2-h  Investment (single row)
-                var investmentEntity = await _context.DTInvestmentReturns
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(inv => inv.ReturnId == returnId);
-
-                var ApprovalComments = await _context.ApprovalActions
-                                          .AsNoTracking()
-                                          .Where(o => o.ReturnId == returnId)
-                                          .ToListAsync();
-
-                InvestmentReturnDTO? investment = null;
-                int investmentDaysLate = 0;
-                if (investmentEntity != null)
-                {
-                    investmentDaysLate = investmentEntity.DaysLateBy;
-                    investment = new InvestmentReturnDTO
-                    {
-                        FormId = investmentEntity.FormId ?? string.Empty,
-                        RequiresResubmission = investmentEntity.RequiresResubmission,
-                        CoreCapital = investmentEntity.CoreCapital,
-                        TotalAssets = investmentEntity.TotalAssets,
-                        TotalDeposits = investmentEntity.TotalDeposits,
-                        NonEarningAssets = investmentEntity.NonEarningAssets,
-                        FinancialInvestments = investmentEntity.FinancialInvestments,
-                        LandAndBuildings = investmentEntity.LandAndBuildings,
-                        LandBuildingsToTotalAssetsRatio = investmentEntity.LandBuildingsToTotalAssetsRatio,
-                        LandBuildingsRatioExcessDeficiency = investmentEntity.LandBuildingsRatioExcessDeficiency,
-                        NonEarningAssetsToTotalAssetsRatio = investmentEntity.NonEarningAssetsToTotalAssetsRatio,
-                        NonEarningAssetsRatioExcessDeficiency = investmentEntity.NonEarningAssetsRatioExcessDeficiency,
-                        FinancialInvestmentsToCoreCapitalRatio = investmentEntity.FinancialInvestmentsToCoreCapitalRatio,
-                        FinancialInvestmentsToCoreCapitalExcessDeficiency =
-                            investmentEntity.FinancialInvestmentsToCoreCapitalExcessDeficiency,
-                        FinancialInvestmentsToDepositsRatio = investmentEntity.FinancialInvestmentsToDepositsRatio,
-                        FinancialInvestmentsToDepositsExcessDeficiency =
-                            investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
-                        FilePath = $"{baseUrl}{investmentEntity.FilePath}",
-                        PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ReturnId, hdr.SaccoType)
-                    };
-                }
-
-                var managementEntity = await _context.ManagementReturns
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(m => m.ReturnId == returnId);
-
-                ManagementReturnDTO? managementReturn = null;
-                if (managementEntity != null)
-                {
-                    managementReturn = new ManagementReturnDTO
-                    {
-                        SaccoCsNumber = managementEntity.SaccoCsNumber,
+                  var ApprovalStatus = await _workflowService.GetReturnStatus(hdr.Id);
 
 
-                        GovernanceStructureScore = managementEntity.GorvenanceStructureScore,
-                        GovernanceStructureWeight = managementEntity.GorvenanceStructureWeight,
-                        GovernanceStructureWeightedScore = managementEntity.GorvenanceStructureWeightedScore,
+                  var capEntity = await _context.DTCapitalAdequacyReturns
+                      .AsNoTracking()
+                      .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
 
-                        InternalControlsScore = managementEntity.InternalControlsScore,
-                        InternalControlsWeight = managementEntity.InternalControlsWeight,
-                        InternalControlsWeightedScore = managementEntity.InternalControlsWeightedScore,
+                  CapitalAdequacyDTO? capitalAdequacy = null;
+                  int capitalDaysLate = 0;
+                  if (capEntity != null)
+                  {
+                      capitalDaysLate = capEntity.DaysLateBy;
+                      capitalAdequacy = new CapitalAdequacyDTO
+                      {
+                          FormId = capEntity.FormId ?? string.Empty,
+                          RequiresResubmission = capEntity.RequiresResubmission,
+                          ShareCapital = capEntity.ShareCapital,
+                          StatutoryReserves = capEntity.StatutoryReserves,
+                          RetainedEarningsAccumulatedLosses = capEntity.RetainedEarningsAccumulatedLosses,
+                          NetSurplusAfterTaxCurrentYearToDate = capEntity.NetSurplusAfterTaxCurrentYearToDate,
+                          CapitalGrantsEquityInNature = capEntity.CapitalGrantsEquityInNature,
+                          GeneralReserves = capEntity.GeneralReserves,
+                          OtherReserves = capEntity.OtherReserves,
+                          SubTotalCoreCapital = capEntity.SubTotalCoreCapital,
+                          InvestmentsInSubsidiaryAndEquityInstruments = capEntity.InvestmentsInSubsidiaryAndEquityInstruments,
+                          OtherDeductions = capEntity.OtherDeductions,
+                          TotalDeductions = capEntity.TotalDeductions,
+                          CoreCapital = capEntity.CoreCapital,
+                          InstitutionalCapital = capEntity.InstitutionalCapital,
+                          CashLocalAndForeignCurrency = capEntity.CashLocalAndForeignCurrency,
+                          GovernmentSecurities = capEntity.GovernmentSecurities,
+                          DepositsAndBalancesAtOtherInstitutions = capEntity.DepositsAndBalancesAtOtherInstitutions,
+                          LoansAndAdvances = capEntity.LoansAndAdvances,
+                          Investments = capEntity.Investments,
+                          PropertyAndEquipment = capEntity.PropertyAndEquipment,
+                          OtherAssets = capEntity.OtherAssets,
+                          TotalOnBalanceSheetAssets = capEntity.TotalOnBalanceSheetAssets,
+                          TotalAssetsPerBalanceSheet = capEntity.TotalAssetsPerBalanceSheet,
+                          Difference = capEntity.Difference,
+                          CoreCapitalToAssetsRatio = capEntity.CoreCapitalToAssetsRatio,
+                          CoreCapitalToAssetsRatioExcessDeficiency = capEntity.CoreCapitalToAssetsRatioExcessDeficiency,
+                          InstitutionalCapitalToAssetsRatio = capEntity.InstitutionalCapitalToAssetsRatio,
+                          InstitutionalCapitalToAssetsRatioExcessDeficiency = capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
+                          CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
+                          CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
+                          FilePath = $"{baseUrl}{capEntity.FilePath}",
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ReturnId, hdr.SaccoType)
+                      };
+                  }
 
-                        ComplianceWithLawsScore = managementEntity.ComplianceWithLawsAndRegulationsScore,
-                        ComplianceWithLawsWeight = managementEntity.ComplianceWithLawsAndRegulationsWeight,
-                        ComplianceWithLawsWeightedScore =
-                            managementEntity.ComplianceWithLawsAndRegulationsWeightedScore,
+                  // 2-b  Deposit-Range Return (multi-row)
+                  var depositEntities = await _context.DepositReturns
+                      .AsNoTracking()
+                      .Where(dr => dr.ReturnId == returnId)
+                      .ToListAsync();
 
-                        MemberProtectionScore = managementEntity.MemberProtectionScore,
-                        MemberProtectionWeight = managementEntity.MemberProtectionWeight,
-                        MemberProtectionWeightedScore = managementEntity.MemberProtectionWeightedScore,
+                  int depositDaysLate = depositEntities.FirstOrDefault()?.DaysLateBy ?? 0;
+                  DepositReturnDto? depositReturn = null;
+                  if (depositEntities.Any())
+                  {
+                      depositReturn = new DepositReturnDto
+                      {
+                          FormId = depositEntities.FirstOrDefault()?.FormId ?? string.Empty,
+                          RequiresResubmission = depositEntities.FirstOrDefault()?.RequiresResubmission ?? false,
+                          //FilePath = depositEntities.FirstOrDefault()?.FilePath ?? string.Empty,
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DepositReturn>(depositEntities.FirstOrDefault()?.ReturnId ?? string.Empty, hdr.SaccoType),
+                          //NWDTDepositReturnData = new List<NWDTDepositReturnData>()
+                      };
+                      foreach (var dr in depositEntities)
+                      {
+                          depositReturn.DepositReturnData.Add(new DTOs.Returns_Submission.Returns_Submission.DT.DepositReturnData
+                          {
+                              RangeName = dr.RangeName,
+                              DepositType = dr.DepositType,
+                              NumberOfAccounts = dr.NumberOfAccounts,
+                              Amount = dr.AmountInKshs000
+                          });
+                      }
+                  }
 
-                        AdequacyOfMISScore = managementEntity.AdequacyOfMISScore,
-                        AdequacyOfMISWeight = managementEntity.AdequacyOfMISWeight,
-                        AdequacyOfMISWeightedScore = managementEntity.AdequacyOfMISWeightedScore,
+                  // 2-c  Comprehensive-Income (single row)
+                  var incomeEntity = await _context.DTComprehensiveIncomeReturns
+                      .AsNoTracking()
+                      .FirstOrDefaultAsync(ci => ci.ReturnId == returnId);
 
-                        OverallRiskProfileScore = managementEntity.OverallRiskProfileScore,
-                        OverallRiskProfileWeight = managementEntity.OverallRiskProfileWeight,
-                        OverallRiskProfileWeightedScore =
-                            managementEntity.OverallRiskProfileWeightedScore,
+                  ComprehesiveIncomeStatementDTO? incomeStatement = null;
+                  int incomeDaysLate = 0;
+                  if (incomeEntity != null)
+                  {
+                      incomeDaysLate = incomeEntity.DaysLateBy;
+                      incomeStatement = new ComprehesiveIncomeStatementDTO
+                      {
+                          FormId = incomeEntity.FormId ?? string.Empty,
+                          RequiresResubmission = incomeEntity.RequiresResubmission,
+                          InterestOnLoanPortfolio = incomeEntity.InterestOnLoanPortfolio,
+                          FeesAndCommissionOnLoanPortfolio = incomeEntity.FeesAndCommissionOnLoanPortfolio,
+                          GovernmentSecurities = incomeEntity.GovernmentSecurities,
+                          DepositsWithBanks = incomeEntity.DepositsWithBanks,
+                          OtherInvestments = incomeEntity.OtherInvestments,
+                          OtherOperatingIncome = incomeEntity.OtherOperatingIncome,
+                          InterestExpenseOnDeposits = incomeEntity.InterestExpenseOnDeposits,
+                          CostOfExternalBorrowings = incomeEntity.CostOfExternalBorrowings,
+                          DividendExpenses = incomeEntity.DividendExpenses,
+                          OtherFinancialExpense = incomeEntity.OtherFinancialExpense,
+                          FeesAndCommissionExpense = incomeEntity.FeesAndCommissionExpense,
+                          OtherExpense = incomeEntity.OtherExpense,
+                          ProvisionForLoanLosses = incomeEntity.ProvisionForLoanLosses,
+                          ValueOfLoansRecovered = incomeEntity.ValueOfLoansRecovered,
+                          PersonnelExpenses = incomeEntity.PersonnelExpenses,
+                          GovernanceExpenses = incomeEntity.GovernanceExpenses,
+                          MarketingExpenses = incomeEntity.MarketingExpenses,
+                          DepreciationAndAmortization = incomeEntity.DepreciationAndAmortization,
+                          AdministrativeExpenses = incomeEntity.AdministrativeExpenses,
+                          NonOperatingIncome = incomeEntity.NonOperatingIncome,
+                          NonOperatingExpense = incomeEntity.NonOperatingExpense,
+                          Taxes = incomeEntity.Taxes,
+                          Donations = incomeEntity.Donations,
+                          FilePath = $"{baseUrl}{incomeEntity.FilePath}",
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ReturnId, hdr.SaccoType)
+                      };
+                  }
 
-                        MRating = managementEntity.MRating,
-                        //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<ManagementReturn>(managementEntity.ReturnId, hdr.SaccoType)
-                    };
-                }
+                  // 2-d  Financial-Position (single row)
+                  var balanceEntity = await _context.DTFinancialPositionReturns
+                      .AsNoTracking()
+                      .FirstOrDefaultAsync(fp => fp.ReturnId == returnId);
+
+                  FinancialPositionDTO? financialPosition = null;
+                  int balanceDaysLate = 0;
+                  if (balanceEntity != null)
+                  {
+                      balanceDaysLate = balanceEntity.DaysLateBy;
+                      financialPosition = new FinancialPositionDTO
+                      {
+                          FormId = balanceEntity.FormId ?? string.Empty,
+                          RequiresResubmission = balanceEntity.RequiresResubmission,
+                          CashInHand = balanceEntity.CashInHand,
+                          CashAtBank = balanceEntity.CashAtBank,
+                          PrepaymentsAndSundryReceivables = balanceEntity.PrepaymentsAndSundryReceivables,
+                          GovernmentSecurities = balanceEntity.GovernmentSecurities,
+                          OtherSecurities = balanceEntity.OtherSecurities,
+                          BalancesWithOtherSaccos = balanceEntity.BalancesWithOtherSaccos,
+                          InvestmentsInCompanies = balanceEntity.InvestmentsInCompanies,
+                          GrossLoanPortfolio = balanceEntity.GrossLoanPortfolio,
+                          AllowanceForLoanLoss = balanceEntity.AllowanceForLoanLoss,
+                          TaxRecoverable = balanceEntity.TaxRecoverable,
+                          DeferredTaxAssets = balanceEntity.DeferredTaxAssets,
+                          RetirementBenefitAssets = balanceEntity.RetirementBenefitAssets,
+                          InvestmentProperties = balanceEntity.InvestmentProperties,
+                          PropertyAndEquipment = balanceEntity.PropertyAndEquipment,
+                          PrepaidLeaseRentals = balanceEntity.PrepaidLeaseRentals,
+                          IntangibleAssets = balanceEntity.IntangibleAssets,
+                          OtherAssets = balanceEntity.OtherAssets,
+                          SavingsDeposits = balanceEntity.SavingsDeposits,
+                          ShortTermDeposits = balanceEntity.ShortTermDeposits,
+                          NonWithdrawableDeposits = balanceEntity.NonWithdrawableDeposits,
+                          TaxPayable = balanceEntity.TaxPayable,
+                          DividendsPayable = balanceEntity.DividendsPayable,
+                          DeferredTaxLiability = balanceEntity.DeferredTaxLiability,
+                          RetirementBenefitsLiability = balanceEntity.RetirementBenefitsLiability,
+                          OtherLiabilities = balanceEntity.OtherLiabilities,
+                          ExternalBorrowings = balanceEntity.ExternalBorrowings,
+                          ShareCapital = balanceEntity.ShareCapital,
+                          CapitalGrants = balanceEntity.CapitalGrants,
+                          PriorYearsRetainedEarnings = balanceEntity.PriorYearsRetainedEarnings,
+                          CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
+                          StatutoryReserve = balanceEntity.StatutoryReserve,
+                          FilePath = $"{baseUrl}{balanceEntity.FilePath}",
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ReturnId, hdr.SaccoType)
+                      };
+                  }
+
+                  // 2-e  Liquidity (single row)
+                  var liquidityEntity = await _context.DTLiquidityReturns
+                      .AsNoTracking()
+                      .FirstOrDefaultAsync(liq => liq.ReturnId == returnId);
+
+                  LiquidityStatementDTO? liquidityStatement = null;
+                  int liquidityDaysLate = 0;
+                  if (liquidityEntity != null)
+                  {
+                      liquidityDaysLate = liquidityEntity.DaysLateBy;
+                      liquidityStatement = new LiquidityStatementDTO
+                      {
+                          FormId = capEntity.FormId ?? string.Empty,
+                          RequiresResubmission = liquidityEntity.RequiresResubmission,
+                          LocalNotesAndCoins = liquidityEntity.LocalNotesAndCoins,
+                          ForeignNotesAndCoins = liquidityEntity.ForeignNotesAndCoins,
+                          BalancesWithCommercialBanks = liquidityEntity.BalancesWithCommercialBanks,
+                          TimeDepositsWithBanksMoreThan90Days = liquidityEntity.TimeDepositsWithBanksMoreThan90Days,
+                          OverdraftsAndMaturedLoans = liquidityEntity.OverdraftsAndMaturedLoans,
+                          BalancesWithOtherSaccoSocieties = liquidityEntity.BalancesWithOtherSaccoSocieties,
+                          BalancesWithOtherFinancialInstitutions =
+                              liquidityEntity.BalancesWithOtherFinancialInstitutions,
+                          BalancesDueToOtherSaccoSocieties = liquidityEntity.BalancesDueToOtherSaccoSocieties,
+                          BalancesDueToFinancialInstitutions =
+                              liquidityEntity.BalancesDueToFinancialInstitutions,
+                          TreasuryBills = liquidityEntity.TreasuryBills,
+                          TreasuryBonds = liquidityEntity.TreasuryBonds,
+                          DepositsFromMembers = liquidityEntity.DepositsFromMembers,
+                          DepositsFromOtherSources = liquidityEntity.DepositsFromOtherSources,
+                          MaturedLiabilities = liquidityEntity.MaturedLiabilities,
+                          LiabilitiesMaturing91Days = liquidityEntity.LiabilitiesMaturing91Days,
+                          TotalNotesAndCoins = liquidityEntity.TotalNotesAndCoins,
+                          TotalGovernmentSecurities = liquidityEntity.TotalGovernmentSecurities,
+                          NetLiquidAssets = liquidityEntity.NetLiquidAssets,
+                          TotalDeposits = liquidityEntity.TotalDeposits,
+                          TotalOtherLiabilities = liquidityEntity.TotalOtherLiabilities,
+                          LiquidityRatio = liquidityEntity.LiquidityRatio,
+                          LiquidityRatioExcessDeficit = liquidityEntity.LiquidityRatioExcessDeficit,
+                          NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
+                          NetBankBalances = liquidityEntity.NetBankBalances,
+                          FilePath = $"{baseUrl}{liquidityEntity.FilePath}",
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ReturnId, hdr.SaccoType)
+                      };
+                  }
+
+                  // 2-f  Risk classification (multi-row)
+                  var riskEntities = await _context.DTRiskClassificationReturns
+                      .AsNoTracking()
+                      .Where(rc => rc.ReturnId == returnId)
+                      .ToListAsync();
+
+                  int riskDaysLate = riskEntities.FirstOrDefault()?.DaysLateBy ?? 0;
+                  var riskClassifications = new RiskClassificationDTO();
+
+                  if (riskEntities.Any())
+                  {
+                      var firstEntity = riskEntities.First();
+                      riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
+                      riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
+                      //riskClassifications.FilePath = firstEntity.FilePath;
+                      riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ReturnId, hdr.SaccoType);
+
+                      foreach (var rc in riskEntities)
+                      {
+                          riskClassifications.RiskClassificationData.Add(new RiskClassificationData
+                          {
+                              LoanType = rc.LoanType,
+                              Classification = rc.Classification,
+                              NumberOfAccounts = rc.NumberOfAccounts,
+                              OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                              RequiredProvision = rc.RequiredProvision,
+                              RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                              FilePath = $"{baseUrl}{rc.FilePath}"
+                          });
+                      }
+                  }
+
+                  // 2-g  Other returns (multi-row, simple)
+                  var otherReturnsEntities = await _context.OtherReturns
+                      .AsNoTracking()
+                      .Where(o => o.ReturnId == returnId)
+                      .ToListAsync();
+
+                  var otherReturns = new List<OtherReturnDTO>();
+                  foreach (var o in otherReturnsEntities)
+                  {
+                      otherReturns.Add(new OtherReturnDTO
+                      {
+                          FormName = o.FormName,
+                          FileUrl = o.FileUrl,
+                          RequiresResubmission = o.RequiresResubmission,
+                          FormId = o.FormId ?? string.Empty,
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<OtherReturn>(o.ReturnId, hdr.SaccoType)
+                      });
+                  }
+
+                  // 2-h  Investment (single row)
+                  var investmentEntity = await _context.DTInvestmentReturns
+                      .AsNoTracking()
+                      .FirstOrDefaultAsync(inv => inv.ReturnId == returnId);
+
+                  var ApprovalComments = await _context.ApprovalActions
+                                            .AsNoTracking()
+                                            .Where(o => o.ReturnId == returnId)
+                                            .ToListAsync();
+
+                  InvestmentReturnDTO? investment = null;
+                  int investmentDaysLate = 0;
+                  if (investmentEntity != null)
+                  {
+                      investmentDaysLate = investmentEntity.DaysLateBy;
+                      investment = new InvestmentReturnDTO
+                      {
+                          FormId = investmentEntity.FormId ?? string.Empty,
+                          RequiresResubmission = investmentEntity.RequiresResubmission,
+                          CoreCapital = investmentEntity.CoreCapital,
+                          TotalAssets = investmentEntity.TotalAssets,
+                          TotalDeposits = investmentEntity.TotalDeposits,
+                          NonEarningAssets = investmentEntity.NonEarningAssets,
+                          FinancialInvestments = investmentEntity.FinancialInvestments,
+                          LandAndBuildings = investmentEntity.LandAndBuildings,
+                          LandBuildingsToTotalAssetsRatio = investmentEntity.LandBuildingsToTotalAssetsRatio,
+                          LandBuildingsRatioExcessDeficiency = investmentEntity.LandBuildingsRatioExcessDeficiency,
+                          NonEarningAssetsToTotalAssetsRatio = investmentEntity.NonEarningAssetsToTotalAssetsRatio,
+                          NonEarningAssetsRatioExcessDeficiency = investmentEntity.NonEarningAssetsRatioExcessDeficiency,
+                          FinancialInvestmentsToCoreCapitalRatio = investmentEntity.FinancialInvestmentsToCoreCapitalRatio,
+                          FinancialInvestmentsToCoreCapitalExcessDeficiency =
+                              investmentEntity.FinancialInvestmentsToCoreCapitalExcessDeficiency,
+                          FinancialInvestmentsToDepositsRatio = investmentEntity.FinancialInvestmentsToDepositsRatio,
+                          FinancialInvestmentsToDepositsExcessDeficiency =
+                              investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
+                          FilePath = $"{baseUrl}{investmentEntity.FilePath}",
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ReturnId, hdr.SaccoType)
+                      };
+                  }
+
+                  var managementEntity = await _context.ManagementReturns
+                      .AsNoTracking()
+                      .FirstOrDefaultAsync(m => m.ReturnId == returnId);
+
+                  ManagementReturnDTO? managementReturn = null;
+                  if (managementEntity != null)
+                  {
+                      managementReturn = new ManagementReturnDTO
+                      {
+                          SaccoCsNumber = managementEntity.SaccoCsNumber,
 
 
-                var dto = new ReturnDetailsDTO
-                {
-                    // header
-                    Id = hdr.Id,
-                    SaccoName = hdr.SaccoName,
-                    IsConsistent = hdr.IsNotConsistent,
-                    ConsistentErrorMessage = hdr.ConsistentErrorMessage,
-                    SubmittedAt = hdr.SubmittedAt,
+                          GovernanceStructureScore = managementEntity.GorvenanceStructureScore,
+                          GovernanceStructureWeight = managementEntity.GorvenanceStructureWeight,
+                          GovernanceStructureWeightedScore = managementEntity.GorvenanceStructureWeightedScore,
 
-                    // days-late fields
-                    CapitalAdequacyDaysLate = capitalDaysLate,
-                    DepositReturnDaysLate = depositDaysLate,
-                    StatementOfComprehensiveIncomeDaysLate = incomeDaysLate,
-                    StatementOfFinancialPositionDaysLate = balanceDaysLate,
-                    LiquidityReturnDaysLate = liquidityDaysLate,
-                    RiskClassificationDaysLate = riskDaysLate,
-                    InvestmentReturnDaysLate = investmentDaysLate,
+                          InternalControlsScore = managementEntity.InternalControlsScore,
+                          InternalControlsWeight = managementEntity.InternalControlsWeight,
+                          InternalControlsWeightedScore = managementEntity.InternalControlsWeightedScore,
 
-                    // full sections
-                    CapitalAdequacy = capitalAdequacy,
-                    DepositReturn = depositReturn,
-                    IncomeStatement = incomeStatement,
-                    FinancialPosition = financialPosition,
-                    LiquidityStatement = liquidityStatement,
-                    RiskClassifications = riskClassifications,
-                    OtherReturns = otherReturns,
-                    Investment = investment,
-                    ManagementReturn = managementReturn,
-                    ReturnStatus = ApprovalStatus,
+                          ComplianceWithLawsScore = managementEntity.ComplianceWithLawsAndRegulationsScore,
+                          ComplianceWithLawsWeight = managementEntity.ComplianceWithLawsAndRegulationsWeight,
+                          ComplianceWithLawsWeightedScore =
+                              managementEntity.ComplianceWithLawsAndRegulationsWeightedScore,
 
-                    Year = hdr.Year.ToString(),
-                    VersionNumber = hdr.VersionNumber,
-                    IsActiveVersion = hdr.IsActiveVersion,
-                    AmendmentDate = hdr.AmendmentDate,
-                    CanReportBeViewed = hdr.CanReportBeViewed
-                };
+                          MemberProtectionScore = managementEntity.MemberProtectionScore,
+                          MemberProtectionWeight = managementEntity.MemberProtectionWeight,
+                          MemberProtectionWeightedScore = managementEntity.MemberProtectionWeightedScore,
+
+                          AdequacyOfMISScore = managementEntity.AdequacyOfMISScore,
+                          AdequacyOfMISWeight = managementEntity.AdequacyOfMISWeight,
+                          AdequacyOfMISWeightedScore = managementEntity.AdequacyOfMISWeightedScore,
+
+                          OverallRiskProfileScore = managementEntity.OverallRiskProfileScore,
+                          OverallRiskProfileWeight = managementEntity.OverallRiskProfileWeight,
+                          OverallRiskProfileWeightedScore =
+                              managementEntity.OverallRiskProfileWeightedScore,
+
+                          MRating = managementEntity.MRating,
+                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<ManagementReturn>(managementEntity.ReturnId, hdr.SaccoType)
+                      };
+                  }
 
 
-                List<CommentDetails> commentDetails = new List<CommentDetails>();
+                  var dto = new ReturnDetailsDTO
+                  {
+                      // header
+                      Id = hdr.Id,
+                      SaccoName = hdr.SaccoName,
+                      IsConsistent = hdr.IsNotConsistent,
+                      ConsistentErrorMessage = hdr.ConsistentErrorMessage,
+                      SubmittedAt = hdr.SubmittedAt,
 
-                foreach (var comment in ApprovalComments)
-                {
+                      // days-late fields
+                      CapitalAdequacyDaysLate = capitalDaysLate,
+                      DepositReturnDaysLate = depositDaysLate,
+                      StatementOfComprehensiveIncomeDaysLate = incomeDaysLate,
+                      StatementOfFinancialPositionDaysLate = balanceDaysLate,
+                      LiquidityReturnDaysLate = liquidityDaysLate,
+                      RiskClassificationDaysLate = riskDaysLate,
+                      InvestmentReturnDaysLate = investmentDaysLate,
 
-                    var UserDetails = await complianceService.GetUserById(comment.UserId);
-                    var Name = string.Empty;
-                    if (UserDetails == null)
-                    {
-                    }
-                    else
-                    {
-                        Name = UserDetails.FullName ?? string.Empty;
-                    }
-                    commentDetails.Add(new CommentDetails
-                    {
-                        Comment = comment.Comment,
-                        UserId = comment.UserId,
-                        ApproverName = Name,
-                        Status = comment.Status,
-                        CreatedAt = comment.CreatedAt
-                    });
-                }
+                      // full sections
+                      CapitalAdequacy = capitalAdequacy,
+                      DepositReturn = depositReturn,
+                      IncomeStatement = incomeStatement,
+                      FinancialPosition = financialPosition,
+                      LiquidityStatement = liquidityStatement,
+                      RiskClassifications = riskClassifications,
+                      OtherReturns = otherReturns,
+                      Investment = investment,
+                      ManagementReturn = managementReturn,
+                      ReturnStatus = ApprovalStatus,
 
-                dto.ApprovalComments = commentDetails;
+                      Year = hdr.Year.ToString(),
+                      VersionNumber = hdr.VersionNumber,
+                      IsActiveVersion = hdr.IsActiveVersion,
+                      AmendmentDate = hdr.AmendmentDate,
+                      CanReportBeViewed = hdr.CanReportBeViewed
+                  };
 
 
-                // ───────────────────────────────────────────────────────────────
-                //  5.  Sectoral lending – separate table set
-                // ───────────────────────────────────────────────────────────────
-                var sectoral = await _context.SectoralLendingReports
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(x => x.ReturnId == returnId);
+                  List<CommentDetails> commentDetails = new List<CommentDetails>();
 
-                if (sectoral != null)
-                {
-                    var sectoralData = await _context.SectoralLendingData
-                        .AsNoTracking()
-                        .Where(x => x.ReturnId == returnId)
-                        .ToListAsync();
+                  foreach (var comment in ApprovalComments)
+                  {
 
-                    dto.SectoralLending = new SectoralLendingDTO
-                    {
-                        StartDate = sectoral.StartDate,
-                        EndDate = sectoral.EndDate,
-                        //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<SectoralLendingReport>(sectoral.ReturnId, hdr.SaccoType),
-                        SubSectorData = sectoralData.Select(sd => new SectoralLendingDataDTO
-                        {
-                            Amount = sd.Amount,
-                            Category = sd.Category,
-                            SubCategory = sd.SubCategory,
-                            EconomicSectorName = sd.EconomicSectorName
-                        }).ToList()
-                    };
-                }
+                      var UserDetails = await complianceService.GetUserById(comment.UserId);
+                      var Name = string.Empty;
+                      if (UserDetails == null)
+                      {
+                      }
+                      else
+                      {
+                          Name = UserDetails.FullName ?? string.Empty;
+                      }
+                      commentDetails.Add(new CommentDetails
+                      {
+                          Comment = comment.Comment,
+                          UserId = comment.UserId,
+                          ApproverName = Name,
+                          Status = comment.Status,
+                          CreatedAt = comment.CreatedAt
+                      });
+                  }
 
-                return dto;
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, CustomErrorHandler.HandleException(ex));
-            }
-        }
+                  dto.ApprovalComments = commentDetails;
+
+
+                  // ───────────────────────────────────────────────────────────────
+                  //  5.  Sectoral lending – separate table set
+                  // ───────────────────────────────────────────────────────────────
+                  var sectoral = await _context.SectoralLendingReports
+                      .AsNoTracking()
+                      .FirstOrDefaultAsync(x => x.ReturnId == returnId);
+
+                  if (sectoral != null)
+                  {
+                      var sectoralData = await _context.SectoralLendingData
+                          .AsNoTracking()
+                          .Where(x => x.ReturnId == returnId)
+                          .ToListAsync();
+
+                      dto.SectoralLending = new SectoralLendingDTO
+                      {
+                          StartDate = sectoral.StartDate,
+                          EndDate = sectoral.EndDate,
+                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<SectoralLendingReport>(sectoral.ReturnId, hdr.SaccoType),
+                          SubSectorData = sectoralData.Select(sd => new SectoralLendingDataDTO
+                          {
+                              Amount = sd.Amount,
+                              Category = sd.Category,
+                              SubCategory = sd.SubCategory,
+                              EconomicSectorName = sd.EconomicSectorName
+                          }).ToList()
+                      };
+                  }
+
+                  return dto;
+              }
+              catch (Exception ex)
+              {
+                  return StatusCode(500, CustomErrorHandler.HandleException(ex));
+              }
+          }*/
 
         [HttpGet("CalculateAnalysis/{returnId}")]
         public async Task<ActionResult<CamelsRatingsDTO>> CalculateAnalysis(string returnId)
@@ -1748,781 +1761,781 @@ namespace Returns.Controllers
         }
 
 
-        [HttpGet("GetPerfomanceReport/{returnId}")]
-        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReport(string returnId)
-        {
-            try
-            {
-                // Initialize report
-                var report = new SaccoPerformanceReportDTO();
-
-                // Find current return
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
-                if (currentReturn == null)
-                {
-                    return BadRequest("Return not found");
-                }
-
-                report.ReportDate = currentReturn.CreatedAt;
-
-                // Add prudential standards
-                report.PrudentialStandards.Add("CoreCapital", "≥10M");
-                report.PrudentialStandards.Add("CoreCapitalToTotalAssets", "≥10%");
-                report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", "≥8%");
-                report.PrudentialStandards.Add("NPL", "<5%");
-                report.PrudentialStandards.Add("NonEarningAssets", "<10%");
-
-                // Get historical returns (2 most recent before current)
-                var historicalReturns = await _context.Returns
-                    .Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId)
-                    .ToListAsync();
-
-                historicalReturns = historicalReturns
-                    .OrderByDescending(r => r.CreatedAt)
-                    .Take(2)
-                    .ToList();
-
-                // Combine current return with historical returns
-                var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-
-                // Process each return period
-                foreach (var returnPeriod in allReturns)
-                {
-                    // Fetch all required data for this return period
-                    var balanceSheet = await _context.DTFinancialPositionReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var incomeStatement = await _context.DTComprehensiveIncomeReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var capitalReturn = await _context.DTCapitalAdequacyReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var liquidityReturn = await _context.DTLiquidityReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var depositReturns = await _context.DepositReturns
-                        .Where(x => x.ReturnId == returnPeriod.Id)
-                        .ToListAsync();
-
-                    var riskClassificationReturn = await _context.DTRiskClassificationReturns
-                        .Where(x => x.ReturnId == returnPeriod.Id)
-                        .ToListAsync();
-
-                    var investmentReturn = await _context.DTInvestmentReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    // Use default objects if data is missing
-                    var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
-                    var SavedLiquidityStatement = liquidityReturn ?? new DTLiquidityReturn();
-                    var SavedDepositReturn = depositReturns ?? new List<DepositReturn>();
-                    var SavedRiskClassification = riskClassificationReturn ?? new List<DTRiskClassificationReturn>();
-                    var SavedInvestmentReturn = investmentReturn ?? new DTInvestmentReturn();
-                    var SavedFinancialPositionStatement = balanceSheet ?? new DTFinancialPositionReturn();
-                    var SavedComprehensiveStatement = incomeStatement ?? new DTComprehensiveIncomeReturn();
-
-                    // Calculate ratios with null safety
-                    decimal coreCapitalToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        coreCapitalToTotalAssets = SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal institutionalCapitalToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        institutionalCapitalToTotalAssets = SavedCapitalAdequacy.InstitutionalCapital / SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal equityInvestmentsToDeposits = 0;
-                    if (SavedInvestmentReturn.TotalDeposits != 0)
-                    {
-                        equityInvestmentsToDeposits = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.TotalDeposits;
-                    }
-
-                    decimal equityInvestmentsToCoreCapital = 0;
-                    if (SavedInvestmentReturn.CoreCapital != 0)
-                    {
-                        equityInvestmentsToCoreCapital = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.CoreCapital;
-                    }
-
-                    decimal yieldOnGrossLoans = 0;
-                    if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
-                    {
-                        yieldOnGrossLoans = (SavedComprehensiveStatement.InterestOnLoanPortfolio +
-                            SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio) /
-                            SavedFinancialPositionStatement.GrossLoanPortfolio;
-                    }
-
-                    decimal totalExpenseToTotalIncome = 0;
-                    if (SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations != 0)
-                    {
-                        totalExpenseToTotalIncome = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
-                                       SavedComprehensiveStatement.CostOfExternalBorrowings +
-                                       SavedComprehensiveStatement.DividendExpenses +
-                                       SavedComprehensiveStatement.OtherFinancialExpense +
-                                       SavedComprehensiveStatement.FeesAndCommissionExpense +
-                                       SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
-                    }
-                    decimal netIncomeToAverageAssetsRatio = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        netIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        netIncomeToAverageAssetsRatio = 0;
-                    }
-
-                    decimal roa = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        roa = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations /
-                            SavedFinancialPositionStatement.TotalAssets;
-                    }
-
-                    decimal OpertatingExpenseToFinancialOpex = 0;
-                    if (SavedComprehensiveStatement.NetFinancialIncome != 0)
-                    {
-                        OpertatingExpenseToFinancialOpex = SavedComprehensiveStatement.TotalOperatingExpenses /
-                            SavedComprehensiveStatement.NetFinancialIncome;
-                    }
-
-                    decimal liquidAssetsToShortTermLiabilities = 0;
-                    decimal ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
-                           + SavedFinancialPositionStatement.ShortTermDeposits
-                           + SavedFinancialPositionStatement.TaxPayable
-                           + SavedFinancialPositionStatement.DividendsPayable
-                           + SavedFinancialPositionStatement.DeferredTaxLiability
-                           + SavedFinancialPositionStatement.RetirementBenefitsLiability
-                           + SavedFinancialPositionStatement.OtherLiabilities;
-                    decimal LiquidAssets = SavedFinancialPositionStatement.TotalCashAndCashEquivalent
-                            + SavedFinancialPositionStatement.GovernmentSecurities
-                            + SavedFinancialPositionStatement.OtherSecurities;
-                    if (ShortTermLiabilities != 0)
-                    {
-                        liquidAssetsToShortTermLiabilities = LiquidAssets / ShortTermLiabilities;
-                    }
-
-                    decimal externalBorrowingToTotalAssets = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        externalBorrowingToTotalAssets = SavedFinancialPositionStatement.ExternalBorrowings /
-                            SavedFinancialPositionStatement.TotalAssets;
-                    }
-
-                    decimal liquidAssetsToTotalAssets = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        liquidAssetsToTotalAssets = LiquidAssets /
-                            SavedFinancialPositionStatement.TotalAssets;
-                    }
-
-                    decimal grossLoansToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        grossLoansToTotalAssets = SavedFinancialPositionStatement.GrossLoanPortfolio /
-                            SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal grossLoansToDeposits = 0;
-                    if (SavedFinancialPositionStatement.TotalDepositLiabilities != 0)
-                    {
-                        grossLoansToDeposits = SavedFinancialPositionStatement.GrossLoanPortfolio /
-                            SavedFinancialPositionStatement.TotalDepositLiabilities;
-                    }
-
-                    decimal financialInvestmentsToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        financialInvestmentsToTotalAssets = SavedInvestmentReturn.FinancialInvestments /
-                            SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal dividendsAndInterestOnDepositsToTotalIncome = 0;
-                    if (SavedComprehensiveStatement.TotalFinancialIncome != 0)
-                    {
-                        dividendsAndInterestOnDepositsToTotalIncome = (SavedComprehensiveStatement.DividendExpenses +
-                            SavedComprehensiveStatement.InterestExpenseOnDeposits) /
-                            SavedComprehensiveStatement.TotalFinancialIncome;
-                    }
-                    decimal OperatingExpenseToFinancialIncomeRatio = 0;
-                    if (SavedComprehensiveStatement.NetFinancialIncome != 0)
-                    {
-                        OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.TotalOperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
-                    }
-                    else
-                    {
-                        OperatingExpenseToFinancialIncomeRatio = 0;
-                    }
-
-                    var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
-                    var LIqAeet = SavedLiquidityStatement.NetLiquidAssets;
-                    decimal LiquidAssetsToShortTermLiabilitiesRatio = 0;
-                    // LiquidAssetsToShortTermLiabilitiesRatio
-                    if (ShorttERM != 0)
-                    {
-                        LiquidAssetsToShortTermLiabilitiesRatio = LIqAeet / ShorttERM;
-                    }
-                    else
-                    {
-                        LiquidAssetsToShortTermLiabilitiesRatio = 0;
-                    }
-                    decimal EXB = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        EXB = SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets;
-                    }
-                    else
-                    {
-                        EXB = 0;
-                    }
-
-
-                    var periodData = new SaccoPerformanceReportDTO.PeriodData
-                    {
-                        PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
-                        PeriodType = "Returns",
-                        PeriodDate = returnPeriod.CreatedAt,
-
-                        CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                        CoreCapitalToTotalAssets = coreCapitalToTotalAssets,
-                        InstitutionalCapitalToTotalAssets = institutionalCapitalToTotalAssets,
-
-                        NonPerformingLoans = CalculateNonPerformingLoans(SavedRiskClassification),
-
-                        NonEarningAssets = SavedFinancialPositionStatement.TotalAssets != 0
-                            ? (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
-                             + SavedFinancialPositionStatement.TotalAccountsReceivables
-                             + SavedFinancialPositionStatement.PropertyAndEquipment
-                             + SavedFinancialPositionStatement.PrepaidLeaseRentals
-                             + SavedFinancialPositionStatement.IntangibleAssets
-                             + SavedFinancialPositionStatement.OtherAssets)
-                               / SavedFinancialPositionStatement.TotalAssets
-                            : 0,
-
-                        EquityInvestmentsToDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities != 0
-                            ? SavedFinancialPositionStatement.InvestmentsInCompanies
-                              / SavedFinancialPositionStatement.TotalDepositLiabilities
-                            : 0,
-
-                        EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
-                        NetIncomeToAverageAssets = netIncomeToAverageAssetsRatio,
-                        YieldOnGrossLoans = yieldOnGrossLoans,
-                        TotalExpenseToTotalIncome = totalExpenseToTotalIncome,
-                        ROA = roa,
-                        OPEX = OpertatingExpenseToFinancialOpex,
-                        OpertatingExpenseToFinancialOpex = OperatingExpenseToFinancialIncomeRatio,
-                        LiquidAssetsToShortTermLiabilities = liquidAssetsToShortTermLiabilities,
-                        ExternalBorrowingToTotalAssets = EXB,
-                        LiquidAssetsToTotalAssets = LiquidAssetsToShortTermLiabilitiesRatio,
-
-                        GrossLoansToTotalAssets = grossLoansToTotalAssets,
-                        GrossLoansToDeposits = grossLoansToDeposits,
-                        FinancialInvestmentsToTotalAssets = financialInvestmentsToTotalAssets,
-                        DividendsAndInterestOnDepositsToTotalIncome = dividendsAndInterestOnDepositsToTotalIncome,
-
-                        TotalAssets = SavedCapitalAdequacy.TotalAssets,
-                        TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities,
-                        GrossLoansForm4 = CalculateGrossLoans(SavedRiskClassification),
-                        GrossLoansForm6 = SavedFinancialPositionStatement.GrossLoanPortfolio,
-                        InstitutionalCapital = SavedCapitalAdequacy.InstitutionalCapital,
-                        PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment,
-                        EquityInvestments = SavedInvestmentReturn.FinancialInvestments,
-                        FinancialInvestments = SavedCapitalAdequacy.Investments,
-                        LiquidAssets = LIqAeet,
-                        ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
-                        + SavedFinancialPositionStatement.ShortTermDeposits
-                        + SavedFinancialPositionStatement.TaxPayable
-                        + SavedFinancialPositionStatement.DividendsPayable
-                        + SavedFinancialPositionStatement.DeferredTaxLiability
-                        + SavedFinancialPositionStatement.RetirementBenefitsLiability
-                        + SavedFinancialPositionStatement.OtherLiabilities,
-                        ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings,
-                        AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2,
-                        TotalIncome = SavedComprehensiveStatement.TotalFinancialIncome,
-                        NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome,
-                        DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits,
-                        OperatingExpenses = SavedComprehensiveStatement.TotalOperatingExpenses,
-                        InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio,
-                        TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense + SavedComprehensiveStatement.TotalOperatingExpenses + SavedComprehensiveStatement.NonOperatingExpense,
-                        NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations,
-                    };
-
-                    // Add period data to report
-                    report.Periods.Add(periodData);
-                }
-
-                // Add placeholder data if we don't have enough periods
-                if (report.Periods.Count < 2 && report.Periods.Count > 0)
-                {
-                    var blank = new SaccoPerformanceReportDTO.PeriodData
-                    {
-                        PeriodLabel = "N/A",
-                        PeriodType = "N/A",
-                        PeriodDate = DateTime.Now,
-
-                        CoreCapital = 0,
-                        CoreCapitalToTotalAssets = 0,
-                        InstitutionalCapitalToTotalAssets = 0,
-
-                        NonPerformingLoans = 0,
-                        NonEarningAssets = 0,
-                        EquityInvestmentsToDeposits = 0,
-                        EquityInvestmentsToCoreCapital = 0,
-
-                        YieldOnGrossLoans = 0,
-                        TotalExpenseToTotalIncome = 0,
-                        ROA = 0,
-                        OPEX = 0,
-
-                        LiquidAssetsToShortTermLiabilities = 0,
-                        ExternalBorrowingToTotalAssets = 0,
-                        LiquidAssetsToTotalAssets = 0,
-
-                        GrossLoansToTotalAssets = 0,
-                        GrossLoansToDeposits = 0,
-                        FinancialInvestmentsToTotalAssets = 0,
-                        DividendsAndInterestOnDepositsToTotalIncome = 0,
-
-                        TotalAssets = 0,
-                        TotalDeposits = 0,
-                        GrossLoansForm4 = 0,
-                        GrossLoansForm6 = 0,
-                        InstitutionalCapital = 0,
-                        PropertyAndEquipment = 0,
-                        EquityInvestments = 0,
-                        FinancialInvestments = 0,
-                        LiquidAssets = 0,
-                        ShortTermLiabilities = 0,
-                        ExternalBorrowing = 0,
-                        AverageGrossLoans = 0,
-                        TotalIncome = 0,
-                        NetFinancialIncome = 0,
-                        DividendsAndInterestOnDeposits = 0,
-                        OperatingExpenses = 0,
-                        InterestOnLoanPortfolioAndFeesCommission = 0,
-                        TotalExpenses = 0,
-                        NetIncome = 0,
-                    };
-
-                    report.Periods.Add(blank);
-                }
-
-                return report;
-            }
-            catch (System.Exception Ex)
-            {
-                CustomErrorHandler.LogException(Ex);
-                return StatusCode(500, CustomErrorHandler.HandleException(Ex));
-            }
-        }
-
-        [HttpGet("GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReportPdf(string returnId, [FromQuery] string? components)
-        {
-            try
-            {
-                string selector = string.IsNullOrWhiteSpace(components)
-                ? "CAMELS"
-                : new string(components.ToUpperInvariant()
-                                       .Where(c => "CAMELS".Contains(c))
-                                       .Distinct()
-                                       .ToArray());
-
-                // Initialize report
-                var report = new SaccoPerformanceReportDTO();
-
-                // Find current return
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
-                if (currentReturn == null)
-                {
-                    return BadRequest("Return not found");
-                }
-
-                report.ReportDate = currentReturn.CreatedAt;
-
-                // Add prudential standards
-                report.PrudentialStandards.Add("CoreCapital", "≥10M");
-                report.PrudentialStandards.Add("CoreCapitalToTotalAssets", "≥10%");
-                report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", "≥8%");
-                report.PrudentialStandards.Add("NPL", "<5%");
-                report.PrudentialStandards.Add("NonEarningAssets", "<10%");
-
-                // Get historical returns (2 most recent before current)
-                var historicalReturns = await _context.Returns
-                    .Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId)
-                    .ToListAsync();
-
-                historicalReturns = historicalReturns
-                    .OrderByDescending(r => r.CreatedAt)
-                    .Take(2)
-                    .ToList();
-
-                // Combine current return with historical returns
-                var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-
-                // Process each return period
-                foreach (var returnPeriod in allReturns)
-                {
-                    // Fetch all required data for this return period
-                    var balanceSheet = await _context.DTFinancialPositionReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var incomeStatement = await _context.DTComprehensiveIncomeReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var capitalReturn = await _context.DTCapitalAdequacyReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var liquidityReturn = await _context.DTLiquidityReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var depositReturns = await _context.DepositReturns
-                        .Where(x => x.ReturnId == returnPeriod.Id)
-                        .ToListAsync();
-
-                    var riskClassificationReturn = await _context.DTRiskClassificationReturns
-                        .Where(x => x.ReturnId == returnPeriod.Id)
-                        .ToListAsync();
-
-                    var investmentReturn = await _context.DTInvestmentReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    var managementReturns = await _context.ManagementReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    // Use default objects if data is missing
-                    var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
-                    var SavedLiquidityStatement = liquidityReturn ?? new DTLiquidityReturn();
-                    var SavedDepositReturn = depositReturns ?? new List<DepositReturn>();
-                    var SavedRiskClassification = riskClassificationReturn ?? new List<DTRiskClassificationReturn>();
-                    var SavedInvestmentReturn = investmentReturn ?? new DTInvestmentReturn();
-                    var SavedFinancialPositionStatement = balanceSheet ?? new DTFinancialPositionReturn();
-                    var SavedComprehensiveStatement = incomeStatement ?? new DTComprehensiveIncomeReturn();
-
-                    // Calculate ratios with null safety
-                    decimal coreCapitalToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        coreCapitalToTotalAssets = SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal institutionalCapitalToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        institutionalCapitalToTotalAssets = SavedCapitalAdequacy.InstitutionalCapital / SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal equityInvestmentsToDeposits = 0;
-                    if (SavedInvestmentReturn.TotalDeposits != 0)
-                    {
-                        equityInvestmentsToDeposits = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.TotalDeposits;
-                    }
-
-                    decimal equityInvestmentsToCoreCapital = 0;
-                    if (SavedInvestmentReturn.CoreCapital != 0)
-                    {
-                        equityInvestmentsToCoreCapital = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.CoreCapital;
-                    }
-
-                    decimal yieldOnGrossLoans = 0;
-                    if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
-                    {
-                        yieldOnGrossLoans = (SavedComprehensiveStatement.InterestOnLoanPortfolio +
-                            SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio) /
-                            SavedFinancialPositionStatement.GrossLoanPortfolio;
-                    }
-
-                    decimal totalExpenseToTotalIncome = 0;
-                    if (SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations != 0)
-                    {
-                        totalExpenseToTotalIncome = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
-                                       SavedComprehensiveStatement.CostOfExternalBorrowings +
-                                       SavedComprehensiveStatement.DividendExpenses +
-                                       SavedComprehensiveStatement.OtherFinancialExpense +
-                                       SavedComprehensiveStatement.FeesAndCommissionExpense +
-                                       SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
-                    }
-                    decimal netIncomeToAverageAssetsRatio = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        netIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        netIncomeToAverageAssetsRatio = 0;
-                    }
-
-                    decimal roa = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        roa = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations /
-                            SavedFinancialPositionStatement.TotalAssets;
-                    }
-
-                    decimal OpertatingExpenseToFinancialOpex = 0;
-                    if (SavedComprehensiveStatement.NetFinancialIncome != 0)
-                    {
-                        OpertatingExpenseToFinancialOpex = SavedComprehensiveStatement.TotalOperatingExpenses /
-                            SavedComprehensiveStatement.NetFinancialIncome;
-                    }
-
-                    decimal liquidAssetsToShortTermLiabilities = 0;
-                    decimal ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
-                           + SavedFinancialPositionStatement.ShortTermDeposits
-                           + SavedFinancialPositionStatement.TaxPayable
-                           + SavedFinancialPositionStatement.DividendsPayable
-                           + SavedFinancialPositionStatement.DeferredTaxLiability
-                           + SavedFinancialPositionStatement.RetirementBenefitsLiability
-                           + SavedFinancialPositionStatement.OtherLiabilities;
-                    decimal LiquidAssets = SavedFinancialPositionStatement.TotalCashAndCashEquivalent
-                            + SavedFinancialPositionStatement.GovernmentSecurities
-                            + SavedFinancialPositionStatement.OtherSecurities;
-                    if (ShortTermLiabilities != 0)
-                    {
-                        liquidAssetsToShortTermLiabilities = LiquidAssets / ShortTermLiabilities;
-                    }
-
-                    decimal externalBorrowingToTotalAssets = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        externalBorrowingToTotalAssets = SavedFinancialPositionStatement.ExternalBorrowings /
-                            SavedFinancialPositionStatement.TotalAssets;
-                    }
-
-                    decimal liquidAssetsToTotalAssets = 0;
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        liquidAssetsToTotalAssets = LiquidAssets /
-                            SavedFinancialPositionStatement.TotalAssets;
-                    }
-
-                    decimal grossLoansToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        grossLoansToTotalAssets = SavedFinancialPositionStatement.GrossLoanPortfolio /
-                            SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal grossLoansToDeposits = 0;
-                    if (SavedFinancialPositionStatement.TotalDepositLiabilities != 0)
-                    {
-                        grossLoansToDeposits = SavedFinancialPositionStatement.GrossLoanPortfolio /
-                            SavedFinancialPositionStatement.TotalDepositLiabilities;
-                    }
-
-                    decimal financialInvestmentsToTotalAssets = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        financialInvestmentsToTotalAssets = SavedInvestmentReturn.FinancialInvestments /
-                            SavedCapitalAdequacy.TotalAssets;
-                    }
-
-                    decimal dividendsAndInterestOnDepositsToTotalIncome = 0;
-                    if (SavedComprehensiveStatement.TotalFinancialIncome != 0)
-                    {
-                        dividendsAndInterestOnDepositsToTotalIncome = (SavedComprehensiveStatement.DividendExpenses +
-                            SavedComprehensiveStatement.InterestExpenseOnDeposits) /
-                            SavedComprehensiveStatement.TotalFinancialIncome;
-                    }
-                    decimal OperatingExpenseToFinancialIncomeRatio = 0;
-                    if (SavedComprehensiveStatement.NetFinancialIncome != 0)
-                    {
-                        OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.TotalOperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
-                    }
-                    else
-                    {
-                        OperatingExpenseToFinancialIncomeRatio = 0;
-                    }
-
-                    var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
-                    var LIqAeet = SavedLiquidityStatement.NetLiquidAssets;
-                    decimal LiquidAssetsToShortTermLiabilitiesRatio = 0;
-                    // LiquidAssetsToShortTermLiabilitiesRatio
-                    if (ShorttERM != 0)
-                    {
-                        LiquidAssetsToShortTermLiabilitiesRatio = LIqAeet / ShorttERM;
-                    }
-                    else
-                    {
-                        LiquidAssetsToShortTermLiabilitiesRatio = 0;
-                    }
-                    decimal EXB = 0;
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        EXB = SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets;
-                    }
-                    else
-                    {
-                        EXB = 0;
-                    }
-
-
-                    var periodData = new SaccoPerformanceReportDTO.PeriodData
-                    {
-                        PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
-                        PeriodType = "Returns",
-                        PeriodDate = returnPeriod.CreatedAt,
-
-                        CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                        CoreCapitalToTotalAssets = coreCapitalToTotalAssets,
-                        InstitutionalCapitalToTotalAssets = institutionalCapitalToTotalAssets,
-
-                        NonPerformingLoans = CalculateNonPerformingLoans(SavedRiskClassification),
-
-                        NonEarningAssets = SavedFinancialPositionStatement.TotalAssets != 0
-                            ? (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
-                             + SavedFinancialPositionStatement.TotalAccountsReceivables
-                             + SavedFinancialPositionStatement.PropertyAndEquipment
-                             + SavedFinancialPositionStatement.PrepaidLeaseRentals
-                             + SavedFinancialPositionStatement.IntangibleAssets
-                             + SavedFinancialPositionStatement.OtherAssets)
-                               / SavedFinancialPositionStatement.TotalAssets
-                            : 0,
-
-                        EquityInvestmentsToDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities != 0
-                            ? SavedFinancialPositionStatement.InvestmentsInCompanies
-                              / SavedFinancialPositionStatement.TotalDepositLiabilities
-                            : 0,
-
-                        EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
-                        NetIncomeToAverageAssets = netIncomeToAverageAssetsRatio,
-                        YieldOnGrossLoans = yieldOnGrossLoans,
-                        TotalExpenseToTotalIncome = totalExpenseToTotalIncome,
-                        ROA = roa,
-                        OPEX = OpertatingExpenseToFinancialOpex,
-                        OpertatingExpenseToFinancialOpex = OperatingExpenseToFinancialIncomeRatio,
-                        LiquidAssetsToShortTermLiabilities = liquidAssetsToShortTermLiabilities,
-                        ExternalBorrowingToTotalAssets = EXB,
-                        LiquidAssetsToTotalAssets = LiquidAssetsToShortTermLiabilitiesRatio,
-
-                        GrossLoansToTotalAssets = grossLoansToTotalAssets,
-                        GrossLoansToDeposits = grossLoansToDeposits,
-                        FinancialInvestmentsToTotalAssets = financialInvestmentsToTotalAssets,
-                        DividendsAndInterestOnDepositsToTotalIncome = dividendsAndInterestOnDepositsToTotalIncome,
-
-                        TotalAssets = SavedCapitalAdequacy.TotalAssets,
-                        TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities,
-                        GrossLoansForm4 = CalculateGrossLoans(SavedRiskClassification),
-                        GrossLoansForm6 = SavedFinancialPositionStatement.GrossLoanPortfolio,
-                        InstitutionalCapital = SavedCapitalAdequacy.InstitutionalCapital,
-                        PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment,
-                        EquityInvestments = SavedInvestmentReturn.FinancialInvestments,
-                        FinancialInvestments = SavedCapitalAdequacy.Investments,
-                        LiquidAssets = LIqAeet,
-                        ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
-                        + SavedFinancialPositionStatement.ShortTermDeposits
-                        + SavedFinancialPositionStatement.TaxPayable
-                        + SavedFinancialPositionStatement.DividendsPayable
-                        + SavedFinancialPositionStatement.DeferredTaxLiability
-                        + SavedFinancialPositionStatement.RetirementBenefitsLiability
-                        + SavedFinancialPositionStatement.OtherLiabilities,
-                        ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings,
-                        AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2,
-                        TotalIncome = SavedComprehensiveStatement.TotalFinancialIncome,
-                        NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome,
-                        DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits,
-                        OperatingExpenses = SavedComprehensiveStatement.TotalOperatingExpenses,
-                        InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio,
-                        TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense + SavedComprehensiveStatement.TotalOperatingExpenses + SavedComprehensiveStatement.NonOperatingExpense,
-                        NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations,
-                        //ManagementScore = managementReturns.MRating
-                    };
-
-
-                    periodData.MemberProtectionScore = managementReturns?.MemberProtectionScore ?? 0;
-                    periodData.GovernanceStructureScore = managementReturns?.GorvenanceStructureScore ?? 0;
-                    periodData.InternalControlsScore = managementReturns?.InternalControlsScore ?? 0;
-                    periodData.ComplianceWithLawsScore = managementReturns?.ComplianceWithLawsAndRegulationsScore ?? 0;
-
-                    // Add period data to report
-                    report.Periods.Add(periodData);
-                }
-
-                // Add placeholder data if we don't have enough periods
-                if (report.Periods.Count < 2 && report.Periods.Count > 0)
-                {
-                    var blank = new SaccoPerformanceReportDTO.PeriodData
-                    {
-                        PeriodLabel = "N/A",
-                        PeriodType = "N/A",
-                        PeriodDate = DateTime.Now,
-
-                        CoreCapital = 0,
-                        CoreCapitalToTotalAssets = 0,
-                        InstitutionalCapitalToTotalAssets = 0,
-
-                        NonPerformingLoans = 0,
-                        NonEarningAssets = 0,
-                        EquityInvestmentsToDeposits = 0,
-                        EquityInvestmentsToCoreCapital = 0,
-
-                        YieldOnGrossLoans = 0,
-                        TotalExpenseToTotalIncome = 0,
-                        ROA = 0,
-                        OPEX = 0,
-
-                        LiquidAssetsToShortTermLiabilities = 0,
-                        ExternalBorrowingToTotalAssets = 0,
-                        LiquidAssetsToTotalAssets = 0,
-
-                        GrossLoansToTotalAssets = 0,
-                        GrossLoansToDeposits = 0,
-                        FinancialInvestmentsToTotalAssets = 0,
-                        DividendsAndInterestOnDepositsToTotalIncome = 0,
-
-                        TotalAssets = 0,
-                        TotalDeposits = 0,
-                        GrossLoansForm4 = 0,
-                        GrossLoansForm6 = 0,
-                        InstitutionalCapital = 0,
-                        PropertyAndEquipment = 0,
-                        EquityInvestments = 0,
-                        FinancialInvestments = 0,
-                        LiquidAssets = 0,
-                        ShortTermLiabilities = 0,
-                        ExternalBorrowing = 0,
-                        AverageGrossLoans = 0,
-                        TotalIncome = 0,
-                        NetFinancialIncome = 0,
-                        DividendsAndInterestOnDeposits = 0,
-                        OperatingExpenses = 0,
-                        InterestOnLoanPortfolioAndFeesCommission = 0,
-                        TotalExpenses = 0,
-                        NetIncome = 0,
-                    };
-
-                    report.Periods.Add(blank);
-                }
-
-                var approvals = await _context.ApprovalActions
-                    .Where(r => r.ReturnId == returnId)
-                    .Include(r => r.WorkFlowStep)
-                    .ToListAsync();
-                report.approvalActions = approvals;
-
-                var reportBytes = ReportsHelper.GenerateSaccoPerformancePdfReport(report, selector);
-                var base64String = Convert.ToBase64String(reportBytes);
-
-                return Ok(new
-                {
-                    pdfData = base64String,
-                    fileName = $"SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf"
-                });
-
-                //return File(reportBytes, "application/pdf", $"SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
-
-            }
-            catch (System.Exception Ex)
-            {
-                CustomErrorHandler.LogException(Ex);
-                return StatusCode(500, CustomErrorHandler.HandleException(Ex));
-            }
-        }
-
-
-        [HttpGet("nwdt/GetReturnDetails/{returnId}")]
+        /* [HttpGet("GetPerfomanceReport/{returnId}")]
+         public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReport(string returnId)
+         {
+             try
+             {
+                 // Initialize report
+                 var report = new SaccoPerformanceReportDTO();
+
+                 // Find current return
+                 var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
+                 if (currentReturn == null)
+                 {
+                     return BadRequest("Return not found");
+                 }
+
+                 report.ReportDate = currentReturn.CreatedAt;
+
+                 // Add prudential standards
+                 report.PrudentialStandards.Add("CoreCapital", "≥10M");
+                 report.PrudentialStandards.Add("CoreCapitalToTotalAssets", "≥10%");
+                 report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", "≥8%");
+                 report.PrudentialStandards.Add("NPL", "<5%");
+                 report.PrudentialStandards.Add("NonEarningAssets", "<10%");
+
+                 // Get historical returns (2 most recent before current)
+                 var historicalReturns = await _context.Returns
+                     .Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId)
+                     .ToListAsync();
+
+                 historicalReturns = historicalReturns
+                     .OrderByDescending(r => r.CreatedAt)
+                     .Take(2)
+                     .ToList();
+
+                 // Combine current return with historical returns
+                 var allReturns = new[] { currentReturn }.Concat(historicalReturns);
+
+                 // Process each return period
+                 foreach (var returnPeriod in allReturns)
+                 {
+                     // Fetch all required data for this return period
+                     var balanceSheet = await _context.DTFinancialPositionReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var incomeStatement = await _context.DTComprehensiveIncomeReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var capitalReturn = await _context.DTCapitalAdequacyReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var liquidityReturn = await _context.DTLiquidityReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var depositReturns = await _context.DepositReturns
+                         .Where(x => x.ReturnId == returnPeriod.Id)
+                         .ToListAsync();
+
+                     var riskClassificationReturn = await _context.DTRiskClassificationReturns
+                         .Where(x => x.ReturnId == returnPeriod.Id)
+                         .ToListAsync();
+
+                     var investmentReturn = await _context.DTInvestmentReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     // Use default objects if data is missing
+                     var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
+                     var SavedLiquidityStatement = liquidityReturn ?? new DTLiquidityReturn();
+                     var SavedDepositReturn = depositReturns ?? new List<DepositReturn>();
+                     var SavedRiskClassification = riskClassificationReturn ?? new List<DTRiskClassificationReturn>();
+                     var SavedInvestmentReturn = investmentReturn ?? new DTInvestmentReturn();
+                     var SavedFinancialPositionStatement = balanceSheet ?? new DTFinancialPositionReturn();
+                     var SavedComprehensiveStatement = incomeStatement ?? new DTComprehensiveIncomeReturn();
+
+                     // Calculate ratios with null safety
+                     decimal coreCapitalToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         coreCapitalToTotalAssets = SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal institutionalCapitalToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         institutionalCapitalToTotalAssets = SavedCapitalAdequacy.InstitutionalCapital / SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal equityInvestmentsToDeposits = 0;
+                     if (SavedInvestmentReturn.TotalDeposits != 0)
+                     {
+                         equityInvestmentsToDeposits = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.TotalDeposits;
+                     }
+
+                     decimal equityInvestmentsToCoreCapital = 0;
+                     if (SavedInvestmentReturn.CoreCapital != 0)
+                     {
+                         equityInvestmentsToCoreCapital = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.CoreCapital;
+                     }
+
+                     decimal yieldOnGrossLoans = 0;
+                     if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
+                     {
+                         yieldOnGrossLoans = (SavedComprehensiveStatement.InterestOnLoanPortfolio +
+                             SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio) /
+                             SavedFinancialPositionStatement.GrossLoanPortfolio;
+                     }
+
+                     decimal totalExpenseToTotalIncome = 0;
+                     if (SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations != 0)
+                     {
+                         totalExpenseToTotalIncome = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
+                                        SavedComprehensiveStatement.CostOfExternalBorrowings +
+                                        SavedComprehensiveStatement.DividendExpenses +
+                                        SavedComprehensiveStatement.OtherFinancialExpense +
+                                        SavedComprehensiveStatement.FeesAndCommissionExpense +
+                                        SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                     }
+                     decimal netIncomeToAverageAssetsRatio = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         netIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
+                     }
+                     else
+                     {
+                         netIncomeToAverageAssetsRatio = 0;
+                     }
+
+                     decimal roa = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         roa = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations /
+                             SavedFinancialPositionStatement.TotalAssets;
+                     }
+
+                     decimal OpertatingExpenseToFinancialOpex = 0;
+                     if (SavedComprehensiveStatement.NetFinancialIncome != 0)
+                     {
+                         OpertatingExpenseToFinancialOpex = SavedComprehensiveStatement.TotalOperatingExpenses /
+                             SavedComprehensiveStatement.NetFinancialIncome;
+                     }
+
+                     decimal liquidAssetsToShortTermLiabilities = 0;
+                     decimal ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
+                            + SavedFinancialPositionStatement.ShortTermDeposits
+                            + SavedFinancialPositionStatement.TaxPayable
+                            + SavedFinancialPositionStatement.DividendsPayable
+                            + SavedFinancialPositionStatement.DeferredTaxLiability
+                            + SavedFinancialPositionStatement.RetirementBenefitsLiability
+                            + SavedFinancialPositionStatement.OtherLiabilities;
+                     decimal LiquidAssets = SavedFinancialPositionStatement.TotalCashAndCashEquivalent
+                             + SavedFinancialPositionStatement.GovernmentSecurities
+                             + SavedFinancialPositionStatement.OtherSecurities;
+                     if (ShortTermLiabilities != 0)
+                     {
+                         liquidAssetsToShortTermLiabilities = LiquidAssets / ShortTermLiabilities;
+                     }
+
+                     decimal externalBorrowingToTotalAssets = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         externalBorrowingToTotalAssets = SavedFinancialPositionStatement.ExternalBorrowings /
+                             SavedFinancialPositionStatement.TotalAssets;
+                     }
+
+                     decimal liquidAssetsToTotalAssets = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         liquidAssetsToTotalAssets = LiquidAssets /
+                             SavedFinancialPositionStatement.TotalAssets;
+                     }
+
+                     decimal grossLoansToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         grossLoansToTotalAssets = SavedFinancialPositionStatement.GrossLoanPortfolio /
+                             SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal grossLoansToDeposits = 0;
+                     if (SavedFinancialPositionStatement.TotalDepositLiabilities != 0)
+                     {
+                         grossLoansToDeposits = SavedFinancialPositionStatement.GrossLoanPortfolio /
+                             SavedFinancialPositionStatement.TotalDepositLiabilities;
+                     }
+
+                     decimal financialInvestmentsToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         financialInvestmentsToTotalAssets = SavedInvestmentReturn.FinancialInvestments /
+                             SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal dividendsAndInterestOnDepositsToTotalIncome = 0;
+                     if (SavedComprehensiveStatement.TotalFinancialIncome != 0)
+                     {
+                         dividendsAndInterestOnDepositsToTotalIncome = (SavedComprehensiveStatement.DividendExpenses +
+                             SavedComprehensiveStatement.InterestExpenseOnDeposits) /
+                             SavedComprehensiveStatement.TotalFinancialIncome;
+                     }
+                     decimal OperatingExpenseToFinancialIncomeRatio = 0;
+                     if (SavedComprehensiveStatement.NetFinancialIncome != 0)
+                     {
+                         OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.TotalOperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
+                     }
+                     else
+                     {
+                         OperatingExpenseToFinancialIncomeRatio = 0;
+                     }
+
+                     var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
+                     var LIqAeet = SavedLiquidityStatement.NetLiquidAssets;
+                     decimal LiquidAssetsToShortTermLiabilitiesRatio = 0;
+                     // LiquidAssetsToShortTermLiabilitiesRatio
+                     if (ShorttERM != 0)
+                     {
+                         LiquidAssetsToShortTermLiabilitiesRatio = LIqAeet / ShorttERM;
+                     }
+                     else
+                     {
+                         LiquidAssetsToShortTermLiabilitiesRatio = 0;
+                     }
+                     decimal EXB = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         EXB = SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets;
+                     }
+                     else
+                     {
+                         EXB = 0;
+                     }
+
+
+                     var periodData = new SaccoPerformanceReportDTO.PeriodData
+                     {
+                         PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
+                         PeriodType = "Returns",
+                         PeriodDate = returnPeriod.CreatedAt,
+
+                         CoreCapital = SavedCapitalAdequacy.CoreCapital,
+                         CoreCapitalToTotalAssets = coreCapitalToTotalAssets,
+                         InstitutionalCapitalToTotalAssets = institutionalCapitalToTotalAssets,
+
+                         NonPerformingLoans = CalculateNonPerformingLoans(SavedRiskClassification),
+
+                         NonEarningAssets = SavedFinancialPositionStatement.TotalAssets != 0
+                             ? (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
+                              + SavedFinancialPositionStatement.TotalAccountsReceivables
+                              + SavedFinancialPositionStatement.PropertyAndEquipment
+                              + SavedFinancialPositionStatement.PrepaidLeaseRentals
+                              + SavedFinancialPositionStatement.IntangibleAssets
+                              + SavedFinancialPositionStatement.OtherAssets)
+                                / SavedFinancialPositionStatement.TotalAssets
+                             : 0,
+
+                         EquityInvestmentsToDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities != 0
+                             ? SavedFinancialPositionStatement.InvestmentsInCompanies
+                               / SavedFinancialPositionStatement.TotalDepositLiabilities
+                             : 0,
+
+                         EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
+                         NetIncomeToAverageAssets = netIncomeToAverageAssetsRatio,
+                         YieldOnGrossLoans = yieldOnGrossLoans,
+                         TotalExpenseToTotalIncome = totalExpenseToTotalIncome,
+                         ROA = roa,
+                         OPEX = OpertatingExpenseToFinancialOpex,
+                         OpertatingExpenseToFinancialOpex = OperatingExpenseToFinancialIncomeRatio,
+                         LiquidAssetsToShortTermLiabilities = liquidAssetsToShortTermLiabilities,
+                         ExternalBorrowingToTotalAssets = EXB,
+                         LiquidAssetsToTotalAssets = LiquidAssetsToShortTermLiabilitiesRatio,
+
+                         GrossLoansToTotalAssets = grossLoansToTotalAssets,
+                         GrossLoansToDeposits = grossLoansToDeposits,
+                         FinancialInvestmentsToTotalAssets = financialInvestmentsToTotalAssets,
+                         DividendsAndInterestOnDepositsToTotalIncome = dividendsAndInterestOnDepositsToTotalIncome,
+
+                         TotalAssets = SavedCapitalAdequacy.TotalAssets,
+                         TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities,
+                         GrossLoansForm4 = CalculateGrossLoans(SavedRiskClassification),
+                         GrossLoansForm6 = SavedFinancialPositionStatement.GrossLoanPortfolio,
+                         InstitutionalCapital = SavedCapitalAdequacy.InstitutionalCapital,
+                         PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment,
+                         EquityInvestments = SavedInvestmentReturn.FinancialInvestments,
+                         FinancialInvestments = SavedCapitalAdequacy.Investments,
+                         LiquidAssets = LIqAeet,
+                         ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
+                         + SavedFinancialPositionStatement.ShortTermDeposits
+                         + SavedFinancialPositionStatement.TaxPayable
+                         + SavedFinancialPositionStatement.DividendsPayable
+                         + SavedFinancialPositionStatement.DeferredTaxLiability
+                         + SavedFinancialPositionStatement.RetirementBenefitsLiability
+                         + SavedFinancialPositionStatement.OtherLiabilities,
+                         ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings,
+                         AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2,
+                         TotalIncome = SavedComprehensiveStatement.TotalFinancialIncome,
+                         NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome,
+                         DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits,
+                         OperatingExpenses = SavedComprehensiveStatement.TotalOperatingExpenses,
+                         InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio,
+                         TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense + SavedComprehensiveStatement.TotalOperatingExpenses + SavedComprehensiveStatement.NonOperatingExpense,
+                         NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations,
+                     };
+
+                     // Add period data to report
+                     report.Periods.Add(periodData);
+                 }
+
+                 // Add placeholder data if we don't have enough periods
+                 if (report.Periods.Count < 2 && report.Periods.Count > 0)
+                 {
+                     var blank = new SaccoPerformanceReportDTO.PeriodData
+                     {
+                         PeriodLabel = "N/A",
+                         PeriodType = "N/A",
+                         PeriodDate = DateTime.Now,
+
+                         CoreCapital = 0,
+                         CoreCapitalToTotalAssets = 0,
+                         InstitutionalCapitalToTotalAssets = 0,
+
+                         NonPerformingLoans = 0,
+                         NonEarningAssets = 0,
+                         EquityInvestmentsToDeposits = 0,
+                         EquityInvestmentsToCoreCapital = 0,
+
+                         YieldOnGrossLoans = 0,
+                         TotalExpenseToTotalIncome = 0,
+                         ROA = 0,
+                         OPEX = 0,
+
+                         LiquidAssetsToShortTermLiabilities = 0,
+                         ExternalBorrowingToTotalAssets = 0,
+                         LiquidAssetsToTotalAssets = 0,
+
+                         GrossLoansToTotalAssets = 0,
+                         GrossLoansToDeposits = 0,
+                         FinancialInvestmentsToTotalAssets = 0,
+                         DividendsAndInterestOnDepositsToTotalIncome = 0,
+
+                         TotalAssets = 0,
+                         TotalDeposits = 0,
+                         GrossLoansForm4 = 0,
+                         GrossLoansForm6 = 0,
+                         InstitutionalCapital = 0,
+                         PropertyAndEquipment = 0,
+                         EquityInvestments = 0,
+                         FinancialInvestments = 0,
+                         LiquidAssets = 0,
+                         ShortTermLiabilities = 0,
+                         ExternalBorrowing = 0,
+                         AverageGrossLoans = 0,
+                         TotalIncome = 0,
+                         NetFinancialIncome = 0,
+                         DividendsAndInterestOnDeposits = 0,
+                         OperatingExpenses = 0,
+                         InterestOnLoanPortfolioAndFeesCommission = 0,
+                         TotalExpenses = 0,
+                         NetIncome = 0,
+                     };
+
+                     report.Periods.Add(blank);
+                 }
+
+                 return report;
+             }
+             catch (System.Exception Ex)
+             {
+                 CustomErrorHandler.LogException(Ex);
+                 return StatusCode(500, CustomErrorHandler.HandleException(Ex));
+             }
+         }*/
+
+        /* [HttpGet("GetPerfomanceReportPdf/{returnId}")]
+         public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReportPdf(string returnId, [FromQuery] string? components)
+         {
+             try
+             {
+                 string selector = string.IsNullOrWhiteSpace(components)
+                 ? "CAMELS"
+                 : new string(components.ToUpperInvariant()
+                                        .Where(c => "CAMELS".Contains(c))
+                                        .Distinct()
+                                        .ToArray());
+
+                 // Initialize report
+                 var report = new SaccoPerformanceReportDTO();
+
+                 // Find current return
+                 var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
+                 if (currentReturn == null)
+                 {
+                     return BadRequest("Return not found");
+                 }
+
+                 report.ReportDate = currentReturn.CreatedAt;
+
+                 // Add prudential standards
+                 report.PrudentialStandards.Add("CoreCapital", "≥10M");
+                 report.PrudentialStandards.Add("CoreCapitalToTotalAssets", "≥10%");
+                 report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", "≥8%");
+                 report.PrudentialStandards.Add("NPL", "<5%");
+                 report.PrudentialStandards.Add("NonEarningAssets", "<10%");
+
+                 // Get historical returns (2 most recent before current)
+                 var historicalReturns = await _context.Returns
+                     .Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId)
+                     .ToListAsync();
+
+                 historicalReturns = historicalReturns
+                     .OrderByDescending(r => r.CreatedAt)
+                     .Take(2)
+                     .ToList();
+
+                 // Combine current return with historical returns
+                 var allReturns = new[] { currentReturn }.Concat(historicalReturns);
+
+                 // Process each return period
+                 foreach (var returnPeriod in allReturns)
+                 {
+                     // Fetch all required data for this return period
+                     var balanceSheet = await _context.DTFinancialPositionReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var incomeStatement = await _context.DTComprehensiveIncomeReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var capitalReturn = await _context.DTCapitalAdequacyReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var liquidityReturn = await _context.DTLiquidityReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var depositReturns = await _context.DepositReturns
+                         .Where(x => x.ReturnId == returnPeriod.Id)
+                         .ToListAsync();
+
+                     var riskClassificationReturn = await _context.DTRiskClassificationReturns
+                         .Where(x => x.ReturnId == returnPeriod.Id)
+                         .ToListAsync();
+
+                     var investmentReturn = await _context.DTInvestmentReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     var managementReturns = await _context.ManagementReturns
+                         .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+
+                     // Use default objects if data is missing
+                     var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
+                     var SavedLiquidityStatement = liquidityReturn ?? new DTLiquidityReturn();
+                     var SavedDepositReturn = depositReturns ?? new List<DepositReturn>();
+                     var SavedRiskClassification = riskClassificationReturn ?? new List<DTRiskClassificationReturn>();
+                     var SavedInvestmentReturn = investmentReturn ?? new DTInvestmentReturn();
+                     var SavedFinancialPositionStatement = balanceSheet ?? new DTFinancialPositionReturn();
+                     var SavedComprehensiveStatement = incomeStatement ?? new DTComprehensiveIncomeReturn();
+
+                     // Calculate ratios with null safety
+                     decimal coreCapitalToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         coreCapitalToTotalAssets = SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal institutionalCapitalToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         institutionalCapitalToTotalAssets = SavedCapitalAdequacy.InstitutionalCapital / SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal equityInvestmentsToDeposits = 0;
+                     if (SavedInvestmentReturn.TotalDeposits != 0)
+                     {
+                         equityInvestmentsToDeposits = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.TotalDeposits;
+                     }
+
+                     decimal equityInvestmentsToCoreCapital = 0;
+                     if (SavedInvestmentReturn.CoreCapital != 0)
+                     {
+                         equityInvestmentsToCoreCapital = SavedInvestmentReturn.FinancialInvestments / SavedInvestmentReturn.CoreCapital;
+                     }
+
+                     decimal yieldOnGrossLoans = 0;
+                     if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
+                     {
+                         yieldOnGrossLoans = (SavedComprehensiveStatement.InterestOnLoanPortfolio +
+                             SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio) /
+                             SavedFinancialPositionStatement.GrossLoanPortfolio;
+                     }
+
+                     decimal totalExpenseToTotalIncome = 0;
+                     if (SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations != 0)
+                     {
+                         totalExpenseToTotalIncome = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
+                                        SavedComprehensiveStatement.CostOfExternalBorrowings +
+                                        SavedComprehensiveStatement.DividendExpenses +
+                                        SavedComprehensiveStatement.OtherFinancialExpense +
+                                        SavedComprehensiveStatement.FeesAndCommissionExpense +
+                                        SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                     }
+                     decimal netIncomeToAverageAssetsRatio = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         netIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
+                     }
+                     else
+                     {
+                         netIncomeToAverageAssetsRatio = 0;
+                     }
+
+                     decimal roa = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         roa = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations /
+                             SavedFinancialPositionStatement.TotalAssets;
+                     }
+
+                     decimal OpertatingExpenseToFinancialOpex = 0;
+                     if (SavedComprehensiveStatement.NetFinancialIncome != 0)
+                     {
+                         OpertatingExpenseToFinancialOpex = SavedComprehensiveStatement.TotalOperatingExpenses /
+                             SavedComprehensiveStatement.NetFinancialIncome;
+                     }
+
+                     decimal liquidAssetsToShortTermLiabilities = 0;
+                     decimal ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
+                            + SavedFinancialPositionStatement.ShortTermDeposits
+                            + SavedFinancialPositionStatement.TaxPayable
+                            + SavedFinancialPositionStatement.DividendsPayable
+                            + SavedFinancialPositionStatement.DeferredTaxLiability
+                            + SavedFinancialPositionStatement.RetirementBenefitsLiability
+                            + SavedFinancialPositionStatement.OtherLiabilities;
+                     decimal LiquidAssets = SavedFinancialPositionStatement.TotalCashAndCashEquivalent
+                             + SavedFinancialPositionStatement.GovernmentSecurities
+                             + SavedFinancialPositionStatement.OtherSecurities;
+                     if (ShortTermLiabilities != 0)
+                     {
+                         liquidAssetsToShortTermLiabilities = LiquidAssets / ShortTermLiabilities;
+                     }
+
+                     decimal externalBorrowingToTotalAssets = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         externalBorrowingToTotalAssets = SavedFinancialPositionStatement.ExternalBorrowings /
+                             SavedFinancialPositionStatement.TotalAssets;
+                     }
+
+                     decimal liquidAssetsToTotalAssets = 0;
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         liquidAssetsToTotalAssets = LiquidAssets /
+                             SavedFinancialPositionStatement.TotalAssets;
+                     }
+
+                     decimal grossLoansToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         grossLoansToTotalAssets = SavedFinancialPositionStatement.GrossLoanPortfolio /
+                             SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal grossLoansToDeposits = 0;
+                     if (SavedFinancialPositionStatement.TotalDepositLiabilities != 0)
+                     {
+                         grossLoansToDeposits = SavedFinancialPositionStatement.GrossLoanPortfolio /
+                             SavedFinancialPositionStatement.TotalDepositLiabilities;
+                     }
+
+                     decimal financialInvestmentsToTotalAssets = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         financialInvestmentsToTotalAssets = SavedInvestmentReturn.FinancialInvestments /
+                             SavedCapitalAdequacy.TotalAssets;
+                     }
+
+                     decimal dividendsAndInterestOnDepositsToTotalIncome = 0;
+                     if (SavedComprehensiveStatement.TotalFinancialIncome != 0)
+                     {
+                         dividendsAndInterestOnDepositsToTotalIncome = (SavedComprehensiveStatement.DividendExpenses +
+                             SavedComprehensiveStatement.InterestExpenseOnDeposits) /
+                             SavedComprehensiveStatement.TotalFinancialIncome;
+                     }
+                     decimal OperatingExpenseToFinancialIncomeRatio = 0;
+                     if (SavedComprehensiveStatement.NetFinancialIncome != 0)
+                     {
+                         OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.TotalOperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
+                     }
+                     else
+                     {
+                         OperatingExpenseToFinancialIncomeRatio = 0;
+                     }
+
+                     var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
+                     var LIqAeet = SavedLiquidityStatement.NetLiquidAssets;
+                     decimal LiquidAssetsToShortTermLiabilitiesRatio = 0;
+                     // LiquidAssetsToShortTermLiabilitiesRatio
+                     if (ShorttERM != 0)
+                     {
+                         LiquidAssetsToShortTermLiabilitiesRatio = LIqAeet / ShorttERM;
+                     }
+                     else
+                     {
+                         LiquidAssetsToShortTermLiabilitiesRatio = 0;
+                     }
+                     decimal EXB = 0;
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         EXB = SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets;
+                     }
+                     else
+                     {
+                         EXB = 0;
+                     }
+
+
+                     var periodData = new SaccoPerformanceReportDTO.PeriodData
+                     {
+                         PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
+                         PeriodType = "Returns",
+                         PeriodDate = returnPeriod.CreatedAt,
+
+                         CoreCapital = SavedCapitalAdequacy.CoreCapital,
+                         CoreCapitalToTotalAssets = coreCapitalToTotalAssets,
+                         InstitutionalCapitalToTotalAssets = institutionalCapitalToTotalAssets,
+
+                         NonPerformingLoans = CalculateNonPerformingLoans(SavedRiskClassification),
+
+                         NonEarningAssets = SavedFinancialPositionStatement.TotalAssets != 0
+                             ? (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
+                              + SavedFinancialPositionStatement.TotalAccountsReceivables
+                              + SavedFinancialPositionStatement.PropertyAndEquipment
+                              + SavedFinancialPositionStatement.PrepaidLeaseRentals
+                              + SavedFinancialPositionStatement.IntangibleAssets
+                              + SavedFinancialPositionStatement.OtherAssets)
+                                / SavedFinancialPositionStatement.TotalAssets
+                             : 0,
+
+                         EquityInvestmentsToDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities != 0
+                             ? SavedFinancialPositionStatement.InvestmentsInCompanies
+                               / SavedFinancialPositionStatement.TotalDepositLiabilities
+                             : 0,
+
+                         EquityInvestmentsToCoreCapital = equityInvestmentsToCoreCapital,
+                         NetIncomeToAverageAssets = netIncomeToAverageAssetsRatio,
+                         YieldOnGrossLoans = yieldOnGrossLoans,
+                         TotalExpenseToTotalIncome = totalExpenseToTotalIncome,
+                         ROA = roa,
+                         OPEX = OpertatingExpenseToFinancialOpex,
+                         OpertatingExpenseToFinancialOpex = OperatingExpenseToFinancialIncomeRatio,
+                         LiquidAssetsToShortTermLiabilities = liquidAssetsToShortTermLiabilities,
+                         ExternalBorrowingToTotalAssets = EXB,
+                         LiquidAssetsToTotalAssets = LiquidAssetsToShortTermLiabilitiesRatio,
+
+                         GrossLoansToTotalAssets = grossLoansToTotalAssets,
+                         GrossLoansToDeposits = grossLoansToDeposits,
+                         FinancialInvestmentsToTotalAssets = financialInvestmentsToTotalAssets,
+                         DividendsAndInterestOnDepositsToTotalIncome = dividendsAndInterestOnDepositsToTotalIncome,
+
+                         TotalAssets = SavedCapitalAdequacy.TotalAssets,
+                         TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities,
+                         GrossLoansForm4 = CalculateGrossLoans(SavedRiskClassification),
+                         GrossLoansForm6 = SavedFinancialPositionStatement.GrossLoanPortfolio,
+                         InstitutionalCapital = SavedCapitalAdequacy.InstitutionalCapital,
+                         PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment,
+                         EquityInvestments = SavedInvestmentReturn.FinancialInvestments,
+                         FinancialInvestments = SavedCapitalAdequacy.Investments,
+                         LiquidAssets = LIqAeet,
+                         ShortTermLiabilities = SavedFinancialPositionStatement.SavingsDeposits
+                         + SavedFinancialPositionStatement.ShortTermDeposits
+                         + SavedFinancialPositionStatement.TaxPayable
+                         + SavedFinancialPositionStatement.DividendsPayable
+                         + SavedFinancialPositionStatement.DeferredTaxLiability
+                         + SavedFinancialPositionStatement.RetirementBenefitsLiability
+                         + SavedFinancialPositionStatement.OtherLiabilities,
+                         ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings,
+                         AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2,
+                         TotalIncome = SavedComprehensiveStatement.TotalFinancialIncome,
+                         NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome,
+                         DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits,
+                         OperatingExpenses = SavedComprehensiveStatement.TotalOperatingExpenses,
+                         InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + SavedComprehensiveStatement.FeesAndCommissionOnLoanPortfolio,
+                         TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense + SavedComprehensiveStatement.TotalOperatingExpenses + SavedComprehensiveStatement.NonOperatingExpense,
+                         NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations,
+                         //ManagementScore = managementReturns.MRating
+                     };
+
+
+                     periodData.MemberProtectionScore = managementReturns?.MemberProtectionScore ?? 0;
+                     periodData.GovernanceStructureScore = managementReturns?.GorvenanceStructureScore ?? 0;
+                     periodData.InternalControlsScore = managementReturns?.InternalControlsScore ?? 0;
+                     periodData.ComplianceWithLawsScore = managementReturns?.ComplianceWithLawsAndRegulationsScore ?? 0;
+
+                     // Add period data to report
+                     report.Periods.Add(periodData);
+                 }
+
+                 // Add placeholder data if we don't have enough periods
+                 if (report.Periods.Count < 2 && report.Periods.Count > 0)
+                 {
+                     var blank = new SaccoPerformanceReportDTO.PeriodData
+                     {
+                         PeriodLabel = "N/A",
+                         PeriodType = "N/A",
+                         PeriodDate = DateTime.Now,
+
+                         CoreCapital = 0,
+                         CoreCapitalToTotalAssets = 0,
+                         InstitutionalCapitalToTotalAssets = 0,
+
+                         NonPerformingLoans = 0,
+                         NonEarningAssets = 0,
+                         EquityInvestmentsToDeposits = 0,
+                         EquityInvestmentsToCoreCapital = 0,
+
+                         YieldOnGrossLoans = 0,
+                         TotalExpenseToTotalIncome = 0,
+                         ROA = 0,
+                         OPEX = 0,
+
+                         LiquidAssetsToShortTermLiabilities = 0,
+                         ExternalBorrowingToTotalAssets = 0,
+                         LiquidAssetsToTotalAssets = 0,
+
+                         GrossLoansToTotalAssets = 0,
+                         GrossLoansToDeposits = 0,
+                         FinancialInvestmentsToTotalAssets = 0,
+                         DividendsAndInterestOnDepositsToTotalIncome = 0,
+
+                         TotalAssets = 0,
+                         TotalDeposits = 0,
+                         GrossLoansForm4 = 0,
+                         GrossLoansForm6 = 0,
+                         InstitutionalCapital = 0,
+                         PropertyAndEquipment = 0,
+                         EquityInvestments = 0,
+                         FinancialInvestments = 0,
+                         LiquidAssets = 0,
+                         ShortTermLiabilities = 0,
+                         ExternalBorrowing = 0,
+                         AverageGrossLoans = 0,
+                         TotalIncome = 0,
+                         NetFinancialIncome = 0,
+                         DividendsAndInterestOnDeposits = 0,
+                         OperatingExpenses = 0,
+                         InterestOnLoanPortfolioAndFeesCommission = 0,
+                         TotalExpenses = 0,
+                         NetIncome = 0,
+                     };
+
+                     report.Periods.Add(blank);
+                 }
+
+                 var approvals = await _context.ApprovalActions
+                     .Where(r => r.ReturnId == returnId)
+                     .Include(r => r.WorkFlowStep)
+                     .ToListAsync();
+                 report.approvalActions = approvals;
+
+                 var reportBytes = ReportsHelper.GenerateSaccoPerformancePdfReport(report, selector);
+                 var base64String = Convert.ToBase64String(reportBytes);
+
+                 return Ok(new
+                 {
+                     pdfData = base64String,
+                     fileName = $"SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf"
+                 });
+
+                 //return File(reportBytes, "application/pdf", $"SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
+
+             }
+             catch (System.Exception Ex)
+             {
+                 CustomErrorHandler.LogException(Ex);
+                 return StatusCode(500, CustomErrorHandler.HandleException(Ex));
+             }
+         }*/
+
+
+        /*[HttpGet("nwdt/GetReturnDetails/{returnId}")]
         public async Task<ActionResult<NWDTReturnDetailsDTO>> GetNwdtReturnDetails(string returnId)
         {
             try
@@ -2960,7 +2973,7 @@ namespace Returns.Controllers
             {
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-        }
+        }*/
 
         [HttpGet("nwdt/CalculateAnalysis/{returnId}")]
 
@@ -2989,7 +3002,7 @@ namespace Returns.Controllers
         }
 
 
-        [HttpGet("nwdt/GetPerfomanceReport/{returnId}")]
+        /*[HttpGet("nwdt/GetPerfomanceReport/{returnId}")]
         public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReport(string returnId)
         {
             try
@@ -3254,512 +3267,512 @@ namespace Returns.Controllers
                 return StatusCode(500, CustomErrorHandler.HandleException(Ex));
             }
 
-        }
+        }*/
 
 
-        [HttpGet("nwdt/GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string returnId, [FromQuery] string? components)
-        {
-            try
-            {
-                var report = new NWDTPerformanceReportDTO();
-                string selector = string.IsNullOrWhiteSpace(components)
-                ? "CAMELS"
-                : new string(components.ToUpperInvariant()
-                                       .Where(c => "CAMELS".Contains(c))
-                                       .Distinct()
-                                       .ToArray());
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
-                if (currentReturn == null)
-                {
-                    return BadRequest("Return not found");
-                }
-                report.ReportDate = currentReturn.CreatedAt;
-                report.SaccoName = currentReturn.SaccoName;
-                report.PrudentialStandards.Add("CoreCapital", "≥5M");
-                report.PrudentialStandards.Add("CoreCapita/Total Assets", "≥8%");
-                report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", ">5%");
-                report.PrudentialStandards.Add("Retained Earnings/Core Capital", ">5%");
-                report.PrudentialStandards.Add("Non-Performing Loans", "≤5%");
-                report.PrudentialStandards.Add("Non-Earning Assets", "≤5%");
-                report.PrudentialStandards.Add("Total Finacial Investements to Core Capital", "<40%");
-                report.PrudentialStandards.Add("Subsidary Investments to Total Assets", "<50%");
-                report.PrudentialStandards.Add("Equity Investments to Core Capital Ratio", "<20%");
-                report.PrudentialStandards.Add("Other Financial investments to Core Capital Ratio ", "<30%");
-                report.PrudentialStandards.Add("Liquid Assets/Short-term Liabilities", ">10%");
-                report.PrudentialStandards.Add("External Borrowing to Total Assets", "<25%");
-                report.PrudentialStandards.Add("Gross loans /Total Assets", "70 - 80%");
-                report.PrudentialStandards.Add("Gross Loans to Deposits", ">100%");
+        /* [HttpGet("nwdt/GetPerfomanceReportPdf/{returnId}")]
+         public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string returnId, [FromQuery] string? components)
+         {
+             try
+             {
+                 var report = new NWDTPerformanceReportDTO();
+                 string selector = string.IsNullOrWhiteSpace(components)
+                 ? "CAMELS"
+                 : new string(components.ToUpperInvariant()
+                                        .Where(c => "CAMELS".Contains(c))
+                                        .Distinct()
+                                        .ToArray());
+                 var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
+                 if (currentReturn == null)
+                 {
+                     return BadRequest("Return not found");
+                 }
+                 report.ReportDate = currentReturn.CreatedAt;
+                 report.SaccoName = currentReturn.SaccoName;
+                 report.PrudentialStandards.Add("CoreCapital", "≥5M");
+                 report.PrudentialStandards.Add("CoreCapita/Total Assets", "≥8%");
+                 report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", ">5%");
+                 report.PrudentialStandards.Add("Retained Earnings/Core Capital", ">5%");
+                 report.PrudentialStandards.Add("Non-Performing Loans", "≤5%");
+                 report.PrudentialStandards.Add("Non-Earning Assets", "≤5%");
+                 report.PrudentialStandards.Add("Total Finacial Investements to Core Capital", "<40%");
+                 report.PrudentialStandards.Add("Subsidary Investments to Total Assets", "<50%");
+                 report.PrudentialStandards.Add("Equity Investments to Core Capital Ratio", "<20%");
+                 report.PrudentialStandards.Add("Other Financial investments to Core Capital Ratio ", "<30%");
+                 report.PrudentialStandards.Add("Liquid Assets/Short-term Liabilities", ">10%");
+                 report.PrudentialStandards.Add("External Borrowing to Total Assets", "<25%");
+                 report.PrudentialStandards.Add("Gross loans /Total Assets", "70 - 80%");
+                 report.PrudentialStandards.Add("Gross Loans to Deposits", ">100%");
 
-                var historicalReturns = await _context.Returns.Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId).ToListAsync();
-                historicalReturns = historicalReturns.OrderByDescending(r => r.CreatedAt).Take(2).ToList();
+                 var historicalReturns = await _context.Returns.Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId).ToListAsync();
+                 historicalReturns = historicalReturns.OrderByDescending(r => r.CreatedAt).Take(2).ToList();
 
-                var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-                var result = new CamelsRatingsDTO { ReturnId = returnId };
+                 var allReturns = new[] { currentReturn }.Concat(historicalReturns);
+                 var result = new CamelsRatingsDTO { ReturnId = returnId };
 
-                foreach (var returnPeriod in allReturns)
-                {
-                    var balanceSheet = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var incomeStatement = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var capitalReturn = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var liquidityReturn = await _context.NDWTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                    var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                    var investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var managementReturn = await _context.ManagementReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    // Use default objects if data is missing
+                 foreach (var returnPeriod in allReturns)
+                 {
+                     var balanceSheet = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                     var incomeStatement = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                     var capitalReturn = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                     var liquidityReturn = await _context.NDWTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                     var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
+                     var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
+                     var investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                     var managementReturn = await _context.ManagementReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                     // Use default objects if data is missing
 
-                    var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
-                    var SavedLiquidityStatement = liquidityReturn ?? new NWDTLiquidityReturn();
-                    var SavedDepositReturn = depositReturns ?? new List<NWDTDepositReturn>();
-                    var SavedRiskClassification = riskClassificationReturn ?? new List<NWDTRiskClassificationReturn>();
-                    var SavedInvestmentReturn = investmentReturn ?? new NWDTInvestmentReturn();
-                    var SavedFinancialPositionStatement = balanceSheet ?? new NWDTFinancialPositionReturn();
-                    var SavedComprehensiveStatement = incomeStatement ?? new NWDTComprehensiveIncomeReturn();
+                     var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
+                     var SavedLiquidityStatement = liquidityReturn ?? new NWDTLiquidityReturn();
+                     var SavedDepositReturn = depositReturns ?? new List<NWDTDepositReturn>();
+                     var SavedRiskClassification = riskClassificationReturn ?? new List<NWDTRiskClassificationReturn>();
+                     var SavedInvestmentReturn = investmentReturn ?? new NWDTInvestmentReturn();
+                     var SavedFinancialPositionStatement = balanceSheet ?? new NWDTFinancialPositionReturn();
+                     var SavedComprehensiveStatement = incomeStatement ?? new NWDTComprehensiveIncomeReturn();
 
-                    var periodData = new NWDTPerformanceReportDTO.NWDTPeriodData
-                    {
-                        PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
-                        PeriodType = "Returns",
-                        PeriodDate = returnPeriod.CreatedAt,
+                     var periodData = new NWDTPerformanceReportDTO.NWDTPeriodData
+                     {
+                         PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
+                         PeriodType = "Returns",
+                         PeriodDate = returnPeriod.CreatedAt,
 
-                        CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                    };
+                         CoreCapital = SavedCapitalAdequacy.CoreCapital,
+                     };
 
-                    // CoreCapitalToTotalAssetsRatio
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.CoreCapitalToTotalAssetsRatio = (SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets) * 100;
-                    }
-                    else
-                    {
-                        periodData.CoreCapitalToTotalAssetsRatio = 0;
-                    }
+                     // CoreCapitalToTotalAssetsRatio
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         periodData.CoreCapitalToTotalAssetsRatio = (SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets) * 100;
+                     }
+                     else
+                     {
+                         periodData.CoreCapitalToTotalAssetsRatio = 0;
+                     }
 
-                    // CoreCapitalToTotalDepositsRatio
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.CoreCapitalToTotalDepositsRatio = 0 / SavedCapitalAdequacy.TotalDepositsLiabilities / SavedCapitalAdequacy.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.CoreCapitalToTotalDepositsRatio = 0;
-                    }
+                     // CoreCapitalToTotalDepositsRatio
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         periodData.CoreCapitalToTotalDepositsRatio = 0 / SavedCapitalAdequacy.TotalDepositsLiabilities / SavedCapitalAdequacy.TotalAssets;
+                     }
+                     else
+                     {
+                         periodData.CoreCapitalToTotalDepositsRatio = 0;
+                     }
 
-                    periodData.NonPerformingLoans = ReturnAnalysisHelper.CalculateNwdtNonPerformingLoans(SavedRiskClassification);
-                    periodData.NPL = periodData.NonPerformingLoans;
-                    // Non Earnig Assets
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        periodData.NonEarningAssets = (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
-                        + SavedFinancialPositionStatement.AccountsReceivables
-                        + SavedFinancialPositionStatement.PropertyEquipmentOtherAssets
-                        + SavedFinancialPositionStatement.PrepaidLeaseRentals
-                        + SavedFinancialPositionStatement.IntangibleAssets
-                        + SavedFinancialPositionStatement.OtherAssets) / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.NonEarningAssets = 0;
-                    }
+                     periodData.NonPerformingLoans = ReturnAnalysisHelper.CalculateNwdtNonPerformingLoans(SavedRiskClassification);
+                     periodData.NPL = periodData.NonPerformingLoans;
+                     // Non Earnig Assets
+                     if (SavedFinancialPositionStatement.TotalAssets != 0)
+                     {
+                         periodData.NonEarningAssets = (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
+                         + SavedFinancialPositionStatement.AccountsReceivables
+                         + SavedFinancialPositionStatement.PropertyEquipmentOtherAssets
+                         + SavedFinancialPositionStatement.PrepaidLeaseRentals
+                         + SavedFinancialPositionStatement.IntangibleAssets
+                         + SavedFinancialPositionStatement.OtherAssets) / SavedFinancialPositionStatement.TotalAssets;
+                     }
+                     else
+                     {
+                         periodData.NonEarningAssets = 0;
+                     }
 
-                    // EquityInvestmentsToDeposits
-                    if (SavedInvestmentReturn.CoreCapital != 0)
-                    {
-                        periodData.EquityInvestmentsToDeposits = SavedInvestmentReturn.FinancialAssets / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.EquityInvestmentsToDeposits = 0;
-                    }
+                     // EquityInvestmentsToDeposits
+                     if (SavedInvestmentReturn.CoreCapital != 0)
+                     {
+                         periodData.EquityInvestmentsToDeposits = SavedInvestmentReturn.FinancialAssets / SavedCapitalAdequacy.CoreCapital;
+                     }
+                     else
+                     {
+                         periodData.EquityInvestmentsToDeposits = 0;
+                     }
 
-                    // SubsidiaryAndRelatedInvestmentToCoreCapitalRatio
-                    if (SavedInvestmentReturn.CoreCapital != 0)
-                    {
-                        periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = SavedInvestmentReturn.SubsidiaryRelatedEntityInvestments / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = 0;
-                    }
+                     // SubsidiaryAndRelatedInvestmentToCoreCapitalRatio
+                     if (SavedInvestmentReturn.CoreCapital != 0)
+                     {
+                         periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = SavedInvestmentReturn.SubsidiaryRelatedEntityInvestments / SavedCapitalAdequacy.CoreCapital;
+                     }
+                     else
+                     {
+                         periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = 0;
+                     }
 
-                    //EquityInvestmentsToCoreCapitalRatio\
-                    if (SavedCapitalAdequacy.CoreCapital != 0)
-                    {
-                        periodData.EquityInvestmentsToCoreCapitalRatio = SavedFinancialPositionStatement.InvestmentInCompanies / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.EquityInvestmentsToCoreCapitalRatio = 0;
-                    }
+                     //EquityInvestmentsToCoreCapitalRatio\
+                     if (SavedCapitalAdequacy.CoreCapital != 0)
+                     {
+                         periodData.EquityInvestmentsToCoreCapitalRatio = SavedFinancialPositionStatement.InvestmentInCompanies / SavedCapitalAdequacy.CoreCapital;
+                     }
+                     else
+                     {
+                         periodData.EquityInvestmentsToCoreCapitalRatio = 0;
+                     }
 
-                    // NetIncomeToAverageAssetsRatio
-                    if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
-                    {
-                        periodData.NetIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.NetIncomeToAverageAssetsRatio = 0;
-                    }
+                     // NetIncomeToAverageAssetsRatio
+                     if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
+                     {
+                         periodData.NetIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
+                     }
+                     else
+                     {
+                         periodData.NetIncomeToAverageAssetsRatio = 0;
+                     }
 
-                    // TotalExpenseToTotalIncomeRatio
-                    if (SavedComprehensiveStatement.StoredNetFinancialIncome != 0) //Todo: TotalFinancialIncome not defined
-                    {
-                        periodData.TotalExpenseToTotalIncomeRatio = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
-                                      SavedComprehensiveStatement.CostOfExternalBorrowings +
-                                      SavedComprehensiveStatement.DividendExpenses +
-                                      SavedComprehensiveStatement.OtherFinancialExpense +
-                                      SavedComprehensiveStatement.FeesCommissionOnLoanPortfolio +
-                                      SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
-                    }
-                    else
-                    {
-                        periodData.TotalExpenseToTotalIncomeRatio = 0;
-                    }
+                     // TotalExpenseToTotalIncomeRatio
+                     if (SavedComprehensiveStatement.StoredNetFinancialIncome != 0) //Todo: TotalFinancialIncome not defined
+                     {
+                         periodData.TotalExpenseToTotalIncomeRatio = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
+                                       SavedComprehensiveStatement.CostOfExternalBorrowings +
+                                       SavedComprehensiveStatement.DividendExpenses +
+                                       SavedComprehensiveStatement.OtherFinancialExpense +
+                                       SavedComprehensiveStatement.FeesCommissionOnLoanPortfolio +
+                                       SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                     }
+                     else
+                     {
+                         periodData.TotalExpenseToTotalIncomeRatio = 0;
+                     }
 
-                    //OperatingExpenseToFinancialIncomeRatio
-                    if (SavedComprehensiveStatement.FinancialIncome != 0)
-                    {
-                        periodData.OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.OperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
-                    }
-                    else
-                    {
-                        periodData.OperatingExpenseToFinancialIncomeRatio = 0;
-                    }
+                     //OperatingExpenseToFinancialIncomeRatio
+                     if (SavedComprehensiveStatement.FinancialIncome != 0)
+                     {
+                         periodData.OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.OperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
+                     }
+                     else
+                     {
+                         periodData.OperatingExpenseToFinancialIncomeRatio = 0;
+                     }
 
-                    // OtherFinancialInvestmentsToCoreCapitalRatio
-                    if (SavedCapitalAdequacy.CoreCapital != 0)
-                    {
-                        periodData.OtherFinancialInvestmentsToCoreCapitalRatio = SavedInvestmentReturn.OtherInvestments / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.OtherFinancialInvestmentsToCoreCapitalRatio = 0;
-                    }
+                     // OtherFinancialInvestmentsToCoreCapitalRatio
+                     if (SavedCapitalAdequacy.CoreCapital != 0)
+                     {
+                         periodData.OtherFinancialInvestmentsToCoreCapitalRatio = SavedInvestmentReturn.OtherInvestments / SavedCapitalAdequacy.CoreCapital;
+                     }
+                     else
+                     {
+                         periodData.OtherFinancialInvestmentsToCoreCapitalRatio = 0;
+                     }
 
-                    // Finacial Invetsment to Total Assets
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.FinancialInvestmentsToTotalAssetsRatio = SavedFinancialPositionStatement.FinancialInvestments / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.FinancialInvestmentsToTotalAssetsRatio = 0;
-                    }
-
-
-                    var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
-                    var LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
-                    // LiquidAssetsToShortTermLiabilitiesRatio
-                    if (ShorttERM != 0)
-                    {
-                        periodData.LiquidAssetsToShortTermLiabilitiesRatio = (LiquidAssets / ShorttERM);
-                    }
-                    else
-                    {
-                        periodData.LiquidAssetsToShortTermLiabilitiesRatio = 0;
-                    }
+                     // Finacial Invetsment to Total Assets
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         periodData.FinancialInvestmentsToTotalAssetsRatio = SavedFinancialPositionStatement.FinancialInvestments / SavedFinancialPositionStatement.TotalAssets;
+                     }
+                     else
+                     {
+                         periodData.FinancialInvestmentsToTotalAssetsRatio = 0;
+                     }
 
 
-
-
-                    // ExternalBorrowingToTotalAssetsRatio
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.ExternalBorrowingToTotalAssetsRatio = (SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets);
-                    }
-                    else
-                    {
-                        periodData.ExternalBorrowingToTotalAssetsRatio = 0;
-                    }
-
-                    // LiquidAssetsToTotalAssets
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.LiquidAssetsToTotalAssetsRatio = (SavedLiquidityStatement.NetLiquidAssets / SavedCapitalAdequacy.TotalAssets);
-                    }
-                    else
-                    {
-                        periodData.LiquidAssetsToTotalAssetsRatio = 0;
-                    }
-
-
-                    periodData.TotalAssets = SavedCapitalAdequacy.TotalAssets;
-                    periodData.TotalExpenses = SavedComprehensiveStatement.FinancialExpense + SavedComprehensiveStatement.OperatingExpenses;
-                    periodData.TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities;
-                    periodData.GrossLoansForm4 = SavedFinancialPositionStatement.GrossLoanPortfolio;
-                    periodData.GrossLoansForm6 = SavedCapitalAdequacy.LoansAndAdvances;
-                    periodData.PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment;
-                    periodData.EquityInvestments = SavedInvestmentReturn.EquityInvestments;
-                    periodData.FinancialInvestments = SavedCapitalAdequacy.Investments;
-                    periodData.LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
-                    periodData.ShortTermLiabilities = SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
-                    periodData.ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings;
-                    periodData.AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2;
-                    periodData.TotalIncome = SavedComprehensiveStatement.FinancialIncome;
-                    periodData.NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome;
-                    periodData.DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits;
-                    periodData.OperatingExpenses = SavedComprehensiveStatement.OperatingExpenses;
-                    periodData.InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + 0; //Todo: FeesAndCommissionOnLoanPortfolio Not defined
-                                                                                                                                   // periodData.TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense;
-                    periodData.NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
-                    periodData.MemberProtectionScore = managementReturn?.MemberProtectionScore ?? 0;
-                    periodData.GovernanceStructureScore = managementReturn?.GorvenanceStructureScore ?? 0;
-                    periodData.InternalControlsScore = managementReturn?.InternalControlsScore ?? 0;
-                    periodData.ComplianceWithLawsScore = managementReturn?.ComplianceWithLawsAndRegulationsScore ?? 0;
-                    report.Periods.Add(periodData);
-                }
-
-                if (report.Periods.Count < 2 && report.Periods.Count > 0)
-                {
-                    var blank = new NWDTPerformanceReportDTO.NWDTPeriodData
-                    {
-                        PeriodLabel = "N/A",
-                        PeriodType = "N/A",
-                        PeriodDate = DateTime.Now,
-                    };
-
-                    report.Periods.Add(blank);
-                }
-
-                var reportBytes = NWDTReportHelper.GenerateNwdtSaccoPerformancePdfReport(report, selector);
-                var base64String = Convert.ToBase64String(reportBytes);
-                return Ok(new
-                {
-                    pdfData = base64String,
-                    fileName = $"NWDT_SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf"
-                });
-
-                // return File(reportBytes, "application/pdf", $"NWDT_SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
-
-            }
-            catch (System.Exception Ex)
-            {
-                CustomErrorHandler.LogException(Ex);
-                return StatusCode(500, CustomErrorHandler.HandleException(Ex));
-            }
-
-        }
+                     var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
+                     var LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
+                     // LiquidAssetsToShortTermLiabilitiesRatio
+                     if (ShorttERM != 0)
+                     {
+                         periodData.LiquidAssetsToShortTermLiabilitiesRatio = (LiquidAssets / ShorttERM);
+                     }
+                     else
+                     {
+                         periodData.LiquidAssetsToShortTermLiabilitiesRatio = 0;
+                     }
 
 
 
-        private async Task<(
-         bool IsValid,
-         List<string> ProcessingSummary,
-        List<ValidationError> ConsistencyErrors,
-        bool HasConsistencyBeenChecked,
-         List<CapitalAdequacyRow> CapitalAdequacy,
-         List<LiquidityStatementRow> LiquidityStatement,
-         List<DepositRangeData> DepositReturn,
-         List<RiskClassificationRow> RiskClassification,
-         List<InvestmentRow> Investment,
-         List<StatementOfFinancialPositionRow> FinancialPosition,
-         List<StatementOfComprehensiveIncomeRow> ComprehensiveStatement,
-         string CommonPeriod
-            )>
-            CheckConsistencyForDT(NewReturnDTO createFormDTO)
-        {
-            var processingSummary = new List<string>();
-            List<ValidationError> ConsistencyErrors = new List<ValidationError>();
-            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+
+                     // ExternalBorrowingToTotalAssetsRatio
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         periodData.ExternalBorrowingToTotalAssetsRatio = (SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets);
+                     }
+                     else
+                     {
+                         periodData.ExternalBorrowingToTotalAssetsRatio = 0;
+                     }
+
+                     // LiquidAssetsToTotalAssets
+                     if (SavedCapitalAdequacy.TotalAssets != 0)
+                     {
+                         periodData.LiquidAssetsToTotalAssetsRatio = (SavedLiquidityStatement.NetLiquidAssets / SavedCapitalAdequacy.TotalAssets);
+                     }
+                     else
+                     {
+                         periodData.LiquidAssetsToTotalAssetsRatio = 0;
+                     }
 
 
-            // Check for attachments
-            if (createFormDTO.FormUploads == null ||
-                createFormDTO.FormUploads.Count == 0 ||
-                !createFormDTO.FormUploads.Any(f => f.formFile != null))
-            {
-                throw new Exception("No attachments found. Please attach at least one form");
-            }
+                     periodData.TotalAssets = SavedCapitalAdequacy.TotalAssets;
+                     periodData.TotalExpenses = SavedComprehensiveStatement.FinancialExpense + SavedComprehensiveStatement.OperatingExpenses;
+                     periodData.TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities;
+                     periodData.GrossLoansForm4 = SavedFinancialPositionStatement.GrossLoanPortfolio;
+                     periodData.GrossLoansForm6 = SavedCapitalAdequacy.LoansAndAdvances;
+                     periodData.PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment;
+                     periodData.EquityInvestments = SavedInvestmentReturn.EquityInvestments;
+                     periodData.FinancialInvestments = SavedCapitalAdequacy.Investments;
+                     periodData.LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
+                     periodData.ShortTermLiabilities = SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
+                     periodData.ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings;
+                     periodData.AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2;
+                     periodData.TotalIncome = SavedComprehensiveStatement.FinancialIncome;
+                     periodData.NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome;
+                     periodData.DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits;
+                     periodData.OperatingExpenses = SavedComprehensiveStatement.OperatingExpenses;
+                     periodData.InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + 0; //Todo: FeesAndCommissionOnLoanPortfolio Not defined
+                                                                                                                                    // periodData.TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense;
+                     periodData.NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                     periodData.MemberProtectionScore = managementReturn?.MemberProtectionScore ?? 0;
+                     periodData.GovernanceStructureScore = managementReturn?.GorvenanceStructureScore ?? 0;
+                     periodData.InternalControlsScore = managementReturn?.InternalControlsScore ?? 0;
+                     periodData.ComplianceWithLawsScore = managementReturn?.ComplianceWithLawsAndRegulationsScore ?? 0;
+                     report.Periods.Add(periodData);
+                 }
 
-            // await returnsHelper.ValidateUploadedForms(Dto);
-            Form1Statement form1Statement = null;
-            Form2Statement Form2 = null;
-            Form3Statement Form3 = null;
-            Form4Statement form4 = null;
-            Form5Statement Form5 = null;
-            Form6Statement form6 = null;
-            Form7Statement form7 = null;
+                 if (report.Periods.Count < 2 && report.Periods.Count > 0)
+                 {
+                     var blank = new NWDTPerformanceReportDTO.NWDTPeriodData
+                     {
+                         PeriodLabel = "N/A",
+                         PeriodType = "N/A",
+                         PeriodDate = DateTime.Now,
+                     };
 
+                     report.Periods.Add(blank);
+                 }
 
-            // Initialize form data holders
-            List<CapitalAdequacyRow> capital_adequacy_form1 = null;
-            List<LiquidityStatementRow> liquidityStatement_form_2 = null;
-            List<DepositRangeData> depositreturn_form_3 = null;
-            List<RiskClassificationRow> riskClassification_form_4 = null;
-            List<InvestmentRow> inverstment_return_form_5 = null;
-            List<StatementOfFinancialPositionRow> financialPositionStatement_form_6 = null;
-            List<StatementOfComprehensiveIncomeRow> comprehensiveStatement_form7 = null;
-            var HasConsistencyBeenChecked = true;
-            // Process each form
-            foreach (var form in createFormDTO.FormUploads)
-            {
-                try
-                {
-                    if (form.formFile == null) continue;
+                 var reportBytes = NWDTReportHelper.GenerateNwdtSaccoPerformancePdfReport(report, selector);
+                 var base64String = Convert.ToBase64String(reportBytes);
+                 return Ok(new
+                 {
+                     pdfData = base64String,
+                     fileName = $"NWDT_SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf"
+                 });
 
+                 // return File(reportBytes, "application/pdf", $"NWDT_SACCO_Performance_Report_{DateTime.Now:yyyyMMdd}.pdf");
 
-                    ReturnForm? fm = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
-                    if (fm == null)
-                    {
-                        processingSummary.Add($"Form with ID {form.FormId} was not found in the system");
-                        continue;
-                    }
+             }
+             catch (System.Exception Ex)
+             {
+                 CustomErrorHandler.LogException(Ex);
+                 return StatusCode(500, CustomErrorHandler.HandleException(Ex));
+             }
 
-
-                    // Form 1: Capital Adequacy Form
-                    if (fm.IsCapitalAdequencyForm)
-                    {
-                        form1Statement = ExcelService.ImportCapitalAdequacyRows(form.formFile, _logger);
-                        if (form1Statement == null || !form1Statement.Rows.Any())
-                        {
-                            throw new Exception("No data found in Capital Adequacy Form");
-                        }
-
-                        capital_adequacy_form1 = form1Statement.Rows;
-
-                        if (capital_adequacy_form1 == null || !capital_adequacy_form1.Any())
-                        {
-                            throw new Exception("No data found in Capital Adequacy Form");
-                        }
-                    }
-                    // Form 2: Liquidity Statement Form
-                    else if (fm.IsLiquidityStatement)
-                    {
-                        Form2 = ExcelService.ImportLiquidityStatementRows(form.formFile, _logger);
-                        if (Form2 == null || !Form2.Rows.Any())
-                        {
-                            throw new Exception("No data found in Liquidity Statement Form");
-                        }
-                        liquidityStatement_form_2 = Form2.Rows;
-                        if (liquidityStatement_form_2 == null || !liquidityStatement_form_2.Any())
-                        {
-                            throw new Exception("No data found in Liquidity Statement Form");
-                        }
-                    }
-                    // Form 3: Deposit Return Form
-                    else if (fm.IsDepositReturnForm)
-                    {
-                        Form3 = ExcelService.ImportDepositRangeDataRows(form.formFile, _logger);
-                        if (Form3 == null || !Form3.Rows.Any())
-                        {
-                            throw new Exception("No data found in Deposit Return Form");
-                        }
-                        depositreturn_form_3 = Form3.Rows;
-                        if (depositreturn_form_3 == null || !depositreturn_form_3.Any())
-                        {
-                            throw new Exception("No data found in Deposit Return Form");
-                        }
-                    }
-                    // Form 4: Risk Classification Form
-                    else if (fm.IsRiskClassification)
-                    {
-                        form4 = ExcelService.ImportRiskClassificationRows(form.formFile, _logger);
-                        if (form4 == null || !form4.Rows.Any())
-                        {
-                            throw new Exception("No data found in Risk Classification Form");
-                        }
-                        riskClassification_form_4 = form4.Rows;
-                        if (riskClassification_form_4 == null || !riskClassification_form_4.Any())
-                        {
-                            throw new Exception("No data found in Risk Classification Form");
-                        }
-                    }
-                    // Form 5: Investment Return Form
-                    else if (fm.IsInvestmentReturn)
-                    {
-                        Form5 = ExcelService.ImportInvestmentRows(form.formFile, _logger);
-                        if (Form5 == null || !Form5.Rows.Any())
-                        {
-                            throw new Exception("No data found in Investment Return Form");
-                        }
-                        inverstment_return_form_5 = Form5.Rows;
-                        if (inverstment_return_form_5 == null || !inverstment_return_form_5.Any())
-                        {
-                            throw new Exception("No data found in Investment Return Form");
-                        }
-                    }
-                    // Form 6: Statement of Financial Position
-                    else if (fm.IsFinancialPosition)
-                    {
-                        form6 = ExcelService.ImportFinancialPositionRows(form.formFile, _logger);
-                        if (form6 == null || !form6.Rows.Any())
-                        {
-                            throw new Exception("No data found in Statement of Financial Position");
-                        }
-                        financialPositionStatement_form_6 = form6.Rows;
-                        if (financialPositionStatement_form_6 == null || !financialPositionStatement_form_6.Any())
-                        {
-                            throw new Exception("No data found in Statement of Financial Position");
-                        }
-                    }
-                    // Form 7: Statement of Comprehensive Income
-                    else if (fm.IsStatementOfComprehensiveIncome)
-                    {
-                        form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(form.formFile, _logger);
-                        if (form7 == null || !form7.Rows.Any())
-                        {
-                            throw new Exception("No data found in Statement of Comprehensive Income");
-                        }
-                        comprehensiveStatement_form7 = form7.Rows;
-                        if (comprehensiveStatement_form7 == null || !comprehensiveStatement_form7.Any())
-                        {
-                            throw new Exception("No data found in Statement of Comprehensive Income");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
-                    throw new Exception($"Error processing {form.formFile.FileName}", ex);
-                }
-            }
-
-            var red = returnsHelper.AreAllFormsInSamePeriod(
-             form1Statement,
-             Form2,
-             Form3,
-             form4,
-             Form5,
-             form6,
-             form7);
-
-            if (!red.IsValid)
-            {
-                HasConsistencyBeenChecked = false;
-                processingSummary.Add(red.Message);
-                return (false, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, null, null, null, null, null, null, null, red.CommonPeriod);
-            }
+         }*/
 
 
-            bool isValid = true;
-            if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                comprehensiveStatement_form7))
-            {
-                var validationResult = ValidateReturns(
-                    capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                    riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                    comprehensiveStatement_form7
-                );
 
-                isValid = validationResult.IsValid;
-                if (!isValid)
-                {
-                    ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                    IDocument report = new ConsistencyReport(validationResult, "Test", "System");
-                    var pdfBytes = report.GeneratePdf();
-                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
+        /*  private async Task<(
+           bool IsValid,
+           List<string> ProcessingSummary,
+          List<ValidationError> ConsistencyErrors,
+          bool HasConsistencyBeenChecked,
+           List<CapitalAdequacyRow> CapitalAdequacy,
+           List<LiquidityStatementRow> LiquidityStatement,
+           List<DepositRangeData> DepositReturn,
+           List<RiskClassificationRow> RiskClassification,
+           List<InvestmentRow> Investment,
+           List<StatementOfFinancialPositionRow> FinancialPosition,
+           List<StatementOfComprehensiveIncomeRow> ComprehensiveStatement,
+           string CommonPeriod
+              )>
+              CheckConsistencyForDT(NewReturnDTO createFormDTO)
+          {
+              var processingSummary = new List<string>();
+              List<ValidationError> ConsistencyErrors = new List<ValidationError>();
+              ReturnsHelper returnsHelper = new ReturnsHelper(_context);
 
-                }
-            }
 
-            return (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, capital_adequacy_form1, liquidityStatement_form_2,
-                depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
-                financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
-        }
+              // Check for attachments
+              if (createFormDTO.FormUploads == null ||
+                  createFormDTO.FormUploads.Count == 0 ||
+                  !createFormDTO.FormUploads.Any(f => f.formFile != null))
+              {
+                  throw new Exception("No attachments found. Please attach at least one form");
+              }
 
+              // await returnsHelper.ValidateUploadedForms(Dto);
+              Form1Statement form1Statement = null;
+              Form2Statement Form2 = null;
+              Form3Statement Form3 = null;
+              Form4Statement form4 = null;
+              Form5Statement Form5 = null;
+              Form6Statement form6 = null;
+              Form7Statement form7 = null;
+
+
+              // Initialize form data holders
+              List<CapitalAdequacyRow> capital_adequacy_form1 = null;
+              List<LiquidityStatementRow> liquidityStatement_form_2 = null;
+              List<DepositRangeData> depositreturn_form_3 = null;
+              List<RiskClassificationRow> riskClassification_form_4 = null;
+              List<InvestmentRow> inverstment_return_form_5 = null;
+              List<StatementOfFinancialPositionRow> financialPositionStatement_form_6 = null;
+              List<StatementOfComprehensiveIncomeRow> comprehensiveStatement_form7 = null;
+              var HasConsistencyBeenChecked = true;
+              // Process each form
+              foreach (var form in createFormDTO.FormUploads)
+              {
+                  try
+                  {
+                      if (form.formFile == null) continue;
+
+
+                      ReturnForm? fm = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
+                      if (fm == null)
+                      {
+                          processingSummary.Add($"Form with ID {form.FormId} was not found in the system");
+                          continue;
+                      }
+
+
+                      // Form 1: Capital Adequacy Form
+                      if (fm.IsCapitalAdequencyForm)
+                      {
+                          form1Statement = ExcelService.ImportCapitalAdequacyRows(form.formFile, _logger);
+                          if (form1Statement == null || !form1Statement.Rows.Any())
+                          {
+                              throw new Exception("No data found in Capital Adequacy Form");
+                          }
+
+                          capital_adequacy_form1 = form1Statement.Rows;
+
+                          if (capital_adequacy_form1 == null || !capital_adequacy_form1.Any())
+                          {
+                              throw new Exception("No data found in Capital Adequacy Form");
+                          }
+                      }
+                      // Form 2: Liquidity Statement Form
+                      else if (fm.IsLiquidityStatement)
+                      {
+                          Form2 = ExcelService.ImportLiquidityStatementRows(form.formFile, _logger);
+                          if (Form2 == null || !Form2.Rows.Any())
+                          {
+                              throw new Exception("No data found in Liquidity Statement Form");
+                          }
+                          liquidityStatement_form_2 = Form2.Rows;
+                          if (liquidityStatement_form_2 == null || !liquidityStatement_form_2.Any())
+                          {
+                              throw new Exception("No data found in Liquidity Statement Form");
+                          }
+                      }
+                      // Form 3: Deposit Return Form
+                      else if (fm.IsDepositReturnForm)
+                      {
+                          Form3 = ExcelService.ImportDepositRangeDataRows(form.formFile, _logger);
+                          if (Form3 == null || !Form3.Rows.Any())
+                          {
+                              throw new Exception("No data found in Deposit Return Form");
+                          }
+                          depositreturn_form_3 = Form3.Rows;
+                          if (depositreturn_form_3 == null || !depositreturn_form_3.Any())
+                          {
+                              throw new Exception("No data found in Deposit Return Form");
+                          }
+                      }
+                      // Form 4: Risk Classification Form
+                      else if (fm.IsRiskClassification)
+                      {
+                          form4 = ExcelService.ImportRiskClassificationRows(form.formFile, _logger);
+                          if (form4 == null || !form4.Rows.Any())
+                          {
+                              throw new Exception("No data found in Risk Classification Form");
+                          }
+                          riskClassification_form_4 = form4.Rows;
+                          if (riskClassification_form_4 == null || !riskClassification_form_4.Any())
+                          {
+                              throw new Exception("No data found in Risk Classification Form");
+                          }
+                      }
+                      // Form 5: Investment Return Form
+                      else if (fm.IsInvestmentReturn)
+                      {
+                          Form5 = ExcelService.ImportInvestmentRows(form.formFile, _logger);
+                          if (Form5 == null || !Form5.Rows.Any())
+                          {
+                              throw new Exception("No data found in Investment Return Form");
+                          }
+                          inverstment_return_form_5 = Form5.Rows;
+                          if (inverstment_return_form_5 == null || !inverstment_return_form_5.Any())
+                          {
+                              throw new Exception("No data found in Investment Return Form");
+                          }
+                      }
+                      // Form 6: Statement of Financial Position
+                      else if (fm.IsFinancialPosition)
+                      {
+                          form6 = ExcelService.ImportFinancialPositionRows(form.formFile, _logger);
+                          if (form6 == null || !form6.Rows.Any())
+                          {
+                              throw new Exception("No data found in Statement of Financial Position");
+                          }
+                          financialPositionStatement_form_6 = form6.Rows;
+                          if (financialPositionStatement_form_6 == null || !financialPositionStatement_form_6.Any())
+                          {
+                              throw new Exception("No data found in Statement of Financial Position");
+                          }
+                      }
+                      // Form 7: Statement of Comprehensive Income
+                      else if (fm.IsStatementOfComprehensiveIncome)
+                      {
+                          form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(form.formFile, _logger);
+                          if (form7 == null || !form7.Rows.Any())
+                          {
+                              throw new Exception("No data found in Statement of Comprehensive Income");
+                          }
+                          comprehensiveStatement_form7 = form7.Rows;
+                          if (comprehensiveStatement_form7 == null || !comprehensiveStatement_form7.Any())
+                          {
+                              throw new Exception("No data found in Statement of Comprehensive Income");
+                          }
+                      }
+                  }
+                  catch (Exception ex)
+                  {
+                      processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
+                      throw new Exception($"Error processing {form.formFile.FileName}", ex);
+                  }
+              }
+
+              var red = returnsHelper.AreAllFormsInSamePeriod(
+               form1Statement,
+               Form2,
+               Form3,
+               form4,
+               Form5,
+               form6,
+               form7);
+
+              if (!red.IsValid)
+              {
+                  HasConsistencyBeenChecked = false;
+                  processingSummary.Add(red.Message);
+                  return (false, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, null, null, null, null, null, null, null, red.CommonPeriod);
+              }
+
+
+              bool isValid = true;
+              if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
+                  riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
+                  comprehensiveStatement_form7))
+              {
+                  var validationResult = ValidateReturns(
+                      capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
+                      riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
+                      comprehensiveStatement_form7
+                  );
+
+                  isValid = validationResult.IsValid;
+                  if (!isValid)
+                  {
+                      ConsistencyErrors.AddRange(validationResult.ValidationErrors);
+                      IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                      var pdfBytes = report.GeneratePdf();
+                      await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
+
+                  }
+              }
+
+              return (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, capital_adequacy_form1, liquidityStatement_form_2,
+                  depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
+                  financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
+          }
+  */
 
 
     }

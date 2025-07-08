@@ -678,6 +678,7 @@ namespace Returns.Controllers
                         {
                             FormId = er.ReturnFormId,
                             FormName = er.ReturnForm.FormName,
+                            ExpectedReturnId = er.Id,
                             FormCode = er.ReturnForm.Code,
                             PeriodId = er.PeriodId,
                             PeriodName = er.Period.Name,

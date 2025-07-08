@@ -41,18 +41,18 @@ namespace Returns.Helpers
 
             // 3. Check if all required forms are present
             bool hasAllRequiredForms = true;
-            forms.Any(f => f.IsCapitalAdequencyForm) &&
+           /* forms.Any(f => f.IsCapitalAdequencyForm) &&
             forms.Any(f => f.IsLiquidityStatement) &&
             forms.Any(f => f.IsRiskClassification) &&
             forms.Any(f => f.IsInvestmentReturn) &&
             forms.Any(f => f.IsFinancialPosition) &&
             forms.Any(f => f.IsStatementOfComprehensiveIncome) &&
-            forms.Any(f => f.IsDepositReturnForm);
+            forms.Any(f => f.IsDepositReturnForm);*/
 
             return hasAllRequiredForms;
         }
 
-        public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync(NewReturnDTO batchDTO, LoggedInEntity loggedInSacco, bool isConsistent, List<string> consistencyErrors, string periodToUse)
+       /* public async Task<(bool Success, string ReturnId, List<string> ProcessingSummary)> ProcessFormBatchAsync(NewReturnDTO batchDTO, LoggedInEntity loggedInSacco, bool isConsistent, List<string> consistencyErrors, string periodToUse)
         {
             var processingSummary = new List<string>();
             Boolean IsAmendment = false;
@@ -223,7 +223,7 @@ namespace Returns.Helpers
                 return (false, string.Empty, processingSummary);
             }
         }
-
+*/
         private Return CreateNewReturn(LoggedInEntity sacco, bool isConsistent, List<string> errors, DateTime submissionDate, string periodToUse)
         {
             return new Return
@@ -297,7 +297,7 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task<(bool Success, string Message)> ProcessFormAsync(Boolean IsAmendment, IFormFile formFile, ReturnForm form, string EffectiveReturnId, string saccoId, string saccoType, string OldReturnId = "")
+        /*public async Task<(bool Success, string Message)> ProcessFormAsync(Boolean IsAmendment, IFormFile formFile, ReturnForm form, string EffectiveReturnId, string saccoId, string saccoType, string OldReturnId = "")
         {
             try
             {
@@ -337,12 +337,12 @@ namespace Returns.Helpers
                 throw; // Rethrow the exception to be handled by the caller
                 //return (false, $"Error processing '{formFile.FileName}': {ex.Message}");
             }
-        }
+        }*/
 
 
 
 
-        private async Task<(bool Success, string NewReturnId, string Message)> HandleAmendment(string NewReturnID, string OldReturnId, string saccoId, ReturnForm form, string SaccoType)
+       /* private async Task<(bool Success, string NewReturnId, string Message)> HandleAmendment(string NewReturnID, string OldReturnId, string saccoId, ReturnForm form, string SaccoType)
         {
             try
             {
@@ -411,10 +411,10 @@ namespace Returns.Helpers
                 _logger.LogError(ex, "Error preparing amendment");
                 return (false, string.Empty, $"Error preparing amendment: {ex.Message}");
             }
-        }
+        }*/
 
 
-        private async Task<bool> CopyChildRecords(string OldReturnId, string NewReturnId, ReturnForm form, string SaccoType)
+       /* private async Task<bool> CopyChildRecords(string OldReturnId, string NewReturnId, ReturnForm form, string SaccoType)
         {
             if (SaccoType == Constants.SaccoType.DepositTaking)
             {
@@ -1691,9 +1691,9 @@ namespace Returns.Helpers
 
             }
             return false;
-        }
+        }*/
 
-        public async Task<(bool IsAmendment, string ReturnId)> IsAmendmentBasedOnReportingPeriod(IFormFile formFile, ReturnForm form, string SaccoType, string SaccoId)
+        /*public async Task<(bool IsAmendment, string ReturnId)> IsAmendmentBasedOnReportingPeriod(IFormFile formFile, ReturnForm form, string SaccoType, string SaccoId)
         {
             try
             {
@@ -1902,9 +1902,9 @@ namespace Returns.Helpers
                 throw;
                 //return (false, string.Empty);
             }
-        }
+        }*/
 
-        public async Task<(bool ReturnExists, string ReturnId)> IsThereAnyExistingReturn(ReturnForm form, DateTime ReportingEndDate, string SaccoType, string SaccoId)
+       /* public async Task<(bool ReturnExists, string ReturnId)> IsThereAnyExistingReturn(ReturnForm form, DateTime ReportingEndDate, string SaccoType, string SaccoId)
         {
             try
             {
@@ -2111,7 +2111,7 @@ namespace Returns.Helpers
                 throw;
                 //return (false, string.Empty);
             }
-        }
+        }*/
 
 
         private DateTime CalculateDueDate(DateTime reportingEndDate, string periodType)
@@ -2170,7 +2170,7 @@ namespace Returns.Helpers
         }
 
 
-        public async Task<(DateTime EndDate, string Year)> ExtractReportingEndDate(IFormFile formFile, ReturnForm form, string saccoType)
+       /* public async Task<(DateTime EndDate, string Year)> ExtractReportingEndDate(IFormFile formFile, ReturnForm form, string saccoType)
         {
             try
             {
@@ -2301,11 +2301,11 @@ namespace Returns.Helpers
                 throw;
                 //return (DateTime.MinValue, "");
             }
-        }
+        }*/
 
 
 
-        public async Task<(bool Success, string Message)> ProcessFormByType(IFormFile formFile, ReturnForm form, string returnId, string saccoType, Boolean IsAmendMent, string ExistingChildId = "")
+        /*public async Task<(bool Success, string Message)> ProcessFormByType(IFormFile formFile, ReturnForm form, string returnId, string saccoType, Boolean IsAmendMent, string ExistingChildId = "")
         {
             ReturnsHelper returnsHelper = new ReturnsHelper(_context);
             try
@@ -2419,10 +2419,10 @@ namespace Returns.Helpers
 
                 //return (false, $"Error in form processing: {ex.Message}");
             }
-        }
+        }*/
 
         // Helper method to determine form type
-        public string GetFormTypeFromForm(ReturnForm form)
+       /* public string GetFormTypeFromForm(ReturnForm form)
         {
             if (form.IsCapitalAdequencyForm) return "CapitalAdequacy";
             if (form.IsLiquidityStatement) return "Liquidity";
@@ -2436,9 +2436,9 @@ namespace Returns.Helpers
             if (form.IsManagement) return "Management";
             if (form.IsStatementOfComprehensiveIncome) return "ComprehensiveIncome";
             return null;
-        }
+        }*/
 
-        private async Task MarkFormAsAmended(string returnId, string formType, string saccoType)
+       /* private async Task MarkFormAsAmended(string returnId, string formType, string saccoType)
         {
             bool isDepositTaking = saccoType == Constants.SaccoType.DepositTaking.ToString();
 
@@ -2622,6 +2622,6 @@ namespace Returns.Helpers
             }
 
             await _context.SaveChangesAsync();
-        }
+        }*/
     }
 }
