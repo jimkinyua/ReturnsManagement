@@ -89,7 +89,5 @@ namespace Returns.Helpers
             }
             return Task.FromResult<IList<SubmissionResultDto>>(results);
         }
-
-       
     }
 }
