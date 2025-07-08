@@ -27,6 +27,9 @@ using System.ComponentModel.DataAnnotations;
 using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.Returns.Returns_Analysis;
 using System.Text;
+using Returns.Services.DraftReturnService;
+using Returns.Services.ReturnSubmissionService;
+using Returns.Services.ExcelImportService;
 
 namespace Returns.Controllers
 {
@@ -45,6 +48,9 @@ namespace Returns.Controllers
         private readonly FormResubmissionService _resubmissionService;
         private readonly IReturnChild _returnChild;
         private readonly IConfiguration _configuration;
+        private readonly DraftReturnService _draftReturnService;
+        private readonly ReturnSubmissionService _returnSubmissionService;
+        private readonly IExcelImportService _excelImportService;
 
         public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild)
         {
@@ -66,7 +72,13 @@ namespace Returns.Controllers
             this.complianceService = compliance;
             _returnChild = returnChild;
             _resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
-
+            
+            // Initialize new services
+            _excelImportService = new UnifiedExcelImportService(logger);
+            _draftReturnService = new DraftReturnService(context, logger, _excelImportService);
+            _returnSubmissionService = new ReturnSubmissionService(
+                context, logger, emailService, returnAssignmentService, 
+                workflowService, camelsAnalysisService, compliance);
         }
 
         [HttpPost("CheckConsistency")]
@@ -589,265 +601,181 @@ namespace Returns.Controllers
         }
 
         [HttpPost("Draft")]
-        public async Task<IActionResult> FileDraftReturnsAsync([FromForm] NewReturnDTO dto)
+        public async Task<IActionResult> FileDraftReturnsAsync([FromForm] DraftReturnDto draftDto)
         {
-
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }
-
-            foreach (var upload in dto.FormUploads)
-            {
-                  var expected = await _context.ExpectedReturns
-                    .Include(er => er.ReturnForm)
-                    .ThenInclude(f => f.Category)
-                    .FirstOrDefaultAsync(er => er.Id == upload.ExpectedReturnId);
-
-                if (expected == null)
-                {
-                 
-                }
-            }
-        }
-
-            // File Return
-         [HttpPost("Draft")]
-        public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
-        {
-
-            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
             try
             {
-                var processingSummary = new List<string>();
-                var ConError = new List<string>();
-                Boolean IsConsistent = true;
-                string PeriodToUse = string.Empty;
-                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
                     return StatusCode(401);
                 }
 
-
-                if (!returnsHelper.HasValidUploads(createFormDTO))
+                // Validate uploads
+                if (draftDto.FormUploads == null || !draftDto.FormUploads.Any())
                 {
-                    return BadRequest("No attachments found. Please attach at least one form.");
+                    return BadRequest("No forms uploaded");
                 }
-                // Validate that all forms have the same reporting period
-                foreach (var upload in createFormDTO.FormUploads.Where(u => u.formFile != null && !string.IsNullOrEmpty(u.FormId)))
+
+                // Save draft
+                var result = await _draftReturnService.SaveDraftAsync(draftDto, loggedInSacco.SaccoId, loggedInSacco.SaccoType);
+
+                if (result.Success)
                 {
-                    var form = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == upload.FormId);
-                    if (form != null)
+                    return Ok(new
                     {
-                        // Skip validation for management forms since they don't have periods
-                        if (!form.IsManagement)
-                        {
-                            var (endDate, year) = await _formProcessor.ExtractReportingEndDate(upload.formFile, form, loggedInSacco.SaccoType);
-
-                            if (endDate != DateTime.MinValue && !string.IsNullOrEmpty(year))
-                            {
-                                if (PeriodToUse == string.Empty)
-                                {
-                                    // First valid form sets the period
-                                    PeriodToUse = year;
-                                }
-                                else if (PeriodToUse != year)
-                                {
-                                    // If we find a different period, flag inconsistency
-                                    ConError.Add($"Form {form.Code} has period {year} which differs from {PeriodToUse}. Are you using the Correct template? ");
-                                    IsConsistent = false;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (PeriodToUse == null)
-                {
-                    return BadRequest("No valid reporting period found in the uploaded forms.");
-                }
-
-
-                if (!IsConsistent)
-                {
-                    return BadRequest(new
-                    {
-                        Message = "Inconsistent reporting periods detected across forms",
-                        Errors = ConError
+                        returnId = result.ReturnId,
+                        message = "Draft saved successfully",
+                        processedForms = result.ProcessedForms
                     });
                 }
 
-
-                var HasAssignedUser = await _returnAssignmentService.CheckSaccoAssignedUserAsync(loggedInSacco.SaccoId);
-
-                if (!HasAssignedUser.Success)
+                return BadRequest(new
                 {
-                    return BadRequest(HasAssignedUser.ErrorMessage);
-                }
-
-                if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
-                {
-                    if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
-                    {
-                        var (isValid, _, ConsistencyErrors, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                        if (!isValid)
-                        {
-                            ConError = ConsistencyErrors.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
-                        }
-                    }
-
-                    //PeriodToUse = CommonPeriod;
-                }
-                else
-                {
-
-                    if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
-                    {
-                        var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                        if (!isValid)
-                        {
-
-                            ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
-                        }
-                    }
-
-                    //PeriodToUse = CommonPeriod;
-                }
-
-                var (success, EffectiveReturnId, processingMessages) = await _formProcessor.ProcessFormBatchAsync(createFormDTO, loggedInSacco, IsConsistent, ConError, PeriodToUse);
-
-                if (!success)
-                {
-                    return StatusCode(409, string.Join(", ", processingMessages));
-                }
-                var PreviousReturnDetails = _context.Returns.Find(EffectiveReturnId);
-                var IsAssigned = await _returnAssignmentService.AssignReturnAsync(PreviousReturnDetails, loggedInSacco.SaccoId);
-                if (!IsAssigned.Success)
-                {
-                    _logger.LogError("Error assigning return: {ErrorMessage}", IsAssigned.ErrorMessage);
-
-                    var returnToDelete = await _context.Returns.FindAsync(EffectiveReturnId);
-                    if (returnToDelete != null)
-                    {
-                        _context.Returns.Remove(returnToDelete);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    return StatusCode(500, IsAssigned.ErrorMessage);
-                }
-                var ratingResult = await camelsAnalysisService.CalculateAnalysisAsync(PreviousReturnDetails.Id, PreviousReturnDetails.SaccoType);
-                var WorkFlowResult = await _workflowService.StartWorkflowAsync(PreviousReturnDetails, ratingResult.OverallRating);
-
-                await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
-
-                var lateForms = new List<(string FormName, DateTime DueDate, DateTime SubmissionDate)>();
-                var saccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
-                foreach (var form in createFormDTO.FormUploads)
-                {
-                    if (form.formFile == null) continue;
-
-                    var formDetails = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
-                    if (formDetails != null)
-                    {
-                        (DateTime reportingStartDate, DateTime reportingEndDate) = returnsHelper.GetReportingPeriod(formDetails, DateTime.Now);
-                        DateTime dueDate = returnsHelper.GetDueDate(formDetails, reportingEndDate);
-
-                        // Check if submission is late
-                        if (DateTime.Now > dueDate)
-                        {
-                            lateForms.Add((formDetails.FormName, dueDate, DateTime.Now));
-                        }
-                    }
-                }
-                if (lateForms.Any())
-                {
-                    var subject = lateForms.Count == 1
-                        ? $"Late Submission – {lateForms.First().FormName} Return"
-                        : $"Late Submissions – {lateForms.Count} Returns";
-
-                    var body = GenerateLateFormsEmailBody(saccoDetails.SaccoName, lateForms);
-
-                    await _emailService
-                        .SendEmailAsync(saccoDetails.OfficialSaccoEmail, subject, body)
-                        .ContinueWith(t =>
-                        {
-                            if (t.IsFaulted)
-                            {
-                                _logger.LogError(t.Exception, "Failed to send late forms notification email.");
-                            }
-                            else
-                            {
-                                _logger.LogInformation($"Late forms notification email sent successfully for {lateForms.Count} form(s).");
-                            }
-                        });
-                }
-
-                return Ok(processingMessages);
+                    message = result.Message,
+                    processedForms = result.ProcessedForms
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing files");
+                _logger.LogError(ex, "Error saving draft return");
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-
         }
 
-        private string GenerateLateFormsEmailBody(string saccoName, List<(string FormName, DateTime DueDate, DateTime SubmissionDate)> lateForms)
+        [HttpPost("Submit/{draftReturnId}")]
+        public async Task<IActionResult> SubmitDraftReturnAsync(string draftReturnId)
         {
-            var body = new StringBuilder();
-            body.AppendLine($"Dear {saccoName} Team,");
-            body.AppendLine();
-
-            if (lateForms.Count == 1)
+            try
             {
-                var form = lateForms.First();
-                body.AppendLine($"Thank you for submitting your **{form.FormName}** return.");
-                body.AppendLine($"Please note that it was received **after the statutory deadline** of {form.DueDate:dd MMM yyyy}.");
-            }
-            else
-            {
-                body.AppendLine($"Thank you for submitting your returns. However, we note that the following {lateForms.Count} returns were received **after their statutory deadlines**:");
-                body.AppendLine();
-
-                foreach (var form in lateForms)
+                var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
-                    body.AppendLine($"• **{form.FormName}** - Due: {form.DueDate:dd MMM yyyy}, Submitted: {form.SubmissionDate:dd MMM yyyy}");
+                    return StatusCode(401);
                 }
+
+                // Submit draft
+                var result = await _returnSubmissionService.SubmitDraftReturnAsync(draftReturnId, loggedInSacco);
+
+                if (result.Success)
+                {
+                    return Ok(new
+                    {
+                        returnId = result.ReturnId,
+                        message = result.Message,
+                        isConsistent = result.IsConsistent,
+                        consistencyErrors = result.ConsistencyErrors
+                    });
+                }
+
+                return BadRequest(new
+                {
+                    message = result.Message,
+                    validationErrors = result.ValidationErrors
+                });
             }
-
-            body.AppendLine();
-            body.AppendLine("Under the Regulations, late submissions may attract penalties or additional supervisory follow-up.");
-            body.AppendLine("Kindly ensure future returns are lodged on or before their due dates to remain in full compliance.");
-            body.AppendLine();
-            body.AppendLine("Regards,");
-            body.AppendLine("Compliance Desk");
-
-            return body.ToString();
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error submitting draft return");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
         }
 
-
-        // Re assign Return 
-        [HttpPost("ReassignReturn")]
-        public async Task<IActionResult> ReassignReturn([FromBody] ReAssignReturnDTO reAssignReturnDTO)
+        [HttpGet("Draft/{returnId}")]
+        public async Task<IActionResult> GetDraftReturnAsync(string returnId)
         {
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+            try
             {
-                return StatusCode(401);
+                var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null)
+                {
+                    return StatusCode(401);
+                }
+
+                var draftReturn = await _context.Returns
+                    .FirstOrDefaultAsync(r => r.Id == returnId && 
+                                            r.IsDraft && 
+                                            r.SaccoId == loggedInSacco.SaccoId);
+
+                if (draftReturn == null)
+                {
+                    return NotFound("Draft return not found");
+                }
+
+                // Get all associated forms
+                var forms = new List<object>();
+
+                if (draftReturn.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                {
+                    var capitalAdequacy = await _context.DTCapitalAdequacyReturns
+                        .Where(c => c.ReturnId == returnId)
+                        .Select(c => new { FormType = "CapitalAdequacy", c.FormId, c.CreatedAt })
+                        .ToListAsync();
+                    forms.AddRange(capitalAdequacy);
+
+                    var liquidity = await _context.DTLiquidityReturns
+                        .Where(l => l.ReturnId == returnId)
+                        .Select(l => new { FormType = "Liquidity", l.FormId, l.CreatedAt })
+                        .ToListAsync();
+                    forms.AddRange(liquidity);
+                    
+                    // Add other form types...
+                }
+
+                return Ok(new
+                {
+                    returnId = draftReturn.Id,
+                    period = draftReturn.Year,
+                    createdAt = draftReturn.CreatedAt,
+                    forms = forms
+                });
             }
-            var returnToReassign = await _context.Returns.FindAsync(reAssignReturnDTO.ReturnId);
-            if (returnToReassign == null)
+            catch (Exception ex)
             {
-                return NotFound("Return not found");
+                _logger.LogError(ex, "Error fetching draft return");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-            var result = await _returnAssignmentService.ReassignReturnAsync(reAssignReturnDTO.ReturnId, reAssignReturnDTO.AssignedUserId);
-            if (!result.Success)
+        }
+
+        [HttpDelete("Draft/{returnId}")]
+        public async Task<IActionResult> DeleteDraftReturnAsync(string returnId)
+        {
+            try
             {
-                return BadRequest(result.ErrorMessage);
+                var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null)
+                {
+                    return StatusCode(401);
+                }
+
+                var draftReturn = await _context.Returns
+                    .FirstOrDefaultAsync(r => r.Id == returnId && 
+                                            r.IsDraft && 
+                                            r.SaccoId == loggedInSacco.SaccoId);
+
+                if (draftReturn == null)
+                {
+                    return NotFound("Draft return not found");
+                }
+
+                // Delete all associated child records
+                // This would be better with cascade delete configured
+                _context.Returns.Remove(draftReturn);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Draft deleted successfully" });
             }
-            return Ok("Return reassigned successfully");
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting draft return");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        [HttpPost("Submit")]
+        public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
+        {
+            // Old implementation - replaced by Draft and Submit endpoints
         }
 
         [HttpGet("GetSubmittedReturns")]
