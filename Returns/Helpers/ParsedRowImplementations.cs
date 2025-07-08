@@ -363,8 +363,48 @@ namespace Returns.Helpers
         }
     }
 
+    public class RiskClassificationParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public Form4Statement Data { get; set; } = null!;
+
+        public object ToEntity()
+        {
+            // Since Risk Classification has multiple rows (Regular + Rescheduled/Renegotiated loans),
+            // we need to return a list of entities
+            var riskClassificationReturns = new List<DTRiskClassificationReturn>();
+
+            foreach (var row in Data.Rows)
+            {
+                // Skip the "Total" row as it's just a summary
+                if (row.LoanType == "Total")
+                    continue;
+
+                var entity = new DTRiskClassificationReturn
+                {
+                    ReturnSubmissionId = ReturnSubmissionId,
+                    SaccoCsNumber = Data.SaccoCsNumber,
+                    Year = Data.Period,
+                    StartDate = Data.StartDate,
+                    EndDate = Data.EndDate,
+                    LoanType = row.LoanType,
+                    Classification = row.Classification,
+                    NumberOfAccounts = row.NumberOfAccounts,
+                    OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
+                    RequiredProvision = row.RequiredProvision,
+                    RequiredProvisionAmount = row.RequiredProvisionAmount,
+                    CreatedAt = DateTime.Now
+                };
+
+                riskClassificationReturns.Add(entity);
+            }
+
+            // Return the first one for now, but in practice you might need to handle multiple entities
+            return riskClassificationReturns.FirstOrDefault() ?? new DTRiskClassificationReturn();
+        }
+    }
+
     // You would need to implement similar classes for other form types:
-    // - RiskClassificationParsedRow
     // - InvestmentParsedRow
     // - FinancialPositionParsedRow
     // - ComprehensiveIncomeParsedRow

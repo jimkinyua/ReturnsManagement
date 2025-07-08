@@ -291,8 +291,45 @@ namespace Returns.Helpers
             });
         }
 
-        // Placeholder methods for remaining form types
-        private async Task<ExcelParseResult> ParseRiskClassification(IFormFile file) => await ParseNotImplemented("Risk Classification");
+        private async Task<ExcelParseResult> ParseRiskClassification(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportRiskClassificationRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Risk Classification Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "DTRiskClassification";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new RiskClassificationParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
         private async Task<ExcelParseResult> ParseInvestment(IFormFile file) => await ParseNotImplemented("Investment");
         private async Task<ExcelParseResult> ParseFinancialPosition(IFormFile file) => await ParseNotImplemented("Financial Position");
         private async Task<ExcelParseResult> ParseComprehensiveIncome(IFormFile file) => await ParseNotImplemented("Comprehensive Income");
