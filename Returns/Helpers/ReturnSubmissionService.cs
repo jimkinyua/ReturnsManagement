@@ -12,7 +12,7 @@ namespace Returns.Helpers
     public class ReturnSubmissionService : IReturnSubmissionService
     {
         private readonly ReturnsDbContext _context;
-        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, string SaccoType, string SaccoId)
+        public Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, string SaccoType, string SaccoId)
         {
             var results = new List<SubmissionResultDto>();
 
@@ -27,9 +27,9 @@ namespace Returns.Helpers
                     results.Add(res);
                     continue;
                 }
-               var expected = await _context.ExpectedReturns
-              .Include(er => er.ReturnForm)
-              .FirstOrDefaultAsync(er => er.Id == item.ExpectedReturnId);
+                var expected = _context.ExpectedReturns
+               .Include(er => er.ReturnForm)
+               .FirstOrDefaultAsync(er => er.Id == item.ExpectedReturnId).Result;
 
                 if (expected == null || expected.ReturnForm.SaccoTypeId != SaccoType)
                 {
@@ -39,7 +39,7 @@ namespace Returns.Helpers
                     continue;
                 }
 
-                var url = await FormsHelper.SaveFileAsync(item.formFile, "Returns");
+                var url = FormsHelper.SaveFileAsync(item.formFile, "Returns").Result;
                 if (url == null)
                 {
                     res.Status = SubmissionStatus.Failed;
@@ -57,16 +57,17 @@ namespace Returns.Helpers
                     //Status = SubmissionStatus.Draft
                 };
                 _context.ReturnSubmissions.Add(submission);
-                await _context.SaveChangesAsync();
+                _context.SaveChanges();
                 res.SubmissionId = submission.Id;
 
-                var parse = await _excelParser.ParseAsync(item.FormFile,expected.ReturnForm.Code);
-                
+
+                var parse = _excelParser.ParseAsync(item.FormFile, expected.ReturnForm.Code).Result;
+
                 if (!parse.Success)
                 {
                     submission.Status = SubmissionStatus.Failed;
                     submission.Messages = parse.Errors;
-                    await _context.SaveChangesAsync();
+                    _context.SaveChanges();
 
                     res.Status = SubmissionStatus.Failed;
                     res.Messages = parse.Errors;
@@ -79,11 +80,16 @@ namespace Returns.Helpers
                     row.ReturnSubmissionId = submission.Id;
                     _context.Add(row.ToEntity());
                 }
-                await _context.SaveChangesAsync();
+                _context.SaveChanges();
                 res.Status = SubmissionStatus.Draft;
                 res.Messages.Add("Saved as draft.");
                 results.Add(res);
+                
 
             }
+            return Task.FromResult<IList<SubmissionResultDto>>(results);
         }
+
+       
+    }
 }

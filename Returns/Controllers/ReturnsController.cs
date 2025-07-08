@@ -598,18 +598,7 @@ namespace Returns.Controllers
                 return StatusCode(401);
             }
 
-            foreach (var upload in dto.FormUploads)
-            {
-                  var expected = await _context.ExpectedReturns
-                    .Include(er => er.ReturnForm)
-                    .ThenInclude(f => f.Category)
-                    .FirstOrDefaultAsync(er => er.Id == upload.ExpectedReturnId);
-
-                if (expected == null)
-                {
-                 
-                }
-            }
+          
         }
 
             // File Return
