@@ -197,6 +197,27 @@ namespace Returns.Helpers
                     }
                     break;
 
+                case List<NWDTDepositReturn> nwdtDepositList:
+                    foreach (var nwdtDepositItem in nwdtDepositList)
+                    {
+                        submission.NWDTDepositReturns.Add(nwdtDepositItem);
+                    }
+                    break;
+
+                case List<DTRiskClassificationReturn> riskList:
+                    foreach (var riskItem in riskList)
+                    {
+                        submission.DTRiskClassificationReturns.Add(riskItem);
+                    }
+                    break;
+
+                case List<NWDTRiskClassificationReturn> nwdtRiskList:
+                    foreach (var nwdtRiskItem in nwdtRiskList)
+                    {
+                        submission.NWDTRiskClassificationReturns.Add(nwdtRiskItem);
+                    }
+                    break;
+
                 default:
                     _logger.LogWarning($"Unknown entity type: {entity?.GetType()?.Name ?? "null"}");
                     break;

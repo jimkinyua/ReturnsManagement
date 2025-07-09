@@ -55,12 +55,8 @@ namespace Returns.Models
         [ForeignKey("ReturnSubmission")]
         public string ReturnSubmissionId { get; set; } = null!;
         public ReturnSubmission ReturnSubmission { get; set; } = null!;
-        public string FilePath { get; set; } = null!;
-        public string Year { get; set; } = null!;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-        public string Frequency { get; set; } = null!;
-        public int DaysLateBy { get; set; }
 
     }
 }

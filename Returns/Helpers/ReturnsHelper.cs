@@ -527,13 +527,13 @@ namespace Returns.Helpers
         {
             int count = 0;
 
-            if (returnItem.CapitalAdequencies.Any(c => c.DaysLateBy > 0)) count++;
-            if (returnItem.LiquidityReturns.Any(l => l.DaysLateBy > 0)) count++;
+            //if (returnItem.CapitalAdequencies.Any(c => c.DaysLateBy > 0)) count++;
+        /*    if (returnItem.LiquidityReturns.Any(l => l.DaysLateBy > 0)) count++;
             if (returnItem.RiskClassifications.Any(r => r.DaysLateBy > 0)) count++;
             if (returnItem.InvestmentReturns.Any(i => i.DaysLateBy > 0)) count++;
             if (returnItem.StatementOfFinancialPositionReturns.Any(s => s.DaysLateBy > 0)) count++;
             if (returnItem.StatementOfComprehensiveIncomeReturns.Any(s => s.DaysLateBy > 0)) count++;
-            if (returnItem.DepositReturns.Any(d => d.DaysLateBy > 0)) count++;
+            if (returnItem.DepositReturns.Any(d => d.DaysLateBy > 0)) count++;*/
 
             return count;
         }
@@ -1042,12 +1042,12 @@ namespace Returns.Helpers
                 DTCapitalAdequacyReturn capitalAdequacy = new DTCapitalAdequacyReturn
                 {
                     //ReturnId = returnId,
-                    FilePath = Path,
-                    Year = Form1Statement.Period,
+                    //FilePath = Path,
+                    //Year = Form1Statement.Period,
                     StartDate = Form1Statement.StartDate,
                     EndDate = Form1Statement.EndDate,
                     //Frequency = form.Period.Name,
-                    DaysLateBy = DaysLateBy,
+                    //DaysLateBy = DaysLateBy,
                     SaccoCsNumber = Form1Statement.SaccoCsNumber,
                     FormId = form.Id,
                     RequiresResubmission = false,
@@ -1918,8 +1918,8 @@ namespace Returns.Helpers
                     StartDate = form2.StartDate,
                     EndDate = form2.EndDate,
                     //Frequency = form.Period.Name,
-                    FilePath = Path,
-                    DaysLateBy = DaysLateBy,
+                   /* FilePath = Path,
+                    DaysLateBy = DaysLateBy,*/
                     SaccoCsNumber = form2.SaccoCsNumber,
                     RequiresResubmission = false,
                     CreatedAt = DateTime.Now
@@ -2056,8 +2056,8 @@ namespace Returns.Helpers
                         StartDate = form3.StartDate,
                         EndDate = form3.EndDate,
                         //Frequency = form.Period.Name,
-                        FilePath = FilePath,
-                        DaysLateBy = DaysLateBy,
+                        //FilePath = FilePath,
+                        //DaysLateBy = DaysLateBy,
                         SaccoCsNumber = form3.SaccoCsNumber,
                         RequiresResubmission = false,
                         CreatedAt = DateTime.Now
@@ -2297,8 +2297,8 @@ namespace Returns.Helpers
                         StartDate = form4.StartDate,
                         EndDate = form4.EndDate,
                         //Frequency = form.Period.Name,
-                        FilePath = FilePath,
-                        DaysLateBy = DaysLateBy,
+                       /* FilePath = FilePath,
+                        DaysLateBy = DaysLateBy,*/
                         SaccoCsNumber = form4.SaccoCsNumber,
                         RequiresResubmission = false,
                         CreatedAt = DateTime.Now
@@ -2358,8 +2358,8 @@ namespace Returns.Helpers
                     StartDate = form5.StartDate,
                     EndDate = form5.EndDate,
                     //Frequency = form.Period.Name,
-                    FilePath = FilePath,
-                    DaysLateBy = DaysLateBy,
+                    /*FilePath = FilePath,
+                    DaysLateBy = DaysLateBy,*/
                     SaccoCsNumber = form5.SaccoCsNumber,
                     RequiresResubmission = false,
                     CreatedAt = DateTime.Now
@@ -2621,8 +2621,8 @@ namespace Returns.Helpers
                     EndDate = form6.EndDate,
                     FormId = form.Id,
                     //Frequency = form.Period.Name,
-                    FilePath = FilePath,
-                    DaysLateBy = DaysLateBy,
+                   /* FilePath = FilePath,
+                    DaysLateBy = DaysLateBy,*/
                     SaccoCsNumber = form6.SaccoCsNumber,
                 };
                 foreach (var row in rows)
@@ -3343,9 +3343,9 @@ namespace Returns.Helpers
                     StartDate = form7.StartDate,
                     EndDate = form7.EndDate,
                     //Frequency = form.Period.Name,
-                    FilePath = FilePath,
-                    FormId = form.Id,
-                    DaysLateBy = DaysLateBy,
+                   /* FilePath = FilePath,
+                    FormId = form.Id,*/
+                    //DaysLateBy = DaysLateBy,
                     SaccoCsNumber = form7.SaccoCsNumber,
                 };
                 foreach (var row in rows)

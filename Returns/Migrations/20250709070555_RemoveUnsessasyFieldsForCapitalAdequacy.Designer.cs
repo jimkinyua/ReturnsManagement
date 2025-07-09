@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250709070555_RemoveUnsessasyFieldsForCapitalAdequacy")]
+    partial class RemoveUnsessasyFieldsForCapitalAdequacy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -403,6 +406,9 @@ namespace Returns.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DaysLateBy")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("DepositsWithBanks")
                         .HasColumnType("decimal(18,2)");
 
@@ -424,7 +430,15 @@ namespace Returns.Migrations
                     b.Property<decimal>("FeesAndCommissionOnLoanPortfolio")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FormId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("GovernanceExpenses")
@@ -540,6 +554,9 @@ namespace Returns.Migrations
                     b.Property<decimal>("CurrentYearSurplus")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int>("DaysLateBy")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("DeferredTaxAssets")
                         .HasColumnType("decimal(18,2)");
 
@@ -555,7 +572,15 @@ namespace Returns.Migrations
                     b.Property<decimal>("ExternalBorrowings")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FormId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("GovernmentSecurities")
@@ -680,8 +705,15 @@ namespace Returns.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DaysLateBy")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("FinancialInvestments")
                         .HasColumnType("decimal(18,2)");
@@ -699,6 +731,10 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("FormId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsAmended")
@@ -808,6 +844,9 @@ namespace Returns.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DaysLateBy")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("DepositsFromMembers")
                         .HasColumnType("decimal(18,2)");
 
@@ -817,10 +856,18 @@ namespace Returns.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("ForeignNotesAndCoins")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("FormId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsAmended")
@@ -937,10 +984,21 @@ namespace Returns.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DaysLateBy")
+                        .HasColumnType("int");
+
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FormId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsAmended")
@@ -1146,6 +1204,9 @@ namespace Returns.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("DaysLateBy")
+                        .HasColumnType("int");
+
                     b.Property<string>("DepositType")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1153,7 +1214,15 @@ namespace Returns.Migrations
                     b.Property<DateTime>("EndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FormId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Frequency")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsAmended")

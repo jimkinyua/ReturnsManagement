@@ -512,7 +512,7 @@ namespace Returns.Helpers
                     FinancialInvestmentsToCoreCapitalExcessDeficiency = investmentEntity.FinancialInvestmentsToCoreCapitalExcessDeficiency,
                     FinancialInvestmentsToDepositsRatio = investmentEntity.FinancialInvestmentsToDepositsRatio,
                     FinancialInvestmentsToDepositsExcessDeficiency = investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
-                    FilePath = investmentEntity.FilePath
+                    //FilePath = investmentEntity.FilePath
                 };
             }
 
@@ -565,7 +565,7 @@ namespace Returns.Helpers
                         OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
                         RequiredProvision = rc.RequiredProvision,
                         RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                        FilePath = rc.FilePath
+                        //FilePath = rc.FilePath
                     });
                 }
             }
@@ -610,7 +610,7 @@ namespace Returns.Helpers
                     LiquidityRatioExcessDeficit = liquidityEntity.LiquidityRatioExcessDeficit,
                     NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
                     NetBankBalances = liquidityEntity.NetBankBalances,
-                    FilePath = liquidityEntity.FilePath
+                    //FilePath = liquidityEntity.FilePath
                 };
             }
 
@@ -661,7 +661,7 @@ namespace Returns.Helpers
                     PriorYearsRetainedEarnings = balanceEntity.PriorYearsRetainedEarnings,
                     CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
                     StatutoryReserve = balanceEntity.StatutoryReserve,
-                    FilePath = balanceEntity.FilePath
+                    //FilePath = balanceEntity.FilePath
                 };
             }
 
@@ -704,7 +704,7 @@ namespace Returns.Helpers
                     NonOperatingExpense = incomeEntity.NonOperatingExpense,
                     Taxes = incomeEntity.Taxes,
                     Donations = incomeEntity.Donations,
-                    FilePath = incomeEntity.FilePath
+                    //FilePath = incomeEntity.FilePath
                 };
             }
 
@@ -720,7 +720,7 @@ namespace Returns.Helpers
             int capitalDaysLate = 0;
             if (capEntity != null)
             {
-                capitalDaysLate = capEntity.DaysLateBy;
+                //capitalDaysLate = capEntity.DaysLateBy;
                 capitalAdequacy = new CapitalAdequacyDTO
                 {
                     FormId = capEntity.FormId ?? string.Empty,
@@ -754,7 +754,7 @@ namespace Returns.Helpers
                     InstitutionalCapitalToAssetsRatioExcessDeficiency = capEntity.InstitutionalCapitalToAssetsRatioExcessDeficiency,
                     CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
                     CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
-                    FilePath = capEntity.FilePath,
+                    //FilePath = capEntity.FilePath,
                 };
             }
 
