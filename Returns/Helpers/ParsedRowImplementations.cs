@@ -249,9 +249,22 @@ namespace Returns.Helpers
         public object ToEntity()
         {
             var depositReturns = new List<DepositReturn>();
+            string currentRangeName = string.Empty;
 
             foreach (var row in Data.Rows)
             {
+                // Skip TOTAL row as it's a summary
+                if (row.DepositType?.ToUpper() == "TOTAL")
+                {
+                    continue;
+                }
+
+                // Update current range name if it's not empty
+                if (!string.IsNullOrEmpty(row.RangeName))
+                {
+                    currentRangeName = row.RangeName;
+                }
+
                 var entity = new DepositReturn
                 {
                     ReturnSubmissionId = ReturnSubmissionId,
@@ -259,18 +272,18 @@ namespace Returns.Helpers
                     Year = Data.Period,
                     StartDate = Data.StartDate,
                     EndDate = Data.EndDate,
-                    //Range = row.RangeName,
+                    RangeName = currentRangeName,  // Use the current range name
                     DepositType = row.DepositType,
                     NumberOfAccounts = row.NumberOfAccounts,
-                    //Amount = row.AmountInKshs000,
+                    AmountInKshs000 = row.AmountInKshs000,
                     CreatedAt = DateTime.Now
                 };
 
                 depositReturns.Add(entity);
             }
 
-            // Return the first one for now, but in practice you might need to handle multiple entities
-            return depositReturns.FirstOrDefault() ?? new DepositReturn();
+            // Return the list of deposit returns
+            return depositReturns;
         }
     }
 
@@ -808,9 +821,22 @@ namespace Returns.Helpers
         public object ToEntity()
         {
             var depositReturns = new List<NWDTDepositReturn>();
+            string currentRangeName = string.Empty;
 
             foreach (var row in Data.Rows)
             {
+                // Skip TOTAL row as it's a summary
+                if (row.DepositType?.ToUpper() == "TOTAL")
+                {
+                    continue;
+                }
+
+                // Update current range name if it's not empty
+                if (!string.IsNullOrEmpty(row.Range))
+                {
+                    currentRangeName = row.Range;
+                }
+
                 var entity = new NWDTDepositReturn
                 {
                     ReturnSubmissionId = ReturnSubmissionId,
@@ -819,7 +845,7 @@ namespace Returns.Helpers
                     Period = Data.Period,
                     SaccoCsNumber = Data.SaccoCsNumber,
                     AmountInKshs000 = row.Amount,
-                    RangeName = row.Range,
+                    RangeName = currentRangeName,  // Use the current range name
                     DepositType = row.DepositType,
                     NumberOfAccounts = row.NumberOfAccounts,
                     CreatedAt = DateTime.Now
@@ -828,7 +854,8 @@ namespace Returns.Helpers
                 depositReturns.Add(entity);
             }
 
-            return depositReturns.FirstOrDefault() ?? new NWDTDepositReturn();
+            // Return the list of deposit returns
+            return depositReturns;
         }
     }
 
