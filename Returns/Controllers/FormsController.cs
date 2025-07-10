@@ -665,46 +665,7 @@ namespace Returns.Controllers
 
                 // Get submission data for all expected returns in one query for performance
                 var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
-                var submissions = await _context.ReturnSubmissions
-                    .Include(rs => rs.DTCapitalAdequacyReturns)
-                    .Include(rs => rs.DTComprehensiveIncomeReturns)
-                    .Include(rs => rs.DTFinancialPositionReturns)
-                    .Include(rs => rs.DTInvestmentReturns)
-                    .Include(rs => rs.DTLiquidityReturns)
-                    .Include(rs => rs.DTRiskClassificationReturns)
-                    .Include(rs => rs.DepositReturns)
-                    .Include(rs => rs.NWDTCapitalAdequacyReturns)
-                    .Include(rs => rs.NWDTLiquidityReturns)
-                    .Include(rs => rs.NWDTDepositReturns)
-                    .Include(rs => rs.NWDTInvestmentReturns)
-                    .Include(rs => rs.NWDTFinancialPositionReturns)
-                    .Include(rs => rs.NWDTComprehensiveIncomeReturns)
-                    .Include(rs => rs.NWDTRiskClassificationReturns)
-                    .Where(rs => expectedReturnIds.Contains(rs.ExpectedReturnId) && rs.IsActive)
-                    .Select(rs => new 
-                    { 
-                        rs.ExpectedReturnId, 
-                        rs.Id, 
-                        rs.SubmittedAt,
-                        HasData = rs.DTCapitalAdequacyReturns.Any() || 
-                                  rs.DTComprehensiveIncomeReturns.Any() || 
-                                  rs.DTFinancialPositionReturns.Any() || 
-                                  rs.DTInvestmentReturns.Any() || 
-                                  rs.DTLiquidityReturns.Any() || 
-                                  rs.DTRiskClassificationReturns.Any() || 
-                                  rs.DepositReturns.Any() || 
-                                  rs.NWDTCapitalAdequacyReturns.Any() || 
-                                  rs.NWDTLiquidityReturns.Any() || 
-                                  rs.NWDTDepositReturns.Any() || 
-                                  rs.NWDTInvestmentReturns.Any() || 
-                                  rs.NWDTFinancialPositionReturns.Any() || 
-                                  rs.NWDTComprehensiveIncomeReturns.Any() || 
-                                  rs.NWDTRiskClassificationReturns.Any()
-                    })
-                    .ToListAsync();
-
-                // Create lookup for quick submission status checks
-                var submissionLookup = submissions.ToDictionary(s => s.ExpectedReturnId);
+                var submissionLookup = await GetSubmissionDataAsync(expectedReturnIds);
 
                 // Group by frequency with enhanced submission data
                 var groupedData = expectedReturns
@@ -817,46 +778,7 @@ namespace Returns.Controllers
 
                 // Get submission data for all expected returns in one query for performance
                 var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
-                var submissions = await _context.ReturnSubmissions
-                    .Include(rs => rs.DTCapitalAdequacyReturns)
-                    .Include(rs => rs.DTComprehensiveIncomeReturns)
-                    .Include(rs => rs.DTFinancialPositionReturns)
-                    .Include(rs => rs.DTInvestmentReturns)
-                    .Include(rs => rs.DTLiquidityReturns)
-                    .Include(rs => rs.DTRiskClassificationReturns)
-                    .Include(rs => rs.DepositReturns)
-                    .Include(rs => rs.NWDTCapitalAdequacyReturns)
-                    .Include(rs => rs.NWDTLiquidityReturns)
-                    .Include(rs => rs.NWDTDepositReturns)
-                    .Include(rs => rs.NWDTInvestmentReturns)
-                    .Include(rs => rs.NWDTFinancialPositionReturns)
-                    .Include(rs => rs.NWDTComprehensiveIncomeReturns)
-                    .Include(rs => rs.NWDTRiskClassificationReturns)
-                    .Where(rs => expectedReturnIds.Contains(rs.ExpectedReturnId) && rs.IsActive)
-                    .Select(rs => new 
-                    { 
-                        rs.ExpectedReturnId, 
-                        rs.Id, 
-                        rs.SubmittedAt,
-                        HasData = rs.DTCapitalAdequacyReturns.Any() || 
-                                  rs.DTComprehensiveIncomeReturns.Any() || 
-                                  rs.DTFinancialPositionReturns.Any() || 
-                                  rs.DTInvestmentReturns.Any() || 
-                                  rs.DTLiquidityReturns.Any() || 
-                                  rs.DTRiskClassificationReturns.Any() || 
-                                  rs.DepositReturns.Any() || 
-                                  rs.NWDTCapitalAdequacyReturns.Any() || 
-                                  rs.NWDTLiquidityReturns.Any() || 
-                                  rs.NWDTDepositReturns.Any() || 
-                                  rs.NWDTInvestmentReturns.Any() || 
-                                  rs.NWDTFinancialPositionReturns.Any() || 
-                                  rs.NWDTComprehensiveIncomeReturns.Any() || 
-                                  rs.NWDTRiskClassificationReturns.Any()
-                    })
-                    .ToListAsync();
-
-                // Create lookup for quick submission status checks
-                var submissionLookup = submissions.ToDictionary(s => s.ExpectedReturnId);
+                var submissionLookup = await GetSubmissionDataAsync(expectedReturnIds);
 
                 // Group by frequency with enhanced submission data
                 var groupedData = expectedReturns
