@@ -1401,7 +1401,7 @@ namespace Returns.Helpers
                 {
                     insiderLendingHeader = new InsiderLendingHeader
                     {
-                        ReturnId = returnId,
+                        //ReturnId = returnId,
                         FilePath = Path,
                         StartDate = ImportedLendingReport.StartDate,
                         EndDate = ImportedLendingReport.EndDate,
@@ -1414,14 +1414,14 @@ namespace Returns.Helpers
                 }
                 else
                 {
-                    insiderLendingHeader = await _context.InsiderLendingHeaders.FirstOrDefaultAsync(x => x.ReturnId == EffectiveReturnId);
+                    insiderLendingHeader = await _context.InsiderLendingHeaders.FirstOrDefaultAsync(x => x.ReturnSubmissionId == EffectiveReturnId);
                     if (insiderLendingHeader == null)
                     {
                         throw new Exception("Return not found for amendment");
                     }
 
                     insiderLendingHeader.PreviousReturnId = PrevId;
-                    insiderLendingHeader.ReturnId = returnId;
+                    //insiderLendingHeader.ReturnId = returnId;
                     insiderLendingHeader.Version = insiderLendingHeader.Version;// + 1;
                     insiderLendingHeader.IsCurrent = true;
                     insiderLendingHeader.IsAmended = false;
@@ -1492,7 +1492,7 @@ namespace Returns.Helpers
 
 
 
-        public async Task ProcessDailyLiquidityForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
+       /* public async Task ProcessDailyLiquidityForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendment, string PrevId = "")
         {
             try
             {
@@ -1625,7 +1625,7 @@ namespace Returns.Helpers
 
                 throw;
             }
-        }
+        }*/
 
 
 
@@ -3576,7 +3576,7 @@ namespace Returns.Helpers
                                 Category = categoryEntity.CategoryName,
                                 SubCategory = subCategoryEntity.Name,
                                 EconomicSectorName = econEntity.Name,
-                                ReturnId = sectoralLendingReport.ReturnId,
+                                //ReturnId = sectoralLendingReport.ReturnId,
                                 IsCurrent = sectoralLendingReport.IsCurrent,
                                 PreviousReturnId = sectoralLendingReport.PreviousReturnId,
                                 IsAmended = sectoralLendingReport.IsAmended,

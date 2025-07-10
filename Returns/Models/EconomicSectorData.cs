@@ -8,7 +8,7 @@ namespace Returns.Models
     {
         [ForeignKey("SectoralLendingReport")]
         public string SectoralLendingReportId { get; set; } = null!;
-        public string ReturnId { get; set; } = null!;
+        public string ReturnSubmissionId { get; set; } = null!;
         public decimal Amount { get; set; }
         [ForeignKey("EconomicSector")]
         public string EconomicSectorId { get; set; } = null!;

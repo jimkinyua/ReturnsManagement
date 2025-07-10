@@ -100,7 +100,7 @@ namespace Returns.Models
             FOSADeposits != 0 ? ComputedTotalClosingBalance / FOSADeposits : 0;
 
         [ForeignKey("Returns")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
+        public string ReturnSubmissionId { get; set; } = null!;
+        public virtual ReturnSubmission Return { get; set; } = null!;
     }
 }

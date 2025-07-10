@@ -863,20 +863,20 @@ namespace Returns.Helpers
                             throw new Exception("Worksheet 'Sheet1' not found.");
 
                         // 2. Extract Metadata (adjust cell references for your file):
-                        string SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C3"));
-                        string saccoName = GetCellValueOrEmpty(worksheet.Cell("C3"));
-                        string financialYear = GetCellValueOrEmpty(worksheet.Cell("C4"));
-                        DateTime? startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C5")));
-                        DateTime? endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6")));
+                        string SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4"));
+                        string saccoName = GetCellValueOrEmpty(worksheet.Cell("D3"));
+                        string financialYear = GetCellValueOrEmpty(worksheet.Cell("D5"));
+                        DateTime? startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
+                        DateTime? endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7")));
 
-                        if (string.IsNullOrWhiteSpace(SaccoCsNumber))
+                      /*  if (string.IsNullOrWhiteSpace(SaccoCsNumber))
                             throw new Exception("SaccoId not found in cell C3");
                         if (string.IsNullOrWhiteSpace(saccoName))
                             throw new Exception("SaccoName not found in cell C4");
                         if (string.IsNullOrWhiteSpace(financialYear))
                             throw new Exception("Financial Year not found in cell C5");
                         if (!startDate.HasValue)
-                            throw new Exception("Start Date not found or invalid in cell C6");
+                            throw new Exception("Start Date not found or invalid in cell C6");*/
 
                         string month = endDate.Value.ToString("MMMM", CultureInfo.InvariantCulture);
 
@@ -950,7 +950,8 @@ namespace Returns.Helpers
                                 if (string.IsNullOrWhiteSpace(combinedCellValue))
                                 {
                                     // no data => break or continue
-                                    break;
+                                    //break;
+                                    continue;
                                 }
 
                                 // We parse out the code and name from combinedCellValue

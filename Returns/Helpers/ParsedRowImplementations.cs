@@ -1365,10 +1365,10 @@ namespace Returns.Helpers
         }
     }
 
-    /*public class SectoralLendingParsedRow : IParsedRow
+    public class SectoralLendingParsedRow : IParsedRow
     {
         public string ReturnSubmissionId { get; set; } = string.Empty;
-        public SectoralLendingReportStatement Data { get; set; } = null!;
+        public SectoralLendingReportDto Data { get; set; } = null!;
 
         public object ToEntity()
         {
@@ -1381,20 +1381,45 @@ namespace Returns.Helpers
                 EndDate = Data.EndDate,
                 SaccoName = Data.SaccoName,
                 SaccoId = Data.SaccoCsNumber,
-                SaccoCsNumber = Data.SaccoCsNumber,
-                IsCurrent = true,
-                IsAmended = false,
+                FilePath = string.Empty, // Will be set by file upload service
+                DaysLateBy = 0,
+                Version = 1,
                 CreatedAt = DateTime.Now
             };
 
-            // Note: Categories and economic sector data would need to be handled separately
-            // as they involve complex relationships and separate entities
+            // Process categories and economic sector data
+            var economicSectorDataList = new List<EconomicSectorData>();
 
-            return report;
+            foreach (var category in Data.Categories)
+            {
+                foreach (var subCategory in category.SubCategories)
+                {
+                    foreach (var economicSector in subCategory.EconomicSectors)
+                    {
+                        var economicSectorData = new EconomicSectorData
+                        {
+                            ReturnSubmissionId = ReturnSubmissionId,
+                            //ReturnId = ReturnSubmissionId, // This will be updated when linked to actual return
+                            Amount = economicSector.Amount,
+                            EconomicSectorId = economicSector.EconomicSectorCode, // This should be a proper ID reference
+                            Category = category.CategoryName,
+                            SubCategory = subCategory.SubCategoryName,
+                            SaccoType = Data.SaccoType,
+                            EconomicSectorName = economicSector.EconomicSectorName,
+                            CreatedAt = DateTime.Now
+                        };
+
+                        economicSectorDataList.Add(economicSectorData);
+                    }
+                }
+            }
+
+            // Return both the report and the economic sector data
+            return new { Report = report, EconomicSectorData = economicSectorDataList };
         }
-    }*/
+    }
 
-    /*public class DailyLiquidityParsedRow : IParsedRow
+    public class DailyLiquidityParsedRow : IParsedRow
     {
         public string ReturnSubmissionId { get; set; } = string.Empty;
         public DailyLiquidityStatement Data { get; set; } = null!;
@@ -1407,7 +1432,9 @@ namespace Returns.Helpers
                 ReportDate = Data.ReportDate,
                 SACCOName = Data.SACCOName,
                 CSNO = Data.CSNO,
-                SaccoCsNumber = Data.CSNO,
+                DaysLateBy = 0,
+                Version = 1,
+                FilePath = string.Empty, // Will be set by file upload service
 
                 // Opening Balances
                 BankBalancesOpening = Data.BankBalancesOpening,
@@ -1447,19 +1474,17 @@ namespace Returns.Helpers
                 TotalClosingBalanceToTotalDepositsRatio = Data.TotalClosingBalanceToTotalDepositsRatio,
                 TotalClosingBalanceToFOSADepositsRatio = Data.TotalClosingBalanceToFOSADepositsRatio,
 
-                IsCurrent = true,
-                IsAmended = false,
                 CreatedAt = DateTime.Now
             };
 
             return entity;
         }
-    }*/
+    }
 
-   /* public class InsiderLendingParsedRow : IParsedRow
+    public class InsiderLendingParsedRow : IParsedRow
     {
         public string ReturnSubmissionId { get; set; } = string.Empty;
-        public InsiderLendingReportStatement Data { get; set; } = null!;
+        public InsiderLendingReportDTO Data { get; set; } = null!;
 
         public object ToEntity()
         {
@@ -1470,15 +1495,44 @@ namespace Returns.Helpers
                 EndDate = Data.EndDate,
                 SaccoName = Data.SaccoName,
                 CSNO = Data.SaccoSocietyCsNumber,
-                IsCurrent = true,
-                IsAmended = false,
+                DaysLateBy = 0,
+                Version = 1,
+                FilePath = string.Empty, // Will be set by file upload service
                 CreatedAt = DateTime.Now
             };
 
-            // Note: Individual loans would need to be handled separately
-            // as they are stored in a separate InsiderLoans table
+            // Process individual loans
+            var insiderLoans = new List<InsiderLoan>();
 
-            return header;
+            foreach (var loan in Data.Loans)
+            {
+                var insiderLoan = new InsiderLoan
+                {
+                    ReturnSubmissionId = ReturnSubmissionId,
+                    NameOfBorrower = loan.NameOfBorrower,
+                    LoanCategory = loan.LoanCategory,
+                    MemberNumber = loan.MemberNumber,
+                    PositionHeld = loan.PositionHeld,
+                    LoanTypeName = loan.LoanTypeName,
+                    AmountAppliedFor = loan.AmountAppliedFor,
+                    AmountGranted = loan.AmountGranted,
+                    DateApprovedOrRatified = loan.DateApprovedOrRatified,
+                    AmountOfBosaDeposits = loan.AmountOfBosaDeposits,
+                    NatureOfSecurity = loan.NatureOfSecurity,
+                    RepaymentCommencementDate = loan.RepaymentCommencementDate,
+                    RepaymentPeriod = loan.RepaymentPeriod,
+                    OtherRemarks = loan.OtherRemarks,
+                    OutstandingAmount = loan.OutstandingAmount,
+                    PerfomanceCategory = loan.PerfomanceCategory,
+                    RepaymentStatus = loan.RepaymentStatus,
+                    CreatedAt = DateTime.Now
+                };
+
+                insiderLoans.Add(insiderLoan);
+            }
+
+            // Return both the header and the loans
+            return new { Header = header, InsiderLoans = insiderLoans };
         }
-    }*/
+    }
 }

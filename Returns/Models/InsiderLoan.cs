@@ -25,6 +25,7 @@ namespace Returns.Models
         [ForeignKey("InsiderLendingHeader")]
         public string InsiderLendingHeaderId { get; set; } = null!;
         public string ReturnId { get; set; } = null!;
+        public string ReturnSubmissionId { get; set; } = null!;
         public InsiderLendingHeader InsiderLendingHeader { get; set; } = null!;
     }
 }

@@ -15,8 +15,8 @@ namespace Returns.Models
         public string FilePath { get; set; } = string.Empty;
         public ICollection<InsiderLoan> InsiderLoans { get; set; } = new List<InsiderLoan>();
         [ForeignKey("Return")]
-        public string ReturnId { get; set; } = null!;
-        public Return Return { get; set; } = null!;
+        public string ReturnSubmissionId { get; set; } = null!;
+        public ReturnSubmission Return { get; set; } = null!;
 
     }
 }
