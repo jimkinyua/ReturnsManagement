@@ -9,10 +9,9 @@ namespace Returns.Models
         [ForeignKey("ReturnSubmission")]
         public string ReturnSubmissionId { get; set; } = null!;
         [ForeignKey("Returns")]
-        public string ReturnId { get; set; } = null!;
         public string SaccoName { get; set; } = null!;
         public string Month { get; set; } = null!;
-        public string FilePath { get; set; } = null!;
+        public string FilePath { get; set; } = "NULL"!;
         public string Year { get; set; } = null!;
         public int DaysLateBy { get; set; }
         public int Version { get; set; } = 1;

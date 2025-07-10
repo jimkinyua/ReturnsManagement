@@ -1401,7 +1401,8 @@ namespace Returns.Helpers
                             ReturnSubmissionId = ReturnSubmissionId,
                             //ReturnId = ReturnSubmissionId, // This will be updated when linked to actual return
                             Amount = economicSector.Amount,
-                            EconomicSectorId = economicSector.EconomicSectorCode, // This should be a proper ID reference
+                            EconomicSectorCode = economicSector.EconomicSectorCode,
+                            //EconomicSectorId = economicSector.EconomicSectorCode, // This should be a proper ID reference
                             Category = category.CategoryName,
                             SubCategory = subCategory.SubCategoryName,
                             SaccoType = Data.SaccoType,

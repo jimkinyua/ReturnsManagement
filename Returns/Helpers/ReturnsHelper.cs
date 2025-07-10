@@ -940,10 +940,10 @@ namespace Returns.Helpers
 
                 var managementReturn = new ManagementReturn
                 {
-                    ReturnId = returnId,
-                    FilePath = Path,
+                    //ReturnId = returnId,
+                    //FilePath = Path,
                     MRating = ManagementReturnData.MRating,
-                    FormId = form.Id,
+                    //FormId = form.Id,
                     //DaysLateBy = DaysLateBy,
                     RequiresResubmission = false,
                     CreatedAt = DateTime.Now
@@ -3446,7 +3446,7 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "", string SaccoType = "")
+       /* public async Task ProcessSectoralLendingForm(IFormFile file, string returnId, ILogger _logger, ReturnForm form, Boolean IsAmendMent, string PrevId = "", string SaccoType = "")
         {
             try
             {
@@ -3600,7 +3600,7 @@ namespace Returns.Helpers
 
                 throw;
             }
-        }
+        }*/
         public (bool IsValid, string Message, string CommonPeriod) AreAllFormsInSamePeriodNWDT(
            Form2AStatement? capital_adequacy_form1,
            Form2BStatement? liquidityStatement_form_2,

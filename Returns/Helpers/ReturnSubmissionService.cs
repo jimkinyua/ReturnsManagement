@@ -218,6 +218,69 @@ namespace Returns.Helpers
                     }
                     break;
 
+                // Management Return - stored as separate entity
+                case ManagementReturn managementReturn:
+                    await _context.ManagementReturns.AddAsync(managementReturn);
+                    break;
+
+                // Daily Liquidity Return - stored as separate entity
+                case DailyLiquidityReturn dailyLiquidityReturn:
+                    await _context.DailyLiquidityReturns.AddAsync(dailyLiquidityReturn);
+                    break;
+
+                // Sectoral Lending Report - returns anonymous object with Report and EconomicSectorData
+                case var sectoralLending when IsSectoralLendingObject(entity):
+                    try
+                    {
+                        var report = entity.GetType().GetProperty("Report")?.GetValue(entity);
+                        var economicSectorData = entity.GetType().GetProperty("EconomicSectorData")?.GetValue(entity);
+
+                        if (report is SectoralLendingReport sectoralReport)
+                        {
+                            // Save the report first to get its ID
+                            await _context.SectoralLendingReports.AddAsync(sectoralReport);
+                            await _context.SaveChangesAsync(); // Save to get the ID
+
+                            // Now update the EconomicSectorData records with the report ID
+                            if (economicSectorData is List<EconomicSectorData> sectorDataList)
+                            {
+                                foreach (var sectorData in sectorDataList)
+                                {
+                                    sectorData.SectoralLendingReportId = sectoralReport.Id;
+                                }
+                                await _context.SectoralLendingData.AddRangeAsync(sectorDataList);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing sectoral lending data");
+                    }
+                    break;
+
+                // Insider Lending - returns anonymous object with Header and InsiderLoans
+                case var insiderLending when IsInsiderLendingObject(entity):
+                    try
+                    {
+                        var header = entity.GetType().GetProperty("Header")?.GetValue(entity);
+                        var insiderLoans = entity.GetType().GetProperty("InsiderLoans")?.GetValue(entity);
+
+                        if (header is InsiderLendingHeader insiderHeader)
+                        {
+                            await _context.InsiderLendingHeaders.AddAsync(insiderHeader);
+                        }
+
+                        if (insiderLoans is List<InsiderLoan> loansList)
+                        {
+                            await _context.InsiderLoans.AddRangeAsync(loansList);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing insider lending data");
+                    }
+                    break;
+
                 default:
                     _logger.LogWarning($"Unknown entity type: {entity?.GetType()?.Name ?? "null"}");
                     break;
@@ -270,6 +333,26 @@ namespace Returns.Helpers
             }
 
             return results;
+        }
+
+        private bool IsSectoralLendingObject(object entity)
+        {
+            if (entity == null) return false;
+
+            var type = entity.GetType();
+            return type.Name.Contains("AnonymousType") &&
+                   type.GetProperty("Report") != null &&
+                   type.GetProperty("EconomicSectorData") != null;
+        }
+
+        private bool IsInsiderLendingObject(object entity)
+        {
+            if (entity == null) return false;
+
+            var type = entity.GetType();
+            return type.Name.Contains("AnonymousType") &&
+                   type.GetProperty("Header") != null &&
+                   type.GetProperty("InsiderLoans") != null;
         }
     }
 }

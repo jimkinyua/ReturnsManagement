@@ -863,20 +863,49 @@ namespace Returns.Helpers
                             throw new Exception("Worksheet 'Sheet1' not found.");
 
                         // 2. Extract Metadata (adjust cell references for your file):
-                        string SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4"));
-                        string saccoName = GetCellValueOrEmpty(worksheet.Cell("D3"));
-                        string financialYear = GetCellValueOrEmpty(worksheet.Cell("D5"));
-                        DateTime? startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
-                        DateTime? endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7")));
+                        string SaccoCsNumber;
+                        string saccoName;
+                        string financialYear;
+                        DateTime? startDate;
+                        DateTime? endDate;
 
-                      /*  if (string.IsNullOrWhiteSpace(SaccoCsNumber))
-                            throw new Exception("SaccoId not found in cell C3");
-                        if (string.IsNullOrWhiteSpace(saccoName))
-                            throw new Exception("SaccoName not found in cell C4");
-                        if (string.IsNullOrWhiteSpace(financialYear))
-                            throw new Exception("Financial Year not found in cell C5");
-                        if (!startDate.HasValue)
-                            throw new Exception("Start Date not found or invalid in cell C6");*/
+                        // Different cell references based on SaccoType
+                        if (SaccoType == Constants.SaccoType.NWDT)
+                        {
+                            // DT Sacco metadata cells
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4"));
+                            saccoName = GetCellValueOrEmpty(worksheet.Cell("D3"));
+                            financialYear = GetCellValueOrEmpty(worksheet.Cell("D5"));
+                            startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
+                            endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7")));
+                        }
+                        else if (SaccoType == Constants.SaccoType.DepositTaking)
+                        {
+                            // NWDT Sacco metadata cells - adjust these cell references as needed
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C4")); // Different cell for NWDT
+                            saccoName = GetCellValueOrEmpty(worksheet.Cell("C3")); // Different cell for NWDT
+                            financialYear = GetCellValueOrEmpty(worksheet.Cell("C5")); // Different cell for NWDT
+                            startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))); // Different cell for NWDT
+                            endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C7"))); // Different cell for NWDT
+                        }
+                        else
+                        {
+                            // Default to DT cells if SaccoType is not recognized
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4"));
+                            saccoName = GetCellValueOrEmpty(worksheet.Cell("D3"));
+                            financialYear = GetCellValueOrEmpty(worksheet.Cell("D5"));
+                            startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
+                            endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7")));
+                        }
+
+                        /*  if (string.IsNullOrWhiteSpace(SaccoCsNumber))
+                              throw new Exception("SaccoId not found in cell C3");
+                          if (string.IsNullOrWhiteSpace(saccoName))
+                              throw new Exception("SaccoName not found in cell C4");
+                          if (string.IsNullOrWhiteSpace(financialYear))
+                              throw new Exception("Financial Year not found in cell C5");
+                          if (!startDate.HasValue)
+                              throw new Exception("Start Date not found or invalid in cell C6");*/
 
                         string month = endDate.Value.ToString("MMMM", CultureInfo.InvariantCulture);
 

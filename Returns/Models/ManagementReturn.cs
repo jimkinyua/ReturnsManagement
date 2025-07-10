@@ -5,15 +5,12 @@ namespace Returns.Models
 {
     public class ManagementReturn : FormBase
     {
-        public string FilePath { get; set; } = null!;
         public string Year { get; set; } = DateTime.Now.Year.ToString();
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }   
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
+        [ForeignKey("ReturnSubmission")]
         public string ReturnSubmissionId { get; set; } = null!;
-        public string FormId { get; set; } = null!;
-        public virtual Return? Return { get; set; } = null!;
+        public virtual ReturnSubmission Return { get; set; } = null!;
         public decimal GorvenanceStructureScore { get; set; }
         public decimal GorvenanceStructureWeight { get; set; }
         public decimal GorvenanceStructureWeightedScore { get; set; }

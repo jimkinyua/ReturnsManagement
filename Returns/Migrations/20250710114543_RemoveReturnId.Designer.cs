@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250710114543_RemoveReturnId")]
+    partial class RemoveReturnId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1250,11 +1253,8 @@ namespace Returns.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("EconomicSectorCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("EconomicSectorId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("EconomicSectorName")
@@ -1650,7 +1650,12 @@ namespace Returns.Migrations
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("FormId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("GorvenanceStructureScore")
@@ -1714,11 +1719,12 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SaccoCsNumber")
                         .HasColumnType("nvarchar(max)");
@@ -1733,8 +1739,6 @@ namespace Returns.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ReturnId");
-
-                    b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("ManagementReturns");
                 });
@@ -3572,15 +3576,19 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.EconomicSectorData", b =>
                 {
-                    b.HasOne("Returns.Models.EconomicSector", null)
+                    b.HasOne("Returns.Models.EconomicSector", "EconomicSector")
                         .WithMany("SubSectorData")
-                        .HasForeignKey("EconomicSectorId");
+                        .HasForeignKey("EconomicSectorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("Returns.Models.SectoralLendingReport", "SectoralLendingReport")
                         .WithMany("SubSectorData")
                         .HasForeignKey("SectoralLendingReportId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("EconomicSector");
 
                     b.Navigation("SectoralLendingReport");
                 });
@@ -3632,13 +3640,9 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.ManagementReturn", b =>
                 {
-                    b.HasOne("Returns.Models.Return", null)
+                    b.HasOne("Returns.Models.Return", "Return")
                         .WithMany("ManagementReturns")
-                        .HasForeignKey("ReturnId");
-
-                    b.HasOne("Returns.Models.ReturnSubmission", "Return")
-                        .WithMany()
-                        .HasForeignKey("ReturnSubmissionId")
+                        .HasForeignKey("ReturnId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
