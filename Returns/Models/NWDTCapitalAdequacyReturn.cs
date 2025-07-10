@@ -8,8 +8,6 @@ namespace Returns.Models
         // Metadata
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-        public string Period { get; set; } = null!;
-        public string Frequency { get; set; } = null!;
         public int DaysLateBy { get; set; }
 
 
@@ -53,6 +51,9 @@ namespace Returns.Models
 
 
         public decimal TotalAssetsPerBalanceSheet { get; set; }
+        public decimal TotalAssetValueOffBalanceSheet { get; set; }
+        public decimal TotalDepositsLiabilitiesAsPerBalanceSheet { get; set; }
+        public decimal RetainedEarningsAndDisclosedReservesToCoreCapital { get; set; }
 
         // Off-Balance Sheet Assets
 
@@ -291,7 +292,6 @@ namespace Returns.Models
             StoredCoreCapitalToDepositsRatio = CoreCapitalToDepositsRatio;
             StoredCoreCapitalToDepositsExcessDeficiency = CoreCapitalToDepositsExcessDeficiency;
         }
-        public string FilePath { get; set; } = null!;
         [ForeignKey("ReturnSubmission")]
         public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
         public ReturnSubmission ReturnSubmission { get; set; } = null!;

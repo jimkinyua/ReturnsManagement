@@ -9,9 +9,9 @@ namespace Returns.Models
     {
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
-        public string Period { get; set; } = null!;
+     /*   public string Period { get; set; } = null!;
         public string Frequency { get; set; } = null!;
-        public string FilePath { get; set; } = null!;
+        public string FilePath { get; set; } = null!;*/
         public int DaysLateBy { get; set; }
 
         // Financial Income

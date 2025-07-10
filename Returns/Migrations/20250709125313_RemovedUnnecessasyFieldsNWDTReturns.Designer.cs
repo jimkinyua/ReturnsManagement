@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250709125313_RemovedUnnecessasyFieldsNWDTReturns")]
+    partial class RemovedUnnecessasyFieldsNWDTReturns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1803,9 +1806,6 @@ namespace Returns.Migrations
                     b.Property<decimal>("RetainedEarnings")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<decimal>("RetainedEarningsAndDisclosedReservesToCoreCapital")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<string>("ReturnId")
                         .HasColumnType("nvarchar(450)");
 
@@ -1877,16 +1877,10 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("TotalOnBalanceSheetAssets");
 
-                    b.Property<decimal>("TotalAssetValueOffBalanceSheet")
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<decimal>("TotalAssetsPerBalanceSheet")
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<decimal>("TotalDepositsLiabilities")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("TotalDepositsLiabilitiesAsPerBalanceSheet")
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");

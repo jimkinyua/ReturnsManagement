@@ -8,8 +8,8 @@ namespace Returns.Models
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public string Period { get; set; } = null!;
-        public string Frequency { get; set; } = null!;
-        public int DaysLateBy { get; set; }
+/*        public string Frequency { get; set; } = null!;
+*/        public int DaysLateBy { get; set; }
         // Section 1: Notes and Coins
         public decimal LocalNotesAndCoins { get; set; }
         public decimal ForeignNotesAndCoins { get; set; }

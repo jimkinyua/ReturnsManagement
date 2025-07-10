@@ -304,73 +304,109 @@ namespace Returns.Helpers
             };
 
             // Map NWDT capital adequacy data
-            /*foreach (var row in Data.Rows)
+            foreach (var row in Data.Rows)
             {
                 switch (row.Index?.Trim())
                 {
                     // Core Capital items
-                    case "1.1":
+                    case "1.1.1":
                         entity.ShareCapital = row.Amount ?? 0;
                         break;
-                    case "1.2":
-                        entity.InstitutionalCapital = row.Amount ?? 0;
+                    case "1..1.2":
+                        entity.CapitalGrants = row.Amount ?? 0;
                         break;
-                    case "1.3":
-                        entity.StatutoryReserves = row.Amount ?? 0;
-                        break;
-                    case "1.4":
-                        entity.OtherRevenue = row.Amount ?? 0;
-                        break;
-                    case "1.5":
+                    case "1.1.3":
                         entity.RetainedEarnings = row.Amount ?? 0;
                         break;
-                    case "1.6":
-                        entity.Grants = row.Amount ?? 0;
+                    case "1.1.4":
+                        entity.NetSurplusAfterTax = row.Amount ?? 0;
                         break;
-                    case "1.7":
-                        entity.ProposedDividends = row.Amount ?? 0;
+                    case "1.1.5":
+                        entity.StatutoryReserves = row.Amount ?? 0;
                         break;
-                    case "1.8":
-                        entity.SubTotalCoreCapital = row.Amount ?? 0;
+                    case "1.1.6":
+                        entity.OtherReserves = row.Amount ?? 0;
                         break;
-                    case "1.9":
-                        entity.AllowanceLoanLoss = row.Amount ?? 0;
+                    case "1.1.8":
+                        entity.InvestmentsInSubsidiary = row.Amount ?? 0;
                         break;
-                    case "1.10":
-                        entity.TotalCoreCapital = row.Amount ?? 0;
+                    case "1.1.9":
+                        entity.OtherDeductions = row.Amount ?? 0;
+                        break;
+                    case "1.1.10":
+                        entity.TotalDeductions = row.Amount ?? 0;
+                        break;
+                    case "1.1.11":
+                        entity.CoreCapital = row.Amount ?? 0;
+                        break;
+                    case "1.1.12":
+                        entity.RetainedEarnings = row.Amount ?? 0;
                         break;
 
-                    // Total Assets
-                    case "2":
-                        entity.TotalAssets = row.Amount ?? 0;
+                    // Balance Sheet
+                    case "2.1":
+                        entity.CashLocalForeign = row.Amount ?? 0;
+                        break;
+                    case "2.2":
+                        entity.GovernmentSecurities = row.Amount ?? 0;
+                        break;
+                    case "2.3":
+                        entity.DepositsBalancesAtOtherInstitutions = row.Amount ?? 0;
+                        break;
+                    case "2.4":
+                        entity.LoansAndAdvances = row.Amount ?? 0;
+                        break;
+                    case "2.5":
+                        entity.Investments = row.Amount ?? 0;
+                        break;
+                    case "2.6":
+                        entity.PropertyAndEquipment = row.Amount ?? 0;
+                        break;
+                    case "2.7":
+                        entity.OtherAssets = row.Amount ?? 0;
+                        break;
+                    case "2.9":
+                        entity.TotalAssetsPerBalanceSheet = row.Amount ?? 0;
+                        break;
+                    case "3.0":
+                        entity.DifferenceInAssets = row.Amount ?? 0;
                         break;
 
                     // Total Deposits
                     case "3":
-                        entity.TotalDeposits = row.Amount ?? 0;
+                        entity.OffBalanceSheetAssets = row.Amount ?? 0;
                         break;
 
                     // Ratios
                     case "4.1":
-                        entity.CoreCapitalToTotalAssetsRatio = row.Amount ?? 0;
+                        entity.TotalAssetsPerBalanceSheet = row.Amount ?? 0;
                         break;
                     case "4.2":
-                        entity.CoreCapitalToTotalAssetsMinStatRatio = row.Amount ?? 0;
+                        entity.TotalAssetValueOffBalanceSheet = row.Amount ?? 0;
                         break;
                     case "4.3":
-                        entity.ExcessShortfall = row.Amount ?? 0;
+                        entity.TotalDepositsLiabilitiesAsPerBalanceSheet = row.Amount ?? 0;
                         break;
                     case "4.4":
-                        entity.CoreCapitalToTotalDepositsRatio = row.Amount ?? 0;
+                        entity.CoreCapitalToAssetsRatio = row.Amount ?? 0;
                         break;
                     case "4.5":
-                        entity.CoreCapitalToTotalDepositsMinStatRatio = row.Amount ?? 0;
+                        entity.MinimumCoreCapitalToAssetsRatio = row.Amount ?? 0;
                         break;
-                    case "4.6":
-                        entity.ExcessShortfall2 = row.Amount ?? 0;
+                    case "4.8":
+                        entity.RetainedEarningsAndDisclosedReservesToCoreCapital = row.Amount ?? 0;
+                        break;
+                    case "4.9":
+                        entity.MinimumRetainedEarningsToCoreCaptialRequirement = row.Amount ?? 0;
+                        break;
+                    case "4.11":
+                        entity.CoreCapitalToDepositsRatio = row.Amount ?? 0;
+                        break;
+                    case "4.12":
+                        entity.MinimumCoreCapitalToDepositsRequirement = row.Amount ?? 0;
                         break;
                 }
-            }*/
+            }
 
             return entity;
         }
@@ -422,7 +458,7 @@ namespace Returns.Helpers
                 riskClassifications.Add(entity);
             }
 
-            return riskClassifications.FirstOrDefault() ?? new DTRiskClassificationReturn();
+            return riskClassifications;
         }
     }
 
@@ -842,7 +878,7 @@ namespace Returns.Helpers
                     ReturnSubmissionId = ReturnSubmissionId,
                     StartDate = Data.StartDate,
                     EndDate = Data.EndDate,
-                    Period = Data.Period,
+                    //Period = Data.Period,
                     SaccoCsNumber = Data.SaccoCsNumber,
                     AmountInKshs000 = row.Amount,
                     RangeName = currentRangeName,  // Use the current range name
@@ -879,7 +915,7 @@ namespace Returns.Helpers
                     OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
                     RequiredProvision = row.RequiredProvision,
                     RequiredProvisionAmount = row.RequiredProvisionAmount,
-                    Period = Data.Period,
+                    //Period = Data.Period,
                     StartDate = Data.StartDate,
                     EndDate = Data.EndDate,
                     SaccoCsNumber = Data.CsNumber,
@@ -889,7 +925,7 @@ namespace Returns.Helpers
                 riskClassifications.Add(entity);
             }
 
-            return riskClassifications.FirstOrDefault() ?? new NWDTRiskClassificationReturn();
+            return riskClassifications;
         }
     }
 
@@ -905,7 +941,7 @@ namespace Returns.Helpers
                 ReturnSubmissionId = ReturnSubmissionId,
                 StartDate = Data.StartDate,
                 EndDate = Data.EndDate,
-                Period = Data.Period,
+                //Period = Data.Period,
                 SaccoCsNumber = Data.SaccoCsNumber,
                 CreatedAt = DateTime.Now
             };
@@ -1010,7 +1046,7 @@ namespace Returns.Helpers
                 ReturnSubmissionId = ReturnSubmissionId,
                 StartDate = Data.StartDate,
                 EndDate = Data.EndDate,
-                Period = Data.Period,
+                //Period = Data.Period,
                 SaccoCsNumber = Data.SaccoCsNumber,
                 CreatedAt = DateTime.Now
             };
@@ -1131,7 +1167,7 @@ namespace Returns.Helpers
                 ReturnSubmissionId = ReturnSubmissionId,
                 StartDate = Data.StartDate,
                 EndDate = Data.EndDate,
-                Period = Data.Period,
+                //Period = Data.Period,
                 SaccoCsNumber = Data.SaccoCsNumber,
                 CreatedAt = DateTime.Now
             };
@@ -1274,175 +1310,175 @@ namespace Returns.Helpers
         }
     }
 
-    /* public class ManagementReturnParsedRow : IParsedRow
-     {
-         public string ReturnSubmissionId { get; set; } = string.Empty;
-         public ManagementReportStatement Data { get; set; } = null!;
+    public class ManagementReturnParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public ManagementData Data { get; set; } = null!;
 
-         public object ToEntity()
-         {
-             var entity = new ManagementReturn
-             {
-                 ReturnSubmissionId = ReturnSubmissionId,
-                 MRating = Data.MRating,
-                 CreatedAt = DateTime.Now
-             };
+        public object ToEntity()
+        {
+            var entity = new ManagementReturn
+            {
+                ReturnSubmissionId = ReturnSubmissionId,
+                MRating = Data.MRating,
+                CreatedAt = DateTime.Now
+            };
 
-             foreach (var row in Data.ManagementReports)
-             {
-                 switch (row.Category?.Trim())
-                 {
-                     case "GOVERNANCE, STRUCTURE AND ORGANIZATION":
-                         entity.GorvenanceStructureScore = row.Score ?? 0;
-                         entity.GorvenanceStructureWeight = row.Weight ?? 0;
-                         entity.GorvenanceStructureWeightedScore = row.WeightedScore ?? 0;
-                         break;
-                     case "INTERNAL CONTROLS":
-                         entity.InternalControlsScore = row.Score ?? 0;
-                         entity.InternalControlsWeight = row.Weight ?? 0;
-                         entity.InternalControlsWeightedScore = row.WeightedScore ?? 0;
-                         break;
-                     case "COMPLIANCE WITH LAWS AND REGULATIONS":
-                         entity.ComplianceWithLawsAndRegulationsScore = row.Score ?? 0;
-                         entity.ComplianceWithLawsAndRegulationsWeight = row.Weight ?? 0;
-                         entity.ComplianceWithLawsAndRegulationsWeightedScore = row.WeightedScore ?? 0;
-                         break;
-                     case "MEMBER PROTECTION":
-                         entity.MemberProtectionScore = row.Score ?? 0;
-                         entity.MemberProtectionWeight = row.Weight ?? 0;
-                         entity.MemberProtectionWeightedScore = row.WeightedScore ?? 0;
-                         break;
-                     case "ADEQUACY OF MIS":
-                         entity.AdequacyOfMISScore = row.Score ?? 0;
-                         entity.AdequacyOfMISWeight = row.Weight ?? 0;
-                         entity.AdequacyOfMISWeightedScore = row.WeightedScore ?? 0;
-                         break;
-                     case "OVERALL RISK PROFILE":
-                         entity.OverallRiskProfileScore = row.Score ?? 0;
-                         entity.OverallRiskProfileWeight = row.Weight ?? 0;
-                         entity.OverallRiskProfileWeightedScore = row.WeightedScore ?? 0;
-                         break;
-                 }
-             }
+            foreach (var row in Data.ManagementReports)
+            {
+                switch (row.Category?.Trim())
+                {
+                    case "GOVERNANCE, STRUCTURE AND ORGANIZATION":
+                        entity.GorvenanceStructureScore = row.Score ?? 0;
+                        entity.GorvenanceStructureWeight = row.Weight ?? 0;
+                        entity.GorvenanceStructureWeightedScore = row.WeightedScore ?? 0;
+                        break;
+                    case "INTERNAL CONTROLS":
+                        entity.InternalControlsScore = row.Score ?? 0;
+                        entity.InternalControlsWeight = row.Weight ?? 0;
+                        entity.InternalControlsWeightedScore = row.WeightedScore ?? 0;
+                        break;
+                    case "COMPLIANCE WITH LAWS AND REGULATIONS":
+                        entity.ComplianceWithLawsAndRegulationsScore = row.Score ?? 0;
+                        entity.ComplianceWithLawsAndRegulationsWeight = row.Weight ?? 0;
+                        entity.ComplianceWithLawsAndRegulationsWeightedScore = row.WeightedScore ?? 0;
+                        break;
+                    case "MEMBER PROTECTION":
+                        entity.MemberProtectionScore = row.Score ?? 0;
+                        entity.MemberProtectionWeight = row.Weight ?? 0;
+                        entity.MemberProtectionWeightedScore = row.WeightedScore ?? 0;
+                        break;
+                    case "ADEQUACY OF MIS":
+                        entity.AdequacyOfMISScore = row.Score ?? 0;
+                        entity.AdequacyOfMISWeight = row.Weight ?? 0;
+                        entity.AdequacyOfMISWeightedScore = row.WeightedScore ?? 0;
+                        break;
+                    case "OVERALL RISK PROFILE":
+                        entity.OverallRiskProfileScore = row.Score ?? 0;
+                        entity.OverallRiskProfileWeight = row.Weight ?? 0;
+                        entity.OverallRiskProfileWeightedScore = row.WeightedScore ?? 0;
+                        break;
+                }
+            }
 
-             return entity;
-         }
-     }
+            return entity;
+        }
+    }
 
-     public class SectoralLendingParsedRow : IParsedRow
-     {
-         public string ReturnSubmissionId { get; set; } = string.Empty;
-         public SectoralLendingReportStatement Data { get; set; } = null!;
+    /*public class SectoralLendingParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public SectoralLendingReportStatement Data { get; set; } = null!;
 
-         public object ToEntity()
-         {
-             var report = new SectoralLendingReport
-             {
-                 ReturnSubmissionId = ReturnSubmissionId,
-                 Year = Data.Year,
-                 Month = Data.Month,
-                 StartDate = Data.StartDate,
-                 EndDate = Data.EndDate,
-                 SaccoName = Data.SaccoName,
-                 SaccoId = Data.SaccoCsNumber,
-                 SaccoCsNumber = Data.SaccoCsNumber,
-                 IsCurrent = true,
-                 IsAmended = false,
-                 CreatedAt = DateTime.Now
-             };
+        public object ToEntity()
+        {
+            var report = new SectoralLendingReport
+            {
+                ReturnSubmissionId = ReturnSubmissionId,
+                Year = Data.Year,
+                Month = Data.Month,
+                StartDate = Data.StartDate,
+                EndDate = Data.EndDate,
+                SaccoName = Data.SaccoName,
+                SaccoId = Data.SaccoCsNumber,
+                SaccoCsNumber = Data.SaccoCsNumber,
+                IsCurrent = true,
+                IsAmended = false,
+                CreatedAt = DateTime.Now
+            };
 
-             // Note: Categories and economic sector data would need to be handled separately
-             // as they involve complex relationships and separate entities
+            // Note: Categories and economic sector data would need to be handled separately
+            // as they involve complex relationships and separate entities
 
-             return report;
-         }
-     }
+            return report;
+        }
+    }*/
 
-     public class DailyLiquidityParsedRow : IParsedRow
-     {
-         public string ReturnSubmissionId { get; set; } = string.Empty;
-         public DailyLiquidityStatement Data { get; set; } = null!;
+    /*public class DailyLiquidityParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public DailyLiquidityStatement Data { get; set; } = null!;
 
-         public object ToEntity()
-         {
-             var entity = new DailyLiquidityReturn
-             {
-                 ReturnSubmissionId = ReturnSubmissionId,
-                 ReportDate = Data.ReportDate,
-                 SACCOName = Data.SACCOName,
-                 CSNO = Data.CSNO,
-                 SaccoCsNumber = Data.CSNO,
+        public object ToEntity()
+        {
+            var entity = new DailyLiquidityReturn
+            {
+                ReturnSubmissionId = ReturnSubmissionId,
+                ReportDate = Data.ReportDate,
+                SACCOName = Data.SACCOName,
+                CSNO = Data.CSNO,
+                SaccoCsNumber = Data.CSNO,
 
-                 // Opening Balances
-                 BankBalancesOpening = Data.BankBalancesOpening,
-                 ConsolidatedTreasuryCashBalancesOpening = Data.ConsolidatedTreasuryCashBalancesOpening,
-                 TellersBalancesOpening = Data.TellersBalancesOpening,
-                 MobileMoneyChannelsOpening = Data.MobileMoneyChannelsOpening,
-                 PlacementWithBanksOpening = Data.PlacementWithBanksOpening,
-                 SubTotalOpening = Data.SubTotalOpening,
+                // Opening Balances
+                BankBalancesOpening = Data.BankBalancesOpening,
+                ConsolidatedTreasuryCashBalancesOpening = Data.ConsolidatedTreasuryCashBalancesOpening,
+                TellersBalancesOpening = Data.TellersBalancesOpening,
+                MobileMoneyChannelsOpening = Data.MobileMoneyChannelsOpening,
+                PlacementWithBanksOpening = Data.PlacementWithBanksOpening,
+                SubTotalOpening = Data.SubTotalOpening,
 
-                 // Day Receipts
-                 DepositsFromMembers = Data.DepositsFromMembers,
-                 CashLoanRepayments = Data.CashLoanRepayments,
-                 OtherCashReceipts = Data.OtherCashReceipts,
-                 SubTotalReceipts = Data.SubTotalReceipts,
-                 TotalOpeningAndReceipts = Data.TotalOpeningAndReceipts,
+                // Day Receipts
+                DepositsFromMembers = Data.DepositsFromMembers,
+                CashLoanRepayments = Data.CashLoanRepayments,
+                OtherCashReceipts = Data.OtherCashReceipts,
+                SubTotalReceipts = Data.SubTotalReceipts,
+                TotalOpeningAndReceipts = Data.TotalOpeningAndReceipts,
 
-                 // Day Payments
-                 CashWithdrawalsByMembers = Data.CashWithdrawalsByMembers,
-                 CashPaymentsToMembers = Data.CashPaymentsToMembers,
-                 OtherCashPayments = Data.OtherCashPayments,
-                 SubTotalPayments = Data.SubTotalPayments,
+                // Day Payments
+                CashWithdrawalsByMembers = Data.CashWithdrawalsByMembers,
+                CashPaymentsToMembers = Data.CashPaymentsToMembers,
+                OtherCashPayments = Data.OtherCashPayments,
+                SubTotalPayments = Data.SubTotalPayments,
 
-                 // Closing Balances
-                 BankBalancesClosing = Data.BankBalancesClosing,
-                 ConsolidatedTreasuryCashBalancesClosing = Data.ConsolidatedTreasuryCashBalancesClosing,
-                 TellersBalancesClosing = Data.TellersBalancesClosing,
-                 MobileMoneyChannelsClosing = Data.MobileMoneyChannelsClosing,
-                 PlacementWithBanksClosing = Data.PlacementWithBanksClosing,
-                 TotalClosingBalance = Data.TotalClosingBalance,
+                // Closing Balances
+                BankBalancesClosing = Data.BankBalancesClosing,
+                ConsolidatedTreasuryCashBalancesClosing = Data.ConsolidatedTreasuryCashBalancesClosing,
+                TellersBalancesClosing = Data.TellersBalancesClosing,
+                MobileMoneyChannelsClosing = Data.MobileMoneyChannelsClosing,
+                PlacementWithBanksClosing = Data.PlacementWithBanksClosing,
+                TotalClosingBalance = Data.TotalClosingBalance,
 
-                 // Deposit Liabilities
-                 BOSADeposits = Data.BOSADeposits,
-                 FOSADeposits = Data.FOSADeposits,
-                 TotalDeposits = Data.TotalDeposits,
+                // Deposit Liabilities
+                BOSADeposits = Data.BOSADeposits,
+                FOSADeposits = Data.FOSADeposits,
+                TotalDeposits = Data.TotalDeposits,
 
-                 // Liquidity Ratios
-                 TotalClosingBalanceToTotalDepositsRatio = Data.TotalClosingBalanceToTotalDepositsRatio,
-                 TotalClosingBalanceToFOSADepositsRatio = Data.TotalClosingBalanceToFOSADepositsRatio,
+                // Liquidity Ratios
+                TotalClosingBalanceToTotalDepositsRatio = Data.TotalClosingBalanceToTotalDepositsRatio,
+                TotalClosingBalanceToFOSADepositsRatio = Data.TotalClosingBalanceToFOSADepositsRatio,
 
-                 IsCurrent = true,
-                 IsAmended = false,
-                 CreatedAt = DateTime.Now
-             };
+                IsCurrent = true,
+                IsAmended = false,
+                CreatedAt = DateTime.Now
+            };
 
-             return entity;
-         }
-     }
+            return entity;
+        }
+    }*/
 
-     public class InsiderLendingParsedRow : IParsedRow
-     {
-         public string ReturnSubmissionId { get; set; } = string.Empty;
-         public InsiderLendingReportStatement Data { get; set; } = null!;
+   /* public class InsiderLendingParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public InsiderLendingReportStatement Data { get; set; } = null!;
 
-         public object ToEntity()
-         {
-             var header = new InsiderLendingHeader
-             {
-                 ReturnSubmissionId = ReturnSubmissionId,
-                 StartDate = Data.StartDate,
-                 EndDate = Data.EndDate,
-                 SaccoName = Data.SaccoName,
-                 CSNO = Data.SaccoSocietyCsNumber,
-                 IsCurrent = true,
-                 IsAmended = false,
-                 CreatedAt = DateTime.Now
-             };
+        public object ToEntity()
+        {
+            var header = new InsiderLendingHeader
+            {
+                ReturnSubmissionId = ReturnSubmissionId,
+                StartDate = Data.StartDate,
+                EndDate = Data.EndDate,
+                SaccoName = Data.SaccoName,
+                CSNO = Data.SaccoSocietyCsNumber,
+                IsCurrent = true,
+                IsAmended = false,
+                CreatedAt = DateTime.Now
+            };
 
-             // Note: Individual loans would need to be handled separately
-             // as they are stored in a separate InsiderLoans table
+            // Note: Individual loans would need to be handled separately
+            // as they are stored in a separate InsiderLoans table
 
-             return header;
-         }
-     }*/
+            return header;
+        }
+    }*/
 }

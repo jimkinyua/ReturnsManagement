@@ -145,7 +145,7 @@ namespace Returns.Helpers
                     FinancialInvestmentsToDepositsExcessDeficiency = inv.TotalDeposits > 0
                         ? inv.FinancialAssets / inv.TotalDeposits * 100 -
                           inv.MaxEquityInvestmentsToTotalDeposits * 100 : 0,
-                    FilePath = inv.FilePath
+                    //FilePath = inv.FilePath
                 };
             }
 
@@ -194,7 +194,7 @@ namespace Returns.Helpers
                     OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
                     RequiredProvision = rc.RequiredProvision,
                     RequiredProvisionAmount = rc.RequiredProvisionAmount,
-                    FilePath = rc.FilePath
+                    //FilePath = rc.FilePath
                 }).ToList();
             }
 
@@ -268,7 +268,7 @@ namespace Returns.Helpers
                     AdjustmentToEquity = fp.AdjustmentToEquity,
                     TotalOtherEquityAccounts = fp.OtherEquityAccounts,
                     TotalEquity = fp.TotalEquity,
-                    FilePath = fp.FilePath
+                    //FilePath = fp.FilePath
                 };
             }
 
@@ -367,7 +367,7 @@ namespace Returns.Helpers
                     NetIncomeAfterTaxes = inc.NetIncomeAfterTaxesBeforeDonations,
                     Donations = inc.Donations,
                     NetIncomeAfterTaxesAndDonations = inc.NetIncomeAfterTaxesAndDonations,
-                    FilePath = inc.FilePath
+                    //FilePath = inc.FilePath
                 };
             }
 
@@ -394,7 +394,7 @@ namespace Returns.Helpers
                         DepositType = dr.DepositType ?? string.Empty,
                         NumberOfAccounts = dr.NumberOfAccounts,
                         Amount = dr.AmountInKshs000,
-                        FilePath = dr.FilePath ?? string.Empty
+                        //FilePath = dr.FilePath ?? string.Empty
                     }).ToList()
                 };
             }
@@ -440,7 +440,7 @@ namespace Returns.Helpers
                     CoreCapitalToAssetsRatioExcessDeficiency = ca.CoreCapitalToAssetsExcessDeficiency,
                     CoreCapitalToDepositsRatio = ca.CoreCapitalToDepositsRatio,
                     CoreCapitalToDepositsRatioExcessDeficiency = ca.CoreCapitalToDepositsExcessDeficiency,
-                    FilePath = ca.FilePath
+                    //FilePath = ca.FilePath
                 };
             }
 

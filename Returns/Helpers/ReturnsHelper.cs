@@ -557,13 +557,13 @@ namespace Returns.Helpers
         {
             int count = 0;
 
-            if (returnItem.NDWTCapitalAdequacyReturns.Any(c => c.DaysLateBy > 0)) count++;
+           /* if (returnItem.NDWTCapitalAdequacyReturns.Any(c => c.DaysLateBy > 0)) count++;
             if (returnItem.NWDTLiquidityReturns.Any(l => l.DaysLateBy > 0)) count++;
             if (returnItem.NWDTRiskClassificationReturns.Any(r => r.DaysLateBy > 0)) count++;
             if (returnItem.NWDTInvestmentReturns.Any(i => i.DaysLateBy > 0)) count++;
             if (returnItem.NWDTFinancialPositionReturns.Any(s => s.DaysLateBy > 0)) count++;
             if (returnItem.NWDTComprehensiveIncomeReturns.Any(s => s.DaysLateBy > 0)) count++;
-            if (returnItem.NWDTDepositReturns.Any(d => d.DaysLateBy > 0)) count++;
+            if (returnItem.NWDTDepositReturns.Any(d => d.DaysLateBy > 0)) count++;*/
             // if (returnItem.OtherReturns.Any(d => d.DaysLateBy > 0)) count++;
 
             return count;
@@ -2123,10 +2123,10 @@ namespace Returns.Helpers
                     {
                         StartDate = form2CData.StartDate,
                         EndDate = form2CData.EndDate,
-                        Period = form2CData.Period,
+                        //Period = form2CData.Period,
                         //Frequency = form.Period.Name,
                         DaysLateBy = DaysLateBy,
-                        FilePath = FilePath,
+                        //FilePath = FilePath,
                         SaccoCsNumber = form2CData.SaccoCsNumber,
                         //ReturnId = returnId,
                         FormId = form.Id,
@@ -2211,12 +2211,12 @@ namespace Returns.Helpers
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
                         //ReturnId = returnId,
                         FormId = form.Id,
-                        Period = form2DData.Period,
+                        //Period = form2DData.Period,
                         //Frequency = form.Period.Name,
                         StartDate = form2DData.StartDate,
                         EndDate = form2DData.EndDate,
-                        FilePath = filePath,
-                        DaysLateBy = daysLateBy,
+                        /*FilePath = filePath,
+                        DaysLateBy = daysLateBy,*/
                         SaccoCsNumber = form2DData.CsNumber,
                         RequiresResubmission = false,
                         CreatedAt = DateTime.Now
@@ -2468,9 +2468,9 @@ namespace Returns.Helpers
                 {
                     StartDate = Form2E.StartDate,
                     EndDate = Form2E.EndDate,
-                    Period = Form2E.Period,
+                    //Period = Form2E.Period,
                     //Frequency = form.Period.Name,
-                    FilePath = FilePath,
+                    //FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
                     //ReturnId = returnId,
                     FormId = form.Id,
@@ -2789,9 +2789,9 @@ namespace Returns.Helpers
                         //ReturnId = returnId,
                         StartDate = form2A.StartDate,
                         EndDate = form2A.EndDate,
-                        FilePath = Path,
+                        //FilePath = Path,
                         FormId = form.Id,
-                        Period = form2A.Period,
+                        //Period = form2A.Period,
                         //Frequency = form.Period.Name,
                         DaysLateBy = DaysLateBy,
                         IsAmended = false,
@@ -2969,9 +2969,9 @@ namespace Returns.Helpers
                     //ReturnId = returnId,
                     StartDate = form2F.StartDate,
                     EndDate = form2F.EndDate,
-                    Period = form2F.Period,
+                    //Period = form2F.Period,
                     //Frequency = form.Period.Name,
-                    FilePath = Path,
+                    //FilePath = Path,
                     DaysLateBy = DaysLateBy,
                     FormId = form.Id,
                     SaccoCsNumber = form2F.SaccoCsNumber,
@@ -3144,9 +3144,9 @@ namespace Returns.Helpers
                     //ReturnId = returnId,
                     StartDate = form2G.StartDate,
                     EndDate = form2G.EndDate,
-                    Period = form2G.Period,
+                    //Period = form2G.Period,
                     //Frequency = form.Period.Name,
-                    FilePath = Path,
+                    //FilePath = Path,
                     DaysLateBy = DaysLateBy,
                     FormId = form.Id,
                     SaccoCsNumber = form2G.SaccoCsNumber,

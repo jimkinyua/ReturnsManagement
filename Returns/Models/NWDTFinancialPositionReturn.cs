@@ -316,9 +316,9 @@ namespace Returns.Models
             StoredTotalEquity = TotalEquity;
             StoredTotalLiabilitiesAndEquity = TotalLiabilitiesAndEquity;
         }
-        public string Period { get; set; } = null!;
+     /*   public string Period { get; set; } = null!;
         public string Frequency { get; set; } = null!;
-        public string FilePath { get; set; } = null!;
+        public string FilePath { get; set; } = null!;*/
         public int DaysLateBy { get; set; }
         [ForeignKey("ReturnSubmission")]
         public string ReturnSubmissionId { get; set; } = null!;           // FK → ReturnSubmission
