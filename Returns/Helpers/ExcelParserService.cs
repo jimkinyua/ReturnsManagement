@@ -66,12 +66,12 @@ namespace Returns.Helpers
                                 return await ParseComprehensiveIncome(file);
                             case FormCategory.Management:
                                 return await ParseManagementReturn(file);
-                           /* case FormCategory.SectoralLending:
-                                return await ParseSectoralLending(file, SaccoType);*/
-                            /*case FormCategory.DailyLiquidity:
+                            case FormCategory.SectoralLending:
+                                return await ParseSectoralLending(file, SaccoType);
+                            case FormCategory.DailyLiquidity:
                                 return await ParseDailyLiquidity(file, SaccoType);
                             case FormCategory.InsiderLending:
-                                return await ParseInsiderLending(file, SaccoType);*/
+                                return await ParseInsiderLending(file, SaccoType);
                             default:
                                 result.Success = false;
                                 result.Errors.Add($"Unknown form category for DepositTaking: {formCategory}");
@@ -97,12 +97,12 @@ namespace Returns.Helpers
                                 return await ParseNWDTComprehensiveIncome(file);
                             case FormCategory.Management:
                                 return await ParseManagementReturn(file);
-                           /* case FormCategory.SectoralLending:
-                                return await ParseSectoralLending(file, SaccoType);*/
-                            /*case FormCategory.DailyLiquidity:
+                            case FormCategory.SectoralLending:
+                                return await ParseSectoralLending(file, SaccoType);
+                            case FormCategory.DailyLiquidity:
                                 return await ParseDailyLiquidity(file, SaccoType);
                             case FormCategory.InsiderLending:
-                                return await ParseInsiderLending(file, SaccoType);*/
+                                return await ParseInsiderLending(file, SaccoType);
                             default:
                                 result.Success = false;
                                 result.Errors.Add($"Unknown form category for NonDepositTaking: {formCategory}");
@@ -719,7 +719,7 @@ namespace Returns.Helpers
             });
         }
 
-       /* private async Task<ExcelParseResult> ParseSectoralLending(IFormFile file, string saccoType)
+        private async Task<ExcelParseResult> ParseSectoralLending(IFormFile file, string saccoType)
         {
             return await Task.Run(() =>
             {
@@ -758,9 +758,9 @@ namespace Returns.Helpers
                     return result;
                 }
             });
-        }*/
+        }
 
-        /*private async Task<ExcelParseResult> ParseDailyLiquidity(IFormFile file, string saccoType)
+        private async Task<ExcelParseResult> ParseDailyLiquidity(IFormFile file, string saccoType)
         {
             return await Task.Run(() =>
             {
@@ -796,46 +796,46 @@ namespace Returns.Helpers
                     return result;
                 }
             });
-        }*/
+        }
 
-        /* private async Task<ExcelParseResult> ParseInsiderLending(IFormFile file, string saccoType)
-         {
-             return await Task.Run(() =>
-             {
-                 var result = new ExcelParseResult();
-                 try
-                 {
-                     var data = ExcelService.ImportInsiderLendingReport(file, _logger);
-                     if (data == null || !data.Loans.Any())
-                     {
-                         result.Success = false;
-                         result.Errors.Add("No data found in Insider Lending Form");
-                         return result;
-                     }
+        private async Task<ExcelParseResult> ParseInsiderLending(IFormFile file, string saccoType)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportInsiderLendingReport(file, _logger);
+                    if (data == null || !data.Loans.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Insider Lending Form");
+                        return result;
+                    }
 
-                     result.Success = true;
-                     result.FormType = "InsiderLending";
-                     result.Metadata["StartDate"] = data.StartDate;
-                     result.Metadata["EndDate"] = data.EndDate;
-                     result.Metadata["SaccoName"] = data.SaccoName;
-                     result.Metadata["SaccoSocietyCsNumber"] = data.SaccoSocietyCsNumber;
+                    result.Success = true;
+                    result.FormType = "InsiderLending";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    result.Metadata["SaccoName"] = data.SaccoName;
+                    result.Metadata["SaccoSocietyCsNumber"] = data.SaccoSocietyCsNumber;
 
-                     var parsedRow = new InsiderLendingParsedRow
-                     {
-                         Data = data
-                     };
-                     result.Rows.Add(parsedRow);
+                    var parsedRow = new InsiderLendingParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
 
-                     return result;
-                 }
-                 catch (Exception ex)
-                 {
-                     result.Success = false;
-                     result.Errors.Add(ex.Message);
-                     return result;
-                 }
-             });
-         }*/
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
 
         private async Task<ExcelParseResult> ParseNotImplemented(string formType)
         {
