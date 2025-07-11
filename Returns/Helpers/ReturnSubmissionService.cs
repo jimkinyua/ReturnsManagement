@@ -7,6 +7,7 @@ using Returns.Models;
 using Returns.Models.Data;
 using System;
 using static Returns.Helpers.Constants;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Returns.Helpers
 {
@@ -15,15 +16,19 @@ namespace Returns.Helpers
         private readonly ReturnsDbContext _context;
         private readonly IExcelParser _excelParser;
         private readonly ILogger<ReturnSubmissionService> _logger;
+        private readonly IMemoryCache _cache;
+        private const string SubmissionStatusCacheKey = "SubmissionStatus_";
 
         public ReturnSubmissionService(
             ReturnsDbContext context,
             IExcelParser excelParser,
-            ILogger<ReturnSubmissionService> logger)
+            ILogger<ReturnSubmissionService> logger,
+            IMemoryCache cache)
         {
             _context = context;
             _excelParser = excelParser;
             _logger = logger;
+            _cache = cache;
         }
 
         public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, string SaccoType, string SaccoId)
@@ -333,6 +338,109 @@ namespace Returns.Helpers
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Get submission statuses for multiple expected returns efficiently with caching
+        /// </summary>
+        /// <param name="expectedReturnIds">List of expected return IDs</param>
+        /// <returns>Dictionary mapping expected return ID to submission data</returns>
+        public async Task<Dictionary<string, (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt)>> GetSubmissionStatusesAsync(List<string> expectedReturnIds)
+        {
+            if (!expectedReturnIds.Any())
+                return new Dictionary<string, (SubmissionStatus, string?, DateTime?)>();
+
+            var result = new Dictionary<string, (SubmissionStatus, string?, DateTime?)>();
+            var uncachedIds = new List<string>();
+
+            // Check cache first
+            foreach (var expectedReturnId in expectedReturnIds)
+            {
+                var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
+                if (_cache.TryGetValue(cacheKey, out var cachedData))
+                {
+                    result[expectedReturnId] = ((SubmissionStatus, string?, DateTime?))cachedData;
+                }
+                else
+                {
+                    uncachedIds.Add(expectedReturnId);
+                }
+            }
+
+            // If all data was cached, return immediately
+            if (!uncachedIds.Any())
+                return result;
+
+            // Fetch uncached data from database
+            var submissions = await _context.ReturnSubmissions
+                .Where(rs => uncachedIds.Contains(rs.ExpectedReturnId) && rs.IsActive)
+                .Select(rs => new
+                {
+                    rs.ExpectedReturnId,
+                    rs.Id,
+                    rs.Status,
+                    rs.SubmittedAt,
+                    HasData = rs.DTCapitalAdequacyReturns.Any() ||
+                              rs.DTComprehensiveIncomeReturns.Any() ||
+                              rs.DTFinancialPositionReturns.Any() ||
+                              rs.DTInvestmentReturns.Any() ||
+                              rs.DTLiquidityReturns.Any() ||
+                              rs.DTRiskClassificationReturns.Any() ||
+                              rs.DepositReturns.Any() ||
+                              rs.NWDTCapitalAdequacyReturns.Any() ||
+                              rs.NWDTLiquidityReturns.Any() ||
+                              rs.NWDTDepositReturns.Any() ||
+                              rs.NWDTInvestmentReturns.Any() ||
+                              rs.NWDTFinancialPositionReturns.Any() ||
+                              rs.NWDTComprehensiveIncomeReturns.Any() ||
+                              rs.NWDTRiskClassificationReturns.Any()
+                })
+                .ToListAsync();
+
+            // Process uncached data
+            foreach (var expectedReturnId in uncachedIds)
+            {
+                var latestSubmission = submissions
+                    .Where(s => s.ExpectedReturnId == expectedReturnId)
+                    .OrderByDescending(s => s.SubmittedAt)
+                    .FirstOrDefault();
+
+                (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt) submissionData;
+
+                if (latestSubmission == null)
+                {
+                    submissionData = (SubmissionStatus.NotSubmitted, null, null);
+                }
+                else
+                {
+                    SubmissionStatus status;
+                    // Parse the status from the string field
+                    if (Enum.TryParse<ExpectedStatus>(latestSubmission.Status, out var parsedStatus))
+                    {
+                        status = parsedStatus switch
+                        {
+                            ExpectedStatus.Filed => SubmissionStatus.Submitted,
+                            ExpectedStatus.Draft => SubmissionStatus.Draft,
+                            _ => SubmissionStatus.NotSubmitted
+                        };
+                    }
+                    else
+                    {
+                        // Fallback: check if submission has data to determine if it's a draft
+                        status = latestSubmission.HasData ? SubmissionStatus.Draft : SubmissionStatus.NotSubmitted;
+                    }
+
+                    submissionData = (status, latestSubmission.Id, latestSubmission.SubmittedAt);
+                }
+
+                // Cache the result for 5 minutes
+                var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
+                _cache.Set(cacheKey, submissionData, TimeSpan.FromMinutes(5));
+
+                result[expectedReturnId] = submissionData;
+            }
+
+            return result;
         }
 
         private bool IsSectoralLendingObject(object entity)

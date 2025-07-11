@@ -9,6 +9,7 @@
     }
     public enum SubmissionStatus
     {
+        NotSubmitted,   // No submission exists
         Draft,           // Saved but not yet submitted
         Pending,         
         Submitted,       

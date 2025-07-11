@@ -12,6 +12,12 @@ namespace Returns.DTOs.Forms
         public int LateCount { get; set; }
         public int WaivedCount { get; set; }
         public List<FormsDueByMonthDTO> Forms { get; set; } = new List<FormsDueByMonthDTO>();
+        
+        // Bulk submission guidance
+        public bool CanBulkSubmit => Forms.All(f => f.CanBulkSubmit) && Forms.Any();
+        public int DraftCount => Forms.Count(f => f.SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Draft);
+        public int NotSubmittedCount => Forms.Count(f => f.SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted);
+        public int SubmittedCount => Forms.Count(f => f.SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted);
     }
 
     public class FormsDueGroupedResponseDTO

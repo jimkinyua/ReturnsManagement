@@ -24,9 +24,19 @@ namespace Returns.DTOs.Forms
         public string? SubmissionId { get; set; }
         public SubmissionStatus? SubmissionStatus { get; set; }
         public DateTime? SubmittedAt { get; set; }
-        public bool CanSubmit => !IsSubmitted && !IsLate && Status != ExpectedStatus.Waived;
-        public bool CanContinue => IsSubmitted  && !IsLate;
-        public bool CanRequestEdit => IsSubmitted && IsLate;
-        public string ActionType => IsSubmitted ? (IsLate ? "RequestEdit" : "Continue") : "Submit";
+        
+        // UI Guidance Properties
+        public bool CanSubmit => SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && !IsLate;
+        public bool CanContinue => SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Draft && !IsLate;
+        public bool CanEdit => SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Draft;
+        public bool CanBulkSubmit => SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Draft;
+        public bool ShowFileInput => SubmissionStatus == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted;
+        public string ActionType => SubmissionStatus switch
+        {
+            Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted => "Submit",
+            Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Draft => "Continue",
+            Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted => "View",
+            _ => "Submit"
+        };
     }
 }
