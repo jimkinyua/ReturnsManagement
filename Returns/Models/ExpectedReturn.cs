@@ -21,5 +21,6 @@ namespace Returns.Models
         public DateTime FilingDeadline { get; set; }
         public ExpectedStatus Status { get; set; }  //  { IGNORE THIS ITS NOT USED}
         public bool IsActive { get; set; } = true;
+        public virtual ICollection<ReturnSubmission> ReturnSubmissions { get; set; } = new List<ReturnSubmission>();
     }
 }

@@ -27,6 +27,7 @@ using System.ComponentModel.DataAnnotations;
 using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.Returns.Returns_Analysis;
 using System.Text;
+using Returns.DTOs.Returns.Returns_Submission;
 
 namespace Returns.Controllers
 {
@@ -601,8 +602,8 @@ namespace Returns.Controllers
                     return StatusCode(401);
                 }
 
-                var result = await _returnSubmissionService.UploadDraftAsync(dto,loggedInSacco.SaccoType, loggedInSacco.SaccoId);
-              
+                var result = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
+
                 return Ok(result);
             }
             catch (Exception)
@@ -3774,6 +3775,36 @@ namespace Returns.Controllers
           }
   */
 
+        /// <summary>
+        /// Bulk submit all returns for a specific period
+        /// </summary>
+        /// <param name="periodId">The period ID to submit returns for</param>
+        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
+        [HttpPost("BulkSubmitByPeriod")]
+        public async Task<ActionResult<BulkSubmissionResultDTO>> BulkSubmitByPeriod(
+            [FromBody] BulkSubmissionRequestDTO request)
+        {
+            try
+            {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var result = await _returnSubmissionService.BulkSubmitByPeriodAsync(
+                    request.PeriodId,
+                    loggedInSacco.SaccoId,
+                    loggedInSacco.SaccoType);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk submission for period {PeriodId}", request.PeriodId);
+                return StatusCode(500, new { error = "An error occurred during bulk submission", details = ex.Message });
+            }
+        }
 
     }
 }

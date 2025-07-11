@@ -7,6 +7,7 @@ using Returns.Models;
 using Returns.Models.Data;
 using System;
 using static Returns.Helpers.Constants;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace Returns.Helpers
 {
@@ -15,15 +16,19 @@ namespace Returns.Helpers
         private readonly ReturnsDbContext _context;
         private readonly IExcelParser _excelParser;
         private readonly ILogger<ReturnSubmissionService> _logger;
+        private readonly IMemoryCache _cache;
+        private const string SubmissionStatusCacheKey = "SubmissionStatus_";
 
         public ReturnSubmissionService(
             ReturnsDbContext context,
             IExcelParser excelParser,
-            ILogger<ReturnSubmissionService> logger)
+            ILogger<ReturnSubmissionService> logger,
+            IMemoryCache cache)
         {
             _context = context;
             _excelParser = excelParser;
             _logger = logger;
+            _cache = cache;
         }
 
         public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, string SaccoType, string SaccoId)
@@ -333,6 +338,244 @@ namespace Returns.Helpers
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Get submission statuses for multiple expected returns efficiently with caching
+        /// </summary>
+        /// <param name="expectedReturnIds">List of expected return IDs</param>
+        /// <returns>Dictionary mapping expected return ID to submission data</returns>
+        public async Task<Dictionary<string, (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt)>> GetSubmissionStatusesAsync(List<string> expectedReturnIds)
+        {
+            if (!expectedReturnIds.Any())
+                return new Dictionary<string, (SubmissionStatus, string?, DateTime?)>();
+
+            var result = new Dictionary<string, (SubmissionStatus, string?, DateTime?)>();
+            var uncachedIds = new List<string>();
+
+            // Check cache first
+            foreach (var expectedReturnId in expectedReturnIds)
+            {
+                var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
+                if (_cache.TryGetValue(cacheKey, out var cachedData))
+                {
+                    result[expectedReturnId] = ((SubmissionStatus, string?, DateTime?))cachedData;
+                }
+                else
+                {
+                    uncachedIds.Add(expectedReturnId);
+                }
+            }
+
+            // If all data was cached, return immediately
+            if (!uncachedIds.Any())
+                return result;
+
+            // Fetch uncached data from database
+            var submissions = await _context.ReturnSubmissions
+                .Where(rs => uncachedIds.Contains(rs.ExpectedReturnId) && rs.IsActive)
+                .Select(rs => new
+                {
+                    rs.ExpectedReturnId,
+                    rs.Id,
+                    rs.Status,
+                    rs.SubmittedAt,
+                    HasData = rs.DTCapitalAdequacyReturns.Any() ||
+                              rs.DTComprehensiveIncomeReturns.Any() ||
+                              rs.DTFinancialPositionReturns.Any() ||
+                              rs.DTInvestmentReturns.Any() ||
+                              rs.DTLiquidityReturns.Any() ||
+                              rs.DTRiskClassificationReturns.Any() ||
+                              rs.DepositReturns.Any() ||
+                              rs.NWDTCapitalAdequacyReturns.Any() ||
+                              rs.NWDTLiquidityReturns.Any() ||
+                              rs.NWDTDepositReturns.Any() ||
+                              rs.NWDTInvestmentReturns.Any() ||
+                              rs.NWDTFinancialPositionReturns.Any() ||
+                              rs.NWDTComprehensiveIncomeReturns.Any() ||
+                              rs.NWDTRiskClassificationReturns.Any()
+                })
+                .ToListAsync();
+
+            // Process uncached data
+            foreach (var expectedReturnId in uncachedIds)
+            {
+                var latestSubmission = submissions
+                    .Where(s => s.ExpectedReturnId == expectedReturnId)
+                    .OrderByDescending(s => s.SubmittedAt)
+                    .FirstOrDefault();
+
+                (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt) submissionData;
+
+                if (latestSubmission == null)
+                {
+                    submissionData = (SubmissionStatus.NotSubmitted, null, null);
+                }
+                else
+                {
+                    SubmissionStatus status;
+                    // Parse the status from the string field
+                    if (Enum.TryParse<ExpectedStatus>(latestSubmission.Status, out var parsedStatus))
+                    {
+                        status = parsedStatus switch
+                        {
+                            ExpectedStatus.Filed => SubmissionStatus.Submitted,
+                            ExpectedStatus.Draft => SubmissionStatus.Draft,
+                            _ => SubmissionStatus.NotSubmitted
+                        };
+                    }
+                    else
+                    {
+                        // Fallback: check if submission has data to determine if it's a draft
+                        status = latestSubmission.HasData ? SubmissionStatus.Draft : SubmissionStatus.NotSubmitted;
+                    }
+
+                    submissionData = (status, latestSubmission.Id, latestSubmission.SubmittedAt);
+                }
+
+                // Cache the result for 5 minutes
+                var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
+                _cache.Set(cacheKey, submissionData, TimeSpan.FromMinutes(5));
+
+                result[expectedReturnId] = submissionData;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Check if a form is late based on filing deadline
+        /// </summary>
+        /// <param name="filingDeadline">The filing deadline</param>
+        /// <param name="status">Current submission status</param>
+        /// <returns>True if the form is late</returns>
+        public bool IsFormLate(DateTime filingDeadline, SubmissionStatus status)
+        {
+            var currentDate = DateTime.Now;
+            return currentDate > filingDeadline && status != SubmissionStatus.Submitted;
+        }
+
+        /// <summary>
+        /// Bulk submit all returns for a specific period
+        /// </summary>
+        /// <param name="periodId">The period ID</param>
+        /// <param name="saccoId">The SACCO ID</param>
+        /// <param name="saccoType">The SACCO type</param>
+        /// <returns>Bulk submission result</returns>
+        public async Task<BulkSubmissionResultDTO> BulkSubmitByPeriodAsync(string periodId, string saccoId, string saccoType)
+        {
+            var result = new BulkSubmissionResultDTO();
+
+            try
+            {
+                // Get all expected returns for the period that are in draft status
+                var expectedReturns = await _context.ExpectedReturns
+                    .Include(er => er.ReturnForm)
+                    .Include(er => er.Period)
+                    .Include(er => er.ReturnSubmissions.Where(rs => rs.IsActive))
+                    .Where(er => er.PeriodId == periodId &&
+                                er.IsActive &&
+                                er.ReturnForm.SaccoTypeId == saccoType)
+                    .ToListAsync();
+
+                if (!expectedReturns.Any())
+                {
+                    result.Success = false;
+                    result.Message = "No expected returns found for the specified period.";
+                    return result;
+                }
+
+                // Get submission statuses for all expected returns
+                var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
+                var submissionStatuses = await GetSubmissionStatusesAsync(expectedReturnIds);
+
+                // Filter to only draft submissions
+                var draftReturns = expectedReturns.Where(er =>
+                {
+                    var status = submissionStatuses.GetValueOrDefault(er.Id).Status;
+                    return status == SubmissionStatus.Draft;
+                }).ToList();
+
+                if (!draftReturns.Any())
+                {
+                    result.Success = false;
+                    result.Message = "No draft returns found for bulk submission.";
+                    return result;
+                }
+
+                result.TotalForms = draftReturns.Count;
+                var details = new List<BulkSubmissionDetailDTO>();
+
+                foreach (var expectedReturn in draftReturns)
+                {
+                    var detail = new BulkSubmissionDetailDTO
+                    {
+                        ExpectedReturnId = expectedReturn.Id,
+                        FormName = expectedReturn.ReturnForm.FormName,
+                        FormCode = expectedReturn.ReturnForm.Code,
+                        Success = false,
+                        Message = "",
+                        Status = SubmissionStatus.Pending
+                    };
+
+                    try
+                    {
+                        // Get the latest submission for this expected return
+                        var latestSubmission = expectedReturn.ReturnSubmissions
+                            .OrderByDescending(rs => rs.SubmittedAt)
+                            .FirstOrDefault();
+
+                        if (latestSubmission == null)
+                        {
+                            detail.Message = "No draft submission found.";
+                            details.Add(detail);
+                            result.FailedSubmissions++;
+                            continue;
+                        }
+
+                        // Update the submission status to Submitted
+                        latestSubmission.Status = ExpectedStatus.Filed.ToString();
+                        latestSubmission.SubmittedAt = DateTime.Now;
+
+                        // Update the expected return status
+                        expectedReturn.Status = ExpectedStatus.Filed;
+
+                        detail.Success = true;
+                        detail.Message = "Successfully submitted.";
+                        detail.SubmissionId = latestSubmission.Id;
+                        detail.Status = SubmissionStatus.Submitted;
+                        result.SuccessfullySubmitted++;
+
+                        details.Add(detail);
+                    }
+                    catch (Exception ex)
+                    {
+                        detail.Message = $"Error submitting form: {ex.Message}";
+                        details.Add(detail);
+                        result.FailedSubmissions++;
+                        _logger.LogError(ex, "Error submitting form {FormName} for expected return {ExpectedReturnId}",
+                            expectedReturn.ReturnForm.FormName, expectedReturn.Id);
+                    }
+                }
+
+                // Save all changes
+                await _context.SaveChangesAsync();
+
+                result.Success = result.FailedSubmissions == 0;
+                result.Message = result.Success
+                    ? $"Successfully submitted {result.SuccessfullySubmitted} forms."
+                    : $"Submitted {result.SuccessfullySubmitted} forms with {result.FailedSubmissions} failures.";
+                result.Details = details;
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk submission for period {PeriodId}", periodId);
+                result.Success = false;
+                result.Message = $"An error occurred during bulk submission: {ex.Message}";
+                return result;
+            }
         }
 
         private bool IsSectoralLendingObject(object entity)

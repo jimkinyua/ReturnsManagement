@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SqlServer.Server;
 using Returns.DTOs.Forms;
+using Returns.DTOs.Returns.Returns_Submission;
 using Returns.Helpers;
 using Returns.Models;
 using Returns.Models.Data;
 using static Returns.Helpers.TokenHelper;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using Microsoft.Extensions.Configuration;
+using Returns.Helpers.Interfaces;
 
 namespace Returns.Controllers
 {
@@ -18,10 +20,12 @@ namespace Returns.Controllers
     {
         private readonly ReturnsDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly IReturnSubmissionService _returnSubmissionService;
 
-        public FormsController(ReturnsDbContext context)
+        public FormsController(ReturnsDbContext context, IReturnSubmissionService returnSubmissionService)
         {
             _context = context;
+            _returnSubmissionService = returnSubmissionService;
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             _configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
@@ -616,8 +620,8 @@ namespace Returns.Controllers
         }
 
         /// <summary>
-        /// Get forms due for a specific year and month, grouped by frequency
-        /// Enhanced with submission status and group-level submission capabilities
+        /// Get forms due for the current month, grouped by period, with clear submission statuses
+        /// Optimized for performance with simplified queries and clear status tracking
         /// </summary>
         /// <param name="year">The year (e.g., 2024)</param>
         /// <param name="month">The month (1-12)</param>
@@ -641,15 +645,16 @@ namespace Returns.Controllers
                 // Get the first and last day of the specified month
                 var firstDayOfMonth = new DateTime(year, month, 1);
                 var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+                var currentDate = DateTime.Now;
 
-                // Find all expected returns where the filing deadline falls within this month
-                // Include ReturnSubmission data for submission status
+                // Optimized query: Get expected returns with submission data in a single query
                 var expectedReturnsQuery = _context.ExpectedReturns
                     .Include(er => er.ReturnForm)
                     .Include(er => er.Period)
                         .ThenInclude(p => p.FrequencyCatalog)
                     .Include(er => er.Period)
                         .ThenInclude(p => p.ReportingYear)
+                    .Include(er => er.ReturnSubmissions.Where(rs => rs.IsActive))
                     .Where(er => er.FilingDeadline.Date.Month >= firstDayOfMonth.Date.Month &&
                                 er.FilingDeadline.Date.Month <= lastDayOfMonth.Date.Month &&
                                 er.IsActive);
@@ -661,13 +666,12 @@ namespace Returns.Controllers
                 }
 
                 var expectedReturns = await expectedReturnsQuery.ToListAsync();
-                var currentDate = DateTime.Now;
 
-                // Get submission data for all expected returns in one query for performance
+                // Get submission statuses efficiently using the service
                 var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
-                var submissionLookup = await GetSubmissionDataAsync(expectedReturnIds);
+                var submissionData = await _returnSubmissionService.GetSubmissionStatusesAsync(expectedReturnIds);
 
-                // Group by frequency with enhanced submission data
+                // Group by frequency with optimized submission status determination
                 var groupedData = expectedReturns
                     .GroupBy(er => new { er.Period.FrequencyCatalog.Code, er.Period.FrequencyCatalog.Name })
                     .Select(g => new GroupedFormsDueDTO
@@ -675,55 +679,24 @@ namespace Returns.Controllers
                         FrequencyCode = g.Key.Code,
                         FrequencyName = g.Key.Name,
                         TotalFormsInGroup = g.Count(),
-                        FiledCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
-                        DueCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
-                        LateCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
-                                                 (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
-                        WaivedCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived),
-                        Forms = g.Select(er =>
-                        {
-                            var submission = submissionLookup.GetValueOrDefault(er.Id);
-                            var isSubmitted = submission != null;
-
-                            // Determine submission status based on data presence
-                            var submissionStatus = isSubmitted && submission.HasData
-                                ? Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Draft
-                                : (Returns.DTOs.Returns.Returns_Submission.SubmissionStatus?)null;
-
-                            return new FormsDueByMonthDTO
-                            {
-                                FormId = er.ReturnFormId,
-                                FormName = er.ReturnForm.FormName,
-                                ExpectedReturnId = er.Id,
-                                FormCode = er.ReturnForm.Code,
-                                PeriodId = er.PeriodId,
-                                PeriodName = er.Period.Name,
-                                PeriodStartDate = er.Period.StartDate,
-                                PeriodEndDate = er.Period.EndDate,
-                                FilingDeadline = er.FilingDeadline,
-                                Status = er.Status,
-                                TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
-                                SaccoTypeId = er.ReturnForm.SaccoTypeId,
-                                IsSubmitted = isSubmitted,
-                                SubmissionId = submission?.Id,
-                                SubmissionStatus = submissionStatus,
-                                SubmittedAt = submission?.SubmittedAt
-                            };
-                        })
-                        .OrderBy(f => f.FilingDeadline)
-                        .ThenBy(f => f.FormName)
-                        .ToList()
+                        FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                        DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                        LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                        Forms = g.Select(er => CreateFormDueDTO(er, baseUrl, currentDate, submissionData.GetValueOrDefault(er.Id)))
+                            .OrderBy(f => f.FilingDeadline)
+                            .ThenBy(f => f.FormName)
+                            .ToList()
                     })
-                    .OrderBy(g => g.FrequencyCode)
+                    .OrderBy(g => GetFrequencyOrder(g.FrequencyCode))
                     .ToList();
 
                 var response = new FormsDueGroupedResponseDTO
                 {
                     TotalExpectedReturns = expectedReturns.Count,
-                    TotalFiled = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
-                    TotalDue = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
-                    TotalLate = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
-                                                           (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
+                    TotalFiled = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                    TotalDue = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                    TotalLate = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                    TotalWaived = 0, // No waivers allowed
                     GroupedByFrequency = groupedData
                 };
 
@@ -775,11 +748,11 @@ namespace Returns.Controllers
                 var expectedReturns = await expectedReturnsQuery.ToListAsync();
                 var currentDate = DateTime.Now;
 
-                // Get submission data for all expected returns in one query for performance
+                // Get submission statuses efficiently using the service
                 var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
-                var submissionLookup = await GetSubmissionDataAsync(expectedReturnIds);
+                var submissionData = await _returnSubmissionService.GetSubmissionStatusesAsync(expectedReturnIds);
 
-                // Group by frequency with enhanced submission data
+                // Group by frequency with optimized submission status determination
                 var groupedData = expectedReturns
                     .GroupBy(er => new { er.Period.FrequencyCatalog.Code, er.Period.FrequencyCatalog.Name })
                     .Select(g => new GroupedFormsDueDTO
@@ -787,44 +760,13 @@ namespace Returns.Controllers
                         FrequencyCode = g.Key.Code,
                         FrequencyName = g.Key.Name,
                         TotalFormsInGroup = g.Count(),
-                        FiledCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
-                        DueCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
-                        LateCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
-                                                 (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
-                        WaivedCount = g.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived),
-                        Forms = g.Select(er =>
-                        {
-                            var submission = submissionLookup.GetValueOrDefault(er.Id);
-                            var isSubmitted = submission != null;
-
-                            // Determine submission status based on data presence
-                            var submissionStatus = isSubmitted && submission.HasData
-                                ? Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Draft
-                                : (Returns.DTOs.Returns.Returns_Submission.SubmissionStatus?)null;
-
-                            return new FormsDueByMonthDTO
-                            {
-                                FormId = er.ReturnFormId,
-                                FormName = er.ReturnForm.FormName,
-                                ExpectedReturnId = er.Id,
-                                FormCode = er.ReturnForm.Code,
-                                PeriodId = er.PeriodId,
-                                PeriodName = er.Period.Name,
-                                PeriodStartDate = er.Period.StartDate,
-                                PeriodEndDate = er.Period.EndDate,
-                                FilingDeadline = er.FilingDeadline,
-                                Status = er.Status,
-                                TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
-                                SaccoTypeId = er.ReturnForm.SaccoTypeId,
-                                IsSubmitted = isSubmitted,
-                                SubmissionId = submission?.Id,
-                                SubmissionStatus = submissionStatus,
-                                SubmittedAt = submission?.SubmittedAt
-                            };
-                        })
-                        .OrderBy(f => f.FilingDeadline)
-                        .ThenBy(f => f.FormName)
-                        .ToList()
+                        FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                        DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                        LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                        Forms = g.Select(er => CreateFormDueDTO(er, baseUrl, currentDate, submissionData.GetValueOrDefault(er.Id)))
+                            .OrderBy(f => f.FilingDeadline)
+                            .ThenBy(f => f.FormName)
+                            .ToList()
                     })
                     .OrderBy(g => GetFrequencyOrder(g.FrequencyCode))
                     .ToList();
@@ -832,11 +774,10 @@ namespace Returns.Controllers
                 var response = new FormsDueGroupedResponseDTO
                 {
                     TotalExpectedReturns = expectedReturns.Count,
-                    TotalFiled = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Filed),
-                    TotalDue = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline >= currentDate),
-                    TotalLate = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Late ||
-                                                           (er.Status == Helpers.Enums.ExpectedStatus.Due && er.FilingDeadline < currentDate)),
-                    TotalWaived = expectedReturns.Count(er => er.Status == Helpers.Enums.ExpectedStatus.Waived),
+                    TotalFiled = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                    TotalDue = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                    TotalLate = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                    TotalWaived = 0, // No waivers allowed
                     GroupedByFrequency = groupedData
                 };
 
@@ -867,66 +808,32 @@ namespace Returns.Controllers
         }
 
         /// <summary>
-        /// Helper method to get submission data for expected returns
+        /// Create FormDueDTO with optimized status determination
         /// </summary>
-        private async Task<Dictionary<string, SubmissionData>> GetSubmissionDataAsync(List<string> expectedReturnIds)
+        private FormsDueByMonthDTO CreateFormDueDTO(ExpectedReturn er, string baseUrl, DateTime currentDate, (Returns.DTOs.Returns.Returns_Submission.SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt) submissionData)
         {
-            var submissions = await _context.ReturnSubmissions
-                .Include(rs => rs.DTCapitalAdequacyReturns)
-                .Include(rs => rs.DTComprehensiveIncomeReturns)
-                .Include(rs => rs.DTFinancialPositionReturns)
-                .Include(rs => rs.DTInvestmentReturns)
-                .Include(rs => rs.DTLiquidityReturns)
-                .Include(rs => rs.DTRiskClassificationReturns)
-                .Include(rs => rs.DepositReturns)
-                .Include(rs => rs.NWDTCapitalAdequacyReturns)
-                .Include(rs => rs.NWDTLiquidityReturns)
-                .Include(rs => rs.NWDTDepositReturns)
-                .Include(rs => rs.NWDTInvestmentReturns)
-                .Include(rs => rs.NWDTFinancialPositionReturns)
-                .Include(rs => rs.NWDTComprehensiveIncomeReturns)
-                .Include(rs => rs.NWDTRiskClassificationReturns)
-                .Where(rs => expectedReturnIds.Contains(rs.ExpectedReturnId) && rs.IsActive)
-                .Select(rs => new SubmissionData
-                {
-                    ExpectedReturnId = rs.ExpectedReturnId,
-                    Id = rs.Id,
-                    SubmittedAt = rs.SubmittedAt,
-                    HasData = rs.DTCapitalAdequacyReturns.Any() ||
-                              rs.DTComprehensiveIncomeReturns.Any() ||
-                              rs.DTFinancialPositionReturns.Any() ||
-                              rs.DTInvestmentReturns.Any() ||
-                              rs.DTLiquidityReturns.Any() ||
-                              rs.DTRiskClassificationReturns.Any() ||
-                              rs.DepositReturns.Any() ||
-                              rs.NWDTCapitalAdequacyReturns.Any() ||
-                              rs.NWDTLiquidityReturns.Any() ||
-                              rs.NWDTDepositReturns.Any() ||
-                              rs.NWDTInvestmentReturns.Any() ||
-                              rs.NWDTFinancialPositionReturns.Any() ||
-                              rs.NWDTComprehensiveIncomeReturns.Any() ||
-                              rs.NWDTRiskClassificationReturns.Any()
-                })
-                .ToListAsync();
+            var isSubmitted = submissionData.Status != Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted;
+            var isLate = _returnSubmissionService.IsFormLate(er.FilingDeadline, submissionData.Status);
 
-            // Group by ExpectedReturnId and take the most recent submission for each
-            var latestSubmissions = submissions
-                .GroupBy(s => s.ExpectedReturnId)
-                .Select(g => g.OrderByDescending(s => s.SubmittedAt).First())
-                .ToList();
-
-            return latestSubmissions.ToDictionary(s => s.ExpectedReturnId);
-        }
-
-        /// <summary>
-        /// Helper class for submission data
-        /// </summary>
-        private class SubmissionData
-        {
-            public string ExpectedReturnId { get; set; } = null!;
-            public string Id { get; set; } = null!;
-            public DateTime SubmittedAt { get; set; }
-            public bool HasData { get; set; }
+            return new FormsDueByMonthDTO
+            {
+                FormId = er.ReturnFormId,
+                FormName = er.ReturnForm.FormName,
+                ExpectedReturnId = er.Id,
+                FormCode = er.ReturnForm.Code,
+                PeriodId = er.PeriodId,
+                PeriodName = er.Period.Name,
+                PeriodStartDate = er.Period.StartDate,
+                PeriodEndDate = er.Period.EndDate,
+                FilingDeadline = er.FilingDeadline,
+                Status = er.Status,
+                TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                SaccoTypeId = er.ReturnForm.SaccoTypeId,
+                IsSubmitted = isSubmitted,
+                SubmissionId = submissionData.SubmissionId,
+                SubmissionStatus = submissionData.Status,
+                SubmittedAt = submissionData.SubmittedAt
+            };
         }
 
     }
