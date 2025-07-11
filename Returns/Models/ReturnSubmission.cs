@@ -1,4 +1,5 @@
-﻿using Returns.Models.Common;
+﻿using Returns.Helpers.Enums;
+using Returns.Models.Common;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
@@ -12,6 +13,7 @@ namespace Returns.Models
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
         public string FileUrl { get; set; } = null!;
         public bool IsActive { get; set; } = true;
+        public string Status = ExpectedStatus.Draft.ToString(); // Default status is Draft
 
         //DT Returns
         public ICollection<DTCapitalAdequacyReturn> DTCapitalAdequacyReturns { get; set; } = new List<DTCapitalAdequacyReturn>();
