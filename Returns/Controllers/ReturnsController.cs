@@ -3558,222 +3558,222 @@ namespace Returns.Controllers
 
 
 
-        /*  private async Task<(
-           bool IsValid,
-           List<string> ProcessingSummary,
-          List<ValidationError> ConsistencyErrors,
-          bool HasConsistencyBeenChecked,
-           List<CapitalAdequacyRow> CapitalAdequacy,
-           List<LiquidityStatementRow> LiquidityStatement,
-           List<DepositRangeData> DepositReturn,
-           List<RiskClassificationRow> RiskClassification,
-           List<InvestmentRow> Investment,
-           List<StatementOfFinancialPositionRow> FinancialPosition,
-           List<StatementOfComprehensiveIncomeRow> ComprehensiveStatement,
-           string CommonPeriod
-              )>
-              CheckConsistencyForDT(NewReturnDTO createFormDTO)
-          {
-              var processingSummary = new List<string>();
-              List<ValidationError> ConsistencyErrors = new List<ValidationError>();
-              ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+        private async Task<(
+         bool IsValid,
+         List<string> ProcessingSummary,
+        List<ValidationError> ConsistencyErrors,
+        bool HasConsistencyBeenChecked,
+         List<CapitalAdequacyRow> CapitalAdequacy,
+         List<LiquidityStatementRow> LiquidityStatement,
+         List<DepositRangeData> DepositReturn,
+         List<RiskClassificationRow> RiskClassification,
+         List<InvestmentRow> Investment,
+         List<StatementOfFinancialPositionRow> FinancialPosition,
+         List<StatementOfComprehensiveIncomeRow> ComprehensiveStatement,
+         string CommonPeriod
+            )>
+            CheckConsistencyForDT(NewReturnDTO createFormDTO)
+        {
+            var processingSummary = new List<string>();
+            List<ValidationError> ConsistencyErrors = new List<ValidationError>();
+            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
 
 
-              // Check for attachments
-              if (createFormDTO.FormUploads == null ||
-                  createFormDTO.FormUploads.Count == 0 ||
-                  !createFormDTO.FormUploads.Any(f => f.formFile != null))
-              {
-                  throw new Exception("No attachments found. Please attach at least one form");
-              }
+            // Check for attachments
+            if (createFormDTO.FormUploads == null ||
+                createFormDTO.FormUploads.Count == 0 ||
+                !createFormDTO.FormUploads.Any(f => f.formFile != null))
+            {
+                throw new Exception("No attachments found. Please attach at least one form");
+            }
 
-              // await returnsHelper.ValidateUploadedForms(Dto);
-              Form1Statement form1Statement = null;
-              Form2Statement Form2 = null;
-              Form3Statement Form3 = null;
-              Form4Statement form4 = null;
-              Form5Statement Form5 = null;
-              Form6Statement form6 = null;
-              Form7Statement form7 = null;
-
-
-              // Initialize form data holders
-              List<CapitalAdequacyRow> capital_adequacy_form1 = null;
-              List<LiquidityStatementRow> liquidityStatement_form_2 = null;
-              List<DepositRangeData> depositreturn_form_3 = null;
-              List<RiskClassificationRow> riskClassification_form_4 = null;
-              List<InvestmentRow> inverstment_return_form_5 = null;
-              List<StatementOfFinancialPositionRow> financialPositionStatement_form_6 = null;
-              List<StatementOfComprehensiveIncomeRow> comprehensiveStatement_form7 = null;
-              var HasConsistencyBeenChecked = true;
-              // Process each form
-              foreach (var form in createFormDTO.FormUploads)
-              {
-                  try
-                  {
-                      if (form.formFile == null) continue;
+            // await returnsHelper.ValidateUploadedForms(Dto);
+            Form1Statement form1Statement = null;
+            Form2Statement Form2 = null;
+            Form3Statement Form3 = null;
+            Form4Statement form4 = null;
+            Form5Statement Form5 = null;
+            Form6Statement form6 = null;
+            Form7Statement form7 = null;
 
 
-                      ReturnForm? fm = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
-                      if (fm == null)
-                      {
-                          processingSummary.Add($"Form with ID {form.FormId} was not found in the system");
-                          continue;
-                      }
+            // Initialize form data holders
+            List<CapitalAdequacyRow> capital_adequacy_form1 = null;
+            List<LiquidityStatementRow> liquidityStatement_form_2 = null;
+            List<DepositRangeData> depositreturn_form_3 = null;
+            List<RiskClassificationRow> riskClassification_form_4 = null;
+            List<InvestmentRow> inverstment_return_form_5 = null;
+            List<StatementOfFinancialPositionRow> financialPositionStatement_form_6 = null;
+            List<StatementOfComprehensiveIncomeRow> comprehensiveStatement_form7 = null;
+            var HasConsistencyBeenChecked = true;
+            // Process each form
+            foreach (var form in createFormDTO.FormUploads)
+            {
+                try
+                {
+                    if (form.formFile == null) continue;
 
 
-                      // Form 1: Capital Adequacy Form
-                      if (fm.IsCapitalAdequencyForm)
-                      {
-                          form1Statement = ExcelService.ImportCapitalAdequacyRows(form.formFile, _logger);
-                          if (form1Statement == null || !form1Statement.Rows.Any())
-                          {
-                              throw new Exception("No data found in Capital Adequacy Form");
-                          }
-
-                          capital_adequacy_form1 = form1Statement.Rows;
-
-                          if (capital_adequacy_form1 == null || !capital_adequacy_form1.Any())
-                          {
-                              throw new Exception("No data found in Capital Adequacy Form");
-                          }
-                      }
-                      // Form 2: Liquidity Statement Form
-                      else if (fm.IsLiquidityStatement)
-                      {
-                          Form2 = ExcelService.ImportLiquidityStatementRows(form.formFile, _logger);
-                          if (Form2 == null || !Form2.Rows.Any())
-                          {
-                              throw new Exception("No data found in Liquidity Statement Form");
-                          }
-                          liquidityStatement_form_2 = Form2.Rows;
-                          if (liquidityStatement_form_2 == null || !liquidityStatement_form_2.Any())
-                          {
-                              throw new Exception("No data found in Liquidity Statement Form");
-                          }
-                      }
-                      // Form 3: Deposit Return Form
-                      else if (fm.IsDepositReturnForm)
-                      {
-                          Form3 = ExcelService.ImportDepositRangeDataRows(form.formFile, _logger);
-                          if (Form3 == null || !Form3.Rows.Any())
-                          {
-                              throw new Exception("No data found in Deposit Return Form");
-                          }
-                          depositreturn_form_3 = Form3.Rows;
-                          if (depositreturn_form_3 == null || !depositreturn_form_3.Any())
-                          {
-                              throw new Exception("No data found in Deposit Return Form");
-                          }
-                      }
-                      // Form 4: Risk Classification Form
-                      else if (fm.IsRiskClassification)
-                      {
-                          form4 = ExcelService.ImportRiskClassificationRows(form.formFile, _logger);
-                          if (form4 == null || !form4.Rows.Any())
-                          {
-                              throw new Exception("No data found in Risk Classification Form");
-                          }
-                          riskClassification_form_4 = form4.Rows;
-                          if (riskClassification_form_4 == null || !riskClassification_form_4.Any())
-                          {
-                              throw new Exception("No data found in Risk Classification Form");
-                          }
-                      }
-                      // Form 5: Investment Return Form
-                      else if (fm.IsInvestmentReturn)
-                      {
-                          Form5 = ExcelService.ImportInvestmentRows(form.formFile, _logger);
-                          if (Form5 == null || !Form5.Rows.Any())
-                          {
-                              throw new Exception("No data found in Investment Return Form");
-                          }
-                          inverstment_return_form_5 = Form5.Rows;
-                          if (inverstment_return_form_5 == null || !inverstment_return_form_5.Any())
-                          {
-                              throw new Exception("No data found in Investment Return Form");
-                          }
-                      }
-                      // Form 6: Statement of Financial Position
-                      else if (fm.IsFinancialPosition)
-                      {
-                          form6 = ExcelService.ImportFinancialPositionRows(form.formFile, _logger);
-                          if (form6 == null || !form6.Rows.Any())
-                          {
-                              throw new Exception("No data found in Statement of Financial Position");
-                          }
-                          financialPositionStatement_form_6 = form6.Rows;
-                          if (financialPositionStatement_form_6 == null || !financialPositionStatement_form_6.Any())
-                          {
-                              throw new Exception("No data found in Statement of Financial Position");
-                          }
-                      }
-                      // Form 7: Statement of Comprehensive Income
-                      else if (fm.IsStatementOfComprehensiveIncome)
-                      {
-                          form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(form.formFile, _logger);
-                          if (form7 == null || !form7.Rows.Any())
-                          {
-                              throw new Exception("No data found in Statement of Comprehensive Income");
-                          }
-                          comprehensiveStatement_form7 = form7.Rows;
-                          if (comprehensiveStatement_form7 == null || !comprehensiveStatement_form7.Any())
-                          {
-                              throw new Exception("No data found in Statement of Comprehensive Income");
-                          }
-                      }
-                  }
-                  catch (Exception ex)
-                  {
-                      processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
-                      throw new Exception($"Error processing {form.formFile.FileName}", ex);
-                  }
-              }
-
-              var red = returnsHelper.AreAllFormsInSamePeriod(
-               form1Statement,
-               Form2,
-               Form3,
-               form4,
-               Form5,
-               form6,
-               form7);
-
-              if (!red.IsValid)
-              {
-                  HasConsistencyBeenChecked = false;
-                  processingSummary.Add(red.Message);
-                  return (false, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, null, null, null, null, null, null, null, red.CommonPeriod);
-              }
+                    ReturnForm? fm = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
+                    if (fm == null)
+                    {
+                        processingSummary.Add($"Form with ID {form.FormId} was not found in the system");
+                        continue;
+                    }
 
 
-              bool isValid = true;
-              if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                  riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                  comprehensiveStatement_form7))
-              {
-                  var validationResult = ValidateReturns(
-                      capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                      riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                      comprehensiveStatement_form7
-                  );
+                    // Form 1: Capital Adequacy Form
+                    if (fm.IsCapitalAdequencyForm)
+                    {
+                        form1Statement = ExcelService.ImportCapitalAdequacyRows(form.formFile, _logger);
+                        if (form1Statement == null || !form1Statement.Rows.Any())
+                        {
+                            throw new Exception("No data found in Capital Adequacy Form");
+                        }
 
-                  isValid = validationResult.IsValid;
-                  if (!isValid)
-                  {
-                      ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                      IDocument report = new ConsistencyReport(validationResult, "Test", "System");
-                      var pdfBytes = report.GeneratePdf();
-                      await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
+                        capital_adequacy_form1 = form1Statement.Rows;
 
-                  }
-              }
+                        if (capital_adequacy_form1 == null || !capital_adequacy_form1.Any())
+                        {
+                            throw new Exception("No data found in Capital Adequacy Form");
+                        }
+                    }
+                    // Form 2: Liquidity Statement Form
+                    else if (fm.IsLiquidityStatement)
+                    {
+                        Form2 = ExcelService.ImportLiquidityStatementRows(form.formFile, _logger);
+                        if (Form2 == null || !Form2.Rows.Any())
+                        {
+                            throw new Exception("No data found in Liquidity Statement Form");
+                        }
+                        liquidityStatement_form_2 = Form2.Rows;
+                        if (liquidityStatement_form_2 == null || !liquidityStatement_form_2.Any())
+                        {
+                            throw new Exception("No data found in Liquidity Statement Form");
+                        }
+                    }
+                    // Form 3: Deposit Return Form
+                    else if (fm.IsDepositReturnForm)
+                    {
+                        Form3 = ExcelService.ImportDepositRangeDataRows(form.formFile, _logger);
+                        if (Form3 == null || !Form3.Rows.Any())
+                        {
+                            throw new Exception("No data found in Deposit Return Form");
+                        }
+                        depositreturn_form_3 = Form3.Rows;
+                        if (depositreturn_form_3 == null || !depositreturn_form_3.Any())
+                        {
+                            throw new Exception("No data found in Deposit Return Form");
+                        }
+                    }
+                    // Form 4: Risk Classification Form
+                    else if (fm.IsRiskClassification)
+                    {
+                        form4 = ExcelService.ImportRiskClassificationRows(form.formFile, _logger);
+                        if (form4 == null || !form4.Rows.Any())
+                        {
+                            throw new Exception("No data found in Risk Classification Form");
+                        }
+                        riskClassification_form_4 = form4.Rows;
+                        if (riskClassification_form_4 == null || !riskClassification_form_4.Any())
+                        {
+                            throw new Exception("No data found in Risk Classification Form");
+                        }
+                    }
+                    // Form 5: Investment Return Form
+                    else if (fm.IsInvestmentReturn)
+                    {
+                        Form5 = ExcelService.ImportInvestmentRows(form.formFile, _logger);
+                        if (Form5 == null || !Form5.Rows.Any())
+                        {
+                            throw new Exception("No data found in Investment Return Form");
+                        }
+                        inverstment_return_form_5 = Form5.Rows;
+                        if (inverstment_return_form_5 == null || !inverstment_return_form_5.Any())
+                        {
+                            throw new Exception("No data found in Investment Return Form");
+                        }
+                    }
+                    // Form 6: Statement of Financial Position
+                    else if (fm.IsFinancialPosition)
+                    {
+                        form6 = ExcelService.ImportFinancialPositionRows(form.formFile, _logger);
+                        if (form6 == null || !form6.Rows.Any())
+                        {
+                            throw new Exception("No data found in Statement of Financial Position");
+                        }
+                        financialPositionStatement_form_6 = form6.Rows;
+                        if (financialPositionStatement_form_6 == null || !financialPositionStatement_form_6.Any())
+                        {
+                            throw new Exception("No data found in Statement of Financial Position");
+                        }
+                    }
+                    // Form 7: Statement of Comprehensive Income
+                    else if (fm.IsStatementOfComprehensiveIncome)
+                    {
+                        form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(form.formFile, _logger);
+                        if (form7 == null || !form7.Rows.Any())
+                        {
+                            throw new Exception("No data found in Statement of Comprehensive Income");
+                        }
+                        comprehensiveStatement_form7 = form7.Rows;
+                        if (comprehensiveStatement_form7 == null || !comprehensiveStatement_form7.Any())
+                        {
+                            throw new Exception("No data found in Statement of Comprehensive Income");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
+                    throw new Exception($"Error processing {form.formFile.FileName}", ex);
+                }
+            }
 
-              return (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, capital_adequacy_form1, liquidityStatement_form_2,
-                  depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
-                  financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
-          }
-  */
+            var red = returnsHelper.AreAllFormsInSamePeriod(
+             form1Statement,
+             Form2,
+             Form3,
+             form4,
+             Form5,
+             form6,
+             form7);
+
+            if (!red.IsValid)
+            {
+                HasConsistencyBeenChecked = false;
+                processingSummary.Add(red.Message);
+                return (false, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, null, null, null, null, null, null, null, red.CommonPeriod);
+            }
+
+
+            bool isValid = true;
+            if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
+                riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
+                comprehensiveStatement_form7))
+            {
+                var validationResult = ValidateReturns(
+                    capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
+                    riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
+                    comprehensiveStatement_form7
+                );
+
+                isValid = validationResult.IsValid;
+                if (!isValid)
+                {
+                    ConsistencyErrors.AddRange(validationResult.ValidationErrors);
+                    IDocument report = new ConsistencyReport(validationResult, "Test", "System");
+                    var pdfBytes = report.GeneratePdf();
+                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
+
+                }
+            }
+
+            return (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, capital_adequacy_form1, liquidityStatement_form_2,
+                depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
+                financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
+        }
+
 
         /// <summary>
         /// Bulk submit all returns for a specific period

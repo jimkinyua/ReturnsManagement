@@ -75,7 +75,9 @@ namespace Returns.Models.Data
         public DbSet<ApprovalAction> ApprovalActions { get; set; }
         public DbSet<WorkflowInstance> WorkflowInstances { get; set; }
         public DbSet<FormResubmissionRequest> FormResubmissionRequests { get; set; }
-
+        public DbSet<RatingDefination> RatingDefinations { get; set; }
+        public DbSet<RatingForm> RatingForms { get; set; }
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
