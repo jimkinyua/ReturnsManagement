@@ -1,4 +1,4 @@
-﻿
+
 using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.WorkFlowTemplate;
 using Returns.Models;
@@ -16,5 +16,6 @@ namespace Returns.Helpers
         Task<string> GetReturnStatus(string returnId);
         Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId, string LoggedInUserToken);
         Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest dto, string userId);
+        Task<WorkflowStateDto> CreateApprovalWorkflowAsync(ApproveStepRequestDTO workflowRequest, string userId);
     }
 }

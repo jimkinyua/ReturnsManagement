@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Compliance;
 using Returns.DTOs.Enforcement;
@@ -154,6 +154,39 @@ namespace Returns.Helpers
             return ConvertToDto(inst);
         }
 
+
+        public async Task<WorkflowStateDto> CreateApprovalWorkflowAsync(ApproveStepRequestDTO workflowRequest, string userId)
+        {
+            try
+            {
+                // Create a new workflow instance for CAMELS analysis approval
+                var workflowInstance = new WorkflowInstance
+                {
+                    Id = workflowRequest.WorkFlowInstanceId,
+                    ReturnId = workflowRequest.ReturnId,
+                    UserId = userId,
+                    Status = ApprovalStatus.Pending.ToString(),
+                    CreatedAt = DateTime.UtcNow,
+                    WorkflowTemplateId = "camels-analysis-approval", // Custom template for CAMELS approval
+                    TeamId = "admin-team" // Default admin team
+                };
+
+                _db.WorkflowInstances.Add(workflowInstance);
+                await _db.SaveChangesAsync();
+
+                return new WorkflowStateDto
+                {
+                    WorkflowInstanceId = workflowInstance.Id,
+                    ReturnId = workflowInstance.ReturnId,
+                    Status = workflowInstance.Status,
+                    CurrentApproverId = workflowInstance.UserId
+                };
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to create approval workflow: {ex.Message}");
+            }
+        }
 
         public async Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest req, string userId)
         {

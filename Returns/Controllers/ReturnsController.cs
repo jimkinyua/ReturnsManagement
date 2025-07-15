@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Perfomance_Report;
 using Returns.DTOs.Returns_Analysis;
@@ -28,6 +28,9 @@ using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.Returns.Returns_Analysis;
 using System.Text;
 using Returns.DTOs.Returns.Returns_Submission;
+using Returns.DTOs.Returns_Submission.DT;
+using Returns.DTOs.WorkFlowTemplate;
+using Returns.Models;
 
 namespace Returns.Controllers
 {
@@ -867,6 +870,396 @@ namespace Returns.Controllers
                 return BadRequest(result.ErrorMessage);
             }
             return Ok("Return reassigned successfully");
+        }
+
+        // Admin endpoints for return management
+        [HttpGet("admin/returns")]
+        public async Task<ActionResult<AdminReturnListDTO>> GetAdminReturns([FromQuery] AdminReturnFilterDTO filter)
+        {
+            try
+            {
+                LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInEntity == null)
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                // Set default values if not provided
+                if (!filter.Year.HasValue)
+                    filter.Year = DateTime.Now.Year;
+                if (!filter.Month.HasValue)
+                    filter.Month = DateTime.Now.Month;
+
+                ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+                
+                // Build query with filters
+                var query = _context.Returns
+                    .Include(r => r.ReturnsAssigments)
+                    .Where(r => r.IsActiveVersion);
+
+                // Apply filters
+                if (!string.IsNullOrEmpty(filter.SaccoType))
+                {
+                    query = query.Where(r => r.SaccoType == filter.SaccoType);
+                }
+                
+                if (!string.IsNullOrEmpty(filter.SaccoId))
+                {
+                    query = query.Where(r => r.SaccoId == filter.SaccoId);
+                }
+                
+                if (filter.Year.HasValue)
+                {
+                    query = query.Where(r => r.ReturnFor.Year == filter.Year.Value);
+                }
+                
+                if (filter.Month.HasValue)
+                {
+                    query = query.Where(r => r.ReturnFor.Month == filter.Month.Value);
+                }
+                
+                if (!string.IsNullOrEmpty(filter.Period))
+                {
+                    query = query.Where(r => r.Period == filter.Period);
+                }
+
+                // Apply sorting
+                query = filter.SortBy?.ToLower() switch
+                {
+                    "saccname" => filter.SortOrder?.ToLower() == "desc" 
+                        ? query.OrderByDescending(r => r.SaccoName)
+                        : query.OrderBy(r => r.SaccoName),
+                    "submittedat" => filter.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(r => r.SubmittedAt)
+                        : query.OrderBy(r => r.SubmittedAt),
+                    "returnfor" => filter.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(r => r.ReturnFor)
+                        : query.OrderBy(r => r.ReturnFor),
+                    _ => filter.SortOrder?.ToLower() == "desc"
+                        ? query.OrderByDescending(r => r.SubmittedAt)
+                        : query.OrderBy(r => r.SubmittedAt)
+                };
+
+                // Get total count for pagination
+                var totalCount = await query.CountAsync();
+                var totalPages = (int)Math.Ceiling((double)totalCount / filter.PageSize);
+
+                // Apply pagination
+                var returns = await query
+                    .Skip((filter.Page - 1) * filter.PageSize)
+                    .Take(filter.PageSize)
+                    .ToListAsync();
+
+                // Build DTOs
+                var results = new List<SubmittedReturnDTO>();
+                foreach (var r in returns)
+                {
+                    results.Add(new SubmittedReturnDTO
+                    {
+                        Id = r.Id,
+                        ReturnsFor = r.ReturnFor.Year.ToString(),
+                        SaccoId = r.SaccoId,
+                        IsConsistent = !r.IsNotConsistent,
+                        ConsistentErrorMessage = r.ConsistentErrorMessage,
+                        SaccoName = r.SaccoName,
+                        SubmittedAt = r.SubmittedAt,
+                        LateNessStatus = returnsHelper.CheckLateReturns(r) ? "Late" : "On Time",
+                        TotalReturns = returnsHelper.CountPopulatedReturns(r),
+                        TotalLateReturns = returnsHelper.CountLateReturns(r),
+                        VersionNumber = r.VersionNumber,
+                        PreviousVersionIds = new List<string>() // TODO: Build version chain
+                    });
+                }
+
+                // Calculate summary statistics
+                var allReturns = await query.ToListAsync();
+                var totalLateReturns = allReturns.Count(r => returnsHelper.CheckLateReturns(r));
+                var totalConsistentReturns = allReturns.Count(r => !r.IsNotConsistent);
+                var totalInconsistentReturns = allReturns.Count(r => r.IsNotConsistent);
+
+                return Ok(new AdminReturnListDTO
+                {
+                    Returns = results,
+                    TotalCount = totalCount,
+                    Page = filter.Page,
+                    PageSize = filter.PageSize,
+                    TotalPages = totalPages,
+                    HasNextPage = filter.Page < totalPages,
+                    HasPreviousPage = filter.Page > 1,
+                    TotalReturns = totalCount,
+                    TotalLateReturns = totalLateReturns,
+                    TotalConsistentReturns = totalConsistentReturns,
+                    TotalInconsistentReturns = totalInconsistentReturns
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching admin returns");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("admin/returns/{returnId}/details")]
+        public async Task<ActionResult<ReturnDetailDTO>> GetReturnDetails(string returnId)
+        {
+            try
+            {
+                LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInEntity == null)
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var returnData = await _context.Returns
+                    .Include(r => r.CapitalAdequencies)
+                    .Include(r => r.LiquidityReturns)
+                    .Include(r => r.RiskClassifications)
+                    .Include(r => r.InvestmentReturns)
+                    .Include(r => r.StatementOfFinancialPositionReturns)
+                    .Include(r => r.StatementOfComprehensiveIncomeReturns)
+                    .Include(r => r.DepositReturns)
+                    .Include(r => r.NDWTCapitalAdequacyReturns)
+                    .Include(r => r.NWDTLiquidityReturns)
+                    .Include(r => r.NWDTRiskClassificationReturns)
+                    .Include(r => r.NWDTInvestmentReturns)
+                    .Include(r => r.NWDTFinancialPositionReturns)
+                    .Include(r => r.NWDTComprehensiveIncomeReturns)
+                    .Include(r => r.NWDTDepositReturns)
+                    .Include(r => r.OtherReturns)
+                    .Include(r => r.SectoralLendingReports)
+                    .Include(r => r.DailyLiquidityReturns)
+                    .Include(r => r.ManagementReturns)
+                    .Include(r => r.ReturnsAdditionalInformationRequests)
+                    .Include(r => r.WorkflowInstances)
+                    .FirstOrDefaultAsync(r => r.Id == returnId);
+
+                if (returnData == null)
+                {
+                    return NotFound("Return not found");
+                }
+
+                ReturnsHelper returnsHelper = new ReturnsHelper(_context);
+
+                var detail = new ReturnDetailDTO
+                {
+                    Id = returnData.Id,
+                    SaccoId = returnData.SaccoId,
+                    SaccoName = returnData.SaccoName,
+                    SaccoType = returnData.SaccoType,
+                    ReturnFor = returnData.ReturnFor,
+                    SubmittedAt = returnData.SubmittedAt,
+                    Period = returnData.Period,
+                    VersionNumber = returnData.VersionNumber,
+                    IsActiveVersion = returnData.IsActiveVersion,
+                    AmendmentDate = returnData.AmendmentDate,
+                    PreviousVersionId = returnData.PreviousVersionId,
+                    IsNotConsistent = returnData.IsNotConsistent,
+                    ConsistentErrorMessage = returnData.ConsistentErrorMessage,
+                    LateNessStatus = returnsHelper.CheckLateReturns(returnData) ? "Late" : "On Time",
+                    TotalReturns = returnsHelper.CountPopulatedReturns(returnData),
+                    TotalLateReturns = returnsHelper.CountLateReturns(returnData)
+                };
+
+                // Load form data based on SACCO type
+                if (returnData.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                {
+                    detail.CapitalAdequacy = returnData.CapitalAdequencies.FirstOrDefault();
+                    detail.LiquidityReturn = returnData.LiquidityReturns.FirstOrDefault();
+                    detail.RiskClassifications = returnData.RiskClassifications.ToList();
+                    detail.InvestmentReturn = returnData.InvestmentReturns.FirstOrDefault();
+                    detail.FinancialPosition = returnData.StatementOfFinancialPositionReturns.FirstOrDefault();
+                    detail.ComprehensiveIncome = returnData.StatementOfComprehensiveIncomeReturns.FirstOrDefault();
+                    detail.DepositReturns = returnData.DepositReturns.ToList();
+                }
+                else
+                {
+                    detail.NWDTCapitalAdequacy = returnData.NDWTCapitalAdequacyReturns.FirstOrDefault();
+                    detail.NWDTLiquidityReturn = returnData.NWDTLiquidityReturns.FirstOrDefault();
+                    detail.NWDTRiskClassifications = returnData.NWDTRiskClassificationReturns.ToList();
+                    detail.NWDTInvestmentReturn = returnData.NWDTInvestmentReturns.FirstOrDefault();
+                    detail.NWDTFinancialPosition = returnData.NWDTFinancialPositionReturns.FirstOrDefault();
+                    detail.NWDTComprehensiveIncome = returnData.NWDTComprehensiveIncomeReturns.FirstOrDefault();
+                    detail.NWDTDepositReturns = returnData.NWDTDepositReturns.ToList();
+                }
+
+                // Load other data
+                detail.OtherReturns = returnData.OtherReturns.ToList();
+                detail.SectoralLendingReports = returnData.SectoralLendingReports.ToList();
+                detail.DailyLiquidityReturns = returnData.DailyLiquidityReturns.ToList();
+                detail.ManagementReturns = returnData.ManagementReturns.ToList();
+                detail.AdditionalInfoRequests = returnData.ReturnsAdditionalInformationRequests.ToList();
+
+                // Check for CAMELS analysis
+                var camelsAnalysis = await _context.SaccoAnalysis
+                    .Where(sa => sa.ReturnId == returnId)
+                    .OrderByDescending(sa => sa.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (camelsAnalysis != null)
+                {
+                    detail.HasCamelsAnalysis = true;
+                    detail.CamelsAnalysisDate = camelsAnalysis.CreatedAt;
+                    detail.CamelsAnalysisBy = camelsAnalysis.CreatedBy;
+                    
+                    // Load CAMELS analysis data
+                    try
+                    {
+                        detail.CamelsAnalysis = await camelsAnalysisService.CalculateAnalysisAsync(returnId, returnData.SaccoType);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to load CAMELS analysis for return {ReturnId}", returnId);
+                    }
+                }
+
+                // Load workflow state
+                var workflowInstance = returnData.WorkflowInstances
+                    .OrderByDescending(w => w.CreatedAt)
+                    .FirstOrDefault();
+
+                if (workflowInstance != null)
+                {
+                    try
+                    {
+                        detail.CurrentWorkflowState = await _workflowService.GetCurrentStateAsync(returnId);
+                        detail.WorkflowComments = await _workflowService.GetComments(returnId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to load workflow state for return {ReturnId}", returnId);
+                    }
+                }
+
+                return Ok(detail);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching return details for {ReturnId}", returnId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPost("admin/returns/{returnId}/camels-analysis")]
+        public async Task<ActionResult<CamelsAnalysisApprovalResponseDTO>> SubmitCamelsAnalysis(string returnId, [FromBody] CamelsAnalysisApprovalDTO request)
+        {
+            try
+            {
+                LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInEntity == null)
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                if (request.ReturnId != returnId)
+                {
+                    return BadRequest("Return ID mismatch");
+                }
+
+                // Verify return exists
+                var returnData = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
+                if (returnData == null)
+                {
+                    return NotFound("Return not found");
+                }
+
+                // Save CAMELS analysis
+                var analysis = new SaccoAnalysis
+                {
+                    ReturnId = returnId,
+                    AnalysisData = System.Text.Json.JsonSerializer.Serialize(request.Analysis),
+                    CreatedBy = loggedInEntity.UserId,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = "Pending"
+                };
+
+                _context.SaccoAnalysis.Add(analysis);
+                await _context.SaveChangesAsync();
+
+                // Create workflow for approval if needed
+                if (!string.IsNullOrEmpty(request.Recommendation) && request.Recommendation != "Approve")
+                {
+                    // Create approval workflow
+                    var workflowRequest = new ApproveStepRequestDTO
+                    {
+                        WorkFlowInstanceId = Guid.NewGuid().ToString(),
+                        Comment = request.Comments ?? "CAMELS analysis submitted for approval",
+                        ReturnId = returnId
+                    };
+
+                    await _workflowService.CreateApprovalWorkflowAsync(workflowRequest, loggedInEntity.UserId);
+                }
+
+                return Ok(new CamelsAnalysisApprovalResponseDTO
+                {
+                    WorkflowInstanceId = analysis.Id,
+                    Status = "Pending",
+                    Message = "CAMELS analysis submitted successfully",
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = loggedInEntity.UserId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error submitting CAMELS analysis for return {ReturnId}", returnId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("admin/returns/{returnId}/camels-status")]
+        public async Task<ActionResult<CamelsAnalysisStatusDTO>> GetCamelsAnalysisStatus(string returnId)
+        {
+            try
+            {
+                LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInEntity == null)
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var analysis = await _context.SaccoAnalysis
+                    .Where(sa => sa.ReturnId == returnId)
+                    .OrderByDescending(sa => sa.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (analysis == null)
+                {
+                    return Ok(new CamelsAnalysisStatusDTO
+                    {
+                        ReturnId = returnId,
+                        HasAnalysis = false
+                    });
+                }
+
+                var status = new CamelsAnalysisStatusDTO
+                {
+                    ReturnId = returnId,
+                    HasAnalysis = true,
+                    AnalysisDate = analysis.CreatedAt,
+                    AnalyzedBy = analysis.CreatedBy,
+                    ApprovalStatus = analysis.Status,
+                    Comments = analysis.Comments
+                };
+
+                // Load analysis data if available
+                if (!string.IsNullOrEmpty(analysis.AnalysisData))
+                {
+                    try
+                    {
+                        status.Analysis = System.Text.Json.JsonSerializer.Deserialize<CamelsRatingsDTO>(analysis.AnalysisData);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to deserialize CAMELS analysis data for return {ReturnId}", returnId);
+                    }
+                }
+
+                return Ok(status);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching CAMELS analysis status for return {ReturnId}", returnId);
+                return StatusCode(500, "Internal server error");
+            }
         }
 
         [HttpGet("GetSubmittedReturns")]
