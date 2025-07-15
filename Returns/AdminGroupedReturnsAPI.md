@@ -1,10 +1,13 @@
 # Admin Grouped Returns API
 
-This API allows administrators to view returns grouped by rating definitions, enabling them to see related forms that need to be read together.
+This API allows administrators to view returns grouped by rating definitions, enabling them to see related forms that need to be read together. It also handles standalone returns that don't need to be grouped.
 
 ## Overview
 
-The system groups returns based on `RatingDefinition` and `RatingForm` tables, which define which forms need to be analyzed together (e.g., for CAMELS analysis).
+The system handles two types of returns:
+
+1. **Grouped Returns**: Based on `RatingDefinition` and `RatingForm` tables, which define which forms need to be analyzed together (e.g., for CAMELS analysis)
+2. **Standalone Returns**: Individual returns that don't need to be grouped and can be read in isolation
 
 ## API Endpoints
 
@@ -49,6 +52,7 @@ GET /api/returns/admin/grouped-returns?Year=2025&Month=3&SaccoType=DepositTaking
     "isComplete": true,
     "totalRequiredForms": 7,
     "submittedForms": 7,
+    "groupType": "Grouped",
     "forms": [
       {
         "formId": "form-1",
@@ -56,6 +60,39 @@ GET /api/returns/admin/grouped-returns?Year=2025&Month=3&SaccoType=DepositTaking
         "formName": "Capital Adequacy",
         "submissionId": "sub-1",
         "submittedAt": "2025-04-10T09:00:00",
+        "status": "Submitted",
+        "isSubmitted": true,
+        "isLate": false,
+        "daysLate": 0
+      }
+    ]
+  },
+  {
+    "groupId": "standalone",
+    "ratingName": "Management Report",
+    "description": "Standalone return: Management Report",
+    "saccoType": "DepositTaking",
+    "saccoId": "sacco-456",
+    "saccoName": "XYZ SACCO",
+    "periodId": "period-789",
+    "periodName": "Q1 2025",
+    "year": 2025,
+    "frequency": "Quarterly",
+    "startDate": "2025-01-01T00:00:00",
+    "endDate": "2025-03-31T00:00:00",
+    "submittedAt": "2025-04-12T14:20:00",
+    "status": "On Time",
+    "isComplete": true,
+    "totalRequiredForms": 1,
+    "submittedForms": 1,
+    "groupType": "Standalone",
+    "forms": [
+      {
+        "formId": "form-2",
+        "formCode": "MR",
+        "formName": "Management Report",
+        "submissionId": "sub-2",
+        "submittedAt": "2025-04-12T14:20:00",
         "status": "Submitted",
         "isSubmitted": true,
         "isLate": false,
@@ -105,7 +142,9 @@ GET /api/returns/admin/grouped-returns/rating-def-id-1/period-456/sacco-123
 
 ## How It Works
 
-1. **Grouping Logic**: Returns are grouped based on `RatingDefinition` which contains `RatingForm` entries that define which forms need to be read together.
+1. **Return Types**:
+   - **Grouped Returns**: Based on `RatingDefinition` which contains `RatingForm` entries that define which forms need to be read together
+   - **Standalone Returns**: Individual returns that are not part of any rating definition and can be read in isolation
 
 2. **Filtering**: The API supports filtering by:
    - **Year**: Filter by reporting year
@@ -116,13 +155,17 @@ GET /api/returns/admin/grouped-returns/rating-def-id-1/period-456/sacco-123
    - **RatingDefinitionId**: Filter by specific rating definition
    - **IsComplete**: Filter by completion status
 
-3. **Completion Status**: A group is considered complete when all required forms (defined in `RatingForm`) have been submitted.
+3. **Completion Status**:
+   - **Grouped Returns**: Complete when all required forms (defined in `RatingForm`) have been submitted
+   - **Standalone Returns**: Complete when the individual form has been submitted
 
 4. **Status Tracking**: Each form shows:
    - Whether it's submitted
    - If it's late
    - Days late
    - Current status
+
+5. **GroupType**: The response includes a `groupType` field indicating whether it's "Grouped" or "Standalone"
 
 ## Usage Examples
 

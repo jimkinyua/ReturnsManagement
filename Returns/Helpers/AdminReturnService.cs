@@ -21,112 +21,15 @@ namespace Returns.Helpers
         {
             try
             {
-                // Start with rating definitions
-                var query = _context.RatingDefinations
-                    .Include(rd => rd.RatingForms)
-                    .AsQueryable();
-
-                // Apply filters
-                if (!string.IsNullOrEmpty(filter.SaccoType))
-                {
-                    query = query.Where(rd => rd.SaccoType == filter.SaccoType);
-                }
-
-                if (!string.IsNullOrEmpty(filter.RatingDefinitionId))
-                {
-                    query = query.Where(rd => rd.Id == filter.RatingDefinitionId);
-                }
-
-                var ratingDefinitions = await query.ToListAsync();
-
                 var results = new List<AdminGroupedReturnDTO>();
 
-                foreach (var ratingDef in ratingDefinitions)
-                {
-                    // Get all periods that match the filter
-                    var periodsQuery = _context.ReturnPeriods
-                        .Include(p => p.FrequencyCatalog)
-                        .Include(p => p.ReportingYear)
-                        .AsQueryable();
+                // 1. Get grouped returns (based on rating definitions)
+                var groupedResults = await GetGroupedReturnsByRatingDefinitionsAsync(filter);
+                results.AddRange(groupedResults);
 
-                    if (filter.Year.HasValue)
-                    {
-                        periodsQuery = periodsQuery.Where(p => p.ReportingYear.Year == filter.Year.Value);
-                    }
-
-                    if (filter.Month.HasValue)
-                    {
-                        periodsQuery = periodsQuery.Where(p => p.StartDate.Month == filter.Month.Value);
-                    }
-
-                    if (!string.IsNullOrEmpty(filter.Frequency))
-                    {
-                        periodsQuery = periodsQuery.Where(p => p.FrequencyCatalog.Name == filter.Frequency);
-                    }
-
-                    if (!string.IsNullOrEmpty(filter.PeriodId))
-                    {
-                        periodsQuery = periodsQuery.Where(p => p.Id == filter.PeriodId);
-                    }
-
-                    var periods = await periodsQuery.ToListAsync();
-
-                    foreach (var period in periods)
-                    {
-                        // Get all submissions for this period and rating definition
-                        var submissions = await _context.ReturnSubmissions
-                            .Include(rs => rs.ExpectedReturn)
-                            .ThenInclude(er => er.Period)
-                            .Include(rs => rs.ExpectedReturn)
-                            .ThenInclude(er => er.ReturnForm)
-                            .Where(rs => rs.ExpectedReturn.PeriodId == period.Id)
-                            .ToListAsync();
-
-                        // Group by SACCO
-                        var saccoGroups = submissions.GroupBy(s => s.SaccoId);
-
-                        foreach (var saccoGroup in saccoGroups)
-                        {
-                            var saccoId = saccoGroup.Key;
-                            var saccoSubmissions = saccoGroup.ToList();
-
-                            // Get SACCO details
-                            var saccoDetails = await GetSaccoDetailsAsync(saccoId);
-
-                            // Check which forms are required for this rating definition
-                            var requiredFormCodes = ratingDef.RatingForms.Select(rf => rf.FormCode).ToList();
-                            var submittedFormCodes = saccoSubmissions
-                                .Select(s => s.ExpectedReturn.ReturnForm.Code)
-                                .ToList();
-
-                            var isComplete = requiredFormCodes.All(required => submittedFormCodes.Contains(required));
-
-                            var groupedReturn = new AdminGroupedReturnDTO
-                            {
-                                GroupId = ratingDef.Id,
-                                RatingName = ratingDef.RatingName,
-                                Description = ratingDef.Description,
-                                SaccoType = ratingDef.SaccoType,
-                                SaccoId = saccoId,
-                                SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
-                                PeriodId = period.Id,
-                                PeriodName = period.Name,
-                                Year = period.ReportingYear.Year,
-                                Frequency = period.FrequencyCatalog.Name,
-                                StartDate = period.StartDate,
-                                EndDate = period.EndDate,
-                                SubmittedAt = saccoSubmissions.Max(s => s.SubmittedAt),
-                                Status = GetGroupStatus(saccoSubmissions),
-                                IsComplete = isComplete,
-                                TotalRequiredForms = requiredFormCodes.Count,
-                                SubmittedForms = submittedFormCodes.Count,
-                                Forms = await BuildFormListAsync(saccoSubmissions, requiredFormCodes, period)
-                            };
-
-                            results.Add(groupedReturn);
-                        }
-                    }
-                }
+                // 2. Get standalone returns (not part of any rating definition)
+                var standaloneResults = await GetStandaloneReturnsAsync(filter);
+                results.AddRange(standaloneResults);
 
                 // Apply completion filter
                 if (filter.IsComplete.HasValue)
@@ -147,17 +50,223 @@ namespace Returns.Helpers
             }
         }
 
+        private async Task<List<AdminGroupedReturnDTO>> GetGroupedReturnsByRatingDefinitionsAsync(AdminReturnFilterDTO filter)
+        {
+            // Start with rating definitions
+            var query = _context.RatingDefinations
+                .Include(rd => rd.RatingForms)
+                .AsQueryable();
+
+            // Apply filters
+            if (!string.IsNullOrEmpty(filter.SaccoType))
+            {
+                query = query.Where(rd => rd.SaccoType == filter.SaccoType);
+            }
+
+            if (!string.IsNullOrEmpty(filter.RatingDefinitionId))
+            {
+                query = query.Where(rd => rd.Id == filter.RatingDefinitionId);
+            }
+
+            var ratingDefinitions = await query.ToListAsync();
+            var results = new List<AdminGroupedReturnDTO>();
+
+            foreach (var ratingDef in ratingDefinitions)
+            {
+                // Get all periods that match the filter
+                var periodsQuery = _context.ReturnPeriods
+                    .Include(p => p.FrequencyCatalog)
+                    .Include(p => p.ReportingYear)
+                    .AsQueryable();
+
+                if (filter.Year.HasValue)
+                {
+                    periodsQuery = periodsQuery.Where(p => p.ReportingYear.Year == filter.Year.Value);
+                }
+
+                if (filter.Month.HasValue)
+                {
+                    periodsQuery = periodsQuery.Where(p => p.StartDate.Month == filter.Month.Value);
+                }
+
+                if (!string.IsNullOrEmpty(filter.Frequency))
+                {
+                    periodsQuery = periodsQuery.Where(p => p.FrequencyCatalog.Name == filter.Frequency);
+                }
+
+                if (!string.IsNullOrEmpty(filter.PeriodId))
+                {
+                    periodsQuery = periodsQuery.Where(p => p.Id == filter.PeriodId);
+                }
+
+                var periods = await periodsQuery.ToListAsync();
+
+                foreach (var period in periods)
+                {
+                    // Get all submissions for this period and rating definition
+                    var submissions = await _context.ReturnSubmissions
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                        .Where(rs => rs.ExpectedReturn.PeriodId == period.Id)
+                        .ToListAsync();
+
+                    // Group by SACCO
+                    var saccoGroups = submissions.GroupBy(s => s.SaccoId);
+
+                    foreach (var saccoGroup in saccoGroups)
+                    {
+                        var saccoId = saccoGroup.Key;
+                        var saccoSubmissions = saccoGroup.ToList();
+
+                        // Get SACCO details
+                        var saccoDetails = await GetSaccoDetailsAsync(saccoId);
+
+                        // Check which forms are required for this rating definition
+                        var requiredFormCodes = ratingDef.RatingForms.Select(rf => rf.FormCode).ToList();
+                        var submittedFormCodes = saccoSubmissions
+                            .Select(s => s.ExpectedReturn.ReturnForm.Code)
+                            .ToList();
+
+                        var isComplete = requiredFormCodes.All(required => submittedFormCodes.Contains(required));
+
+                        var groupedReturn = new AdminGroupedReturnDTO
+                        {
+                            GroupId = ratingDef.Id,
+                            RatingName = ratingDef.RatingName,
+                            Description = ratingDef.Description,
+                            SaccoType = ratingDef.SaccoType,
+                            SaccoId = saccoId,
+                            SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                            PeriodId = period.Id,
+                            PeriodName = period.Name,
+                            Year = period.ReportingYear.Year,
+                            Frequency = period.FrequencyCatalog.Name,
+                            StartDate = period.StartDate,
+                            EndDate = period.EndDate,
+                            SubmittedAt = saccoSubmissions.Max(s => s.SubmittedAt),
+                            Status = GetGroupStatus(saccoSubmissions),
+                            IsComplete = isComplete,
+                            TotalRequiredForms = requiredFormCodes.Count,
+                            SubmittedForms = submittedFormCodes.Count,
+                            Forms = await BuildFormListAsync(saccoSubmissions, requiredFormCodes, period),
+                            GroupType = ReturnGroupType.Grouped
+                        };
+
+                        results.Add(groupedReturn);
+                    }
+                }
+            }
+
+            return results;
+        }
+
+        private async Task<List<AdminGroupedReturnDTO>> GetStandaloneReturnsAsync(AdminReturnFilterDTO filter)
+        {
+            var results = new List<AdminGroupedReturnDTO>();
+
+            // Get all forms that are not part of any rating definition
+            var formsInRatingDefinitions = await _context.RatingForms
+                .Select(rf => rf.FormCode)
+                .Distinct()
+                .ToListAsync();
+
+            // Get all return forms that are not in rating definitions
+            var standaloneForms = await _context.ReturnForms
+                .Where(rf => !formsInRatingDefinitions.Contains(rf.Code))
+                .ToListAsync();
+
+            // Get periods that match the filter
+            var periodsQuery = _context.ReturnPeriods
+                .Include(p => p.FrequencyCatalog)
+                .Include(p => p.ReportingYear)
+                .AsQueryable();
+
+            if (filter.Year.HasValue)
+            {
+                periodsQuery = periodsQuery.Where(p => p.ReportingYear.Year == filter.Year.Value);
+            }
+
+            if (filter.Month.HasValue)
+            {
+                periodsQuery = periodsQuery.Where(p => p.StartDate.Month == filter.Month.Value);
+            }
+
+            if (!string.IsNullOrEmpty(filter.Frequency))
+            {
+                periodsQuery = periodsQuery.Where(p => p.FrequencyCatalog.Name == filter.Frequency);
+            }
+
+            if (!string.IsNullOrEmpty(filter.PeriodId))
+            {
+                periodsQuery = periodsQuery.Where(p => p.Id == filter.PeriodId);
+            }
+
+            var periods = await periodsQuery.ToListAsync();
+
+            foreach (var period in periods)
+            {
+                foreach (var form in standaloneForms)
+                {
+                    // Get submissions for this specific form and period
+                    var submissions = await _context.ReturnSubmissions
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                        .Where(rs => rs.ExpectedReturn.PeriodId == period.Id && 
+                                    rs.ExpectedReturn.ReturnFormId == form.Id)
+                        .ToListAsync();
+
+                    // Group by SACCO
+                    var saccoGroups = submissions.GroupBy(s => s.SaccoId);
+
+                    foreach (var saccoGroup in saccoGroups)
+                    {
+                        var saccoId = saccoGroup.Key;
+                        var saccoSubmissions = saccoGroup.ToList();
+
+                        if (!saccoSubmissions.Any()) continue;
+
+                        var saccoDetails = await GetSaccoDetailsAsync(saccoId);
+                        var submission = saccoSubmissions.First();
+
+                        var standaloneReturn = new AdminGroupedReturnDTO
+                        {
+                            GroupId = "standalone",
+                            RatingName = form.FormName,
+                            Description = $"Standalone return: {form.FormName}",
+                            SaccoType = form.SaccoTypeId,
+                            SaccoId = saccoId,
+                            SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                            PeriodId = period.Id,
+                            PeriodName = period.Name,
+                            Year = period.ReportingYear.Year,
+                            Frequency = period.FrequencyCatalog.Name,
+                            StartDate = period.StartDate,
+                            EndDate = period.EndDate,
+                            SubmittedAt = submission.SubmittedAt,
+                            Status = GetGroupStatus(saccoSubmissions),
+                            IsComplete = saccoSubmissions.Any(), // Standalone returns are complete if submitted
+                            TotalRequiredForms = 1,
+                            SubmittedForms = saccoSubmissions.Any() ? 1 : 0,
+                            Forms = await BuildStandaloneFormListAsync(saccoSubmissions, period),
+                            GroupType = ReturnGroupType.Standalone
+                        };
+
+                        results.Add(standaloneReturn);
+                    }
+                }
+            }
+
+            return results;
+        }
+
         public async Task<AdminGroupedReturnDTO> GetGroupedReturnDetailsAsync(string groupId, string periodId, string saccoId)
         {
             try
             {
-                var ratingDef = await _context.RatingDefinations
-                    .Include(rd => rd.RatingForms)
-                    .FirstOrDefaultAsync(rd => rd.Id == groupId);
-
-                if (ratingDef == null)
-                    throw new ArgumentException("Rating definition not found");
-
                 var period = await _context.ReturnPeriods
                     .Include(p => p.FrequencyCatalog)
                     .Include(p => p.ReportingYear)
@@ -165,6 +274,55 @@ namespace Returns.Helpers
 
                 if (period == null)
                     throw new ArgumentException("Period not found");
+
+                // Handle standalone returns
+                if (groupId == "standalone")
+                {
+                    var submissions = await _context.ReturnSubmissions
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                        .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
+                        .ToListAsync();
+
+                    if (!submissions.Any())
+                        throw new ArgumentException("No submissions found for this SACCO and period");
+
+                    var saccoDetails = await GetSaccoDetailsAsync(saccoId);
+                    var submission = submissions.First();
+
+                    return new AdminGroupedReturnDTO
+                    {
+                        GroupId = "standalone",
+                        RatingName = submission.ExpectedReturn.ReturnForm.FormName,
+                        Description = $"Standalone return: {submission.ExpectedReturn.ReturnForm.FormName}",
+                        SaccoType = submission.ExpectedReturn.ReturnForm.SaccoTypeId,
+                        SaccoId = saccoId,
+                        SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                        PeriodId = period.Id,
+                        PeriodName = period.Name,
+                        Year = period.ReportingYear.Year,
+                        Frequency = period.FrequencyCatalog.Name,
+                        StartDate = period.StartDate,
+                        EndDate = period.EndDate,
+                        SubmittedAt = submission.SubmittedAt,
+                        Status = GetGroupStatus(submissions),
+                        IsComplete = submissions.Any(),
+                        TotalRequiredForms = 1,
+                        SubmittedForms = submissions.Any() ? 1 : 0,
+                        Forms = await BuildStandaloneFormListAsync(submissions, period),
+                        GroupType = ReturnGroupType.Standalone
+                    };
+                }
+
+                // Handle grouped returns
+                var ratingDef = await _context.RatingDefinations
+                    .Include(rd => rd.RatingForms)
+                    .FirstOrDefaultAsync(rd => rd.Id == groupId);
+
+                if (ratingDef == null)
+                    throw new ArgumentException("Rating definition not found");
 
                 var submissions = await _context.ReturnSubmissions
                     .Include(rs => rs.ExpectedReturn)
@@ -198,7 +356,8 @@ namespace Returns.Helpers
                     IsComplete = isComplete,
                     TotalRequiredForms = requiredFormCodes.Count,
                     SubmittedForms = submittedFormCodes.Count,
-                    Forms = await BuildFormListAsync(submissions, requiredFormCodes, period)
+                    Forms = await BuildFormListAsync(submissions, requiredFormCodes, period),
+                    GroupType = ReturnGroupType.Grouped
                 };
             }
             catch (Exception ex)
@@ -293,6 +452,41 @@ namespace Returns.Helpers
                     SubmittedAt = submission?.SubmittedAt,
                     Status = submission?.Status ?? "Not Submitted",
                     IsSubmitted = isSubmitted,
+                    IsLate = isLate,
+                    DaysLate = daysLate
+                });
+            }
+
+            return forms;
+        }
+
+        private async Task<List<GroupedReturnFormDTO>> BuildStandaloneFormListAsync(
+            List<ReturnSubmission> submissions, 
+            ReturnPeriods period)
+        {
+            var forms = new List<GroupedReturnFormDTO>();
+
+            foreach (var submission in submissions)
+            {
+                var isLate = false;
+                var daysLate = 0;
+
+                if (submission.SubmittedAt.HasValue)
+                {
+                    var deadline = period.FilingDeadline;
+                    isLate = submission.SubmittedAt.Value > deadline;
+                    daysLate = isLate ? (int)(submission.SubmittedAt.Value - deadline).TotalDays : 0;
+                }
+
+                forms.Add(new GroupedReturnFormDTO
+                {
+                    FormId = submission.ExpectedReturn.ReturnFormId,
+                    FormCode = submission.ExpectedReturn.ReturnForm.Code,
+                    FormName = submission.ExpectedReturn.ReturnForm.FormName,
+                    SubmissionId = submission.Id,
+                    SubmittedAt = submission.SubmittedAt,
+                    Status = submission.Status,
+                    IsSubmitted = true,
                     IsLate = isLate,
                     DaysLate = daysLate
                 });

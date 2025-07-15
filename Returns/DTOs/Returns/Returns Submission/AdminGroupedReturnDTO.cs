@@ -5,7 +5,7 @@ namespace Returns.DTOs.Returns_Submission
 {
     public class AdminGroupedReturnDTO
     {
-        public string GroupId { get; set; } = null!; // RatingDefinitionId
+        public string GroupId { get; set; } = null!; // RatingDefinitionId or "standalone" for ungrouped
         public string RatingName { get; set; } = null!;
         public string Description { get; set; } = null!;
         public string SaccoType { get; set; } = null!;
@@ -23,6 +23,13 @@ namespace Returns.DTOs.Returns_Submission
         public int TotalRequiredForms { get; set; }
         public int SubmittedForms { get; set; }
         public List<GroupedReturnFormDTO> Forms { get; set; } = new List<GroupedReturnFormDTO>();
+        public ReturnGroupType GroupType { get; set; } = ReturnGroupType.Grouped; // New property
+    }
+
+    public enum ReturnGroupType
+    {
+        Grouped,    // Returns that need to be read together (e.g., CAMELS)
+        Standalone  // Individual returns that don't need grouping
     }
 
     public class GroupedReturnFormDTO
