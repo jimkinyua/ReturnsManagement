@@ -133,6 +133,8 @@ internal class Program
         builder.Services.AddTransient<IPeriodGenerator, PeriodGenerator>();
         builder.Services.AddTransient<IReturnFormAttachmentService, ReturnFormAttachmentService>();
         builder.Services.AddTransient<IRatingDefinitionService, RatingDefinitionService>();
+        builder.Services.AddTransient<IConsistencyCheckService, ConsistencyCheckService>();
+
 
         // Add Excel parsing and return submission services
         builder.Services.AddTransient<IExcelParser, ExcelParserService>();
@@ -238,7 +240,8 @@ internal class Program
                 dbInitializer.IntialiseCamelData(context);
                 dbInitializer.SeedFrequencyCatalog(context);
                 dbInitializer.SeedPeriods(context);
-
+                dbInitializer.SeedRatingDefinitionsForSaccoTypeDTSaccos(context);
+                dbInitializer.SeedRatingDefinitionsForSaccoTypeNWDTSaccos(context);
                 Console.WriteLine("Database migration and seeding complete");
                 return; // Success - exit the retry loop
             }

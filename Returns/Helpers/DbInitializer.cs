@@ -1,5 +1,7 @@
 ﻿using DocumentFormat.OpenXml.Drawing.Charts;
 using DocumentFormat.OpenXml.InkML;
+using Returns.Helpers.Enums;
+using Returns.Models;
 using Returns.Models.CamelSetup;
 using Returns.Models.Data;
 
@@ -34,6 +36,184 @@ namespace Returns.Helpers
                 }*/
             }
         }
+
+        public void SeedRatingDefinitionsForSaccoTypeDTSaccos(ReturnsDbContext context)
+        {
+            // Check if any RatingDefinitions for SaccoTypeId = 0 already exist
+            if (!context.RatingDefinations.Any(r => r.SaccoType == "0"))
+            {
+                var currentDateTime = DateTime.Now; 
+                var saccoTypeId = 0;
+
+                // Define RatingDefinitions for SaccoTypeId = 0
+                var ratings = new[]
+                {
+                    new RatingDefination
+                    {
+                        RatingName = "CAMEL Forms For DT",
+                        Description = "Capital, Asset Quality, Management, Earnings, Liquidity Rating for SaccoType 0",
+                        SaccoType = saccoTypeId.ToString(),
+                        CreatedAt = currentDateTime,
+                    },
+                    new RatingDefination
+                    {
+                        RatingName = "CAELS Forms For DT",
+                        Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 0",
+                        SaccoType = saccoTypeId.ToString(),
+                        CreatedAt = currentDateTime,
+                    },
+                    new RatingDefination
+                    {
+                        RatingName = "CAEL Forms For DT",
+                        Description = "Capital, Asset Quality, Earnings, Liquidity Rating for SaccoType 0",
+                        SaccoType = saccoTypeId.ToString(),
+                        CreatedAt = currentDateTime,
+                    },
+                     new RatingDefination
+                    {
+                        RatingName = "Consistency Check Forms DT",
+                        Description = "Consistency Check Rating for DT Saccos",
+                        SaccoType = saccoTypeId.ToString(),
+                        CreatedAt = currentDateTime,
+                    }
+                };
+
+                context.RatingDefinations.AddRange(ratings);
+                context.SaveChanges();
+
+                var returnForms = context.ReturnForms.Where(f => f.SaccoTypeId == "0" && f.IsActive).ToList();
+                var ratingCategoryMappings = new[]
+                 {
+                    new { RatingName = "CAMEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification } },
+                    new { RatingName = "CAELS Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn } },
+                    new { RatingName = "CAEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn } },
+                    new { RatingName = "Consistency Check Forms DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome } }
+                };
+
+                foreach (var mapping in ratingCategoryMappings)
+                {
+                    var rating = ratings.First(r => r.RatingName == mapping.RatingName);
+                    var requiredCategories = mapping.Categories;
+
+                    foreach (var category in requiredCategories)
+                    {
+                        var form = returnForms.FirstOrDefault(f => f.Category == (FormCategory)category  && f.SaccoTypeId == "0");
+                        if (form != null)
+                        {
+                            rating.RatingForms.Add(new RatingForm
+                            {
+                                FormCode = form.Code,
+                                RatingDefinationId = rating.Id,
+                                Calculation = rating,
+                                CreatedAt = currentDateTime,
+                            });
+                        }
+                        else
+                        {
+                            Console.WriteLine($"No active form found for category {category} in SaccoTypeId {saccoTypeId}.");
+                        }
+                    }
+                }
+                context.SaveChanges();
+                Console.WriteLine("RatingDefinitions and RatingForms for SaccoTypeId 0 seeded successfully.");
+            }
+            else
+            {
+                Console.WriteLine("RatingDefinitions for SaccoType DT saccos already contain data. Skipping seed operation.");
+            }
+        }
+
+        public void SeedRatingDefinitionsForSaccoTypeNWDTSaccos(ReturnsDbContext context)
+        {
+            // Check if any RatingDefinitions for SaccoTypeId = 1 already exist
+            if (!context.RatingDefinations.Any(r => r.SaccoType == "1"))
+            {
+                var currentDateTime = DateTime.Now; // 03:37 PM EAT on July 14, 2025
+                var saccoTypeId = "1";
+
+                // Define RatingDefinitions for SaccoTypeId = 1
+                var ratings = new[]
+                {
+                    new RatingDefination
+                    {
+                        RatingName = "CAMEL Forms For NWDT",
+                        Description = "Capital, Asset Quality, Management, Earnings, Liquidity Rating for SaccoType 1",
+                        SaccoType = saccoTypeId,
+                        CreatedAt = currentDateTime,
+                    },
+                    new RatingDefination
+                    {
+                        RatingName = "CAELS Forms For NWDT",
+                        Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 1",
+                        SaccoType = saccoTypeId,
+                        CreatedAt = currentDateTime,
+                    },
+                    new RatingDefination
+                    {
+                        RatingName = "CAEL Forms For NWDT",
+                        Description = "Capital, Asset Quality, Earnings, Liquidity Rating for SaccoType 1",
+                        SaccoType = saccoTypeId,
+                        CreatedAt = currentDateTime,
+                    },
+                    new RatingDefination
+                    {
+                        RatingName = "Consistency Check Forms NWDT",
+                        Description = "Consistency Check Rating for NWDT Saccos",
+                        SaccoType = saccoTypeId,
+                        CreatedAt = currentDateTime,
+                    }
+                };
+
+                context.RatingDefinations.AddRange(ratings);
+                context.SaveChanges();
+
+                var returnForms = context.ReturnForms
+                    .Where(f => f.SaccoTypeId == saccoTypeId && f.IsActive)
+                    .ToList();
+
+                // Define category mappings for each rating
+                var ratingCategoryMappings = new[]
+                {
+                    new { RatingName = "CAMEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification } },
+                    new { RatingName = "CAELS Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn } },
+                    new { RatingName = "CAEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn } },
+                    new { RatingName = "Consistency Check Forms NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome } }
+                };
+
+                foreach (var mapping in ratingCategoryMappings)
+                {
+                    var rating = ratings.First(r => r.RatingName == mapping.RatingName);
+                    var requiredCategories = mapping.Categories;
+
+                    foreach (var category in requiredCategories)
+                    {
+                        var form = returnForms.FirstOrDefault(f => (int)f.Category == (int)category);
+                        if (form != null)
+                        {
+                            rating.RatingForms.Add(new RatingForm
+                            {
+                                FormCode = form.Code,
+                                RatingDefinationId = rating.Id,
+                                Calculation = rating,
+                                CreatedAt = currentDateTime,
+                            });
+                        }
+                        else
+                        {
+                            Console.WriteLine($"No active form found for category {category} in SaccoTypeId {saccoTypeId} at {currentDateTime}.");
+                        }
+                    }
+                }
+
+                context.SaveChanges();
+                Console.WriteLine("RatingDefinitions and RatingForms for SaccoTypeId 1 seeded successfully at {currentDateTime}.");
+            }
+            else
+            {
+                Console.WriteLine("RatingDefinitions for SaccoType NWDT saccos already contain data. Skipping seed operation at {DateTime.Now}.");
+            }
+        }
+
         public void IntialiseCamelData(ReturnsDbContext context)
         {
             context.Database.EnsureCreated();

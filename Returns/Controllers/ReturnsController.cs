@@ -47,8 +47,9 @@ namespace Returns.Controllers
         private readonly IReturnSubmissionService _returnSubmissionService;
         private readonly IReturnChild _returnChild;
         private readonly IConfiguration _configuration;
+        private readonly IConsistencyCheckService _consistencyCheckService;
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService, IConsistencyCheckService consistencyCheckService)
         {
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             _configuration = new ConfigurationBuilder()
@@ -70,202 +71,217 @@ namespace Returns.Controllers
             _returnChild = returnChild;
             //_resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
             _returnSubmissionService = returnSubmissionService;
+            _consistencyCheckService = consistencyCheckService;
         }
 
-        /*    [HttpPost("CheckConsistency")]
-            public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
+        [HttpPost("CheckConsistency")]
+        public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
+        {
+
+            try
             {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
 
-                try
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
-                    LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                    if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                    return StatusCode(401);
+                }
+
+                var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
+                if (SaccoDetails == null)
+                {
+                    return NotFound("Sacco not found");
+                }
+
+                var ratingToUse = await _context.RatingDefinations
+                    .Where(r => r.RatingName == "Consistency Check Forms DT" && r.SaccoType == loggedInSacco.SaccoType)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .FirstOrDefaultAsync();
+                if (ratingToUse == null)
+                {
+                    return NotFound("No CAMEL rating definition found for this SACCO type.");
+                }       
+
+                var result = await _consistencyCheckService.CheckConsistencyForDTAsync(createFormDTO, ratingToUse.RatingName);
+
+/*
+                if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                {
+                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
+                    if (!HasConsistencyBeenChecked)
                     {
-                        return StatusCode(401);
+                        return StatusCode(409, string.Join(", ", processingSummary));
                     }
-                    var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
-                    if (SaccoDetails == null)
+                    if (!isValid)
                     {
-                        return NotFound("Sacco not found");
+                        string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
+                        byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
+
+                        _ = _emailService
+                        .SendEmailAsync(
+                            SaccoDetails.OfficialSaccoEmail,
+                            "Validation Report - Consistency Errors",
+                            htmlReport)
+                        .ContinueWith(t =>
+                        {
+                            if (t.IsFaulted)
+                            {
+                                _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                            }
+                            else
+                            {
+                                _logger.LogInformation("Validation-report email sent successfully.");
+                            }
+                        }, TaskContinuationOptions.OnlyOnRanToCompletion);
+
+
+                        _ = Task.Run(async () =>
+                       {
+                           try
+                           {
+                               await _emailService.SendEmailWithAttachmentAsync(
+                                    SaccoDetails.OfficialSaccoEmail,
+                                    "Validation Report - Consistency Errors",
+                                    "PFA",
+                                    ConsistencyReport,
+                                    $"ValidationReport_{CommonPeriod}.pdf"
+                                );
+                               _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                           }
+                           catch (Exception ex)
+                           {
+                               _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                           }
+                       });
+
+                        return BadRequest(ConsistencyErrors);
+                    }
+                }
+                else
+                {
+                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
+                    if (!HasConsistencyBeenChecked)
+                    {
+                        return StatusCode(409, string.Join(", ", processingSummary));
                     }
 
-                    if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                    if (!isValid)
                     {
-                        var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                        if (!HasConsistencyBeenChecked)
-                        {
-                            return StatusCode(409, string.Join(", ", processingSummary));
-                        }
                         if (!isValid)
                         {
                             string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
                             byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
 
                             _ = _emailService
-                            .SendEmailAsync(
-                                SaccoDetails.OfficialSaccoEmail,
-                                "Validation Report - Consistency Errors",
-                                htmlReport)
-                            .ContinueWith(t =>
-                            {
-                                if (t.IsFaulted)
-                                {
-                                    _logger.LogError(t.Exception, "Failed to send validation-report email.");
-                                }
-                                else
-                                {
-                                    _logger.LogInformation("Validation-report email sent successfully.");
-                                }
-                            }, TaskContinuationOptions.OnlyOnRanToCompletion);
+                      .SendEmailAsync(
+                          SaccoDetails.OfficialSaccoEmail,
+                          "Validation Report - Consistency Errors",
+                          htmlReport)
+                      .ContinueWith(t =>
+                      {
+                          if (t.IsFaulted)
+                          {
+                              _logger.LogError(t.Exception, "Failed to send validation-report email.");
+                          }
+                          else
+                          {
+                              _logger.LogInformation("Validation-report email sent successfully.");
+                          }
+                      }, TaskContinuationOptions.OnlyOnRanToCompletion);
 
 
                             _ = Task.Run(async () =>
-                           {
-                               try
-                               {
-                                   await _emailService.SendEmailWithAttachmentAsync(
+                            {
+                                try
+                                {
+                                    await _emailService.SendEmailWithAttachmentAsync(
                                         SaccoDetails.OfficialSaccoEmail,
                                         "Validation Report - Consistency Errors",
-                                        "PFA",
+                                        $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
                                         ConsistencyReport,
                                         $"ValidationReport_{CommonPeriod}.pdf"
                                     );
-                                   _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                               }
-                               catch (Exception ex)
-                               {
-                                   _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                               }
-                           });
-
-                            return BadRequest(ConsistencyErrors);
-                        }
-                    }
-                    else
-                    {
-                        var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                        if (!HasConsistencyBeenChecked)
-                        {
-                            return StatusCode(409, string.Join(", ", processingSummary));
-                        }
-
-                        if (!isValid)
-                        {
-                            if (!isValid)
-                            {
-                                string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
-                                byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
-
-                                _ = _emailService
-                          .SendEmailAsync(
-                              SaccoDetails.OfficialSaccoEmail,
-                              "Validation Report - Consistency Errors",
-                              htmlReport)
-                          .ContinueWith(t =>
-                          {
-                              if (t.IsFaulted)
-                              {
-                                  _logger.LogError(t.Exception, "Failed to send validation-report email.");
-                              }
-                              else
-                              {
-                                  _logger.LogInformation("Validation-report email sent successfully.");
-                              }
-                          }, TaskContinuationOptions.OnlyOnRanToCompletion);
-
-
-                                _ = Task.Run(async () =>
+                                    _logger.LogInformation("Validation-report (PDF) email sent successfully.");
+                                }
+                                catch (Exception ex)
                                 {
-                                    try
-                                    {
-                                        await _emailService.SendEmailWithAttachmentAsync(
-                                            SaccoDetails.OfficialSaccoEmail,
-                                            "Validation Report - Consistency Errors",
-                                            $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
-                                            ConsistencyReport,
-                                            $"ValidationReport_{CommonPeriod}.pdf"
-                                        );
-                                        _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                                    }
-                                });
-
-                                return BadRequest(ConsistencyErrors);
-                            }
+                                    _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
+                                }
+                            });
 
                             return BadRequest(ConsistencyErrors);
                         }
+
+                        return BadRequest(ConsistencyErrors);
                     }
+                }*/
 
-                    return Ok();
-                }
-                catch (Exception ex)
-                {
-                    var errors = CustomErrorHandler.HandleException(ex);
-                    var errorsasString = string.Join(", ", errors);
-                    return StatusCode(500, errorsasString);
-
-                }
+                return Ok(result.ConsistencyErrors);
+            }
+            catch (Exception ex)
+            {
+                var errors = CustomErrorHandler.HandleException(ex);
+                var errorsasString = string.Join(", ", errors);
+                return StatusCode(500, errorsasString);
 
             }
 
-            [HttpPost("RequestFormResubmission")]
-            public async Task<IActionResult> RequestFormResubmission([FromBody] ResubmissionRequestDto request)
+        }
+
+       /* [HttpPost("RequestFormResubmission")]
+        public async Task<IActionResult> RequestFormResubmission([FromBody] ResubmissionRequestDto request)
+        {
+            try
             {
-                try
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
                 {
-                    LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                    if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
-                    {
-                        return StatusCode(401);
-                    }
-
-                    var returnToResubmit = await _context.Returns.FindAsync(request.ReturnId);
-                    if (returnToResubmit == null)
-                    {
-                        return NotFound("Return not found");
-                    }
-
-                    var formToResubmit = await _context.ReturnForms.FindAsync(request.FormId);
-                    if (formToResubmit == null)
-                    {
-                        return NotFound("Form not found");
-                    }
-
-                    var ComplianceOfficer = await complianceService.GetUserById(loggedInAdmin.UserId);
-                    var SaccoDetails = await complianceService.GetSaccoByIdAsync(returnToResubmit.SaccoId);
-
-                    var result = await _resubmissionService.RequestFormResubmissionAsync(
-                     request.ReturnId,
-                     formToResubmit,
-                     loggedInAdmin.UserId,
-                     ComplianceOfficer?.FullName ?? "Unknown Compliance Officer",
-                     loggedInAdmin.EmailAddress,
-                     request.Reason ?? "No reason provided",
-                     returnToResubmit.SaccoId,
-                     returnToResubmit.SaccoType,
-                     SaccoDetails.OfficialSaccoEmail
-                    );
-
-                    if (result.Success)
-                    {
-                        return Ok();
-                    }
-                    else
-                    {
-                        return BadRequest(result.Message);
-                    }
-
+                    return StatusCode(401);
                 }
-                catch (Exception ex)
+
+                var returnToResubmit = await _context.Returns.FindAsync(request.ReturnId);
+                if (returnToResubmit == null)
                 {
-                    return StatusCode(500, CustomErrorHandler.HandleException(ex));
-
+                    return NotFound("Return not found");
                 }
-            }*/
+
+                var formToResubmit = await _context.ReturnForms.FindAsync(request.FormId);
+                if (formToResubmit == null)
+                {
+                    return NotFound("Form not found");
+                }
+
+                var ComplianceOfficer = await complianceService.GetUserById(loggedInAdmin.UserId);
+                var SaccoDetails = await complianceService.GetSaccoByIdAsync(returnToResubmit.SaccoId);
+
+                var result = await _resubmissionService.RequestFormResubmissionAsync(
+                 request.ReturnId,
+                 formToResubmit,
+                 loggedInAdmin.UserId,
+                 ComplianceOfficer?.FullName ?? "Unknown Compliance Officer",
+                 loggedInAdmin.EmailAddress,
+                 request.Reason ?? "No reason provided",
+                 returnToResubmit.SaccoId,
+                 returnToResubmit.SaccoType,
+                 SaccoDetails.OfficialSaccoEmail
+                );
+
+                if (result.Success)
+                {
+                    return Ok();
+                }
+                else
+                {
+                    return BadRequest(result.Message);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+
+            }
+        }*/
 
         /* [HttpPost("ResubmitForm")]
          public async Task<IActionResult> ResubmitForm([FromForm] SaccoResubmissionDto request)
@@ -3557,11 +3573,11 @@ namespace Returns.Controllers
          }*/
 
 
-
+/*
         private async Task<(
          bool IsValid,
          List<string> ProcessingSummary,
-        List<ValidationError> ConsistencyErrors,
+        List<ReturnAnalysisHelper.ValidationError> ConsistencyErrors,
         bool HasConsistencyBeenChecked,
          List<CapitalAdequacyRow> CapitalAdequacy,
          List<LiquidityStatementRow> LiquidityStatement,
@@ -3772,7 +3788,7 @@ namespace Returns.Controllers
             return (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, capital_adequacy_form1, liquidityStatement_form_2,
                 depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
                 financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
-        }
+        }*/
 
 
         /// <summary>

@@ -435,7 +435,7 @@ namespace Returns.Helpers
 
                 // Cache the result for 5 minutes
                 var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
-                _cache.Set(cacheKey, submissionData, TimeSpan.FromMinutes(5));
+                _cache.Set(cacheKey, submissionData, TimeSpan.FromMinutes(1));
 
                 result[expectedReturnId] = submissionData;
             }
