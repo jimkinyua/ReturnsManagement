@@ -118,6 +118,9 @@ namespace Returns.Helpers
                         continue;
                     }
 
+                    // Use FormCategory instead of hardcoded form codes
+                    var formCategory = ((FormCategory)returnForm.Category).ToString();
+                    
                     if (!requiredFormCodes.Contains(returnForm.Code))
                     {
                         processingSummary.Add($"Form {returnForm.Code} is not required for this rating definition.");
@@ -127,8 +130,8 @@ namespace Returns.Helpers
                     var formData = await ParseFormDataAsync(returnForm, formUpload.formFile);
                     if (formData != null)
                     {
-                        parsedForms[returnForm.Code] = formData;
-                        processingSummary.Add($"Successfully parsed {returnForm.Code} from {formUpload.formFile.FileName}");
+                        parsedForms[formCategory] = formData;
+                        processingSummary.Add($"Successfully parsed {formCategory} from {formUpload.formFile.FileName}");
                     }
                     else
                     {
@@ -169,8 +172,12 @@ namespace Returns.Helpers
 
         private List<string> CheckMissingRequiredForms(Dictionary<string, object> parsedForms, RatingDefination ratingDefinition, List<string> processingSummary)
         {
-            var requiredFormCodes = ratingDefinition.RatingForms.Select(rf => rf.FormCode).ToList();
-            var missingForms = requiredFormCodes.Except(parsedForms.Keys).ToList();
+            // Get required form categories from the rating definition
+            var requiredFormCategories = ratingDefinition.RatingForms
+                .Select(rf => ((FormCategory)rf.Category).ToString())
+                .ToList();
+            
+            var missingForms = requiredFormCategories.Except(parsedForms.Keys).ToList();
 
             if (missingForms.Any())
             {
@@ -212,24 +219,14 @@ namespace Returns.Helpers
 
         private dynamic? GetFormDataByCategory(Dictionary<string, object> formDataMap, FormCategory category)
         {
-            var formCode = GetFormCodeByCategory(category);
-            return formDataMap.TryGetValue(formCode, out var data) ? data : null;
+            // Use FormCategory directly instead of hardcoded form codes
+            return formDataMap.TryGetValue(category.ToString(), out var data) ? data : null;
         }
 
         private string GetFormCodeByCategory(FormCategory category)
         {
-            // This should be fetched from database, but for now using hardcoded mapping
-            return category switch
-            {
-                FormCategory.CapitalAdequacy => "FORM1",
-                FormCategory.LiquidityStatement => "FORM2",
-                FormCategory.DepositReturn => "FORM3",
-                FormCategory.RiskClassification => "FORM4",
-                FormCategory.InvestmentReturn => "FORM5",
-                FormCategory.FinancialPosition => "FORM6",
-                FormCategory.StatementOfComprehensiveIncome => "FORM7",
-                _ => string.Empty
-            };
+            // Use FormCategory directly instead of hardcoded mapping
+            return category.ToString();
         }
 
         private void PerformCapitalConsistencyChecks(dynamic? capitalAdequacy, dynamic? financialPosition, dynamic? comprehensiveIncome, ValidationResult result)
