@@ -134,6 +134,7 @@ internal class Program
         builder.Services.AddTransient<IReturnFormAttachmentService, ReturnFormAttachmentService>();
         builder.Services.AddTransient<IRatingDefinitionService, RatingDefinitionService>();
         builder.Services.AddTransient<IConsistencyCheckService, ConsistencyCheckService>();
+        builder.Services.AddTransient<IAdminReturnService, AdminReturnService>();
 
 
         // Add Excel parsing and return submission services

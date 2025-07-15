@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Perfomance_Report;
 using Returns.DTOs.Returns_Analysis;
@@ -28,6 +28,7 @@ using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.Returns.Returns_Analysis;
 using System.Text;
 using Returns.DTOs.Returns.Returns_Submission;
+using Returns.DTOs.Returns_Submission;
 
 namespace Returns.Controllers
 {
@@ -48,8 +49,9 @@ namespace Returns.Controllers
         private readonly IReturnChild _returnChild;
         private readonly IConfiguration _configuration;
         private readonly IConsistencyCheckService _consistencyCheckService;
+        private readonly IAdminReturnService _adminReturnService;
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService, IConsistencyCheckService consistencyCheckService)
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService, IConsistencyCheckService consistencyCheckService, IAdminReturnService adminReturnService)
         {
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             _configuration = new ConfigurationBuilder()
@@ -72,6 +74,7 @@ namespace Returns.Controllers
             //_resubmissionService = new FormResubmissionService(context, emailService, logger, _formProcessor);
             _returnSubmissionService = returnSubmissionService;
             _consistencyCheckService = consistencyCheckService;
+            _adminReturnService = adminReturnService;
         }
 
         [HttpPost("CheckConsistency")]
@@ -3819,6 +3822,98 @@ namespace Returns.Controllers
             {
                 _logger.LogError(ex, "Error in bulk submission for period {PeriodId}", request.PeriodId);
                 return StatusCode(500, new { error = "An error occurred during bulk submission", details = ex.Message });
+            }
+        }
+
+        // Admin Grouped Returns Methods
+        [HttpGet("admin/grouped-returns")]
+        public async Task<ActionResult<List<AdminGroupedReturnDTO>>> GetAdminGroupedReturns([FromQuery] AdminReturnFilterDTO filter)
+        {
+            try
+            {
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var results = await _adminReturnService.GetGroupedReturnsAsync(filter);
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting admin grouped returns");
+                return StatusCode(500, new { error = "An error occurred while fetching grouped returns", details = ex.Message });
+            }
+        }
+
+        [HttpGet("admin/grouped-returns/{groupId}/{periodId}/{saccoId}")]
+        public async Task<ActionResult<AdminGroupedReturnDTO>> GetAdminGroupedReturnDetails(string groupId, string periodId, string saccoId)
+        {
+            try
+            {
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var result = await _adminReturnService.GetGroupedReturnDetailsAsync(groupId, periodId, saccoId);
+                return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting admin grouped return details");
+                return StatusCode(500, new { error = "An error occurred while fetching grouped return details", details = ex.Message });
+            }
+        }
+
+        [HttpGet("admin/filter-options/years")]
+        public async Task<ActionResult<List<string>>> GetAvailableYears()
+        {
+            try
+            {
+                var years = await _adminReturnService.GetAvailableYearsAsync();
+                return Ok(years);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available years");
+                return StatusCode(500, new { error = "An error occurred while fetching years", details = ex.Message });
+            }
+        }
+
+        [HttpGet("admin/filter-options/sacco-types")]
+        public async Task<ActionResult<List<string>>> GetAvailableSaccoTypes()
+        {
+            try
+            {
+                var saccoTypes = await _adminReturnService.GetAvailableSaccoTypesAsync();
+                return Ok(saccoTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available SACCO types");
+                return StatusCode(500, new { error = "An error occurred while fetching SACCO types", details = ex.Message });
+            }
+        }
+
+        [HttpGet("admin/filter-options/frequencies")]
+        public async Task<ActionResult<List<string>>> GetAvailableFrequencies()
+        {
+            try
+            {
+                var frequencies = await _adminReturnService.GetAvailableFrequenciesAsync();
+                return Ok(frequencies);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available frequencies");
+                return StatusCode(500, new { error = "An error occurred while fetching frequencies", details = ex.Message });
             }
         }
 

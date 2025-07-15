@@ -1,0 +1,40 @@
+### Test Admin Grouped Returns API
+
+### 1. Get all grouped returns
+GET {{baseUrl}}/api/returns/admin/grouped-returns
+Authorization: Bearer {{token}}
+
+### 2. Get grouped returns with filters
+GET {{baseUrl}}/api/returns/admin/grouped-returns?Year=2025&SaccoType=DepositTaking&Frequency=Monthly
+Authorization: Bearer {{token}}
+
+### 3. Get incomplete returns only
+GET {{baseUrl}}/api/returns/admin/grouped-returns?IsComplete=false
+Authorization: Bearer {{token}}
+
+### 4. Get specific rating definition returns
+GET {{baseUrl}}/api/returns/admin/grouped-returns?RatingDefinitionId=your-rating-def-id
+Authorization: Bearer {{token}}
+
+### 5. Get grouped return details
+GET {{baseUrl}}/api/returns/admin/grouped-returns/{{groupId}}/{{periodId}}/{{saccoId}}
+Authorization: Bearer {{token}}
+
+### 6. Get available years
+GET {{baseUrl}}/api/returns/admin/filter-options/years
+Authorization: Bearer {{token}}
+
+### 7. Get available SACCO types
+GET {{baseUrl}}/api/returns/admin/filter-options/sacco-types
+Authorization: Bearer {{token}}
+
+### 8. Get available frequencies
+GET {{baseUrl}}/api/returns/admin/filter-options/frequencies
+Authorization: Bearer {{token}}
+
+### Variables (replace with actual values)
+@baseUrl = https://your-api-base-url
+@token = your-jwt-token
+@groupId = your-rating-definition-id
+@periodId = your-period-id
+@saccoId = your-sacco-id
