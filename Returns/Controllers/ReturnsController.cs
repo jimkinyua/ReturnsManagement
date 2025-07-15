@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Perfomance_Report;
 using Returns.DTOs.Returns_Analysis;
@@ -77,7 +77,6 @@ namespace Returns.Controllers
         [HttpPost("CheckConsistency")]
         public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
         {
-
             try
             {
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
@@ -104,128 +103,29 @@ namespace Returns.Controllers
 
                 var result = await _consistencyCheckService.CheckConsistencyForDTAsync(createFormDTO, ratingToUse.RatingName);
 
-/*
-                if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
+                var response = new ConsistencyCheckResponseDTO
                 {
-                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                    if (!HasConsistencyBeenChecked)
-                    {
-                        return StatusCode(409, string.Join(", ", processingSummary));
-                    }
-                    if (!isValid)
-                    {
-                        string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
-                        byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
+                    ProcessingSummary = result.ProcessingSummary,
+                    ConsistencyErrors = result.ConsistencyErrors,
+                    HasConsistencyBeenChecked = result.HasConsistencyBeenChecked
+                };
 
-                        _ = _emailService
-                        .SendEmailAsync(
-                            SaccoDetails.OfficialSaccoEmail,
-                            "Validation Report - Consistency Errors",
-                            htmlReport)
-                        .ContinueWith(t =>
-                        {
-                            if (t.IsFaulted)
-                            {
-                                _logger.LogError(t.Exception, "Failed to send validation-report email.");
-                            }
-                            else
-                            {
-                                _logger.LogInformation("Validation-report email sent successfully.");
-                            }
-                        }, TaskContinuationOptions.OnlyOnRanToCompletion);
-
-
-                        _ = Task.Run(async () =>
-                       {
-                           try
-                           {
-                               await _emailService.SendEmailWithAttachmentAsync(
-                                    SaccoDetails.OfficialSaccoEmail,
-                                    "Validation Report - Consistency Errors",
-                                    "PFA",
-                                    ConsistencyReport,
-                                    $"ValidationReport_{CommonPeriod}.pdf"
-                                );
-                               _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                           }
-                           catch (Exception ex)
-                           {
-                               _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                           }
-                       });
-
-                        return BadRequest(ConsistencyErrors);
-                    }
+                // Return 200 only if there are no consistency errors
+                if (result.ConsistencyErrors.Any())
+                {
+                    response.Message = "Consistency check failed. Please review the errors below.";
+                    return BadRequest(response);
                 }
-                else
-                {
-                    var (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                    if (!HasConsistencyBeenChecked)
-                    {
-                        return StatusCode(409, string.Join(", ", processingSummary));
-                    }
 
-                    if (!isValid)
-                    {
-                        if (!isValid)
-                        {
-                            string htmlReport = ReportsHelper.GenerateHtmlReport(ConsistencyErrors, CommonPeriod);
-                            byte[] ConsistencyReport = ReportsHelper.GenerateConsistencyPdfReport(ConsistencyErrors, CommonPeriod);
-
-                            _ = _emailService
-                      .SendEmailAsync(
-                          SaccoDetails.OfficialSaccoEmail,
-                          "Validation Report - Consistency Errors",
-                          htmlReport)
-                      .ContinueWith(t =>
-                      {
-                          if (t.IsFaulted)
-                          {
-                              _logger.LogError(t.Exception, "Failed to send validation-report email.");
-                          }
-                          else
-                          {
-                              _logger.LogInformation("Validation-report email sent successfully.");
-                          }
-                      }, TaskContinuationOptions.OnlyOnRanToCompletion);
-
-
-                            _ = Task.Run(async () =>
-                            {
-                                try
-                                {
-                                    await _emailService.SendEmailWithAttachmentAsync(
-                                        SaccoDetails.OfficialSaccoEmail,
-                                        "Validation Report - Consistency Errors",
-                                        $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{CommonPeriod}</strong>.</p>",
-                                        ConsistencyReport,
-                                        $"ValidationReport_{CommonPeriod}.pdf"
-                                    );
-                                    _logger.LogInformation("Validation-report (PDF) email sent successfully.");
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError(ex, "Failed to send validation-report (PDF) email.");
-                                }
-                            });
-
-                            return BadRequest(ConsistencyErrors);
-                        }
-
-                        return BadRequest(ConsistencyErrors);
-                    }
-                }*/
-
-                return Ok(result.ConsistencyErrors);
+                response.Message = "Consistency check passed successfully.";
+                return Ok(response);
             }
             catch (Exception ex)
             {
                 var errors = CustomErrorHandler.HandleException(ex);
                 var errorsasString = string.Join(", ", errors);
                 return StatusCode(500, errorsasString);
-
             }
-
         }
 
        /* [HttpPost("RequestFormResubmission")]
