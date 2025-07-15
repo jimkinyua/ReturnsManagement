@@ -1,0 +1,65 @@
+### Admin Returns API Tests
+
+### 1. Get Grouped Returns (with default to today's date)
+GET {{baseUrl}}/api/returns/admin/grouped-returns
+Content-Type: application/json
+
+### 2. Get Grouped Returns with specific filters
+GET {{baseUrl}}/api/returns/admin/grouped-returns?Year=2024&Month=12&SaccoType=DT&Frequency=Monthly
+Content-Type: application/json
+
+### 3. Get Grouped Returns with pagination
+GET {{baseUrl}}/api/returns/admin/grouped-returns?Page=1&PageSize=10
+Content-Type: application/json
+
+### 4. Get specific group details
+GET {{baseUrl}}/api/returns/admin/grouped-returns/rating-def-id-123/period-id-456/sacco-id-789
+Content-Type: application/json
+
+### 5. Get filter options - Years
+GET {{baseUrl}}/api/returns/admin/filter-options/years
+Content-Type: application/json
+
+### 6. Get filter options - SACCO Types
+GET {{baseUrl}}/api/returns/admin/filter-options/sacco-types
+Content-Type: application/json
+
+### 7. Get filter options - Frequencies
+GET {{baseUrl}}/api/returns/admin/filter-options/frequencies
+Content-Type: application/json
+
+### Example Response Structure:
+# {
+#   "groupId": "rating-def-id-123",
+#   "ratingName": "CAMELS Analysis",
+#   "description": "Capital Adequacy, Asset Quality, Management, Earnings, Liquidity, Sensitivity",
+#   "saccoType": "DT",
+#   "saccoId": "sacco-123",
+#   "saccoName": "Sample SACCO",
+#   "periodId": "period-456",
+#   "periodName": "December 2024",
+#   "year": 2024,
+#   "frequency": "Monthly",
+#   "startDate": "2024-12-01T00:00:00",
+#   "endDate": "2024-12-31T23:59:59",
+#   "submittedAt": "2024-12-15T10:30:00",
+#   "status": "On Time",
+#   "isComplete": true,
+#   "totalRequiredForms": 6,
+#   "submittedForms": 6,
+#   "returnCount": 6,
+#   "groupType": "Grouped",
+#   "forms": [
+#     {
+#       "formId": "form-1",
+#       "formCode": "CA",
+#       "formName": "Capital Adequacy",
+#       "submissionId": "sub-1",
+#       "submittedAt": "2024-12-15T10:30:00",
+#       "status": "Submitted",
+#       "isSubmitted": true,
+#       "isLate": false,
+#       "daysLate": 0
+#     }
+#   ]
+# }

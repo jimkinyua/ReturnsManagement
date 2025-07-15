@@ -22,6 +22,7 @@ namespace Returns.DTOs.Returns_Submission
         public bool IsComplete { get; set; } // All required forms submitted
         public int TotalRequiredForms { get; set; }
         public int SubmittedForms { get; set; }
+        public int ReturnCount { get; set; } // Count of returns in this group
         public List<GroupedReturnFormDTO> Forms { get; set; } = new List<GroupedReturnFormDTO>();
         public ReturnGroupType GroupType { get; set; } = ReturnGroupType.Grouped; // New property
     }
@@ -47,8 +48,21 @@ namespace Returns.DTOs.Returns_Submission
 
     public class AdminReturnFilterDTO
     {
-        public int? Year { get; set; }
-        public int? Month { get; set; } // 1-12
+        private int? _year;
+        private int? _month;
+
+        public int? Year 
+        { 
+            get => _year ?? DateTime.Now.Year;
+            set => _year = value;
+        }
+        
+        public int? Month 
+        { 
+            get => _month ?? DateTime.Now.Month;
+            set => _month = value;
+        }
+        
         public string? SaccoType { get; set; }
         public string? Frequency { get; set; } // Monthly, Quarterly, etc.
         public string? PeriodId { get; set; }

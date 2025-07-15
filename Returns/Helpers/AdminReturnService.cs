@@ -150,6 +150,7 @@ namespace Returns.Helpers
                             IsComplete = isComplete,
                             TotalRequiredForms = requiredFormCodes.Count,
                             SubmittedForms = submittedFormCodes.Count,
+                            ReturnCount = saccoSubmissions.Count,
                             Forms = await BuildFormListAsync(saccoSubmissions, requiredFormCodes, period),
                             GroupType = ReturnGroupType.Grouped
                         };
@@ -251,6 +252,7 @@ namespace Returns.Helpers
                             IsComplete = saccoSubmissions.Any(), // Standalone returns are complete if submitted
                             TotalRequiredForms = 1,
                             SubmittedForms = saccoSubmissions.Any() ? 1 : 0,
+                            ReturnCount = saccoSubmissions.Count,
                             Forms = await BuildStandaloneFormListAsync(saccoSubmissions, period),
                             GroupType = ReturnGroupType.Standalone
                         };
@@ -311,6 +313,7 @@ namespace Returns.Helpers
                         IsComplete = submissions.Any(),
                         TotalRequiredForms = 1,
                         SubmittedForms = submissions.Any() ? 1 : 0,
+                        ReturnCount = submissions.Count,
                         Forms = await BuildStandaloneFormListAsync(submissions, period),
                         GroupType = ReturnGroupType.Standalone
                     };
@@ -356,6 +359,7 @@ namespace Returns.Helpers
                     IsComplete = isComplete,
                     TotalRequiredForms = requiredFormCodes.Count,
                     SubmittedForms = submittedFormCodes.Count,
+                    ReturnCount = submissions.Count,
                     Forms = await BuildFormListAsync(submissions, requiredFormCodes, period),
                     GroupType = ReturnGroupType.Grouped
                 };
