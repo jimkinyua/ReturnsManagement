@@ -2817,7 +2817,7 @@ namespace Returns.Helpers
                 // Create new Capital Adequacy return object
 
                 // Map data from Form1Statement to entity properties based on index values
-                foreach (var row in form2A.Rows)
+                /*foreach (var row in form2A.Rows)
                 {
                     switch (row.Index)
                     {
@@ -2911,10 +2911,10 @@ namespace Returns.Helpers
                             }
                             break;
                     }
-                }
+                }*/
 
                 // Calculate and store all computed totals
-                capitalAdequacy.CalculateAndStoreTotals();
+                //capitalAdequacy.CalculateAndStoreTotals();
 
 
                 if (!IsAmendMent)

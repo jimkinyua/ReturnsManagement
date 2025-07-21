@@ -2,7 +2,13 @@ namespace Returns.DTOs.Returns_Submission.NWDT
 {
     public class NWDTCapitalAdequacyDTO : CommonFormDTO
     {
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public int DaysLateBy { get; set; }
+
+        // Core Capital Components
         public decimal ShareCapital { get; set; }
+        public decimal CapitalGrants { get; set; }
         public decimal StatutoryReserves { get; set; }
         public decimal RetainedEarningsAccumulatedLosses { get; set; }
         public decimal NetSurplusAfterTaxCurrentYearToDate { get; set; }
@@ -11,14 +17,14 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public decimal OtherReserves { get; set; }
         public decimal SubTotalCoreCapital { get; set; }
 
-        // Deductions
+        // DEDUCTIONS
         public decimal InvestmentsInSubsidiaryAndEquityInstruments { get; set; }
         public decimal OtherDeductions { get; set; }
         public decimal TotalDeductions { get; set; }
         public decimal CoreCapital { get; set; }
-        public decimal InstitutionalCapital { get; set; }
+        public decimal RetainedEarningsAndDisclosedReserves { get; set; }
 
-        // Balance Sheet Assets
+        // ON-BALANCE SHEET ASSETS
         public decimal CashLocalAndForeignCurrency { get; set; }
         public decimal GovernmentSecurities { get; set; }
         public decimal DepositsAndBalancesAtOtherInstitutions { get; set; }
@@ -30,13 +36,21 @@ namespace Returns.DTOs.Returns_Submission.NWDT
         public decimal TotalAssetsPerBalanceSheet { get; set; }
         public decimal Difference { get; set; }
 
-        // Ratios
+        // OFF-BALANCE SHEET ASSETS
+        public decimal TotalOffBalanceSheetAssets { get; set; }
+
+        // CAPITAL RATIO CALCULATIONS
+        public decimal TotalAssets { get; set; }
+        public decimal TotalDepositsLiabilitiesPerBalanceSheet { get; set; }
         public decimal CoreCapitalToAssetsRatio { get; set; }
+        public decimal MinimumCoreCapitalToAssetsRatioRequirement { get; set; }
+        public decimal MinimumRetainedEarningsAndDisclosedReservesToCoreCapitalRequirement { get; set; }
+        public decimal MinimumCoreCapitalToDepositsRatioRequirement { get; set; }
         public decimal CoreCapitalToAssetsRatioExcessDeficiency { get; set; }
-        public decimal InstitutionalCapitalToAssetsRatio { get; set; }
-        public decimal InstitutionalCapitalToAssetsRatioExcessDeficiency { get; set; }
+        public decimal RetainedEarningsAndDisclosedReservesToCoreCapital { get; set; }
+        public decimal RetainedEarningsAndDisclosedReservesToCoreCapitalExcessDeficiency { get; set; }
         public decimal CoreCapitalToDepositsRatio { get; set; }
         public decimal CoreCapitalToDepositsRatioExcessDeficiency { get; set; }
-        public string FilePath { get; set; } = string.Empty;
+
     }
 }

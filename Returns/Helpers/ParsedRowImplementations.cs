@@ -316,10 +316,10 @@ namespace Returns.Helpers
                         entity.CapitalGrants = row.Amount ?? 0;
                         break;
                     case "1.1.3":
-                        entity.RetainedEarnings = row.Amount ?? 0;
+                        entity.RetainedEarningsAccumulatedLosses = row.Amount ?? 0;
                         break;
                     case "1.1.4":
-                        entity.NetSurplusAfterTax = row.Amount ?? 0;
+                        entity.NetSurplusAfterTaxCurrentYearToDate = row.Amount ?? 0;
                         break;
                     case "1.1.5":
                         entity.StatutoryReserves = row.Amount ?? 0;
@@ -328,7 +328,7 @@ namespace Returns.Helpers
                         entity.OtherReserves = row.Amount ?? 0;
                         break;
                     case "1.1.8":
-                        entity.InvestmentsInSubsidiary = row.Amount ?? 0;
+                        entity.InvestmentsInSubsidiaryAndEquityInstruments = row.Amount ?? 0;
                         break;
                     case "1.1.9":
                         entity.OtherDeductions = row.Amount ?? 0;
@@ -340,18 +340,18 @@ namespace Returns.Helpers
                         entity.CoreCapital = row.Amount ?? 0;
                         break;
                     case "1.1.12":
-                        entity.RetainedEarnings = row.Amount ?? 0;
+                        entity.RetainedEarningsAndDisclosedReserves = row.Amount ?? 0;
                         break;
 
                     // Balance Sheet
                     case "2.1":
-                        entity.CashLocalForeign = row.Amount ?? 0;
+                        entity.CashLocalAndForeignCurrency = row.Amount ?? 0;
                         break;
                     case "2.2":
                         entity.GovernmentSecurities = row.Amount ?? 0;
                         break;
                     case "2.3":
-                        entity.DepositsBalancesAtOtherInstitutions = row.Amount ?? 0;
+                        entity.DepositsAndBalancesAtOtherInstitutions = row.Amount ?? 0;
                         break;
                     case "2.4":
                         entity.LoansAndAdvances = row.Amount ?? 0;
@@ -368,42 +368,38 @@ namespace Returns.Helpers
                     case "2.9":
                         entity.TotalAssetsPerBalanceSheet = row.Amount ?? 0;
                         break;
-                    case "3.0":
+                   /* case "3.0":
                         entity.DifferenceInAssets = row.Amount ?? 0;
-                        break;
+                        break;*/
 
                     // Total Deposits
                     case "3":
-                        entity.OffBalanceSheetAssets = row.Amount ?? 0;
+                        entity.TotalOffBalanceSheetAssets = row.Amount ?? 0;
                         break;
 
-                    // Ratios
-                    case "4.1":
-                        entity.TotalAssetsPerBalanceSheet = row.Amount ?? 0;
-                        break;
-                    case "4.2":
-                        entity.TotalAssetValueOffBalanceSheet = row.Amount ?? 0;
-                        break;
                     case "4.3":
-                        entity.TotalDepositsLiabilitiesAsPerBalanceSheet = row.Amount ?? 0;
+                        entity.TotalAssets = row.Amount ?? 0;
                         break;
                     case "4.4":
-                        entity.CoreCapitalToAssetsRatio = row.Amount ?? 0;
+                        entity.TotalDepositsLiabilitiesPerBalanceSheet = row.Amount ?? 0;
                         break;
                     case "4.5":
-                        entity.MinimumCoreCapitalToAssetsRatio = row.Amount ?? 0;
+                        entity.CoreCapitalToAssetsRatio = row.Amount ?? 0;
+                        break;
+                    case "4.6":
+                        entity.MinimumCoreCapitalToAssetsRatioRequirement = row.Amount ?? 0;
                         break;
                     case "4.8":
                         entity.RetainedEarningsAndDisclosedReservesToCoreCapital = row.Amount ?? 0;
                         break;
                     case "4.9":
-                        entity.MinimumRetainedEarningsToCoreCaptialRequirement = row.Amount ?? 0;
+                        entity.MinimumRetainedEarningsAndDisclosedReservesToCoreCapitalRequirement = row.Amount ?? 0;
                         break;
                     case "4.11":
                         entity.CoreCapitalToDepositsRatio = row.Amount ?? 0;
                         break;
                     case "4.12":
-                        entity.MinimumCoreCapitalToDepositsRequirement = row.Amount ?? 0;
+                        entity.MinimumCoreCapitalToDepositsRatioRequirement = row.Amount ?? 0;
                         break;
                 }
             }

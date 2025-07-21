@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace Returns.DTOs.Returns_Submission.DT
 {
-    public class CapitalAdequacyDTO: CommonFormDTO
+    public class CapitalAdequacyDTO : CommonFormDTO
     {
+
         public decimal ShareCapital { get; set; }
         public decimal StatutoryReserves { get; set; }
         public decimal RetainedEarningsAccumulatedLosses { get; set; }
@@ -17,14 +18,14 @@ namespace Returns.DTOs.Returns_Submission.DT
         public decimal OtherReserves { get; set; }
         public decimal SubTotalCoreCapital { get; set; }
 
-        // Deductions
+        // DEDUCTIONS
         public decimal InvestmentsInSubsidiaryAndEquityInstruments { get; set; }
         public decimal OtherDeductions { get; set; }
         public decimal TotalDeductions { get; set; }
         public decimal CoreCapital { get; set; }
         public decimal InstitutionalCapital { get; set; }
 
-        // Balance Sheet Assets
+        //  ON-BALANCE SHEET ASSETS
         public decimal CashLocalAndForeignCurrency { get; set; }
         public decimal GovernmentSecurities { get; set; }
         public decimal DepositsAndBalancesAtOtherInstitutions { get; set; }
@@ -36,13 +37,20 @@ namespace Returns.DTOs.Returns_Submission.DT
         public decimal TotalAssetsPerBalanceSheet { get; set; }
         public decimal Difference { get; set; }
 
-        // Ratios
+        //  OFF-BALANCE SHEET ASSETS
+        public decimal TotalOffBalanceSheetAssets { get; set; }
+
+        // CAPITAL RATIO CALCULATIONS
+        public decimal TotalAssets { get; set; }
+        public decimal TotalDepositsLiabilities { get; set; }
         public decimal CoreCapitalToAssetsRatio { get; set; }
+        public decimal MinimumCoreCapitalToAssetsRatio { get; set; } = 0.10M; // 10%
         public decimal CoreCapitalToAssetsRatioExcessDeficiency { get; set; }
         public decimal InstitutionalCapitalToAssetsRatio { get; set; }
+        public decimal MinimumInstitutionalToAssetsRatio { get; set; } = 0.08M; // 8%
         public decimal InstitutionalCapitalToAssetsRatioExcessDeficiency { get; set; }
         public decimal CoreCapitalToDepositsRatio { get; set; }
+        public decimal MinimumCoreCapitalToDepositsRatio { get; set; } = 0.08M; // 8%
         public decimal CoreCapitalToDepositsRatioExcessDeficiency { get; set; }
-        public string FilePath { get; set; } = string.Empty;
     }
 }
