@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Returns.Returns_Submission;
 using Returns.DTOs.Returns_Submission;
+using Returns.DTOs.Returns_Submission.DT;
 using Returns.DTOs.Returns_Submission.NWDT;
+using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
 using Returns.Helpers.Enums;
 using Returns.Helpers.Interfaces;
 using Returns.Models;
@@ -347,15 +349,17 @@ namespace Returns.Helpers
                             detailsDto.RiskClassification = MapRiskClassification(submission, saccoType);
                             break;
                         case FormCategory.DepositReturn:
-                            //detailsDto.DepositReturn = MapDepositReturn(submission, saccoType);
+                            detailsDto.DepositReturn = MapDepositReturn(submission, saccoType);
                             break;
                         case FormCategory.FinancialPosition:
-                            //detailsDto.FinancialPosition = MapFinancialPosition(submission, saccoType);
+                            detailsDto.FinancialPosition = MapFinancialPosition(submission, saccoType);
                             break;
                         case FormCategory.StatementOfComprehensiveIncome:
-                            //detailsDto.ComprehensiveIncome = MapComprehensiveIncome(submission, saccoType);
+                            detailsDto.ComprehensiveIncome = MapComprehensiveIncome(submission, saccoType);
                             break;
-                            // Add more as needed
+                        case FormCategory.InvestmentReturn:
+                            detailsDto.InvestmentReturn = MapInvestment(submission, saccoType);
+                            break;
                     }
                     return detailsDto;
                 }
@@ -373,6 +377,20 @@ namespace Returns.Helpers
                         .ThenInclude(er => er.Period)
                         .Include(rs => rs.ExpectedReturn)
                         .ThenInclude(er => er.ReturnForm)
+                        .Include(rs => rs.NWDTCapitalAdequacyReturns)
+                        .Include(rs => rs.NWDTLiquidityReturns)
+                        .Include(rs => rs.NWDTDepositReturns)
+                        .Include(rs => rs.NWDTRiskClassificationReturns)
+                        .Include(rs => rs.NWDTInvestmentReturns)
+                        .Include(rs => rs.NWDTFinancialPositionReturns)
+                        .Include(rs => rs.NWDTComprehensiveIncomeReturns)
+                        .Include(rs => rs.DTCapitalAdequacyReturns)
+                        .Include(rs => rs.DTLiquidityReturns)
+                        .Include(rs => rs.DepositReturns)
+                        .Include(rs => rs.DTRiskClassificationReturns)
+                        .Include(rs => rs.DTInvestmentReturns)
+                        .Include(rs => rs.DTFinancialPositionReturns)
+                        .Include(rs => rs.DTComprehensiveIncomeReturns)
                         .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
                         .ToListAsync();
 
@@ -400,15 +418,17 @@ namespace Returns.Helpers
                                 detailsDto.RiskClassification = MapRiskClassification(submission, saccoType);
                                 break;
                             case FormCategory.DepositReturn:
-                                //detailsDto.DepositReturn = MapDepositReturn(submission, saccoType);
+                                detailsDto.DepositReturn = MapDepositReturn(submission, saccoType);
                                 break;
                             case FormCategory.FinancialPosition:
-                                //detailsDto.FinancialPosition = MapFinancialPosition(submission, saccoType);
+                                detailsDto.FinancialPosition = MapFinancialPosition(submission, saccoType);
                                 break;
                             case FormCategory.StatementOfComprehensiveIncome:
-                                //detailsDto.ComprehensiveIncome = MapComprehensiveIncome(submission, saccoType);
+                                detailsDto.ComprehensiveIncome = MapComprehensiveIncome(submission, saccoType);
                                 break;
-                                // Add more as needed
+                            case FormCategory.InvestmentReturn:
+                                detailsDto.InvestmentReturn = MapInvestment(submission, saccoType);
+                                break;
                         }
                     }
                     return detailsDto;
@@ -645,6 +665,83 @@ namespace Returns.Helpers
             }
         }
 
+        private object MapInvestment(ReturnSubmission submission, string? saccoType)
+        {
+            if (saccoType == "0") // DT
+            {
+                var investmentEntity = submission.DTInvestmentReturns.FirstOrDefault();
+                if (investmentEntity == null) return null;
+                InvestmentReturnDTO? investment = null;
+                if (investmentEntity != null)
+                {
+                    investment = new InvestmentReturnDTO
+                    {
+                        FormId = investmentEntity.FormId ?? string.Empty,
+                        RequiresResubmission = investmentEntity.RequiresResubmission,
+                        CoreCapital = investmentEntity.CoreCapital,
+                        TotalAssets = investmentEntity.TotalAssets,
+                        TotalDeposits = investmentEntity.TotalDeposits,
+                        NonEarningAssets = investmentEntity.NonEarningAssets,
+                        FinancialInvestments = investmentEntity.FinancialInvestments,
+                        LandAndBuildings = investmentEntity.LandAndBuildings,
+                        LandBuildingsToTotalAssetsRatio = investmentEntity.LandBuildingsToTotalAssetsRatio,
+                        LandBuildingsRatioExcessDeficiency = investmentEntity.LandBuildingsRatioExcessDeficiency,
+                        NonEarningAssetsToTotalAssetsRatio = investmentEntity.NonEarningAssetsToTotalAssetsRatio,
+                        NonEarningAssetsRatioExcessDeficiency = investmentEntity.NonEarningAssetsRatioExcessDeficiency,
+                        FinancialInvestmentsToCoreCapitalRatio = investmentEntity.FinancialInvestmentsToCoreCapitalRatio,
+                        FinancialInvestmentsToCoreCapitalExcessDeficiency = investmentEntity.FinancialInvestmentsToCoreCapitalExcessDeficiency,
+                        FinancialInvestmentsToDepositsRatio = investmentEntity.FinancialInvestmentsToDepositsRatio,
+                        FinancialInvestmentsToDepositsExcessDeficiency = investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
+                        //FilePath = investmentEntity.FilePath
+                    };
+                }
+                return investment;
+            }
+            else // NWDT
+            {
+                NWDTInvestmentReturnDTO? nwdtInvestment = null;
+
+                var inv = submission.NWDTInvestmentReturns.FirstOrDefault();
+                if (inv == null) return null;
+                if (inv != null)
+                {
+                    nwdtInvestment = new NWDTInvestmentReturnDTO
+                    {
+                        FormId = inv.FormId,
+                        RequiresResubmission = inv.RequiresResubmission,
+                        CoreCapital = inv.CoreCapital,
+                        TotalAssets = inv.TotalAssets,
+                        TotalDeposits = inv.TotalDeposits,
+                        NonEarningAssets = inv.NonEarningAssets,
+                        FinancialInvestments = inv.FinancialAssets,
+                        LandAndBuildings = inv.LandAndBuilding,
+                        LandBuildingsToTotalAssetsRatio = inv.TotalAssets > 0
+                            ? inv.LandAndBuilding / inv.TotalAssets * 100 : 0,
+                        LandBuildingsRatioExcessDeficiency = inv.TotalAssets > 0
+                            ? inv.LandAndBuilding / inv.TotalAssets * 100 -
+                              inv.MaxLandBuildingToTotalAssetRequirement * 100 : 0,
+                        NonEarningAssetsToTotalAssetsRatio = inv.TotalAssets > 0
+                            ? inv.NonEarningAssets / inv.TotalAssets * 100 : 0,
+                        NonEarningAssetsRatioExcessDeficiency = inv.TotalAssets > 0
+                            ? inv.NonEarningAssets / inv.TotalAssets * 100 : 0,
+                        FinancialInvestmentsToCoreCapitalRatio = inv.CoreCapital > 0
+                            ? inv.FinancialAssets / inv.CoreCapital * 100 : 0,
+                        FinancialInvestmentsToCoreCapitalExcessDeficiency = inv.CoreCapital > 0
+                            ? inv.FinancialAssets / inv.CoreCapital * 100 -
+                              inv.MaxFinancialInvestmentsToCoreCapital * 100 : 0,
+                        FinancialInvestmentsToDepositsRatio = inv.TotalDeposits > 0
+                            ? inv.FinancialAssets / inv.TotalDeposits * 100 : 0,
+                        FinancialInvestmentsToDepositsExcessDeficiency = inv.TotalDeposits > 0
+                            ? inv.FinancialAssets / inv.TotalDeposits * 100 -
+                              inv.MaxEquityInvestmentsToTotalDeposits * 100 : 0,
+                        //FilePath = inv.FilePath
+                    };
+                }
+
+                return nwdtInvestment;
+            }
+        }
+
         private object MapLiquidity(ReturnSubmission submission, string? saccoType)
         {
             if (saccoType == "0") // DT
@@ -738,141 +835,318 @@ namespace Returns.Helpers
         {
             if (saccoType == "0") // DT
             {
-                var entity = submission.DTRiskClassificationReturns.FirstOrDefault();
-                if (entity == null) return null;
-                return new Returns.DTOs.Returns_Submission.DT.RiskClassificationDTO
+                var riskClassifications = new DTOs.Returns_Submission.DT.RiskClassificationDTO();
+                var entities = submission.DTRiskClassificationReturns.ToList();
+                if (entities == null || entities.Count <= 0) return null;
+
+                var firstEntity = entities.First();
+                riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
+                riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
+
+                foreach (var rc in entities)
                 {
-                    /*   TotalAssets = entity.TotalAssets,
-                       TotalLiabilities = entity.TotalLiabilities,
-                       NetWorth = entity.NetWorth,
-                       TotalRevenue = entity.TotalRevenue,
-                       TotalExpenses = entity.TotalExpenses,
-                       NetProfit = entity.NetProfit,
-                       FilePath = entity.FilePath*/
-                };
+                    riskClassifications.RiskClassificationData.Add(new RiskClassificationData
+                    {
+                        LoanType = rc.LoanType,
+                        Classification = rc.Classification,
+                        NumberOfAccounts = rc.NumberOfAccounts,
+                        OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                        RequiredProvision = rc.RequiredProvision,
+                        RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                    });
+                }
+
+                return riskClassifications;
+
             }
             else // NWDT
             {
-                var entity = submission.NWDTRiskClassificationReturns.FirstOrDefault();
-                if (entity == null) return null;
-                return new Returns.DTOs.Returns_Submission.NWDT.NWDTRiskClassificationDTO
+                var risks = submission.NWDTRiskClassificationReturns.ToList();
+                NWDTRiskClassificationDTO? nwdtRiskClassification = null;
+
+                nwdtRiskClassification = new NWDTRiskClassificationDTO();
+
+                var firstItem = risks.First();
+                nwdtRiskClassification.FormId = firstItem.FormId;
+                nwdtRiskClassification.RequiresResubmission = firstItem.RequiresResubmission;
+
+                nwdtRiskClassification.NWDTRiskClassificationData = risks.Select(rc => new NWDTRiskClassificationData
                 {
-                    /*    TotalAssets = entity.TotalAssets,
-                        TotalLiabilities = entity.TotalLiabilities,
-                        NetWorth = entity.NetWorth,
-                        TotalRevenue = entity.TotalRevenue,
-                        TotalExpenses = entity.TotalExpenses,
-                        NetProfit = entity.NetProfit,
-                        FilePath = entity.FilePath*/
-                };
+                    LoanType = rc.LoanType,
+                    Classification = rc.Classification,
+                    NumberOfAccounts = rc.NumberOfAccounts,
+                    OutstandingLoanPortfolio = rc.OutstandingLoanPortfolio,
+                    RequiredProvision = rc.RequiredProvision,
+                    RequiredProvisionAmount = rc.RequiredProvisionAmount,
+                    //FilePath = rc.FilePath
+                }).ToList();
+
+                return nwdtRiskClassification;
             }
         }
 
-        /* private object MapDepositReturn(ReturnSubmission submission, string? saccoType)
-         {
-             if (saccoType == "0") // DT
-             {
-                 //var entity = submissiondepos.FirstOrDefault();
-                 if (entity == null) return null;
-                 return new Returns.DTOs.Returns_Submission.DT.DepositReturnDTO
-                 {
-                     TotalDeposits = entity.TotalDeposits,
-                     SavingsDeposits = entity.SavingsDeposits,
-                     CurrentDeposits = entity.CurrentDeposits,
-                     TimeDeposits = entity.TimeDeposits,
-                     TotalDepositLiabilities = entity.TotalDepositLiabilities,
-                     SavingsDepositLiabilities = entity.SavingsDepositLiabilities,
-                     CurrentDepositLiabilities = entity.CurrentDepositLiabilities,
-                     TimeDepositLiabilities = entity.TimeDepositLiabilities,
-                     FilePath = entity.FilePath
-                 };
-             }
-             else // NWDT
-             {
-                 var entity = submission.NWDTDepositReturns.FirstOrDefault();
-                 if (entity == null) return null;
-                 return new Returns.DTOs.Returns_Submission.NWDT.NWDTDepositReturnDTO
-                 {
-                     TotalDeposits = entity.TotalDeposits,
-                     SavingsDeposits = entity.SavingsDeposits,
-                     CurrentDeposits = entity.CurrentDeposits,
-                     TimeDeposits = entity.TimeDeposits,
-                     TotalDepositLiabilities = entity.TotalDepositLiabilities,
-                     SavingsDepositLiabilities = entity.SavingsDepositLiabilities,
-                     CurrentDepositLiabilities = entity.CurrentDepositLiabilities,
-                     TimeDepositLiabilities = entity.TimeDepositLiabilities,
-                     FilePath = entity.FilePath
-                 };
-             }
-         }*/
-
-        /*private object MapFinancialPosition(ReturnSubmission submission, string? saccoType)
+        private object MapDepositReturn(ReturnSubmission submission, string? saccoType)
         {
             if (saccoType == "0") // DT
             {
-                var entity = submission.DTFinancialPositionReturns.FirstOrDefault();
-                if (entity == null) return null;
-                return new Returns.DTOs.Returns_Submission.DT.FinancialPositionDTO
+                DepositReturnDto? depositReturn = null;
+
+                var depositEntities = submission.DepositReturns.ToList();
+                if (depositEntities == null || !depositEntities.Any())
                 {
-                    TotalAssets = entity.TotalAssets,
-                    TotalLiabilities = entity.TotalLiabilities,
-                    NetWorth = entity.NetWorth,
-                    TotalRevenue = entity.TotalRevenue,
-                    TotalExpenses = entity.TotalExpenses,
-                    NetProfit = entity.NetProfit,
-                    FilePath = entity.FilePath
+                    return null;
+                }
+
+                depositReturn = new DepositReturnDto
+                {
+                    FormId = depositEntities.FirstOrDefault()?.FormId ?? string.Empty,
+                    RequiresResubmission = depositEntities.FirstOrDefault()?.RequiresResubmission ?? false,
                 };
+
+                foreach (var dr in depositEntities)
+                {
+                    depositReturn.DepositReturnData.Add(new DepositReturnData
+                    {
+                        RangeName = dr.RangeName,
+                        DepositType = dr.DepositType,
+                        NumberOfAccounts = dr.NumberOfAccounts,
+                        Amount = dr.AmountInKshs000
+                    });
+                }
+
+                return depositReturn;
+
             }
             else // NWDT
             {
-                var entity = submission.NWDTDepositReturns.FirstOrDefault(); // Assuming NWDT uses the same DTO for Financial Position
-                if (entity == null) return null;
-                return new Returns.DTOs.Returns_Submission.NWDT.NWDTDepositReturnDTO
-                {
-                    TotalDeposits = entity.TotalDeposits,
-                    SavingsDeposits = entity.SavingsDeposits,
-                    CurrentDeposits = entity.CurrentDeposits,
-                    TimeDeposits = entity.TimeDeposits,
-                    TotalDepositLiabilities = entity.TotalDepositLiabilities,
-                    SavingsDepositLiabilities = entity.SavingsDepositLiabilities,
-                    CurrentDepositLiabilities = entity.CurrentDepositLiabilities,
-                    TimeDepositLiabilities = entity.TimeDepositLiabilities,
-                    FilePath = entity.FilePath
-                };
-            }
-        }*/
+                var deposits = submission.NWDTDepositReturns.ToList();
+                if (deposits.Count <= 0) return null;
+                NWDTDepositReturnDto? nwdtDepositReturn = null;
 
-        /*  private object MapComprehensiveIncome(ReturnSubmission submission, string? saccoType)
-          {
-              if (saccoType == "0") // DT
-              {
-                  var entity = submission.DTComprehensiveIncomeReturns.FirstOrDefault();
-                  if (entity == null) return null;
-                  return new Returns.DTOs.Returns_Submission.DT.ComprehensiveIncomeDTO
-                  {
-                      TotalRevenue = entity.TotalRevenue,
-                      TotalExpenses = entity.TotalExpenses,
-                      NetProfit = entity.NetProfit,
-                      FilePath = entity.FilePath
-                  };
-              }
-              else // NWDT
-              {
-                  var entity = submission.NWDTDepositReturns.FirstOrDefault(); // Assuming NWDT uses the same DTO for Comprehensive Income
-                  if (entity == null) return null;
-                  return new Returns.DTOs.Returns_Submission.NWDT.NWDTDepositReturnDTO
-                  {
-                      TotalDeposits = entity.TotalDeposits,
-                      SavingsDeposits = entity.SavingsDeposits,
-                      CurrentDeposits = entity.CurrentDeposits,
-                      TimeDeposits = entity.TimeDeposits,
-                      TotalDepositLiabilities = entity.TotalDepositLiabilities,
-                      SavingsDepositLiabilities = entity.SavingsDepositLiabilities,
-                      CurrentDepositLiabilities = entity.CurrentDepositLiabilities,
-                      TimeDepositLiabilities = entity.TimeDepositLiabilities,
-                      FilePath = entity.FilePath
-                  };
-              }
-          }*/
+                nwdtDepositReturn = new NWDTDepositReturnDto
+                {
+                    FormId = deposits[0].FormId ?? string.Empty,
+                    RequiresResubmission = deposits[0].RequiresResubmission,
+                    DepositReturnData = deposits.Select(dr => new NWDTDepositReturnData
+                    {
+                        RangeName = dr.RangeName ?? string.Empty,
+                        DepositType = dr.DepositType ?? string.Empty,
+                        NumberOfAccounts = dr.NumberOfAccounts,
+                        Amount = dr.AmountInKshs000,
+                    }).ToList()
+                };
+
+                return nwdtDepositReturn;
+            }
+        }
+
+        private object MapFinancialPosition(ReturnSubmission submission, string? saccoType)
+        {
+            if (saccoType == "0") // DT
+            {
+                var balanceEntity = submission.DTFinancialPositionReturns.FirstOrDefault();
+                DTOs.Returns_Submission.Returns_Submission.DT.FinancialPositionDTO? financialPosition = null;
+
+                if (balanceEntity != null)
+                {
+                    financialPosition = new Returns.DTOs.Returns_Submission.Returns_Submission.DT.FinancialPositionDTO
+                    {
+                        FormId = balanceEntity.FormId ?? string.Empty,
+                        RequiresResubmission = balanceEntity.RequiresResubmission,
+                        CashInHand = balanceEntity.CashInHand,
+                        CashAtBank = balanceEntity.CashAtBank,
+                        PrepaymentsAndSundryReceivables = balanceEntity.PrepaymentsAndSundryReceivables,
+                        GovernmentSecurities = balanceEntity.GovernmentSecurities,
+                        OtherSecurities = balanceEntity.OtherSecurities,
+                        BalancesWithOtherSaccos = balanceEntity.BalancesWithOtherSaccos,
+                        InvestmentsInCompanies = balanceEntity.InvestmentsInCompanies,
+                        GrossLoanPortfolio = balanceEntity.GrossLoanPortfolio,
+                        AllowanceForLoanLoss = balanceEntity.AllowanceForLoanLoss,
+                        TaxRecoverable = balanceEntity.TaxRecoverable,
+                        DeferredTaxAssets = balanceEntity.DeferredTaxAssets,
+                        RetirementBenefitAssets = balanceEntity.RetirementBenefitAssets,
+                        InvestmentProperties = balanceEntity.InvestmentProperties,
+                        PropertyAndEquipment = balanceEntity.PropertyAndEquipment,
+                        PrepaidLeaseRentals = balanceEntity.PrepaidLeaseRentals,
+                        IntangibleAssets = balanceEntity.IntangibleAssets,
+                        OtherAssets = balanceEntity.OtherAssets,
+                        SavingsDeposits = balanceEntity.SavingsDeposits,
+                        ShortTermDeposits = balanceEntity.ShortTermDeposits,
+                        NonWithdrawableDeposits = balanceEntity.NonWithdrawableDeposits,
+                        TaxPayable = balanceEntity.TaxPayable,
+                        DividendsPayable = balanceEntity.DividendsPayable,
+                        DeferredTaxLiability = balanceEntity.DeferredTaxLiability,
+                        RetirementBenefitsLiability = balanceEntity.RetirementBenefitsLiability,
+                        OtherLiabilities = balanceEntity.OtherLiabilities,
+                        ExternalBorrowings = balanceEntity.ExternalBorrowings,
+                        ShareCapital = balanceEntity.ShareCapital,
+                        CapitalGrants = balanceEntity.CapitalGrants,
+                        PriorYearsRetainedEarnings = balanceEntity.PriorYearsRetainedEarnings,
+                        CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
+                        StatutoryReserve = balanceEntity.StatutoryReserve,
+                    };
+                    return financialPosition;
+                }
+                return null;
+            }
+            else // NWDT
+            {
+                var entity = submission.NWDTFinancialPositionReturns.FirstOrDefault();
+                NWDTFinancialPositionDTO? nwdtFinancialPosition = null;
+
+                if (entity != null)
+                {
+                    nwdtFinancialPosition = new NWDTFinancialPositionDTO
+                    {
+                        FormId = entity.FormId ?? string.Empty,
+                        RequiresResubmission = entity.RequiresResubmission,
+                        CashInHand = entity.CashInHand,
+                        CashAtBank = entity.CashAtBank,
+                        TotalCashAndCashEquivalent = entity.StoredCashAndCashEquivalent,
+                        PrepaymentsAndSundryReceivables = entity.PrepaymentsAndSundryReceivables,
+                        GovernmentSecurities = entity.GovernmentSecurities,
+                        InvestmentsInCompanies = entity.InvestmentInCompanies,
+                        TotalFinancialInvestments = entity.StoredFinancialInvestments,
+                        GrossLoanPortfolio = entity.GrossLoanPortfolio,
+                        AllowanceForLoanLoss = entity.AllowanceForLoanLoss,
+                        NetLoanPortfolio = entity.StoredNetLoanPortfolio,
+                        TaxRecoverable = entity.TaxRecoverable,
+                        DeferredTaxAssets = entity.DeferredTaxAssets,
+                        RetirementBenefitAssets = entity.RetirementBenefitAssets,
+                        TotalAccountsReceivables = entity.StoredAccountsReceivables,
+                        InvestmentProperties = entity.InvestmentProperties,
+                        PropertyAndEquipment = entity.PropertyAndEquipment,
+                        PrepaidLeaseRentals = entity.PrepaidLeaseRentals,
+                        IntangibleAssets = entity.IntangibleAssets,
+                        OtherAssets = entity.OtherAssets,
+                        TotalPropertyAndEquipment = entity.StoredPropertyEquipmentOtherAssets,
+                        TotalAssets = entity.StoredTotalAssets,
+                        NonWithdrawableDeposits = entity.NonWithdrawableDeposits,
+                        TotalDepositLiabilities = entity.StoredTotalDepositLiabilities,
+                        TaxPayable = entity.TaxPayable,
+                        DividendsPayable = entity.DividendsPayable,
+                        DeferredTaxLiability = entity.DeferredTaxLiability,
+                        RetirementBenefitsLiability = entity.RetirementBenefitsLiability,
+                        OtherLiabilities = entity.OtherLiabilities,
+                        ExternalBorrowings = entity.ExternalBorrowings,
+                        TotalAccountsPayable = entity.StoredAccountsPayableOtherLiabilities,
+                        TotalLiabilities = entity.StoredTotalLiabilities,
+                        ShareCapital = entity.ShareCapital,
+                        CapitalGrants = entity.CapitalGrants,
+                        PriorYearsRetainedEarnings = entity.PriorYearsRetainedEarnings,
+                        CurrentYearSurplus = entity.CurrentYearSurplus,
+                        TotalRetainedEarnings = entity.StoredRetainedEarnings,
+                        StatutoryReserve = entity.StatutoryReserve,
+                        OtherReserves = entity.OtherReserves,
+                        RevaluationReserves = entity.RevaluationReserves,
+                        ProposedDividends = entity.ProposedDividends,
+                        AdjustmentToEquity = entity.AdjustmentToEquity,
+                        TotalOtherEquityAccounts = entity.StoredOtherEquityAccounts,
+                        TotalEquity = entity.StoredTotalEquity
+                    };
+                    return nwdtFinancialPosition;
+                }
+                return null;
+            }
+        }
+
+        private object MapComprehensiveIncome(ReturnSubmission submission, string? saccoType)
+        {
+            if (saccoType == "0") // DT
+            {
+                var incomeEntity = submission.DTComprehensiveIncomeReturns.FirstOrDefault();
+                ComprehesiveIncomeStatementDTO? incomeStatement = null;
+
+                if (incomeEntity != null)
+                {
+                    incomeStatement = new ComprehesiveIncomeStatementDTO
+                    {
+                        FormId = incomeEntity.FormId ?? string.Empty,
+                        RequiresResubmission = incomeEntity.RequiresResubmission,
+                        InterestOnLoanPortfolio = incomeEntity.InterestOnLoanPortfolio,
+                        FeesAndCommissionOnLoanPortfolio = incomeEntity.FeesAndCommissionOnLoanPortfolio,
+                        GovernmentSecurities = incomeEntity.GovernmentSecurities,
+                        DepositsWithBanks = incomeEntity.DepositsWithBanks,
+                        OtherInvestments = incomeEntity.OtherInvestments,
+                        OtherOperatingIncome = incomeEntity.OtherOperatingIncome,
+                        InterestExpenseOnDeposits = incomeEntity.InterestExpenseOnDeposits,
+                        CostOfExternalBorrowings = incomeEntity.CostOfExternalBorrowings,
+                        DividendExpenses = incomeEntity.DividendExpenses,
+                        OtherFinancialExpense = incomeEntity.OtherFinancialExpense,
+                        FeesAndCommissionExpense = incomeEntity.FeesAndCommissionExpense,
+                        OtherExpense = incomeEntity.OtherExpense,
+                        ProvisionForLoanLosses = incomeEntity.ProvisionForLoanLosses,
+                        ValueOfLoansRecovered = incomeEntity.ValueOfLoansRecovered,
+                        PersonnelExpenses = incomeEntity.PersonnelExpenses,
+                        GovernanceExpenses = incomeEntity.GovernanceExpenses,
+                        MarketingExpenses = incomeEntity.MarketingExpenses,
+                        DepreciationAndAmortization = incomeEntity.DepreciationAndAmortization,
+                        AdministrativeExpenses = incomeEntity.AdministrativeExpenses,
+                        NonOperatingIncome = incomeEntity.NonOperatingIncome,
+                        NonOperatingExpense = incomeEntity.NonOperatingExpense,
+                        Taxes = incomeEntity.Taxes,
+                        Donations = incomeEntity.Donations,
+                    };
+
+                    return incomeStatement;
+                }
+                return null;
+            }
+            else // NWDT
+            {
+                var inc = submission.NWDTComprehensiveIncomeReturns.FirstOrDefault(); // Assuming NWDT uses the same DTO for Comprehensive Income
+                NWDTComprehesiveIncomeStatementDTO? nwdtIncomeStatement = null;
+
+                if (inc != null)
+                {
+                    nwdtIncomeStatement = new NWDTComprehesiveIncomeStatementDTO
+                    {
+                        FormId = inc.FormId,
+                        RequiresResubmission = inc.RequiresResubmission,
+                        InterestOnLoanPortfolio = inc.InterestOnLoanPortfolio,
+                        FeesAndCommissionOnLoanPortfolio = inc.FeesCommissionOnLoanPortfolio,
+                        TotalFinancialIncomeFromLoans = inc.FinancialIncomeFromLoansPortfolio,
+                        GovernmentSecurities = inc.GovernmentSecuritiesIncome,
+                        DepositsWithBanks = inc.PlacementInBanksIncome,
+                        OtherInvestments =
+                            inc.CommercialPapersIncome +
+                            inc.CollectiveInvestmentSchemesIncome +
+                            inc.DerivativesIncome +
+                            inc.EquityInvestmentsIncome +
+                            inc.InvestmentInCompaniesIncome,
+                        TotalFinancialIncomeFromInvestments = inc.FinancialIncomeFromInvestments,
+                        TotalFinancialIncome = inc.FinancialIncome,
+                        InterestExpenseOnDeposits = inc.InterestExpenseOnDeposits,
+                        CostOfExternalBorrowings = inc.CostOfExternalBorrowings,
+                        DividendExpenses = inc.DividendExpenses,
+                        OtherFinancialExpense = inc.OtherFinancialExpense,
+                        FeesAndCommissionExpense = inc.FeesCommissionExpense,
+                        OtherExpense = inc.OtherExpense,
+                        TotalFinancialExpense = inc.FinancialExpense,
+                        NetFinancialIncome = inc.NetFinancialIncome,
+                        ProvisionForLoanLosses = inc.ProvisionForLoanLosses,
+                        ValueOfLoansRecovered = inc.ValueOfLoansRecovered,
+                        NetAllowanceForLoanLoss = inc.AllowanceForLoanLoss,
+                        PersonnelExpenses = inc.PersonnelExpenses,
+                        GovernanceExpenses = inc.GovernanceExpenses,
+                        MarketingExpenses = inc.MarketingExpenses,
+                        DepreciationAndAmortization = inc.DepreciationAmortizationCharges,
+                        AdministrativeExpenses = inc.AdministrativeExpenses,
+                        TotalOperatingExpenses = inc.OperatingExpenses,
+                        NetOperatingIncome = inc.NetOperatingIncome,
+                        NonOperatingIncome = inc.NonOperatingIncome,
+                        NonOperatingExpense = inc.NonOperatingExpense,
+                        NetNonOperatingIncome = inc.NetNonOperatingIncome,
+                        Taxes = inc.Taxes,
+                        NetIncomeBeforeTaxes = inc.NetIncomeBeforeTaxes,
+                        NetIncomeAfterTaxes = inc.NetIncomeAfterTaxesBeforeDonations,
+                        Donations = inc.Donations,
+                        NetIncomeAfterTaxesAndDonations = inc.NetIncomeAfterTaxesAndDonations,
+                    };
+                    return nwdtIncomeStatement;
+                }
+                return null;
+            }
+        }
     }
 }

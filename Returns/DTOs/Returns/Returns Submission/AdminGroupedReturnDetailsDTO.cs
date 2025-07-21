@@ -1,3 +1,5 @@
+using Returns.DTOs.Returns_Submission.DT;
+using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
 using System;
 
 namespace Returns.DTOs.Returns_Submission
@@ -20,21 +22,14 @@ namespace Returns.DTOs.Returns_Submission
         public int SubmittedForms { get; set; }
         public ReturnGroupType GroupType { get; set; }
 
-        // Top-level properties for each form type
-        public CapitalAdequacyDTO? CapitalAdequacy { get; set; }
-        public LiquidityDTO? Liquidity { get; set; }
-        public RiskClassificationDTO? RiskClassification { get; set; }
-        public DepositReturnDTO? DepositReturn { get; set; }
-        public FinancialPositionDTO? FinancialPosition { get; set; }
-        public ComprehensiveIncomeDTO? ComprehensiveIncome { get; set; }
-        // Add more as needed
+        public object? CapitalAdequacy { get; set; }
+        public object? Liquidity { get; set; }
+        public object? RiskClassification { get; set; }
+        public object? DepositReturn { get; set; }
+        public object? FinancialPosition { get; set; }
+        public object? ComprehensiveIncome { get; set; }
+        public object? InvestmentReturn { get; set; }
     }
 
-    // Example DTOs for each form type (replace with your actual DTOs)
-    public class CapitalAdequacyDTO { }
-    public class LiquidityDTO { }
-    public class RiskClassificationDTO { }
-    public class DepositReturnDTO { }
-    public class FinancialPositionDTO { }
-    public class ComprehensiveIncomeDTO { }
+
 }
