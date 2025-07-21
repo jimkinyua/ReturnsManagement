@@ -14,7 +14,6 @@ namespace Returns.Models
         public decimal BalancesWithCommercialBanks { get; set; }
         public decimal TimeDepositsWithBanksMoreThan90Days { get; set; }
         public decimal OverdraftsAndMaturedLoans { get; set; }
-        public decimal NetBankBalances { get; set; }
 
         // 3. Balances with Financial Institutions
         public decimal BalancesWithOtherSaccoSocieties { get; set; }
@@ -22,12 +21,10 @@ namespace Returns.Models
         public decimal BalancesDueToOtherSaccoSocieties { get; set; }
         public decimal BalancesDueToFinancialInstitutions { get; set; }
         public decimal MaturedLoansFromFinancialInstitutions { get; set; }
-        public decimal NetFinancialInstitutionBalances { get; set; }
 
         // 4. Government Securities
         public decimal TreasuryBills { get; set; }
         public decimal TreasuryBonds { get; set; }
-        public decimal TotalGovernmentSecurities { get; set; }
 
         // 5. Net Liquid Assets
         public decimal NetLiquidAssets { get; set; }
@@ -50,8 +47,9 @@ namespace Returns.Models
         // 8. Liquidity Ratio
         public decimal TotalShortTermLiabilities { get; set; }
         public decimal LiquidityRatio { get; set; }
-        public decimal MinimumLiquidityRequirement { get; set; } = 15;
         public decimal LiquidityRatioExcessDeficit { get; set; }
+        public decimal NetLiquidAssetsToShortTermLiabilities { get; set; }
+        public decimal MinimumLiquidityRequirement { get; set; } = 15;
         public string Year { get; set; } = null!;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }

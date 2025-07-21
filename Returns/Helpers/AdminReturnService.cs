@@ -649,23 +649,50 @@ namespace Returns.Helpers
         {
             if (saccoType == "0") // DT
             {
-                var entity = submission.DTLiquidityReturns.FirstOrDefault();
-                if (entity == null) return null;
-                return new DTLiquidityReturn
+                var liquidityEntity = submission.DTLiquidityReturns.FirstOrDefault();
+                if (liquidityEntity == null) return null;
+                return new DTOs.Returns_Submission.DT.LiquidityStatementDTO
                 {
-                    /*  CashAndCashEquivalents = entity.CashAndCashEquivalents,
-                      ShortTermInvestments = entity.ShortTermInvestments,
-                      Receivables = entity.Receivables,
-                      Inventories = entity.Inventories,
-                      PrepaidExpenses = entity.PrepaidExpenses,
-                      TotalCurrentAssets = entity.TotalCurrentAssets,
-                      ShortTermBorrowings = entity.ShortTermBorrowings,
-                      OtherCurrentLiabilities = entity.OtherCurrentLiabilities,
-                      TotalCurrentLiabilities = entity.TotalCurrentLiabilities,
-                      NetWorkingCapital = entity.NetWorkingCapital,
-                      CurrentRatio = entity.CurrentRatio,
-                      QuickRatio = entity.QuickRatio,
-                      FilePath = entity.FilePath*/
+                    RequiresResubmission = liquidityEntity.RequiresResubmission,
+                    LocalNotesAndCoins = liquidityEntity.LocalNotesAndCoins,
+                    ForeignNotesAndCoins = liquidityEntity.ForeignNotesAndCoins,
+                    TotalNotesAndCoins = liquidityEntity.TotalNotesAndCoins,
+
+                    BalancesWithCommercialBanks = liquidityEntity.BalancesWithCommercialBanks,
+                    TimeDepositsWithBanksMoreThan90Days = liquidityEntity.TimeDepositsWithBanksMoreThan90Days,
+                    OverdraftsAndMaturedLoans = liquidityEntity.OverdraftsAndMaturedLoans,
+
+                    BalancesWithOtherSaccoSocieties = liquidityEntity.BalancesWithOtherSaccoSocieties,
+                    BalancesWithOtherFinancialInstitutions = liquidityEntity.BalancesWithOtherFinancialInstitutions,
+                    BalancesDueToOtherSaccoSocieties = liquidityEntity.BalancesDueToOtherSaccoSocieties,
+                    BalancesDueToFinancialInstitutions = liquidityEntity.BalancesDueToFinancialInstitutions,
+                    MaturedLoansFromFinancialInstitutions = liquidityEntity.MaturedLoansFromFinancialInstitutions,
+
+                    TreasuryBills = liquidityEntity.TreasuryBills,
+                    TreasuryBonds = liquidityEntity.TreasuryBonds,
+
+                    NetLiquidAssets = liquidityEntity.NetLiquidAssets,
+
+                    DepositsFromMembers = liquidityEntity.DepositsFromMembers,
+                    DepositsFromOtherSources = liquidityEntity.DepositsFromOtherSources,
+                    TotalDeposits = liquidityEntity.TotalDeposits,
+                    BalancesDueToSaccos = liquidityEntity.BalancesDueToSaccos,
+                    BalancesDueToBanks = liquidityEntity.BalancesDueToBanks,
+                    BalancesDueToOtherFinancialInst = liquidityEntity.BalancesDueToOtherFinancialInst,
+                    TotalDeductions = liquidityEntity.TotalDeductions,
+                    NetDepositLiabilities = liquidityEntity.NetDepositLiabilities,
+
+                    MaturedLiabilities = liquidityEntity.MaturedLiabilities,
+                    LiabilitiesMaturing91Days = liquidityEntity.LiabilitiesMaturing91Days,
+                    TotalOtherLiabilities = liquidityEntity.TotalOtherLiabilities,
+
+                    TotalShortTermLiabilities = liquidityEntity.TotalShortTermLiabilities,
+                    LiquidityRatio = liquidityEntity.LiquidityRatio,
+                    MinimumLiquidityRequirement = liquidityEntity.MinimumLiquidityRequirement,
+                    LiquidityRatioExcessDeficit = liquidityEntity.LiquidityRatioExcessDeficit,
+                    Year = liquidityEntity.Year,
+                    StartDate = liquidityEntity.StartDate,
+                    EndDate = liquidityEntity.EndDate
                 };
             }
             else // NWDT
@@ -674,19 +701,35 @@ namespace Returns.Helpers
                 if (entity == null) return null;
                 return new NWDTLiquidityStatementDTO
                 {
-                    /* CashAndCashEquivalents = entity.CashAndCashEquivalents,
-                     ShortTermInvestments = entity.ShortTermInvestments,
-                     Receivables = entity.Receivables,
-                     Inventories = entity.Inventories,
-                     PrepaidExpenses = entity.PrepaidExpenses,
-                     TotalCurrentAssets = entity.TotalCurrentAssets,
-                     ShortTermBorrowings = entity.ShortTermBorrowings,
-                     OtherCurrentLiabilities = entity.OtherCurrentLiabilities,
-                     TotalCurrentLiabilities = entity.TotalCurrentLiabilities,
-                     NetWorkingCapital = entity.NetWorkingCapital,
-                     CurrentRatio = entity.CurrentRatio,
-                     QuickRatio = entity.QuickRatio,
-                     FilePath = entity.FilePath*/
+                    StartDate = entity.StartDate,
+                    EndDate = entity.EndDate,
+                    Period = entity.Period,
+                    DaysLateBy = entity.DaysLateBy,
+                    LocalNotesAndCoins = entity.LocalNotesAndCoins,
+                    ForeignNotesAndCoins = entity.ForeignNotesAndCoins,
+
+                    BalancesWithCommercialBanks = entity.BalancesWithCommercialBanks,
+                    TimeDepositsWithBanksMoreThan90Days = entity.TimeDepositsWithBanksMoreThan90Days,
+                    OverdraftsAndMaturedLoans = entity.OverdraftsAndMaturedLoans,
+
+                    BalancesWithOtherSaccoSocieties = entity.BalancesWithOtherSaccoSocieties,
+                    BalancesWithOtherFinancialInstitutions = entity.BalancesWithOtherFinancialInstitutions,
+                    BalancesDueToOtherSaccoSocieties = entity.BalancesDueToOtherSaccoSocieties,
+                    BalancesDueToFinancialInstitutions = entity.BalancesDueToFinancialInstitutions,
+                    MaturedLoansAndAdvances = entity.MaturedLoansAndAdvances,
+
+                    TreasuryBills = entity.TreasuryBills,
+                    TreasuryBondsBearerBonds = entity.TreasuryBondsBearerBonds,
+
+                    MaturedLiabilities = entity.MaturedLiabilities,
+                    LiabilitiesMaturing91Days = entity.LiabilitiesMaturing91Days,
+                    TotalOtherLiabilities = entity.TotalOtherLiabilities,
+
+                    NetLiquidAssets = entity.NetLiquidAssets,
+                    TotalShortTermLiabilities = entity.TotalShortTermLiabilities,
+                    LiquidityRatio = entity.LiquidityRatio,
+                    MinimumLiquidityRequirement = entity.MinimumLiquidityRequirement,
+                    LiquidityRatioExcessDeficit = entity.LiquidityRatioExcessDeficit
                 };
             }
         }

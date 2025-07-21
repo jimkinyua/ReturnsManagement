@@ -1865,8 +1865,8 @@ namespace Returns.Helpers
                     }
                 }
 
-                liquidityStatement.CalculateAndStoreTotals();
-
+/*                liquidityStatement.CalculateAndStoreTotals();
+*/
                 await _context.NDWTLiquidityReturns.AddAsync(liquidityStatement);
                 await _context.SaveChangesAsync();
 
@@ -1998,10 +1998,10 @@ namespace Returns.Helpers
                 }
 
                 liquidityStatement.TotalNotesAndCoins = liquidityStatement.LocalNotesAndCoins + liquidityStatement.ForeignNotesAndCoins;
-                liquidityStatement.TotalGovernmentSecurities = liquidityStatement.TreasuryBills + liquidityStatement.TreasuryBonds;
+/*                liquidityStatement.TotalGovernmentSecurities = liquidityStatement.TreasuryBills + liquidityStatement.TreasuryBonds;
                 liquidityStatement.NetLiquidAssets = liquidityStatement.TotalNotesAndCoins + liquidityStatement.NetBankBalances +
                                           liquidityStatement.NetFinancialInstitutionBalances + liquidityStatement.TotalGovernmentSecurities;
-
+*/
                 liquidityStatement.TotalDeposits = liquidityStatement.DepositsFromMembers + liquidityStatement.DepositsFromOtherSources;
                 liquidityStatement.TotalOtherLiabilities = liquidityStatement.MaturedLiabilities + liquidityStatement.LiabilitiesMaturing91Days;
                 if (liquidityStatement.TotalDeposits > 0)

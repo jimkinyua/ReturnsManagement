@@ -156,7 +156,7 @@ namespace Returns.Helpers
 
         public object ToEntity()
         {
-            var entity = new DTLiquidityReturn
+            var liquidityStatement = new DTLiquidityReturn
             {
                 ReturnSubmissionId = ReturnSubmissionId,
                 Year = Data.Period,
@@ -167,77 +167,98 @@ namespace Returns.Helpers
             };
 
             // Map liquidity data based on row indices
-            /* foreach (var row in Data.Rows)
-             {
-                 switch (row.Index?.Trim())
-                 {
-                     case "1.1":
-                         entity.NotesAndCoins = row.Amount ?? 0;
-                         break;
-                     case "1.2":
-                         entity.TillsAndVault = row.Amount ?? 0;
-                         break;
-                     case "1.3":
-                         entity.TotalNotesAndCoins = row.Amount ?? 0;
-                         break;
-                     case "2.1":
-                         entity.CurrentAccountBalancesInBanks = row.Amount ?? 0;
-                         break;
-                     case "2.2":
-                         entity.FixedDepositAccountsInBanks90Days = row.Amount ?? 0;
-                         break;
-                     case "2.3":
-                         entity.TotalBankBalances = row.Amount ?? 0;
-                         break;
-                     case "3.1":
-                         entity.DepositsWithOtherFinancialInstitutions = row.Amount ?? 0;
-                         break;
-                     case "3.2":
-                         entity.TotalOtherFinancialInstitutions = row.Amount ?? 0;
-                         break;
-                     case "4.1":
-                         entity.TreasuryBills = row.Amount ?? 0;
-                         break;
-                     case "4.2":
-                         entity.TreasuryBonds = row.Amount ?? 0;
-                         break;
-                     case "4.3":
-                         entity.CorporateBonds = row.Amount ?? 0;
-                         break;
-                     case "4.4":
-                         entity.TotalGovernmentSecurities = row.Amount ?? 0;
-                         break;
-                     case "5":
-                         entity.NetLiquidAssets = row.Amount ?? 0;
-                         break;
-                     case "6.1":
-                         entity.MemberDeposits = row.Amount ?? 0;
-                         break;
-                     case "6.2":
-                         entity.ShortTermLiabilities = row.Amount ?? 0;
-                         break;
-                     case "6.3":
-                         entity.TotalOtherLiabilities = row.Amount ?? 0;
-                         break;
-                     case "7.1":
-                         entity.TotalLiquidAssets = row.Amount ?? 0;
-                         break;
-                     case "7.2":
-                         entity.TotalCurrentLiabilities = row.Amount ?? 0;
-                         break;
-                     case "7.3":
-                         entity.LiquidityRatio = row.Amount ?? 0;
-                         break;
-                     case "7.4":
-                         entity.MinimumStatutoryRatio = row.Amount ?? 0;
-                         break;
-                     case "7.5":
-                         entity.ExcessDeficit = row.Amount ?? 0;
-                         break;
-                 }
-             }*/
+            foreach (var liquidityRow in Data.Rows)
+            {
+                switch (liquidityRow.Index?.Trim())
+                {
+                    case "1.1":
+                        liquidityStatement.LocalNotesAndCoins = liquidityRow.Amount ?? 0;
+                        break;
+                    case "1.2":
+                        liquidityStatement.ForeignNotesAndCoins = liquidityRow.Amount ?? 0;
+                        break;
+                    case "2.1":
+                        liquidityStatement.BalancesWithCommercialBanks = liquidityRow.Amount ?? 0;
+                        break;
+                    case "2.2":
+                        liquidityStatement.TimeDepositsWithBanksMoreThan90Days = liquidityRow.Amount ?? 0;
+                        break;
+                    case "2.3":
+                        liquidityStatement.OverdraftsAndMaturedLoans = liquidityRow.Amount ?? 0;
+                        break;
+                    case "3.1":
+                        liquidityStatement.BalancesWithOtherSaccoSocieties = liquidityRow.Amount ?? 0;
+                        break;
+                    case "3.2":
+                        liquidityStatement.BalancesWithOtherFinancialInstitutions = liquidityRow.Amount ?? 0;
+                        break;
+                    case "3.3":
+                        liquidityStatement.BalancesDueToOtherSaccoSocieties = liquidityRow.Amount ?? 0;
+                        break;
+                    case "3.4":
+                        liquidityStatement.BalancesDueToFinancialInstitutions = liquidityRow.Amount ?? 0;
+                        break;
+                    case "3.5":
+                        liquidityStatement.MaturedLoansFromFinancialInstitutions = liquidityRow.Amount ?? 0;
+                        break;
+                    case "4.1":
+                        liquidityStatement.TreasuryBills = liquidityRow.Amount ?? 0;
+                        break;
+                    case "4.2":
+                        liquidityStatement.TreasuryBonds = liquidityRow.Amount ?? 0;
+                        break;
+                    case "5":
+                        liquidityStatement.NetLiquidAssets = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.1":
+                        liquidityStatement.DepositsFromMembers = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.2":
+                        liquidityStatement.DepositsFromOtherSources = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.3":
+                        liquidityStatement.TotalDeposits = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.4":
+                        liquidityStatement.BalancesDueToSaccos = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.5":
+                        liquidityStatement.BalancesDueToBanks = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.6":
+                        liquidityStatement.BalancesDueToOtherFinancialInst = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.7":
+                        liquidityStatement.TotalDeductions = liquidityRow.Amount ?? 0;
+                        break;
+                    case "6.8":
+                        liquidityStatement.NetDepositLiabilities = liquidityRow.Amount ?? 0;
+                        break;
+                    case "7.1":
+                        liquidityStatement.MaturedLiabilities = liquidityRow.Amount ?? 0;
+                        break;
+                    case "7.2":
+                        liquidityStatement.LiabilitiesMaturing91Days = liquidityRow.Amount ?? 0;
+                        break;
+                    case "7.3":
+                        liquidityStatement.TotalOtherLiabilities = liquidityRow.Amount ?? 0;
+                        break;
+                    case "8.1":
+                        liquidityStatement.NetLiquidAssets = liquidityRow.Amount ?? 0;
+                        break;
+                    case "8.2":
+                        liquidityStatement.TotalShortTermLiabilities = liquidityRow.Amount ?? 0;
+                        break;
+                    case "8.3":
+                        liquidityStatement.NetLiquidAssetsToShortTermLiabilities = liquidityRow.Amount ?? 0;
+                        break;
+                    case "8.4":
+                        liquidityStatement.MinimumLiquidityRequirement = liquidityRow.Amount ?? 0;
+                        break;
+                }
+            }
 
-            return entity;
+            return liquidityStatement;
         }
     }
 
@@ -830,16 +851,36 @@ namespace Returns.Helpers
                     case "4.2":
                         entity.TreasuryBondsBearerBonds = row.Amount ?? 0;
                         break;
+                    case "5":
+                        entity.NetLiquidAssets = row.Amount ?? 0;
+                        break;
                     case "6.1":
                         entity.MaturedLiabilities = row.Amount ?? 0;
                         break;
                     case "6.2":
                         entity.LiabilitiesMaturing91Days = row.Amount ?? 0;
                         break;
+                    case "6.3":
+                        entity.TotalOtherLiabilities = row.Amount ?? 0;
+                        break;
+                    case "7.1":
+                        entity.NetLiquidAssets = row.Amount ?? 0;
+                        break;
+                    case "7.2":
+                        entity.TotalShortTermLiabilities = row.Amount ?? 0;
+                        break;
+                    case "7.3":
+                        entity.LiquidityRatio = row.Amount ?? 0;
+                        break;
+                    case "7.4":
+                        entity.MinimumLiquidityRequirement = row.Amount ?? 0;
+                        break;
+                    case "7.5":
+                        entity.LiquidityRatioExcessDeficit = row.Amount ?? 0;
+                        break;
+
                 }
             }
-
-            entity.CalculateAndStoreTotals();
 
             return entity;
         }

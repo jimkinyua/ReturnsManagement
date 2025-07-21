@@ -298,7 +298,7 @@ namespace Returns.Helpers
                     BalancesDueToOtherSaccoSocieties = liq.BalancesDueToOtherSaccoSocieties,
                     BalancesDueToFinancialInstitutions = liq.BalancesDueToFinancialInstitutions,
                     TreasuryBills = liq.TreasuryBills,
-                    TreasuryBonds = liq.TreasuryBondsBearerBonds,
+                 /*   TreasuryBonds = liq.TreasuryBondsBearerBonds,
                     MaturedLiabilities = liq.MaturedLiabilities,
                     LiabilitiesMaturing91Days = liq.LiabilitiesMaturing91Days,
                     TotalNotesAndCoins = liq.TotalNotesAndCoins,
@@ -308,7 +308,7 @@ namespace Returns.Helpers
                     LiquidityRatio = liq.LiquidityRatio,
                     LiquidityRatioExcessDeficit = liq.LiquidityRatioExcessDeficit,
                     NetFinancialInstitutionBalances = liq.NetFinancialInstitutionBalances,
-                    NetBankBalances = liq.NetBankBalances
+                    NetBankBalances = liq.NetBankBalances*/
                 };
             }
 
@@ -600,16 +600,16 @@ namespace Returns.Helpers
                     DepositsFromMembers = liquidityEntity.DepositsFromMembers,
                     DepositsFromOtherSources = liquidityEntity.DepositsFromOtherSources,
                     MaturedLiabilities = liquidityEntity.MaturedLiabilities,
-                    LiabilitiesMaturing91Days = liquidityEntity.LiabilitiesMaturing91Days,
+                    /*LiabilitiesMaturing91Days = liquidityEntity.LiabilitiesMaturing91Days,
                     TotalNotesAndCoins = liquidityEntity.TotalNotesAndCoins,
                     TotalGovernmentSecurities = liquidityEntity.TotalGovernmentSecurities,
                     NetLiquidAssets = liquidityEntity.NetLiquidAssets,
-                    TotalDeposits = liquidityEntity.TotalDeposits,
+                    TotalDeposits = liquidityEntity.TotalDeposits,*/
                     TotalOtherLiabilities = liquidityEntity.TotalOtherLiabilities,
                     LiquidityRatio = liquidityEntity.LiquidityRatio,
                     LiquidityRatioExcessDeficit = liquidityEntity.LiquidityRatioExcessDeficit,
-                    NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
-                    NetBankBalances = liquidityEntity.NetBankBalances,
+                    /*NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
+                    NetBankBalances = liquidityEntity.NetBankBalances,*/
                     //FilePath = liquidityEntity.FilePath
                 };
             }
