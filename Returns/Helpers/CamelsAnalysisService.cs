@@ -67,7 +67,7 @@ namespace Returns.Helpers
                 var dto = new CamelsRatingsDTO { ReturnId = returnId };
 
                 // 4. Loop each period and build analysis + DTO slices
-                /*foreach (var p in periods)
+                foreach (var p in periods)
                 {
                     // —— fetch raw data (may be null) ——
                     var balanceSheet = await _context.DTFinancialPositionReturns
@@ -102,7 +102,7 @@ namespace Returns.Helpers
 
                     var managementReturn = await _context.ManagementReturns
                                              .AsNoTracking()
-                                             .FirstOrDefaultAsync(m => m.ReturnId == p.Id)?? new ManagementReturn();
+                                             .FirstOrDefaultAsync(m => m.ReturnId == p.Id) ?? new ManagementReturn();
 
                     // —— persist analysis record ——
                     var analysis = new SaccoAnalysis
@@ -139,11 +139,11 @@ namespace Returns.Helpers
 
                     var aqRatings = await AnalyzeAssetQuality(riskList, riskList);
                     aqRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
-                    dto.AssetQualityRatingResults.Add(aqRatings); 
-                    
+                    dto.AssetQualityRatingResults.Add(aqRatings);
 
 
-                   var mgtRating  = AnalyzeManagement(managementReturn);
+
+                    var mgtRating = AnalyzeManagement(managementReturn);
                     //mgtRating.ReturnPeriods = p.CreatedAt.ToString("yyyy-MM-dd");
                     dto.ManagementRatingResults.Add(mgtRating);
 
@@ -160,10 +160,10 @@ namespace Returns.Helpers
                     dto.StructureOfAssetsRatingResults.Add(structRatings);
 
                     // write back overall into our analysis record
-                 
+
                     await _context.SaveChangesAsync();
                 }
-*/
+
                 // 5. Pad each list to at least 3 entries
                 while (dto.CapitalAnalysisResults.Count < 3) dto.CapitalAnalysisResults.Add(new CapitalAnalysisResult { FinalRating = 0, Period = "N/A" });
                 while (dto.AssetQualityRatingResults.Count < 3) dto.AssetQualityRatingResults.Add(new AssetQualityRatingDetails { FinalRating = 0, Period = "N/A" });
@@ -218,7 +218,7 @@ namespace Returns.Helpers
                 var periods = new[] { current }.Concat(history);
                 var dto = new CamelsRatingsDTO { ReturnId = returnId };
 
-              /*  foreach (var p in periods)
+                foreach (var p in periods)
                 {
                     // fetch NWDT tables
                     var balanceSheet = await _context.NWDTFinancialPositionReturns
@@ -272,9 +272,9 @@ namespace Returns.Helpers
                         TotalDeposits = balanceSheet.TotalDepositLiabilities
                     };
                     analysis.OverallRating = CalculateOverallRating(analysis);
-                    //var mgtRating = AnalyzeManagement(managementReturn);
-                    //dto.ManagementRatingResults.Add(mgtRating);
-                    //analysis.ManagementRating = AnalyzeManagement(managementReturn);
+                    var mgtRating = AnalyzeManagement(managementReturn);
+                    dto.ManagementRatingResults.Add(mgtRating);
+                    analysis.ManagementRating = AnalyzeManagement(managementReturn);
                     _context.SaccoAnalysis.Add(analysis);
                     await _context.SaveChangesAsync();
 
@@ -295,8 +295,8 @@ namespace Returns.Helpers
                     dto.AssetQualityRatingResults.Add(aqRatings);
 
                     var mgrating = AnalyzeManagement(managementReturn);
-                    dto.ManagementRatingResults.Add(mgrating); 
-                    
+                    dto.ManagementRatingResults.Add(mgrating);
+
                     var earnRatings = await AnalyzeNwdtEarnings(incomeStmt, balanceSheet);
                     earnRatings.Period = p.CreatedAt.ToString("yyyy-MM-dd");
                     dto.EarningsRatingResults.Add(earnRatings);
@@ -312,7 +312,7 @@ namespace Returns.Helpers
 
                     await _context.SaveChangesAsync();
                 }
-*/
+
                 // pad to 3 entries
                 while (dto.CapitalAnalysisResults.Count < 3) dto.CapitalAnalysisResults.Add(new CapitalAnalysisResult { FinalRating = 0, Period = "N/A" });
                 while (dto.AssetQualityRatingResults.Count < 3) dto.AssetQualityRatingResults.Add(new AssetQualityRatingDetails { FinalRating = 0, Period = "N/A" });
