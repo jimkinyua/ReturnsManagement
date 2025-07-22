@@ -19,7 +19,7 @@ namespace Returns.Controllers
         }
 
         // GET: api/FrequencyCatalog
-        [HttpGet]
+        [HttpGet("Frequencies")]
         public async Task<ActionResult<IEnumerable<FrequencyCatalogDto>>> GetFrequencyCatalogs()
         {
             var catalogs = await _context.FrequencyCatalogs
@@ -40,7 +40,7 @@ namespace Returns.Controllers
             return Ok(catalogs);
         }
 
-        // GET: api/FrequencyCatalog/all (includes inactive)
+       /* // GET: api/FrequencyCatalog/all (includes inactive)
         [HttpGet("all")]
         public async Task<ActionResult<IEnumerable<FrequencyCatalogDto>>> GetAllFrequencyCatalogs()
         {
@@ -59,10 +59,10 @@ namespace Returns.Controllers
                 .ToListAsync();
 
             return Ok(catalogs);
-        }
+        }*/
 
         // GET: api/FrequencyCatalog/5
-        [HttpGet("{id}")]
+        /*[HttpGet("{id}")]
         public async Task<ActionResult<FrequencyCatalogDto>> GetFrequencyCatalog(int id)
         {
             var catalog = await _context.FrequencyCatalogs
@@ -86,9 +86,9 @@ namespace Returns.Controllers
 
             return Ok(catalog);
         }
-
+*/
         // GET: api/FrequencyCatalog/by-code/MTH
-        [HttpGet("by-code/{code}")]
+       /* [HttpGet("by-code/{code}")]
         public async Task<ActionResult<FrequencyCatalogDto>> GetFrequencyCatalogByCode(string code)
         {
             var catalog = await _context.FrequencyCatalogs
@@ -112,9 +112,9 @@ namespace Returns.Controllers
 
             return Ok(catalog);
         }
-
+*/
         // PUT: api/FrequencyCatalog/5/toggle-active
-        [HttpPut("{id}/toggle-active")]
+       /* [HttpPut("{id}/toggle-active")]
         public async Task<IActionResult> ToggleActiveStatus(int id)
         {
             var catalog = await _context.FrequencyCatalogs.FindAsync(id);
@@ -143,7 +143,7 @@ namespace Returns.Controllers
                 }
             }
         }
-
+*/
         private bool FrequencyCatalogExists(int id)
         {
             return _context.FrequencyCatalogs.Any(e => e.Id == id);
