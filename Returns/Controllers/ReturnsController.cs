@@ -1758,18 +1758,27 @@ namespace Returns.Controllers
               }
           }*/
 
-        [HttpGet("CalculateAnalysis/{returnId}")]
-        public async Task<ActionResult<CamelsRatingsDTO>> CalculateAnalysis(string returnId)
+        [HttpGet("CalculateAnalysis/{periodId}/{saccoId}")]
+        public async Task<ActionResult<CamelsRatingsDTO>> CalculateAnalysis(string periodId, string saccoId)
         {
             try
             {
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId && r.SaccoType == Constants.SaccoType.DepositTaking.ToString());
-                if (currentReturn == null)
+               /* LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
-                    return BadRequest("Return not found");
+                    return StatusCode(401, "Unauthorized");
+                }*/
+
+                var GroupToUse =  _context.RatingDefinations
+                    .Where(r => r.SaccoType == "0" && r.RatingName =="CAELS")
+                    .FirstOrDefault();
+
+                if (GroupToUse == null)
+                {
+                    return BadRequest("Rating definition not found for the specified Sacco type");
                 }
 
-                var result = await camelsAnalysisService.CalculateAnalysisAsync(currentReturn.Id, currentReturn.SaccoType);
+                var result = await camelsAnalysisService.CalculateAnalysisAsync(GroupToUse.Id,periodId, "7", "0" );
 
                 return Ok(result);
             }
@@ -3009,9 +3018,9 @@ namespace Returns.Controllers
 
             try
             {
-                var result = await camelsAnalysisService.CalculateAnalysisAsync(currentReturn.Id, currentReturn.SaccoType);
+                //var result = await camelsAnalysisService.CalculateAnalysisAsync(currentReturn.Id, currentReturn.SaccoType);
 
-                return Ok(result);
+                return Ok();
             }
             catch (Exception ex)
             {

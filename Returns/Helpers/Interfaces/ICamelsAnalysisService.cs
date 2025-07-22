@@ -4,6 +4,6 @@ namespace Returns.Helpers.Interfaces
 {
     public interface ICamelsAnalysisService
     {
-        Task<CamelsRatingsDTO> CalculateAnalysisAsync(string returnId, string saccoType);
+        Task<CamelsRatingsDTO> CalculateAnalysisAsync(string groupId, string periodId, string saccoId, string saccoType);
     }
 }
