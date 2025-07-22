@@ -21,24 +21,24 @@ namespace Returns.DTOs.Forms
         public string SaccoTypeId { get; set; } = null!;
 
         // Enhanced properties for submission handling
-        public bool IsSubmitted { get; set; } = false;
+        //public bool IsSubmitted { get; set; } = false;
         public string? SubmissionId { get; set; }
         public SubmissionStatusEnum? SubmissionStatus { get; set; }
         public DateTime? SubmittedAt { get; set; }
 
         // UI Guidance Properties
-        public bool CanSubmit => SubmissionStatus == SubmissionStatusEnum.NotSubmitted;
-        public bool CanContinue => SubmissionStatus == SubmissionStatusEnum.Draft;
-        public bool CanEdit => SubmissionStatus == SubmissionStatusEnum.Draft;
-        public bool ShowFileInput => SubmissionStatus == SubmissionStatusEnum.NotSubmitted;
+        //public bool CanSubmit => SubmissionStatus == SubmissionStatusEnum.NotSubmitted;
+/*        public bool CanContinue => SubmissionStatus == SubmissionStatusEnum.Draft;
+*/        /*public bool CanEdit => SubmissionStatus == SubmissionStatusEnum.Draft;
+        public bool ShowFileInput => SubmissionStatus == SubmissionStatusEnum.NotSubmitted;*/
         public bool IsDraft => SubmissionStatus == SubmissionStatusEnum.Draft;
-        public bool IsNotSubmitted => SubmissionStatus == SubmissionStatusEnum.NotSubmitted;
-        public string ActionType => SubmissionStatus switch
+        //public bool IsNotSubmitted => SubmissionStatus == SubmissionStatusEnum.NotSubmitted;
+      /*  public string ActionType => SubmissionStatus switch
         {
             SubmissionStatusEnum.NotSubmitted => "Submit",
             SubmissionStatusEnum.Draft => "Edit",
             SubmissionStatusEnum.Submitted => "View",
             _ => "Submit"
-        };
+        };*/
     }
 }

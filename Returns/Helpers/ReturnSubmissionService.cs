@@ -8,6 +8,7 @@ using Returns.Models.Data;
 using System;
 using static Returns.Helpers.Constants;
 using Microsoft.Extensions.Caching.Memory;
+using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Helpers
 {
@@ -31,7 +32,7 @@ namespace Returns.Helpers
             _cache = cache;
         }
 
-        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, string SaccoType, string SaccoId)
+        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco)
         {
             var results = new List<SubmissionResultDto>();
 
@@ -55,7 +56,7 @@ namespace Returns.Helpers
                         .Include(er => er.ReturnForm)
                         .FirstOrDefaultAsync(er => er.Id == item.ExpectedReturnId);
 
-                    if (expected == null || expected.ReturnForm.SaccoTypeId != SaccoType)
+                    if (expected == null || expected.ReturnForm.SaccoTypeId != loggedInSacco.SaccoType)
                     {
                         res.Status = SubmissionStatus.Failed;
                         res.Messages.Add("Invalid form or not allowed for your Sacco type.");
@@ -77,8 +78,9 @@ namespace Returns.Helpers
                     var submission = new ReturnSubmission
                     {
                         ExpectedReturnId = item.ExpectedReturnId,
-                        SaccoId = SaccoId,
-                        SubmittedAt = dto.SubmissionDate,
+                        SaccoId = loggedInSacco.SaccoId,
+                        Status = SubmissionStatus.Draft.ToString(),
+                        SubmittedAt = DateTime.Now,
                         FileUrl = url,
                     };
 
@@ -89,7 +91,7 @@ namespace Returns.Helpers
                     FormCategory Category = (FormCategory)expected.ReturnForm.Category;
 
                     // Parse the Excel file
-                    var parse = await _excelParser.ParseAsync(item.formFile, Category, SaccoType);
+                    var parse = await _excelParser.ParseAsync(item.formFile, Category, loggedInSacco.SaccoType);
 
                     if (!parse.Success)
                     {

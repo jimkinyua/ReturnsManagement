@@ -1,11 +1,12 @@
 ﻿using Returns.DTOs.Returns.Returns_Submission;
 using Returns.DTOs.Returns_Submission.DT;
+using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Helpers.Interfaces
 {
     public interface IReturnSubmissionService
     {
-        Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, string SaccoType, string SaccoId);
+        Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco);
         Task<IList<SubmissionResultDto>> SubmitFinalAsync(string submissionId);
         Task<Dictionary<string, (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt)>> GetSubmissionStatusesAsync(List<string> expectedReturnIds);
         bool IsFormLate(DateTime filingDeadline, SubmissionStatus status);

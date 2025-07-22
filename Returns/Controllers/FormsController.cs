@@ -679,9 +679,9 @@ namespace Returns.Controllers
                         FrequencyCode = g.Key.Code,
                         FrequencyName = g.Key.Name,
                         TotalFormsInGroup = g.Count(),
-                        FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
-                        DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
-                        LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                        //FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                        //DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                        //LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
                         Forms = g.Select(er => CreateFormDueDTO(er, baseUrl, currentDate, submissionData.GetValueOrDefault(er.Id)))
                             .OrderBy(f => f.FilingDeadline)
                             .ThenBy(f => f.FormName)
@@ -693,11 +693,11 @@ namespace Returns.Controllers
                 var response = new FormsDueGroupedResponseDTO
                 {
                     TotalExpectedReturns = expectedReturns.Count,
-                    TotalFiled = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
-                    TotalDue = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
-                    TotalLate = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
-                    TotalWaived = 0, // No waivers allowed
-                    GroupedByFrequency = groupedData
+                    //TotalFiled = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                    //TotalDue = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                    //TotalLate = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                    //TotalWaived = 0, // No waivers allowed
+                    Frequency = groupedData
                 };
 
                 return Ok(response);
@@ -760,9 +760,9 @@ namespace Returns.Controllers
                         FrequencyCode = g.Key.Code,
                         FrequencyName = g.Key.Name,
                         TotalFormsInGroup = g.Count(),
-                        FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
-                        DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
-                        LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                        //FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                        //DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                        //LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
                         Forms = g.Select(er => CreateFormDueDTO(er, baseUrl, currentDate, submissionData.GetValueOrDefault(er.Id)))
                             .OrderBy(f => f.FilingDeadline)
                             .ThenBy(f => f.FormName)
@@ -774,11 +774,11 @@ namespace Returns.Controllers
                 var response = new FormsDueGroupedResponseDTO
                 {
                     TotalExpectedReturns = expectedReturns.Count,
-                    TotalFiled = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
-                    TotalDue = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
-                    TotalLate = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
-                    TotalWaived = 0, // No waivers allowed
-                    GroupedByFrequency = groupedData
+                    //TotalFiled = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
+                    //TotalDue = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
+                    //TotalLate = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
+                    //TotalWaived = 0, // No waivers allowed
+                    Frequency = groupedData
                 };
 
                 return Ok(response);
@@ -829,7 +829,7 @@ namespace Returns.Controllers
                 Status = er.Status,
                 TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
                 SaccoTypeId = er.ReturnForm.SaccoTypeId,
-                IsSubmitted = isSubmitted,
+                //IsSubmitted = isSubmitted,
                 SubmissionId = submissionData.SubmissionId,
                 SubmissionStatus = submissionData.Status,
                 SubmittedAt = submissionData.SubmittedAt

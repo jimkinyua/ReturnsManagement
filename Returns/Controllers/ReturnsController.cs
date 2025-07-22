@@ -621,7 +621,7 @@ namespace Returns.Controllers
                     return StatusCode(401);
                 }
 
-                var result = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco.SaccoType, loggedInSacco.SaccoId);
+                var result = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco);
 
                 return Ok(result);
             }
