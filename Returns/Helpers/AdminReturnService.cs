@@ -139,7 +139,7 @@ namespace Returns.Helpers
 
                         // ── Build the DTO ────────────────────────────────────────────────
                         var saccoDetails = await GetSaccoDetailsAsync(saccoGroup.Key);
-
+                        var Year = _context.ReportingYears.Find(period.YearId);
                         results.Add(new AdminGroupedReturnDTO
                         {
                             GroupId = ratingDef.Id,
@@ -147,7 +147,7 @@ namespace Returns.Helpers
                             SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
                             PeriodId = period.Id,
                             PeriodName = period.Name,
-                            Year = period.ReportingYear.Year,
+                            Year = Year.Year,
                             Frequency = period.FrequencyCatalog.Name,
                             StartDate = period.StartDate,
                             EndDate = period.EndDate,

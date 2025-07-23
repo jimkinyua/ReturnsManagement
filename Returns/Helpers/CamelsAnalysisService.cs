@@ -30,7 +30,7 @@ namespace Returns.Helpers
 
                 if (saccoType == Constants.SaccoType.NWDT.ToString())
                 {
-                    //return await CalculateNwdtAnalysisAsync(returnId);
+                    return await CalculateNwdtAnalysisAsync(returnId);
                 }
 
                 throw new ArgumentException($"Unsupported sacco type: {saccoType}", nameof(saccoType));

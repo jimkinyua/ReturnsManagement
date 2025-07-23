@@ -14,7 +14,8 @@ namespace Returns.DTOs.Perfomance_Report
             // Basic info
             public string PeriodLabel { get; set; }
             public string PeriodType { get; set; }
-            public DateTime PeriodDate { get; set; }
+            public string PeriodEndDate { get; set; } 
+            public string PeriodStartDate { get; set; }
 
             // Monetary values (no multiplication needed)
             public decimal CoreCapital { get; set; }
@@ -185,6 +186,7 @@ namespace Returns.DTOs.Perfomance_Report
             public decimal ComplianceWithLawsScore { get; set; }
             public decimal InternalControlsScore { get; set; }
             public decimal GovernanceStructureScore { get; set; }
+            public decimal CoreCapitalToTotalDepositsRatio { get; internal set; }
         }
 
         public Dictionary<string, string> PrudentialStandards { get; set; } = new Dictionary<string, string>();
