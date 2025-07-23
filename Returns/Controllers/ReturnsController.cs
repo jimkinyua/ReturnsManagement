@@ -3006,30 +3006,42 @@ namespace Returns.Controllers
             }
         }*/
 
-        [HttpGet("nwdt/CalculateAnalysis/{returnId}")]
-
-        public async Task<ActionResult<CamelsRatingsDTO>> CalculateNwdtAnalysis(string returnId)
+        [HttpGet("nwdt/CalculateAnalysis/{periodId}/{saccoId}")]
+        public async Task<ActionResult<CamelsRatingsDTO>> CalculateNwdtAnalysis(string periodId, string saccoId)
         {
-            // Retrieve current return and historical returns
-            var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
-
-            if (currentReturn == null)
-            {
-                return BadRequest("Return not found");
-            }
-
             try
             {
-                //var result = await camelsAnalysisService.CalculateAnalysisAsync(currentReturn.Id, currentReturn.SaccoType);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
 
-                return Ok();
+                // Verify this is an NWDT SACCO
+                if (loggedInSacco.SaccoType != Constants.SaccoType.NWDT.ToString())
+                {
+                    return BadRequest("This endpoint is only for NWDT SACCOs");
+                }
+
+                // Get the rating definition for NWDT
+                var GroupToUse = _context.RatingDefinations
+                    .Where(r => r.SaccoType == Constants.SaccoType.NWDT.ToString() && r.RatingName == "CAELS")
+                    .FirstOrDefault();
+
+                if (GroupToUse == null)
+                {
+                    return BadRequest("Rating definition not found for NWDT SACCOs");
+                }
+
+                var result = await camelsAnalysisService.CalculateAnalysisAsync(GroupToUse.Id, periodId, saccoId, Constants.SaccoType.NWDT.ToString());
+
+                return Ok(result);
             }
             catch (Exception ex)
             {
                 CustomErrorHandler.LogException(ex);
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
-
         }
 
 
@@ -3972,7 +3984,7 @@ namespace Returns.Controllers
                 var periods = await _context.ReturnPeriods
                     .Where(p => p.FrequencyId == currentPeriod.FrequencyId &&
                                 p.StartDate <= currentPeriod.StartDate)
-                    .Include(x=>x.FrequencyCatalog)
+                    .Include(x => x.FrequencyCatalog)
                     .OrderByDescending(p => p.StartDate)
                     .Take(3)
                     .ToListAsync();
