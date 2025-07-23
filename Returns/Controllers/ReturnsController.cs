@@ -51,8 +51,11 @@ namespace Returns.Controllers
         private readonly IConfiguration _configuration;
         private readonly IConsistencyCheckService _consistencyCheckService;
         private readonly IAdminReturnService _adminReturnService;
+        private readonly IAmendmentService _amendmentService;
+        private readonly IReturnAmendmentPolicy _returnAmendmentPolicy;
 
-        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService, IConsistencyCheckService consistencyCheckService, IAdminReturnService adminReturnService)
+
+        public ReturnsController(ReturnsDbContext context, ILogger<ReturnsController> logger, IEmailService emailService, IReturnAssignmentService returnAssignmentService, IWorkflowEngineService workflowService, ICamelsAnalysisService camelsAnalysisService, IComplianceService compliance, IReturnChild returnChild, IReturnSubmissionService returnSubmissionService, IConsistencyCheckService consistencyCheckService, IAdminReturnService adminReturnService, IAmendmentService amendmentService, IReturnAmendmentPolicy returnAmendmentPolicy)
         {
             var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
             _configuration = new ConfigurationBuilder()
@@ -76,6 +79,8 @@ namespace Returns.Controllers
             _returnSubmissionService = returnSubmissionService;
             _consistencyCheckService = consistencyCheckService;
             _adminReturnService = adminReturnService;
+            _amendmentService = amendmentService;
+            _returnAmendmentPolicy = returnAmendmentPolicy;
         }
 
         [HttpPost("CheckConsistency")]
@@ -619,21 +624,74 @@ namespace Returns.Controllers
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
-                    return StatusCode(401);
+                    _logger.LogWarning("Unauthorized access attempt: Invalid SACCO credentials.");
+                    return Unauthorized(new { error = "Invalid SACCO credentials." });
                 }
 
-                var result = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco);
-
+                var result = await _amendmentService.DoAmendmentIfNecessasy(dto, loggedInSacco);
                 return Ok(result);
             }
-            catch (Exception)
+            catch (InvalidOperationException ex)
             {
-
-                throw;
+                _logger.LogWarning(ex, "Invalid operation during draft submission: {Message}", ex.Message);
+                return BadRequest(ex.Message );
             }
-
-
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
         }
+
+        public class AmendmentRequestDTO
+        {
+            public string ExpectedReturnId { get; set; }
+            public string AmendmentReason { get; set; }
+        }
+
+        [HttpPost("RequestAmendment")]
+        public async Task<IActionResult> RequestAmendmentAsync([FromBody] AmendmentRequestDTO dto)
+        {
+            try
+            {
+                // Validate logged-in SACCO
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    _logger.LogWarning("Unauthorized access attempt: Invalid SACCO credentials.");
+                    return Unauthorized(new { error = "Invalid SACCO credentials." });
+                }
+
+                // Validate input
+                if (string.IsNullOrEmpty(dto.ExpectedReturnId))
+                {
+                    _logger.LogWarning("Invalid amendment request: ExpectedReturnId is missing.");
+                    return BadRequest(new { error = "ExpectedReturnId is required." });
+                }
+
+                // Check if amendment is allowed (after 15th)
+                var today = DateTime.UtcNow.Date;
+                if (_returnAmendmentPolicy.CanAutoAmend(today))
+                {
+                    _logger.LogWarning("Amendment request rejected: Auto-amendments are allowed on or before the 15th.");
+                    return BadRequest(new { error = "Amendment requests are not allowed on or before the 15th. Please use the draft submission endpoint." });
+                }
+
+                // Process amendment request
+                //var amendmentRequest = await _amendmentService.CreateAmendRequestForSacco(dto, loggedInSacco);
+                return Ok();
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation during amendment request: {Message}", ex.Message);
+                return Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during amendment request.");
+                return StatusCode(500, new { error = "An unexpected error occurred while processing your amendment request." });
+            }
+        }
+
 
         // File Return
         /* [HttpPost("Draft")]

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250723140721_StatusOnReturnSubmission")]
+    partial class StatusOnReturnSubmission
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -93,54 +96,6 @@ namespace Returns.Migrations
                     b.HasIndex("ReturnId");
 
                     b.ToTable("AdditionalInformationRequests");
-                });
-
-            modelBuilder.Entity("Returns.Models.AmendmentRequest", b =>
-                {
-                    b.Property<string>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ExpectedReturnId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Reason")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("RequestedById")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("ReturnSubmissionId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ReviewedById")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SaccoId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ReturnSubmissionId");
-
-                    b.ToTable("AmendmentRequests");
                 });
 
             modelBuilder.Entity("Returns.Models.ApprovalAction", b =>
@@ -3066,12 +3021,6 @@ namespace Returns.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("AmendedBySubmissionId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AmendsSubmissionId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -3086,9 +3035,6 @@ namespace Returns.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsLatest")
-                        .HasColumnType("bit");
-
                     b.Property<string>("SaccoId")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -3099,9 +3045,6 @@ namespace Returns.Migrations
 
                     b.Property<DateTime>("SubmittedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<int>("Version")
-                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -3471,17 +3414,6 @@ namespace Returns.Migrations
                         .IsRequired();
 
                     b.Navigation("Return");
-                });
-
-            modelBuilder.Entity("Returns.Models.AmendmentRequest", b =>
-                {
-                    b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
-                        .WithMany("AmendmentRequests")
-                        .HasForeignKey("ReturnSubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ReturnSubmission");
                 });
 
             modelBuilder.Entity("Returns.Models.ApprovalAction", b =>
@@ -4100,8 +4032,6 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.ReturnSubmission", b =>
                 {
-                    b.Navigation("AmendmentRequests");
-
                     b.Navigation("DTCapitalAdequacyReturns");
 
                     b.Navigation("DTComprehensiveIncomeReturns");

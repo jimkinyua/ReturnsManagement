@@ -51,6 +51,7 @@ namespace Returns.Helpers
                         continue;
                     }
 
+
                     // Get expected return and validate
                     var expected = await _context.ExpectedReturns
                         .Include(er => er.ReturnForm)
@@ -64,6 +65,14 @@ namespace Returns.Helpers
                         continue;
                     }
 
+                    //  Find the current “latest” submission (if any) for this return
+                    var previous = await _context.ReturnSubmissions
+                        .Where(s => s.ExpectedReturnId == item.ExpectedReturnId
+                                    && s.SaccoId == loggedInSacco.SaccoId
+                                    && s.IsLatest)
+                        .SingleOrDefaultAsync();
+
+
                     // Save file
                     var url = await FormsHelper.SaveFileAsync(item.formFile, "Returns");
                     if (url == null)
@@ -74,7 +83,8 @@ namespace Returns.Helpers
                         continue;
                     }
 
-                    // Create submission record
+                    //  Create the new submission (version = prev.Version + 1)
+                    // ---------------------------------------------------------------
                     var submission = new ReturnSubmission
                     {
                         ExpectedReturnId = item.ExpectedReturnId,
@@ -82,10 +92,27 @@ namespace Returns.Helpers
                         Status = SubmissionStatus.Draft.ToString(),
                         SubmittedAt = DateTime.Now,
                         FileUrl = url,
+                        Version = (previous?.Version ?? 0) + 1,
+                        AmendsSubmissionId = previous?.Id
                     };
+
+                    if (previous != null)
+                    {
+                        previous.IsLatest = false;
+                        previous.AmendedBySubmissionId = submission.Id;
+                    }
+
+
+                    await using var trx = await _context.Database.BeginTransactionAsync();
+
+                    if (previous != null)
+                    {
+                        _context.ReturnSubmissions.Update(previous);
+                    }
 
                     await _context.ReturnSubmissions.AddAsync(submission);
                     await _context.SaveChangesAsync();
+                    await trx.CommitAsync();
                     res.SubmissionId = submission.Id;
 
                     FormCategory Category = (FormCategory)expected.ReturnForm.Category;
@@ -118,8 +145,11 @@ namespace Returns.Helpers
 
                     await _context.SaveChangesAsync();
 
+
                     res.Status = SubmissionStatus.Draft;
-                    res.Messages.Add("Saved as draft.");
+                    res.Messages.Add(previous == null
+                                     ? "Saved as draft."
+                                     : $"Saved as draft – supersedes v{previous.Version}.");
                     results.Add(res);
                 }
                 catch (Exception ex)

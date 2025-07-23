@@ -13,7 +13,11 @@ namespace Returns.Models
         public DateTime SubmittedAt { get; set; } = DateTime.Now;
         public string FileUrl { get; set; } = null!;
         public bool IsActive { get; set; } = true;
-        public string Status = ExpectedStatus.Draft.ToString(); // Default status is Draft
+        public string? AmendsSubmissionId { get; set; }
+        public string? AmendedBySubmissionId { get; set; }
+        public bool IsLatest { get; set; } = true;
+        public int Version { get; set; } = 1;
+        public string Status { get; set; } = ExpectedStatus.Draft.ToString(); // Default status is Draft
 
         //DT Returns
         public ICollection<DTCapitalAdequacyReturn> DTCapitalAdequacyReturns { get; set; } = new List<DTCapitalAdequacyReturn>();
@@ -32,5 +36,7 @@ namespace Returns.Models
         public ICollection<NWDTFinancialPositionReturn> NWDTFinancialPositionReturns { get; set; } = new List<NWDTFinancialPositionReturn>();
         public ICollection<NWDTComprehensiveIncomeReturn> NWDTComprehensiveIncomeReturns { get; set; } = new List<NWDTComprehensiveIncomeReturn>();
         public ICollection<NWDTRiskClassificationReturn> NWDTRiskClassificationReturns { get; set; } = new List<NWDTRiskClassificationReturn>();
+
+        public ICollection<AmendmentRequest> AmendmentRequests { get; set; } = new List<AmendmentRequest>();
     }
 }

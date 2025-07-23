@@ -135,7 +135,8 @@ internal class Program
         builder.Services.AddTransient<IRatingDefinitionService, RatingDefinitionService>();
         builder.Services.AddTransient<IConsistencyCheckService, ConsistencyCheckService>();
         builder.Services.AddTransient<IAdminReturnService, AdminReturnService>();
-
+        builder.Services.AddTransient<IReturnAmendmentPolicy, CutOffPolicy>();
+        builder.Services.AddTransient<IAmendmentService, AmendmentService>();
 
         // Add Excel parsing and return submission services
         builder.Services.AddTransient<IExcelParser, ExcelParserService>();
