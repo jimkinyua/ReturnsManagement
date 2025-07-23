@@ -7,7 +7,7 @@ using Returns.Models.Data;
 
 namespace Returns.Controllers
 {
-    [Route("api/returns")]
+    [Route("api/returns/[controller]")]
     [ApiController]
     public class CamelRatingsController : ControllerBase
     {

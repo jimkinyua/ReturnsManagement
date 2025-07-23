@@ -11,7 +11,7 @@ using System.Linq;
 
 namespace Returns.Controllers
 {
-    [Route("api/returns")]
+    [Route("api/returns/[controller]")]
     [ApiController]
     public class PeriodsController : ControllerBase
     {

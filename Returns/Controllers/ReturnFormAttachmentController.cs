@@ -11,7 +11,7 @@ using static Returns.Helpers.TokenHelper;
 namespace Returns.Controllers
 {
     //[Authorize]
-    [Route("api/returns")]
+    [Route("api/returns/[controller]")]
     [ApiController]
     public class ReturnFormAttachmentController : ControllerBase
     {

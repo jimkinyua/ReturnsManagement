@@ -14,7 +14,7 @@ using Returns.Helpers.Interfaces;
 
 namespace Returns.Controllers
 {
-    [Route("api/returns")]
+    [Route("api/returns/[controller]")]
     [ApiController]
     public class FormsController : ControllerBase
     {
