@@ -16,7 +16,7 @@ namespace Returns.DTOs.Perfomance_Report.NWDT
             // ReturnPeriods Information
             public string PeriodLabel { get; set; }
             public string PeriodType { get; set; }
-            public DateTime PeriodDate { get; set; }
+            public string PeriodStartDate { get; set; }
 
             // Capital Metrics
             public decimal CoreCapital { get; set; }

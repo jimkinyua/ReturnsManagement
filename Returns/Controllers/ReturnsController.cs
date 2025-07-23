@@ -1793,29 +1793,45 @@ namespace Returns.Controllers
 
 
 
-        [HttpGet("GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetPerfomanceReportPdf(string returnId, [FromQuery] string? components)
+        [HttpGet("dt/GetPerfomanceReportPdf/{periodId}/{saccoId}")]
+        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetDTPerfomanceReportPdf(string periodId, string saccoId, [FromQuery] string? ratingName)
         {
             try
             {
-                string selector = string.IsNullOrWhiteSpace(components)
-                ? "CAMELS"
-                : new string(components.ToUpperInvariant()
-                                       .Where(c => "CAMELS".Contains(c))
-                                       .Distinct()
-                                       .ToArray());
-
                 // Initialize report
                 var report = new SaccoPerformanceReportDTO();
 
-                // Find current return
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
-                if (currentReturn == null)
+                // Get sacco details from compliance service
+                var saccoDetails = await complianceService.GetSaccoByIdAsync(saccoId);
+                if (saccoDetails == null)
                 {
-                    return BadRequest("Return not found");
+                    return BadRequest("Sacco not found");
                 }
 
-                report.ReportDate = currentReturn.CreatedAt;
+                report.ReportDate = DateTime.Now;
+                report.SaccoName = saccoDetails.SaccoName;
+
+                // Get current period
+                var currentPeriod = await _context.ReturnPeriods.FindAsync(periodId);
+                if (currentPeriod == null)
+                {
+                    return BadRequest("Period not found");
+                }
+
+                // Get rating definition for DT saccos
+                // Use provided ratingName or default to CAMELS
+                var requestedRating = string.IsNullOrWhiteSpace(ratingName) ? "CAELS" : ratingName.ToUpperInvariant();
+                var ratingDef = await _context.RatingDefinations
+                    .Include(rd => rd.RatingForms)
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "0" && rd.RatingName == requestedRating);
+
+                if (ratingDef == null)
+                {
+                    return BadRequest($"Rating definition '{requestedRating}' not found for DT SACCO type");
+                }
+
+                // Extract selector from rating name (CAMEL, CAELS, CAMELS, CAEL)
+                string selector = ratingDef.RatingName.ToUpperInvariant();
 
                 // Add prudential standards
                 report.PrudentialStandards.Add("CoreCapital", "≥10M");
@@ -1824,48 +1840,73 @@ namespace Returns.Controllers
                 report.PrudentialStandards.Add("NPL", "<5%");
                 report.PrudentialStandards.Add("NonEarningAssets", "<10%");
 
-                // Get historical returns (2 most recent before current)
-                var historicalReturns = await _context.Returns
-                    .Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId)
+                // Get historical periods (current + 2 previous)
+                var periods = await _context.ReturnPeriods
+                    .Where(p => p.FrequencyId == currentPeriod.FrequencyId &&
+                                p.StartDate <= currentPeriod.StartDate)
+                    .Include(x => x.FrequencyCatalog)
+                    .OrderByDescending(p => p.StartDate)
+                    .Take(3)
                     .ToListAsync();
 
-                historicalReturns = historicalReturns
-                    .OrderByDescending(r => r.CreatedAt)
-                    .Take(2)
+                var requiredFormCodes = ratingDef.RatingForms
+                    .Select(rf => rf.FormCode)
                     .ToList();
 
-                // Combine current return with historical returns
-                var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-
-                // Process each return period
-                foreach (var returnPeriod in allReturns)
+                foreach (var period in periods)
                 {
-                    // Fetch all required data for this return period
-                    var balanceSheet = await _context.DTFinancialPositionReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    // Get filed submissions for this period
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
 
-                    var incomeStatement = await _context.DTComprehensiveIncomeReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    // Find submissions by form category
+                    var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
+                    var incStmtSub = FindSubmissionByCategory(submissions, FormCategory.StatementOfComprehensiveIncome);
+                    var capAdeSub = FindSubmissionByCategory(submissions, FormCategory.CapitalAdequacy);
+                    var liqSub = FindSubmissionByCategory(submissions, FormCategory.LiquidityStatement);
+                    var depSub = FindSubmissionByCategory(submissions, FormCategory.DepositReturn);
+                    var riskSub = FindSubmissionByCategory(submissions, FormCategory.RiskClassification);
+                    var invSub = FindSubmissionByCategory(submissions, FormCategory.InvestmentReturn);
+                    var mgtSub = FindSubmissionByCategory(submissions, FormCategory.Management);
 
-                    var capitalReturn = await _context.DTCapitalAdequacyReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    // Fetch data from submissions
+                    var balanceSheet = finPosSub == null
+                        ? new DTFinancialPositionReturn()
+                        : await FromSubmissionAsync<DTFinancialPositionReturn>(finPosSub)
+                          ?? new DTFinancialPositionReturn();
 
-                    var liquidityReturn = await _context.DTLiquidityReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    var incomeStatement = incStmtSub == null
+                        ? new DTComprehensiveIncomeReturn()
+                        : await FromSubmissionAsync<DTComprehensiveIncomeReturn>(incStmtSub)
+                          ?? new DTComprehensiveIncomeReturn();
 
-                    var depositReturns = await _context.DepositReturns
-                        .Where(x => x.ReturnId == returnPeriod.Id)
-                        .ToListAsync();
+                    var capitalReturn = capAdeSub == null
+                        ? new DTCapitalAdequacyReturn()
+                        : await FromSubmissionAsync<DTCapitalAdequacyReturn>(capAdeSub)
+                          ?? new DTCapitalAdequacyReturn();
 
-                    var riskClassificationReturn = await _context.DTRiskClassificationReturns
-                        .Where(x => x.ReturnId == returnPeriod.Id)
-                        .ToListAsync();
+                    var liquidityReturn = liqSub == null
+                        ? new DTLiquidityReturn()
+                        : await FromSubmissionAsync<DTLiquidityReturn>(liqSub)
+                          ?? new DTLiquidityReturn();
 
-                    var investmentReturn = await _context.DTInvestmentReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    var depositReturns = depSub == null
+                        ? new List<DepositReturn>()
+                        : await FromSubmissionListAsync<DepositReturn>(depSub)
+                          ?? new List<DepositReturn>();
 
-                    var managementReturns = await _context.ManagementReturns
-                        .FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    var riskClassificationReturn = riskSub == null
+                        ? new List<DTRiskClassificationReturn>()
+                        : await FromSubmissionListAsync<DTRiskClassificationReturn>(riskSub)
+                          ?? new List<DTRiskClassificationReturn>();
+
+                    var investmentReturn = invSub == null
+                        ? new DTInvestmentReturn()
+                        : await FromSubmissionAsync<DTInvestmentReturn>(invSub)
+                          ?? new DTInvestmentReturn();
+
+                    var managementReturns = mgtSub == null
+                        ? null
+                        : await FromSubmissionAsync<ManagementReturn>(mgtSub);
 
                     // Use default objects if data is missing
                     var SavedCapitalAdequacy = capitalReturn ?? new DTCapitalAdequacyReturn();
@@ -2036,9 +2077,9 @@ namespace Returns.Controllers
 
                     var periodData = new SaccoPerformanceReportDTO.PeriodData
                     {
-                        PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
-                        PeriodType = "Returns",
-                        PeriodStartDate = returnPeriod.CreatedAt,
+                        PeriodLabel = period.Name,
+                        PeriodType = period.FrequencyCatalog?.Name ?? "Returns",
+                        PeriodStartDate = period.StartDate.ToString("yyyy-MM-dd"),
 
                         CoreCapital = SavedCapitalAdequacy.CoreCapital,
                         CoreCapitalToTotalAssets = coreCapitalToTotalAssets,
@@ -2122,7 +2163,7 @@ namespace Returns.Controllers
                     {
                         PeriodLabel = "N/A",
                         PeriodType = "N/A",
-                        PeriodStartDate = DateTime.Now,
+                        PeriodStartDate = DateTime.Now.ToString("yyyy-MM-dd"),
 
                         CoreCapital = 0,
                         CoreCapitalToTotalAssets = 0,
@@ -2171,11 +2212,17 @@ namespace Returns.Controllers
                     report.Periods.Add(blank);
                 }
 
-                var approvals = await _context.ApprovalActions
-                    .Where(r => r.ReturnId == returnId)
-                    .Include(r => r.WorkFlowStep)
-                    .ToListAsync();
-                report.approvalActions = approvals;
+                // Get approval actions for the current period submissions
+                var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId, requiredFormCodes);
+                if (currentPeriodSubmissions.Any())
+                {
+                    /*         var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
+                    var approvals = await _context.ApprovalActions
+                        .Where(a => submissionIds.Contains(a.ReturnId))
+                        .Include(a => a.WorkFlowStep)
+                        .ToListAsync();
+                    report.approvalActions = approvals;*/
+                }
 
                 var reportBytes = ReportsHelper.GenerateSaccoPerformancePdfReport(report, selector);
                 var base64String = Convert.ToBase64String(reportBytes);
@@ -2488,7 +2535,7 @@ namespace Returns.Controllers
                     {
                         PeriodLabel = "N/A",
                         PeriodType = "N/A",
-                        PeriodStartDate = DateTime.Now,
+                        PeriodStartDate = DateTime.Now.ToString("yyyy-MM-dd"),
                     };
 
                     report.Periods.Add(blank);
@@ -2505,25 +2552,44 @@ namespace Returns.Controllers
         }*/
 
 
-        [HttpGet("nwdt/GetPerfomanceReportPdf/{returnId}")]
-        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string returnId, [FromQuery] string? components)
+        [HttpGet("nwdt/GetPerfomanceReportPdf/{periodId}/{saccoId}")]
+        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string periodId, string saccoId, [FromQuery] string? ratingName)
         {
             try
             {
                 var report = new NWDTPerformanceReportDTO();
-                string selector = string.IsNullOrWhiteSpace(components)
-                ? "CAMELS"
-                : new string(components.ToUpperInvariant()
-                                       .Where(c => "CAMELS".Contains(c))
-                                       .Distinct()
-                                       .ToArray());
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
-                if (currentReturn == null)
+
+                // Get sacco details from compliance service
+                var saccoDetails = await complianceService.GetSaccoByIdAsync(saccoId);
+                if (saccoDetails == null)
                 {
-                    return BadRequest("Return not found");
+                    return BadRequest("Sacco not found");
                 }
-                report.ReportDate = currentReturn.CreatedAt;
-                report.SaccoName = currentReturn.SaccoName;
+
+                report.ReportDate = DateTime.Now;
+                report.SaccoName = saccoDetails.SaccoName;
+
+                // Get current period
+                var currentPeriod = await _context.ReturnPeriods.FindAsync(periodId);
+                if (currentPeriod == null)
+                {
+                    return BadRequest("Period not found");
+                }
+
+                // Get rating definition for NWDT saccos
+                // Use provided ratingName or default to CAMELS
+                var requestedRating = string.IsNullOrWhiteSpace(ratingName) ? "CAMELS" : ratingName.ToUpperInvariant();
+                var ratingDef = await _context.RatingDefinations
+                    .Include(rd => rd.RatingForms)
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == requestedRating);
+
+                if (ratingDef == null)
+                {
+                    return BadRequest($"Rating definition '{requestedRating}' not found for NWDT SACCO type");
+                }
+
+                // Extract selector from rating name (CAMEL, CAELS, CAMELS, CAEL)
+                string selector = ratingDef.RatingName.ToUpperInvariant();
                 report.PrudentialStandards.Add("CoreCapital", "≥5M");
                 report.PrudentialStandards.Add("CoreCapita/Total Assets", "≥8%");
                 report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", ">5%");
@@ -2539,22 +2605,73 @@ namespace Returns.Controllers
                 report.PrudentialStandards.Add("Gross loans /Total Assets", "70 - 80%");
                 report.PrudentialStandards.Add("Gross Loans to Deposits", ">100%");
 
-                var historicalReturns = await _context.Returns.Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId).ToListAsync();
-                historicalReturns = historicalReturns.OrderByDescending(r => r.CreatedAt).Take(2).ToList();
+                // Get historical periods (current + 2 previous)
+                var periods = await _context.ReturnPeriods
+                    .Where(p => p.FrequencyId == currentPeriod.FrequencyId &&
+                                p.StartDate <= currentPeriod.StartDate)
+                    .Include(x => x.FrequencyCatalog)
+                    .OrderByDescending(p => p.StartDate)
+                    .Take(3)
+                    .ToListAsync();
 
-                var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-                var result = new CamelsRatingsDTO { ReturnId = returnId };
+                var requiredFormCodes = ratingDef.RatingForms
+                    .Select(rf => rf.FormCode)
+                    .ToList();
 
-                foreach (var returnPeriod in allReturns)
+                foreach (var period in periods)
                 {
-                    var balanceSheet = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var incomeStatement = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var capitalReturn = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var liquidityReturn = await _context.NDWTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                    var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                    var investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var managementReturn = await _context.ManagementReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
+                    // Get filed submissions for this period
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
+
+                    // Find submissions by form category
+                    var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
+                    var incStmtSub = FindSubmissionByCategory(submissions, FormCategory.StatementOfComprehensiveIncome);
+                    var capAdeSub = FindSubmissionByCategory(submissions, FormCategory.CapitalAdequacy);
+                    var liqSub = FindSubmissionByCategory(submissions, FormCategory.LiquidityStatement);
+                    var depSub = FindSubmissionByCategory(submissions, FormCategory.DepositReturn);
+                    var riskSub = FindSubmissionByCategory(submissions, FormCategory.RiskClassification);
+                    var invSub = FindSubmissionByCategory(submissions, FormCategory.InvestmentReturn);
+                    var mgtSub = FindSubmissionByCategory(submissions, FormCategory.Management);
+
+                    // Fetch data from submissions - NWDT forms
+                    var balanceSheet = finPosSub == null
+                        ? new NWDTFinancialPositionReturn()
+                        : await FromNWDTSubmissionAsync<NWDTFinancialPositionReturn>(finPosSub)
+                          ?? new NWDTFinancialPositionReturn();
+
+                    var incomeStatement = incStmtSub == null
+                        ? new NWDTComprehensiveIncomeReturn()
+                        : await FromNWDTSubmissionAsync<NWDTComprehensiveIncomeReturn>(incStmtSub)
+                          ?? new NWDTComprehensiveIncomeReturn();
+
+                    var capitalReturn = capAdeSub == null
+                        ? new NWDTCapitalAdequacyReturn()
+                        : await FromNWDTSubmissionAsync<NWDTCapitalAdequacyReturn>(capAdeSub)
+                          ?? new NWDTCapitalAdequacyReturn();
+
+                    var liquidityReturn = liqSub == null
+                        ? new NWDTLiquidityReturn()
+                        : await FromNWDTSubmissionAsync<NWDTLiquidityReturn>(liqSub)
+                          ?? new NWDTLiquidityReturn();
+
+                    var depositReturns = depSub == null
+                        ? new List<NWDTDepositReturn>()
+                        : await FromNWDTSubmissionListAsync<NWDTDepositReturn>(depSub)
+                          ?? new List<NWDTDepositReturn>();
+
+                    var riskClassificationReturn = riskSub == null
+                        ? new List<NWDTRiskClassificationReturn>()
+                        : await FromNWDTSubmissionListAsync<NWDTRiskClassificationReturn>(riskSub)
+                          ?? new List<NWDTRiskClassificationReturn>();
+
+                    var investmentReturn = invSub == null
+                        ? new NWDTInvestmentReturn()
+                        : await FromNWDTSubmissionAsync<NWDTInvestmentReturn>(invSub)
+                          ?? new NWDTInvestmentReturn();
+
+                    var managementReturn = mgtSub == null
+                        ? null
+                        : await FromNWDTSubmissionAsync<ManagementReturn>(mgtSub);
                     // Use default objects if data is missing
 
                     var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
@@ -2567,9 +2684,9 @@ namespace Returns.Controllers
 
                     var periodData = new NWDTPerformanceReportDTO.NWDTPeriodData
                     {
-                        PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
-                        PeriodType = "Returns",
-                        PeriodStartDate = returnPeriod.CreatedAt,
+                        PeriodLabel = period.Name,
+                        PeriodType = period.FrequencyCatalog?.Name ?? "Returns",
+                        PeriodStartDate = period.StartDate.ToString("yyyy-MM-dd"),
 
                         CoreCapital = SavedCapitalAdequacy.CoreCapital,
                     };
@@ -2587,7 +2704,7 @@ namespace Returns.Controllers
                     // CoreCapitalToTotalDepositsRatio
                     if (SavedCapitalAdequacy.TotalAssets != 0)
                     {
-                        periodData.CoreCapitalToTotalDepositsRatio = 0 / SavedCapitalAdequacy.TotalDepositsLiabilities / SavedCapitalAdequacy.TotalAssets;
+                        periodData.CoreCapitalToTotalDepositsRatio = 0 / SavedCapitalAdequacy.TotalDepositsLiabilitiesPerBalanceSheet / SavedCapitalAdequacy.TotalAssets;
                     }
                     else
                     {
@@ -2765,10 +2882,22 @@ namespace Returns.Controllers
                     {
                         PeriodLabel = "N/A",
                         PeriodType = "N/A",
-                        PeriodStartDate = DateTime.Now,
+                        PeriodStartDate = DateTime.Now.ToString("yyyy-MM-dd"),
                     };
 
                     report.Periods.Add(blank);
+                }
+
+                // Get approval actions for the current period submissions
+                var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId, requiredFormCodes);
+                if (currentPeriodSubmissions.Any())
+                {
+                    /* var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
+                     var approvals = await _context.ApprovalActions
+                         .Where(a => submissionIds.Contains(a.ReturnId))
+                         .Include(a => a.WorkFlowStep)
+                         .ToListAsync();*/
+                    //report.approvalActions = approvals;
                 }
 
                 var reportBytes = NWDTReportHelper.GenerateNwdtSaccoPerformancePdfReport(report, selector);
@@ -3423,9 +3552,9 @@ namespace Returns.Controllers
 
                     var periodData = new NWDTPerformanceReportDTO.NWDTPeriodData
                     {
-                        PeriodLabel = period.StartDate.ToString("dd MMMM, yyyy"),
+                        PeriodLabel = period.StartDate.ToString("yyyy-MM-dd"),
                         PeriodType = "Returns",
-                        PeriodDate = period.StartDate,
+                        PeriodStartDate = period.StartDate.ToShortDateString(),
 
                         CoreCapital = SavedCapitalAdequacy.CoreCapital,
                     };
@@ -3608,6 +3737,10 @@ namespace Returns.Controllers
                     periodData.InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + 0; //Todo: FeesAndCommissionOnLoanPortfolio Not defined
                                                                                                                                    // periodData.TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense;
                     periodData.NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                    periodData.MemberProtectionScore = managementReturn?.MemberProtectionScore ?? 0;
+                    periodData.GovernanceStructureScore = managementReturn?.GorvenanceStructureScore ?? 0;
+                    periodData.InternalControlsScore = managementReturn?.InternalControlsScore ?? 0;
+                    periodData.ComplianceWithLawsScore = managementReturn?.ComplianceWithLawsAndRegulationsScore ?? 0;
                     report.Periods.Add(periodData);
                 }
 
@@ -3617,7 +3750,7 @@ namespace Returns.Controllers
                     {
                         PeriodLabel = "N/A",
                         PeriodType = "N/A",
-                        PeriodDate = DateTime.Now,
+                        PeriodStartDate = DateTime.Now.ToString("yyyy-MM-dd"),
                     };
 
                     report.Periods.Add(blank);
@@ -3669,6 +3802,28 @@ namespace Returns.Controllers
                 .FirstOrDefaultAsync(e => EF.Property<string>(e, "ReturnSubmissionId") == sub.Id);
         }
 
+        // For DT single entity
+        private async Task<T?> FromSubmissionAsync<T>(ReturnSubmission sub) where T : class
+        {
+            return await _context.Set<T>()
+                .FirstOrDefaultAsync(e => EF.Property<string>(e, "ReturnSubmissionId") == sub.Id);
+        }
+
+        // For DT list
+        private async Task<List<T>> FromSubmissionListAsync<T>(ReturnSubmission sub) where T : class
+        {
+            return await _context.Set<T>()
+                .Where(e => EF.Property<string>(e, "ReturnSubmissionId") == sub.Id)
+                .ToListAsync();
+        }
+
+        // For NWDT list
+        private async Task<List<T>> FromNWDTSubmissionListAsync<T>(ReturnSubmission sub) where T : class
+        {
+            return await _context.Set<T>()
+                .Where(e => EF.Property<string>(e, "ReturnSubmissionId") == sub.Id)
+                .ToListAsync();
+        }
 
     }
 }
