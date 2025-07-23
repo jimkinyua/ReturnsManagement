@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Perfomance_Report;
 using Returns.DTOs.Returns_Analysis;
@@ -29,6 +29,7 @@ using Returns.DTOs.Returns.Returns_Analysis;
 using System.Text;
 using Returns.DTOs.Returns.Returns_Submission;
 using Returns.DTOs.Returns_Submission;
+using Returns.Helpers.Enums;
 
 namespace Returns.Controllers
 {
@@ -1763,14 +1764,15 @@ namespace Returns.Controllers
         {
             try
             {
-               /* LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
                     return StatusCode(401, "Unauthorized");
-                }*/
+                }
 
+                // Use the actual saccoId from parameter and saccoType from token
                 var GroupToUse =  _context.RatingDefinations
-                    .Where(r => r.SaccoType == "0" && r.RatingName =="CAELS")
+                    .Where(r => r.SaccoType == loggedInSacco.SaccoType && r.RatingName =="CAELS")
                     .FirstOrDefault();
 
                 if (GroupToUse == null)
@@ -1778,7 +1780,7 @@ namespace Returns.Controllers
                     return BadRequest("Rating definition not found for the specified Sacco type");
                 }
 
-                var result = await camelsAnalysisService.CalculateAnalysisAsync(GroupToUse.Id,periodId, "7", "0" );
+                var result = await camelsAnalysisService.CalculateAnalysisAsync(GroupToUse.Id, periodId, saccoId, loggedInSacco.SaccoType);
 
                 return Ok(result);
             }
@@ -3925,6 +3927,543 @@ namespace Returns.Controllers
                 return StatusCode(500, new { error = "An error occurred while fetching frequencies", details = ex.Message });
             }
         }
+
+        [HttpGet("dt/GetPerfomanceReport/{periodId}/{saccoId}")]
+        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetDTPerfomanceReport(string periodId, string saccoId)
+        {
+            try
+            {
+                var report = new SaccoPerformanceReportDTO();
+
+                // Get sacco details from compliance service
+                var saccoDetails = await complianceService.GetSaccoById(saccoId);
+                if (saccoDetails == null)
+                {
+                    return BadRequest("Sacco not found");
+                }
+                
+                report.ReportDate = DateTime.UtcNow;
+                report.SaccoName = saccoDetails.Name;
+                
+                // Add prudential standards for DT
+                report.PrudentialStandards.Add("CoreCapital", "≥10M");
+                report.PrudentialStandards.Add("CoreCapita/Total Assets", "≥10%");
+                report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", ">8%");
+                report.PrudentialStandards.Add("Retained Earnings/Core Capital", ">5%");
+                report.PrudentialStandards.Add("Non-Performing Loans", "≤5%");
+                report.PrudentialStandards.Add("Non-Earning Assets", "≤5%");
+                report.PrudentialStandards.Add("Total Finacial Investements to Core Capital", "<40%");
+                report.PrudentialStandards.Add("Subsidary Investments to Total Assets", "<50%");
+                report.PrudentialStandards.Add("Equity Investments to Core Capital Ratio", "<20%");
+                report.PrudentialStandards.Add("Other Financial investments to Core Capital Ratio ", "<30%");
+                report.PrudentialStandards.Add("Liquid Assets/Short-term Liabilities", ">15%");
+                report.PrudentialStandards.Add("External Borrowing to Total Assets", "<25%");
+                report.PrudentialStandards.Add("Gross loans /Total Assets", "70 - 80%");
+                report.PrudentialStandards.Add("Gross Loans to Deposits", ">100%");
+
+                // Get current period
+                var currentPeriod = await _context.ReturnPeriods.FindAsync(periodId);
+                if (currentPeriod == null)
+                {
+                    return BadRequest("Period not found");
+                }
+
+                // Get historical periods (current + 2 previous)
+                var periods = await _context.ReturnPeriods
+                    .Where(p => p.FrequencyId == currentPeriod.FrequencyId &&
+                                p.StartDate <= currentPeriod.StartDate)
+                    .OrderByDescending(p => p.StartDate)
+                    .Take(3)
+                    .ToListAsync();
+
+                // Get rating definition for DT saccos (using CAMEL which includes Management forms)
+                var ratingDef = await _context.RatingDefinations
+                    .Include(rd => rd.RatingForms)
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "0" && rd.RatingName == "CAMEL Forms For DT");
+                
+                if (ratingDef == null)
+                {
+                    return BadRequest("Rating definition not found for DT SACCO type");
+                }
+                
+                var requiredFormCodes = ratingDef.RatingForms
+                    .Select(rf => rf.FormCode)
+                    .ToList();
+
+                foreach (var period in periods)
+                {
+                    // Get filed submissions for this period
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
+
+                    // Find submissions by form category
+                    var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
+                    var incStmtSub = FindSubmissionByCategory(submissions, FormCategory.StatementOfComprehensiveIncome);
+                    var capAdeSub = FindSubmissionByCategory(submissions, FormCategory.CapitalAdequacy);
+                    var liqSub = FindSubmissionByCategory(submissions, FormCategory.LiquidityStatement);
+                    var depSub = FindSubmissionByCategory(submissions, FormCategory.DepositReturn);
+                    var riskSub = FindSubmissionByCategory(submissions, FormCategory.RiskClassification);
+                    var invSub = FindSubmissionByCategory(submissions, FormCategory.InvestmentReturn);
+                    var mgtSub = FindSubmissionByCategory(submissions, FormCategory.Management);
+
+                    // Fetch data from submissions
+                    var balanceSheet = finPosSub == null
+                        ? new DTFinancialPositionReturn()
+                        : await FromNWDTSubmissionAsync<DTFinancialPositionReturn>(finPosSub)
+                          ?? new DTFinancialPositionReturn();
+
+                    var incomeStatement = incStmtSub == null
+                        ? new DTComprehensiveIncomeReturn()
+                        : await FromNWDTSubmissionAsync<DTComprehensiveIncomeReturn>(incStmtSub)
+                          ?? new DTComprehensiveIncomeReturn();
+
+                    var capitalReturn = capAdeSub == null
+                        ? new DTCapitalAdequacyReturn()
+                        : await FromNWDTSubmissionAsync<DTCapitalAdequacyReturn>(capAdeSub)
+                          ?? new DTCapitalAdequacyReturn();
+
+                    var liquidityReturn = liqSub == null
+                        ? new DTLiquidityReturn()
+                        : await FromNWDTSubmissionAsync<DTLiquidityReturn>(liqSub)
+                          ?? new DTLiquidityReturn();
+
+                    var depositReturns = depSub == null
+                        ? new List<DepositReturn>()
+                        : await _context.DepositReturns
+                              .Where(d => d.ReturnSubmissionId == depSub.Id)
+                              .ToListAsync();
+
+                    var riskClassificationReturn = riskSub == null
+                        ? new List<DTRiskClassificationReturn>()
+                        : await _context.DTRiskClassificationReturns
+                              .Where(r => r.ReturnSubmissionId == riskSub.Id)
+                              .ToListAsync();
+
+                    var investmentReturn = invSub == null
+                        ? new DTInvestmentReturn()
+                        : await FromNWDTSubmissionAsync<DTInvestmentReturn>(invSub)
+                          ?? new DTInvestmentReturn();
+
+                    // Build period data similar to NWDT but with DT specific calculations
+                    var periodData = new SaccoPerformanceReportDTO.PeriodData
+                    {
+                        PeriodLabel = period.StartDate.ToString("dd MMMM, yyyy"),
+                        PeriodType = "Returns",
+                        PeriodDate = period.StartDate,
+                        CoreCapital = capitalReturn.CoreCapital,
+                        CoreCapitalToTotalAssetsRatio = capitalReturn.CoreCapitalToAssetsRatio,
+                        CoreCapitalToTotalDepositsRatio = capitalReturn.CoreCapitalToDepositsRatio,
+                        NonPerformingLoans = ReturnAnalysisHelper.CalculateNonPerformingLoans(riskClassificationReturn),
+                        TotalAssets = capitalReturn.TotalAssets,
+                        TotalDeposits = balanceSheet.TotalDepositLiabilities,
+                        GrossLoansForm4 = balanceSheet.GrossLoanPortfolio,
+                        GrossLoansForm6 = capitalReturn.LoansAndAdvances,
+                        LiquidAssets = liquidityReturn.NetLiquidAssets,
+                        ExternalBorrowing = balanceSheet.ExternalBorrowings,
+                        NetIncome = incomeStatement.NetIncomeAfterTaxesAndDonations,
+                        TotalIncome = incomeStatement.FinancialIncome,
+                        OperatingExpenses = incomeStatement.OperatingExpenses
+                    };
+
+                    report.Periods.Add(periodData);
+                }
+
+                if (report.Periods.Count < 2 && report.Periods.Count > 0)
+                {
+                    var blank = new SaccoPerformanceReportDTO.PeriodData
+                    {
+                        PeriodLabel = "N/A",
+                        PeriodType = "N/A",
+                        PeriodDate = DateTime.Now,
+                    };
+                    report.Periods.Add(blank);
+                }
+
+                return report;
+            }
+            catch (System.Exception Ex)
+            {
+                CustomErrorHandler.LogException(Ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(Ex));
+            }
+        }
+
+        [HttpGet("nwdt/GetPerfomanceReport/{periodId}/{saccoId}")]
+        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReport(string periodId, string saccoId)
+        {
+            try
+            {
+                var report = new NWDTPerformanceReportDTO();
+
+                // Get sacco details from compliance service
+                var saccoDetails = await complianceService.GetSaccoById(saccoId);
+                if (saccoDetails == null)
+                {
+                    return BadRequest("Sacco not found");
+                }
+                
+                report.ReportDate = DateTime.UtcNow;
+                report.SaccoName = saccoDetails.Name;
+                
+                // Add prudential standards
+                report.PrudentialStandards.Add("CoreCapital", "≥5M");
+                report.PrudentialStandards.Add("CoreCapita/Total Assets", "≥8%");
+                report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", ">5%");
+                report.PrudentialStandards.Add("Retained Earnings/Core Capital", ">5%");
+                report.PrudentialStandards.Add("Non-Performing Loans", "≤5%");
+                report.PrudentialStandards.Add("Non-Earning Assets", "≤5%");
+                report.PrudentialStandards.Add("Total Finacial Investements to Core Capital", "<40%");
+                report.PrudentialStandards.Add("Subsidary Investments to Total Assets", "<50%");
+                report.PrudentialStandards.Add("Equity Investments to Core Capital Ratio", "<20%");
+                report.PrudentialStandards.Add("Other Financial investments to Core Capital Ratio ", "<30%");
+                report.PrudentialStandards.Add("Liquid Assets/Short-term Liabilities", ">10%");
+                report.PrudentialStandards.Add("External Borrowing to Total Assets", "<25%");
+                report.PrudentialStandards.Add("Gross loans /Total Assets", "70 - 80%");
+                report.PrudentialStandards.Add("Gross Loans to Deposits", ">100%");
+
+                // Get current period
+                var currentPeriod = await _context.ReturnPeriods.FindAsync(periodId);
+                if (currentPeriod == null)
+                {
+                    return BadRequest("Period not found");
+                }
+
+                // Get historical periods (current + 2 previous)
+                var periods = await _context.ReturnPeriods
+                    .Where(p => p.FrequencyId == currentPeriod.FrequencyId &&
+                                p.StartDate <= currentPeriod.StartDate)
+                    .OrderByDescending(p => p.StartDate)
+                    .Take(3)
+                    .ToListAsync();
+
+                // Get rating definition for NWDT saccos (using CAMEL which includes Management forms)
+                var ratingDef = await _context.RatingDefinations
+                    .Include(rd => rd.RatingForms)
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == "CAMEL Forms For NWDT");
+                
+                if (ratingDef == null)
+                {
+                    return BadRequest("Rating definition not found for NWDT SACCO type");
+                }
+                
+                var requiredFormCodes = ratingDef.RatingForms
+                    .Select(rf => rf.FormCode)
+                    .ToList();
+
+                foreach (var period in periods)
+                {
+                    // Get filed submissions for this period
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
+
+                    // Find submissions by form category
+                    var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
+                    var incStmtSub = FindSubmissionByCategory(submissions, FormCategory.StatementOfComprehensiveIncome);
+                    var capAdeSub = FindSubmissionByCategory(submissions, FormCategory.CapitalAdequacy);
+                    var liqSub = FindSubmissionByCategory(submissions, FormCategory.LiquidityStatement);
+                    var depSub = FindSubmissionByCategory(submissions, FormCategory.DepositReturn);
+                    var riskSub = FindSubmissionByCategory(submissions, FormCategory.RiskClassification);
+                    var invSub = FindSubmissionByCategory(submissions, FormCategory.InvestmentReturn);
+                    var mgtSub = FindSubmissionByCategory(submissions, FormCategory.Management);
+
+                    // Fetch data from submissions
+                    var balanceSheet = finPosSub == null
+                        ? new NWDTFinancialPositionReturn()
+                        : await FromNWDTSubmissionAsync<NWDTFinancialPositionReturn>(finPosSub)
+                          ?? new NWDTFinancialPositionReturn();
+
+                    var incomeStatement = incStmtSub == null
+                        ? new NWDTComprehensiveIncomeReturn()
+                        : await FromNWDTSubmissionAsync<NWDTComprehensiveIncomeReturn>(incStmtSub)
+                          ?? new NWDTComprehensiveIncomeReturn();
+
+                    var capitalReturn = capAdeSub == null
+                        ? new NWDTCapitalAdequacyReturn()
+                        : await FromNWDTSubmissionAsync<NWDTCapitalAdequacyReturn>(capAdeSub)
+                          ?? new NWDTCapitalAdequacyReturn();
+
+                    var liquidityReturn = liqSub == null
+                        ? new NWDTLiquidityReturn()
+                        : await FromNWDTSubmissionAsync<NWDTLiquidityReturn>(liqSub)
+                          ?? new NWDTLiquidityReturn();
+
+                    var depositReturns = depSub == null
+                        ? new List<NWDTDepositReturn>()
+                        : await _context.NWDTDepositReturns
+                              .Where(d => d.ReturnSubmissionId == depSub.Id)
+                              .ToListAsync();
+
+                    var riskClassificationReturn = riskSub == null
+                        ? new List<NWDTRiskClassificationReturn>()
+                        : await _context.NWDTRiskClassificationReturns
+                              .Where(r => r.ReturnSubmissionId == riskSub.Id)
+                              .ToListAsync();
+
+                    var investmentReturn = invSub == null
+                        ? new NWDTInvestmentReturn()
+                        : await FromNWDTSubmissionAsync<NWDTInvestmentReturn>(invSub)
+                          ?? new NWDTInvestmentReturn();
+
+                    var managementReturn = mgtSub == null
+                        ? new ManagementReturn()
+                        : await FromNWDTSubmissionAsync<ManagementReturn>(mgtSub)
+                          ?? new ManagementReturn();
+
+                    // Use fetched data
+                    var SavedCapitalAdequacy = capitalReturn;
+                    var SavedLiquidityStatement = liquidityReturn;
+                    var SavedDepositReturn = depositReturns;
+                    var SavedRiskClassification = riskClassificationReturn;
+                    var SavedInvestmentReturn = investmentReturn;
+                    var SavedFinancialPositionStatement = balanceSheet;
+                    var SavedComprehensiveStatement = incomeStatement;
+
+                    var periodData = new NWDTPerformanceReportDTO.NWDTPeriodData
+                    {
+                        PeriodLabel = period.StartDate.ToString("dd MMMM, yyyy"),
+                        PeriodType = "Returns",
+                        PeriodDate = period.StartDate,
+
+                        CoreCapital = SavedCapitalAdequacy.CoreCapital,
+                    };
+
+                    // CoreCapitalToTotalAssetsRatio
+                    if (SavedCapitalAdequacy.TotalAssets != 0)
+                    {
+                        periodData.CoreCapitalToTotalAssetsRatio = (SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets) * 100;
+                    }
+                    else
+                    {
+                        periodData.CoreCapitalToTotalAssetsRatio = 0;
+                    }
+
+                    // CoreCapitalToTotalDepositsRatio
+                    if (SavedCapitalAdequacy.TotalAssets != 0)
+                    {
+                        periodData.CoreCapitalToTotalDepositsRatio = 0 / SavedCapitalAdequacy.TotalDepositsLiabilities / SavedCapitalAdequacy.TotalAssets;
+                    }
+                    else
+                    {
+                        periodData.CoreCapitalToTotalDepositsRatio = 0;
+                    }
+
+                    periodData.NonPerformingLoans = ReturnAnalysisHelper.CalculateNwdtNonPerformingLoans(SavedRiskClassification);
+                    periodData.NPL = periodData.NonPerformingLoans;
+                    // Non Earnig Assets
+                    if (SavedFinancialPositionStatement.TotalAssets != 0)
+                    {
+                        periodData.NonEarningAssets = (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
+                        + SavedFinancialPositionStatement.AccountsReceivables
+                        + SavedFinancialPositionStatement.PropertyEquipmentOtherAssets
+                        + SavedFinancialPositionStatement.PrepaidLeaseRentals
+                        + SavedFinancialPositionStatement.IntangibleAssets
+                        + SavedFinancialPositionStatement.OtherAssets) / SavedFinancialPositionStatement.TotalAssets;
+                    }
+                    else
+                    {
+                        periodData.NonEarningAssets = 0;
+                    }
+
+                    // EquityInvestmentsToDeposits
+                    if (SavedInvestmentReturn.CoreCapital != 0)
+                    {
+                        periodData.EquityInvestmentsToDeposits = SavedInvestmentReturn.FinancialAssets / SavedCapitalAdequacy.CoreCapital;
+                    }
+                    else
+                    {
+                        periodData.EquityInvestmentsToDeposits = 0;
+                    }
+
+                    // SubsidiaryAndRelatedInvestmentToCoreCapitalRatio
+                    if (SavedInvestmentReturn.CoreCapital != 0)
+                    {
+                        periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = SavedInvestmentReturn.SubsidiaryRelatedEntityInvestments / SavedCapitalAdequacy.CoreCapital;
+                    }
+                    else
+                    {
+                        periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = 0;
+                    }
+
+                    //EquityInvestmentsToCoreCapitalRatio\
+                    if (SavedCapitalAdequacy.CoreCapital != 0)
+                    {
+                        periodData.EquityInvestmentsToCoreCapitalRatio = SavedFinancialPositionStatement.InvestmentInCompanies / SavedCapitalAdequacy.CoreCapital;
+                    }
+                    else
+                    {
+                        periodData.EquityInvestmentsToCoreCapitalRatio = 0;
+                    }
+
+                    // NetIncomeToAverageAssetsRatio
+                    if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
+                    {
+                        periodData.NetIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
+                    }
+                    else
+                    {
+                        periodData.NetIncomeToAverageAssetsRatio = 0;
+                    }
+
+                    // TotalExpenseToTotalIncomeRatio
+                    if (SavedComprehensiveStatement.StoredNetFinancialIncome != 0) //Todo: TotalFinancialIncome not defined
+                    {
+                        periodData.TotalExpenseToTotalIncomeRatio = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
+                                      SavedComprehensiveStatement.CostOfExternalBorrowings +
+                                      SavedComprehensiveStatement.DividendExpenses +
+                                      SavedComprehensiveStatement.OtherFinancialExpense +
+                                      SavedComprehensiveStatement.FeesCommissionOnLoanPortfolio +
+                                      SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                    }
+                    else
+                    {
+                        periodData.TotalExpenseToTotalIncomeRatio = 0;
+                    }
+
+                    //OperatingExpenseToFinancialIncomeRatio
+                    if (SavedComprehensiveStatement.FinancialIncome != 0)
+                    {
+                        periodData.OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.OperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
+                    }
+                    else
+                    {
+                        periodData.OperatingExpenseToFinancialIncomeRatio = 0;
+                    }
+
+                    // OtherFinancialInvestmentsToCoreCapitalRatio
+                    if (SavedCapitalAdequacy.CoreCapital != 0)
+                    {
+                        periodData.OtherFinancialInvestmentsToCoreCapitalRatio = SavedInvestmentReturn.OtherInvestments / SavedCapitalAdequacy.CoreCapital;
+                    }
+                    else
+                    {
+                        periodData.OtherFinancialInvestmentsToCoreCapitalRatio = 0;
+                    }
+
+                    // Finacial Invetsment to Total Assets
+                    if (SavedCapitalAdequacy.TotalAssets != 0)
+                    {
+                        periodData.FinancialInvestmentsToTotalAssetsRatio = SavedFinancialPositionStatement.FinancialInvestments / SavedFinancialPositionStatement.TotalAssets;
+                    }
+                    else
+                    {
+                        periodData.FinancialInvestmentsToTotalAssetsRatio = 0;
+                    }
+
+
+                    var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
+                    var LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
+                    // LiquidAssetsToShortTermLiabilitiesRatio
+                    if (ShorttERM != 0)
+                    {
+                        periodData.LiquidAssetsToShortTermLiabilitiesRatio = (LiquidAssets / ShorttERM);
+                    }
+                    else
+                    {
+                        periodData.LiquidAssetsToShortTermLiabilitiesRatio = 0;
+                    }
+
+
+
+
+                    // ExternalBorrowingToTotalAssetsRatio
+                    if (SavedCapitalAdequacy.TotalAssets != 0)
+                    {
+                        periodData.ExternalBorrowingToTotalAssetsRatio = (SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets);
+                    }
+                    else
+                    {
+                        periodData.ExternalBorrowingToTotalAssetsRatio = 0;
+                    }
+
+                    // LiquidAssetsToTotalAssets
+                    if (SavedCapitalAdequacy.TotalAssets != 0)
+                    {
+                        periodData.LiquidAssetsToTotalAssetsRatio = (SavedLiquidityStatement.NetLiquidAssets / SavedCapitalAdequacy.TotalAssets);
+                    }
+                    else
+                    {
+                        periodData.LiquidAssetsToTotalAssetsRatio = 0;
+                    }
+
+
+                    periodData.TotalAssets = SavedCapitalAdequacy.TotalAssets;
+                    periodData.TotalExpenses = SavedComprehensiveStatement.FinancialExpense + SavedComprehensiveStatement.OperatingExpenses;
+                    periodData.TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities;
+                    periodData.GrossLoansForm4 = SavedFinancialPositionStatement.GrossLoanPortfolio;
+                    periodData.GrossLoansForm6 = SavedCapitalAdequacy.LoansAndAdvances;
+                    periodData.PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment;
+                    periodData.EquityInvestments = SavedInvestmentReturn.EquityInvestments;
+                    periodData.FinancialInvestments = SavedCapitalAdequacy.Investments;
+                    periodData.LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
+                    periodData.ShortTermLiabilities = SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
+                    periodData.ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings;
+                    periodData.AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2;
+                    periodData.TotalIncome = SavedComprehensiveStatement.FinancialIncome;
+                    periodData.NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome;
+                    periodData.DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits;
+                    periodData.OperatingExpenses = SavedComprehensiveStatement.OperatingExpenses;
+                    periodData.InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + 0; //Todo: FeesAndCommissionOnLoanPortfolio Not defined
+                                                                                                                                   // periodData.TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense;
+                    periodData.NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
+                    report.Periods.Add(periodData);
+                }
+
+                if (report.Periods.Count < 2 && report.Periods.Count > 0)
+                {
+                    var blank = new NWDTPerformanceReportDTO.NWDTPeriodData
+                    {
+                        PeriodLabel = "N/A",
+                        PeriodType = "N/A",
+                        PeriodDate = DateTime.Now,
+                    };
+
+                    report.Periods.Add(blank);
+                }
+
+                return report;
+            }
+            catch (System.Exception Ex)
+            {
+                CustomErrorHandler.LogException(Ex);
+                return StatusCode(500, CustomErrorHandler.HandleException(Ex));
+            }
+
+        }
+
+        // Helper method to get filed submissions for a period
+        private async Task<Dictionary<string, ReturnSubmission>> GetFiledSubmissionsForPeriod(string periodId, string saccoId, IReadOnlyCollection<string> requiredFormCodes)
+        {
+            return await _context.ReturnSubmissions
+                .Where(rs => rs.SaccoId == saccoId && rs.IsActive)
+                .Include(rs => rs.ExpectedReturn)
+                    .ThenInclude(er => er.ReturnForm)
+                .Where(rs =>
+                    rs.ExpectedReturn.PeriodId == periodId &&
+                    requiredFormCodes.Contains(rs.ExpectedReturn.ReturnForm.Code))
+                .GroupBy(rs => rs.ExpectedReturnId)
+                .Select(g => g.OrderByDescending(x => x.SubmittedAt).First())
+                .ToDictionaryAsync(rs => rs.ExpectedReturnId);
+        }
+
+        // Helper method to find submission by form category
+        private ReturnSubmission? FindSubmissionByCategory(Dictionary<string, ReturnSubmission> submissions, FormCategory category)
+        {
+            foreach (var submission in submissions.Values)
+            {
+                var form = submission.ExpectedReturn?.ReturnForm;
+                if (form != null && (FormCategory)form.Category == category)
+                {
+                    return submission;
+                }
+            }
+            return null;
+        }
+
+        // Helper method to fetch NWDT data from submission
+        private async Task<T?> FromNWDTSubmissionAsync<T>(ReturnSubmission sub) where T : class
+        {
+            return await _context.Set<T>()
+                .FirstOrDefaultAsync(e => EF.Property<string>(e, "ReturnSubmissionId") == sub.Id);
+        }
+
 
     }
 }
