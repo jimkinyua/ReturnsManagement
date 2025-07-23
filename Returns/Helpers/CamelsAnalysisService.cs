@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Drawing.Charts;
+using DocumentFormat.OpenXml.Drawing.Charts;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Returns_Analysis;
 using Returns.Helpers.Enums;
@@ -30,7 +30,7 @@ namespace Returns.Helpers
 
                 if (saccoType == Constants.SaccoType.NWDT.ToString())
                 {
-                    return await CalculateNwdtAnalysisAsync(returnId);
+                    return await CalculateNwdtAnalysisAsync(groupId, periodId, saccoId);
                 }
 
                 throw new ArgumentException($"Unsupported sacco type: {saccoType}", nameof(saccoType));
@@ -605,6 +605,192 @@ namespace Returns.Helpers
             }
         }
 */
+
+        private async Task<CamelsRatingsDTO> CalculateNwdtAnalysisAsync(string groupId, string periodId, string saccoId)
+        {
+            try
+            {
+                var dto = new CamelsRatingsDTO
+                {
+                    PeriodId = periodId,
+                    SaccoId = saccoId,
+                    RatingDefinitionId = groupId
+                };
+
+                var ratingDef = await GetRatingDefinitionAsync(groupId);
+                var requiredCodes = ratingDef.RatingForms
+                             .Select(rf => rf.FormCode)
+                             .ToList();
+                var periods = await GetCurrentAndHistoryAsync(periodId);
+                List<List<NWDTRiskClassificationReturn>> riskHistory = new();   // keeps each period's NWDT risks
+
+                foreach (var period in periods)
+                {
+                    var submissions = await GetFiledSubmissionsAsync(period.Id, saccoId, requiredCodes);
+
+                    var subsByCategory = submissions.Values
+                          .Where(s => s.ExpectedReturn?.ReturnForm != null)
+                          .ToDictionary(
+                            s => (FormCategory)s.ExpectedReturn.ReturnForm.Category,
+                            s => s);
+
+                    ReturnSubmission? FindSubmission(FormCategory category)
+                    {
+                        foreach (var sub in submissions.Values)                          // submissions already includes ExpectedReturn & ReturnForm
+                        {
+                            var form = sub.ExpectedReturn?.ReturnForm;
+                            if (form is null) continue;
+
+                            if ((FormCategory)form.Category == category)                 // compare enum values
+                                return sub;
+                        }
+                        return null; 
+                    }
+
+                    // 2. Resolve slice pieces
+                    var finPosSub = FindSubmission(FormCategory.FinancialPosition);
+                    var incStmtSub = FindSubmission(FormCategory.StatementOfComprehensiveIncome);
+                    var capAdeSub = FindSubmission(FormCategory.CapitalAdequacy);
+                    var liqSub = FindSubmission(FormCategory.LiquidityStatement);
+                    var depSub = FindSubmission(FormCategory.DepositReturn);
+                    var riskSub = FindSubmission(FormCategory.RiskClassification);
+                    var mgtSub = FindSubmission(FormCategory.Management);
+                    var investSub = FindSubmission(FormCategory.InvestmentReturn);
+
+                    NWDTFinancialPositionReturn balanceSheet;
+                    NWDTComprehensiveIncomeReturn incomeStmt;
+                    NWDTCapitalAdequacyReturn capital;
+                    NWDTLiquidityReturn liquidity;
+                    List<NWDTDepositReturn> deposits;
+                    List<NWDTRiskClassificationReturn> risks;
+                    NWDTInvestmentReturn investment;
+                    ManagementReturn management;
+
+                    balanceSheet = finPosSub is null
+                    ? new NWDTFinancialPositionReturn()
+                    : await FromSubmissionAsync<NWDTFinancialPositionReturn>(finPosSub)
+                      ?? new NWDTFinancialPositionReturn();
+
+                    incomeStmt = incStmtSub is null
+                        ? new NWDTComprehensiveIncomeReturn()
+                        : await FromSubmissionAsync<NWDTComprehensiveIncomeReturn>(incStmtSub)
+                          ?? new NWDTComprehensiveIncomeReturn();
+
+                    capital = capAdeSub is null
+                        ? new NWDTCapitalAdequacyReturn()
+                        : await FromSubmissionAsync<NWDTCapitalAdequacyReturn>(capAdeSub)
+                          ?? new NWDTCapitalAdequacyReturn();
+
+                    liquidity = liqSub is null
+                        ? new NWDTLiquidityReturn()
+                        : await FromSubmissionAsync<NWDTLiquidityReturn>(liqSub)
+                          ?? new NWDTLiquidityReturn();
+
+                    deposits = depSub is null
+                        ? new List<NWDTDepositReturn>()
+                        : await _context.NWDTDepositReturns
+                              .Where(d => d.ReturnSubmissionId == depSub.Id)
+                              .ToListAsync();
+                              
+                    risks = riskSub is null
+                    ? new List<NWDTRiskClassificationReturn>()
+                    : await _context.NWDTRiskClassificationReturns
+                          .Where(r => r.ReturnSubmissionId == riskSub.Id)
+                          .ToListAsync();
+                          
+                    investment = investSub is null
+                    ? new NWDTInvestmentReturn()
+                    : await FromSubmissionAsync<NWDTInvestmentReturn>(investSub)
+                      ?? new NWDTInvestmentReturn();
+
+                    management = mgtSub is null
+                    ? new ManagementReturn()
+                    : await FromSubmissionAsync<ManagementReturn>(mgtSub)
+                      ?? new ManagementReturn();
+
+                    var slice = new
+                    {
+                        BalanceSheet = balanceSheet,
+                        IncomeStmt = incomeStmt,
+                        Capital = capital,
+                        Liquidity = liquidity,
+                        Deposits = deposits,
+                        Risks = risks,
+                        Investment = investment,
+                        Management = management
+                    };
+
+                    var capData = new CapitalAnalysisData
+                    {
+                        CoreCapital = slice.Capital.CoreCapital,
+                        CoreCapitalToAssetsRatio = slice.Capital.CoreCapitalToAssetsRatio,
+                        CoreCapitalToDepositsRatio = slice.Capital.CoreCapitalToDepositsRatio,
+                        AdjustedCCARatio = ReturnAnalysisHelper.CalculateNwdtAdjustedCCA(slice.Capital, slice.BalanceSheet)
+                    };
+
+                    var currentRisks = slice.Risks;
+                    var previousRisks = riskHistory.Any()
+                                         ? riskHistory.Last()         // risks from the last period processed
+                                         : new List<NWDTRiskClassificationReturn>();
+
+                    var capResult = await AnalyzeCapitalWithDetails(capData);
+                    var aqResult = await ReturnAnalysisHelper.AnalyzeNwdtAssetQuality(currentRisks, previousRisks);
+                    var mgtResult = AnalyzeManagement(slice.Management);
+                    var ernResult = await ReturnAnalysisHelper.AnalyzeNwdtEarnings(slice.IncomeStmt, slice.BalanceSheet);
+                    var liqResult = await ReturnAnalysisHelper.AnalyzeNwdtLiquidity(slice.BalanceSheet);
+                    var soaResult = await ReturnAnalysisHelper.AnalyzeNwdtStructureOfAssets(slice.BalanceSheet);
+
+                    // —— stamp the period label & add to DTO ——
+                    var label = period.StartDate.ToString("yyyy-MM-dd");
+                    capResult.Period = label;
+                    aqResult.Period = label;
+                    ernResult.Period = label;
+                    liqResult.Period = label;
+                    soaResult.Period = label;
+
+                    dto.CapitalAnalysisResults.Add(capResult);
+                    dto.AssetQualityRatingResults.Add(aqResult);
+                    dto.ManagementRatingResults.Add(mgtResult);
+                    dto.EarningsRatingResults.Add(ernResult);
+                    dto.LiquidityRatingResults.Add(liqResult);
+                    dto.StructureOfAssetsRatingResults.Add(soaResult);
+
+                    // remember for next iteration
+                    riskHistory.Add(currentRisks);
+                }
+                // ── 2.  Pad lists to ≥ 4 entries (current + 3 history) ───────────────────
+                while (dto.CapitalAnalysisResults.Count < 4) dto.CapitalAnalysisResults.Add(new() { FinalRating = 0, Period = "N/A" });
+                while (dto.AssetQualityRatingResults.Count < 4) dto.AssetQualityRatingResults.Add(new() { FinalRating = 0, Period = "N/A" });
+                while (dto.EarningsRatingResults.Count < 4) dto.EarningsRatingResults.Add(new() { FinalRating = 0, Period = "N/A" });
+                while (dto.LiquidityRatingResults.Count < 4) dto.LiquidityRatingResults.Add(new() { FinalRating = 0, Period = "N/A" });
+                while (dto.StructureOfAssetsRatingResults.Count < 4) dto.StructureOfAssetsRatingResults.Add(new() { FinalRating = 0, Period = "N/A" });
+
+                // ── 3.  Copy headline ratings from *current* period (index 0) ────────────
+                dto.CapitalRating = dto.CapitalAnalysisResults[0].FinalRating;
+                dto.AssetQualityRating = dto.AssetQualityRatingResults[0].FinalRating;
+                dto.ManagementRating = dto.ManagementRatingResults[0].MRating;
+                dto.EarningsRating = dto.EarningsRatingResults[0].FinalRating;
+                dto.LiquidityRating = dto.LiquidityRatingResults[0].FinalRating;
+
+                dto.OverallRating = CalculateOverallRating(
+                                        dto.CapitalRating,
+                                        dto.AssetQualityRating,
+                                        dto.EarningsRating,
+                                        dto.LiquidityRating,
+                                        dto.ManagementRating);
+
+                dto.Average = (dto.CapitalRating + dto.AssetQualityRating + dto.EarningsRating +
+                                  dto.LiquidityRating + dto.ManagementRating) / 5.0m;
+                dto.RiskLevel = DetermineRiskLevel(dto.OverallRating);
+
+                return dto;
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+        }
+
 
         private string DetermineRiskLevel(int rating) => rating switch
         {
