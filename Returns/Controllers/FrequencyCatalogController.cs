@@ -5,7 +5,7 @@ using Returns.Models.Data;
 
 namespace Returns.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/returns")]
     [ApiController]
     public class FrequencyCatalogController : ControllerBase
     {

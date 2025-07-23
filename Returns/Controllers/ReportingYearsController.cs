@@ -7,7 +7,7 @@ using System.Security.Claims;
 
 namespace Returns.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/returns")]
     [ApiController]
     public class ReportingYearsController : ControllerBase
     {
