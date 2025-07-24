@@ -22,5 +22,6 @@ namespace Returns.Models
         public ExpectedStatus Status { get; set; }  //  { IGNORE THIS ITS NOT USED}
         public bool IsActive { get; set; } = true;
         public virtual ICollection<ReturnSubmission> ReturnSubmissions { get; set; } = new List<ReturnSubmission>();
+        public virtual ICollection<AmendmentRequest> AmendmentRequests { get; set; } = new List<AmendmentRequest>();
     }
 }

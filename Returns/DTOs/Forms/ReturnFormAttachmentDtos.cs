@@ -56,6 +56,7 @@ namespace Returns.DTOs.Forms
         public string FormId { get; set; } = null!;
         public string FormName { get; set; } = null!;
         public string FormCode { get; set; } = null!;
+        public string SaccoType { get; set; } = null!;
         public DateTime FilingDeadline { get; set; }
         public ExpectedStatus Status { get; set; }
         public bool IsActive { get; set; }

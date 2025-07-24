@@ -79,6 +79,7 @@ namespace Returns.Models.Data
         public DbSet<RatingForm> RatingForms { get; set; }
         public DbSet<AmendmentRequest> AmendmentRequests { get; set; }
 
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

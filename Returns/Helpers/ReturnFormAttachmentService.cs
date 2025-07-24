@@ -262,7 +262,8 @@ namespace Returns.Helpers
                     FormCode = er.ReturnForm.Code,
                     FilingDeadline = er.FilingDeadline,
                     Status = er.Status,
-                    IsActive = er.IsActive
+                    IsActive = er.IsActive,
+                    SaccoType = er.ReturnForm.SaccoTypeId
                 })
                 .ToListAsync();
 

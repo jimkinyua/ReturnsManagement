@@ -21,9 +21,13 @@ namespace Returns.Models
         public string? ReviewedById { get; set; }
         public DateTime? ReviewedAt { get; set; }
         public string Reason { get; set; } = string.Empty;
-
+        public string FileUrl { get; set; } = null!;
+        public string? ContentsJson { get; set; } // Parsed Excel data as JSON
+        public bool ParseSuccess { get; set; } = true; // Default to true
+        public string? ParseErrorsJson { get; set; } // Parsing errors as JSON
         [ForeignKey("ReturnSubmission")]
         public string ReturnSubmissionId { get; set; } = null!;
         public ReturnSubmission ReturnSubmission { get; set; } = null!;
+        public ExpectedReturn ExpectedReturn { get; internal set; }
     }
 }

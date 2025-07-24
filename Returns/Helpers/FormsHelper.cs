@@ -163,7 +163,76 @@ namespace Returns.Helpers
         }
 
 
+        public static async Task<IFormFile?> GetFileFromUrlAsync(string fileUrl)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(fileUrl))
+                {
+                    Console.WriteLine("File URL is empty or null.");
+                    return null;
+                }
 
+                // Extract the actual file path from the URL
+                string relativePath = fileUrl;
+                if (fileUrl.StartsWith("/gateway"))
+                {
+                    // Remove gateway prefix and extract the relative path
+                    var parts = fileUrl.Split('/').Skip(3).ToArray(); // Skip empty, "gateway", and "api/files"
+                    relativePath = string.Join("/", parts);
+                }
+
+                // Get the configured storage path from environment variable
+                string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH") ?? "C:/inetpub/wwwroot/RBSS/Uploads";
+                if (string.IsNullOrEmpty(hostStoragePath))
+                {
+                    throw new InvalidOperationException("HOST_STORAGE_PATH environment variable is not set.");
+                }
+                hostStoragePath = hostStoragePath.Replace('\\', '/'); // Normalize path separators
+
+                // URL decode the file path to handle encoded spaces and special characters
+                relativePath = Uri.UnescapeDataString(relativePath);
+
+                // Construct the full file path
+                var fullFilePath = Path.Combine(hostStoragePath, relativePath);
+                if (!File.Exists(fullFilePath))
+                {
+                    Console.WriteLine($"File not found at path: {fullFilePath}");
+                    return null;
+                }
+
+                // Read the file into a MemoryStream
+                var memoryStream = new MemoryStream();
+                using (var fileStream = new FileStream(fullFilePath, FileMode.Open, FileAccess.Read))
+                {
+                    await fileStream.CopyToAsync(memoryStream);
+                }
+                memoryStream.Position = 0; // Reset stream position
+
+                // Create FormFile
+                var fileName = Path.GetFileName(fullFilePath);
+                var formFile = new FormFile(memoryStream, 0, memoryStream.Length, fileName, fileName)
+                {
+                    Headers = new HeaderDictionary(),
+                    ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" // Assume XLSX
+                };
+
+                // Validate Excel file
+                if (!IsValidExcelFile(formFile))
+                {
+                    Console.WriteLine($"Invalid Excel file at path: {fullFilePath}");
+                    memoryStream.Dispose();
+                    return null;
+                }
+
+                return formFile;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error retrieving file from URL {fileUrl}: {ex.Message}");
+                return null;
+            }
+        }
         public static async Task<string?> SaveReportAsync(byte[] bytes, string folder, string? fileName = null, string extension = ".pdf", CancellationToken ct = default)
         {
             //return "SAVING FILES DISABLED";

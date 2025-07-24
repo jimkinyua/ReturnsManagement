@@ -30,6 +30,8 @@ using System.Text;
 using Returns.DTOs.Returns.Returns_Submission;
 using Returns.DTOs.Returns_Submission;
 using Returns.Helpers.Enums;
+using DocumentFormat.OpenXml.Spreadsheet;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Returns.Controllers
 {
@@ -585,36 +587,80 @@ namespace Returns.Controllers
             }
         }
 
-        /* [HttpGet("GetChildDetails")]
-         public async Task<IActionResult> GetChildDetails([FromQuery] string ChildId, [FromQuery] string FormId, [FromQuery] string ReturnId)
-         {
-             try
-             {
-                 var FormDetails = await _context.ReturnForms
-                       .Include(f => f.Period)
-                       .FirstOrDefaultAsync(f => f.Id == FormId);
-                 if (FormDetails == null)
-                 {
-                     return NotFound("Form not found");
-                 }
-                 var ReturnDetails = await _context.Returns.FindAsync(ReturnId);
-                 if (ReturnDetails == null)
-                 {
-                     return NotFound("Return not found");
-                 }
-                 var FormType = _formProcessor.GetFormTypeFromForm(FormDetails);
-                 var SaccoType = ReturnDetails.SaccoType;
+      
+        [HttpGet("PendingAmendmentRequests")]
+        public async Task<IActionResult> GetPendingAmendmentRequestsAsync([FromQuery] string? saccoId = null)
+        {
+            try
+            {
+                LoggedInEntity admin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                var requests = await _amendmentService.GetPendingAmendmentRequestsAsync();
+                return Ok(requests);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+        [HttpGet("AmendmentRequestDetails/{requestId}")]
+        public async Task<IActionResult> GetAmendmentRequestDetailsAsync(string requestId)
+        {
+            try
+            {
+                // Validate logged-in admin
+                LoggedInEntity admin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                var details = await _amendmentService.GetAmendmentRequestDetailsAsync(requestId, admin);
+                return Ok(details);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
 
-                 var childDetails = await _returnChild.GetChildDetailsByFormType(ChildId, FormType, SaccoType);
+        [HttpPost("ReviewAmendmentRequest")]
+        public async Task<IActionResult> ReviewAmendmentRequestAsync([FromBody] ReviewAmendmentRequestDTO dto)
+        {
+            try
+            {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return Unauthorized();
+                }
 
-                 return Ok(childDetails);
-             }
-             catch (Exception ex)
-             {
-                 _logger.LogError(ex, "Error fetching child details");
-                 return StatusCode(500, "Internal server error");
-             }
-         }*/
+                await _amendmentService.ReviewAmendmentRequest(dto.RequestId, dto.Approve, loggedInSacco.UserId);
+                return Ok(new { message = $"Amendment request {dto.RequestId} {(dto.Approve ? "approved" : "rejected")} successfully." });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest( ex.Message );
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized( ex.Message );
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message );
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
 
         [HttpPost("Draft")]
         public async Task<IActionResult> FileDraftReturnsAsync([FromForm] NewReturnDTO dto)
@@ -642,12 +688,7 @@ namespace Returns.Controllers
             }
         }
 
-        public class AmendmentRequestDTO
-        {
-            public string ExpectedReturnId { get; set; }
-            public string AmendmentReason { get; set; }
-        }
-
+  
         [HttpPost("RequestAmendment")]
         public async Task<IActionResult> RequestAmendmentAsync([FromBody] AmendmentRequestDTO dto)
         {
@@ -657,38 +698,32 @@ namespace Returns.Controllers
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
-                    _logger.LogWarning("Unauthorized access attempt: Invalid SACCO credentials.");
-                    return Unauthorized(new { error = "Invalid SACCO credentials." });
+                    return Unauthorized();
                 }
 
                 // Validate input
-                if (string.IsNullOrEmpty(dto.ExpectedReturnId))
+                if (string.IsNullOrEmpty(dto.SubmissionId))
                 {
-                    _logger.LogWarning("Invalid amendment request: ExpectedReturnId is missing.");
-                    return BadRequest(new { error = "ExpectedReturnId is required." });
+                    return BadRequest( "SubmissionId is required." );
                 }
 
-                // Check if amendment is allowed (after 15th)
-                var today = DateTime.UtcNow.Date;
+                var today = DateTime.Now.Date;
                 if (_returnAmendmentPolicy.CanAutoAmend(today))
                 {
-                    _logger.LogWarning("Amendment request rejected: Auto-amendments are allowed on or before the 15th.");
-                    return BadRequest(new { error = "Amendment requests are not allowed on or before the 15th. Please use the draft submission endpoint." });
+                    return BadRequest( "Amendment requests are not allowed on or before the 15th.");
                 }
-
-                // Process amendment request
-                //var amendmentRequest = await _amendmentService.CreateAmendRequestForSacco(dto, loggedInSacco);
-                return Ok();
+                var amendmentRequest = await _amendmentService.CreateAmendRequestForSacco(dto, loggedInSacco);
+                return Ok(amendmentRequest);
             }
             catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Invalid operation during amendment request: {Message}", ex.Message);
-                return Conflict(new { error = ex.Message });
+                return BadRequest(ex.Message );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error during amendment request.");
-                return StatusCode(500, new { error = "An unexpected error occurred while processing your amendment request." });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
