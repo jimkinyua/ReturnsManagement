@@ -239,341 +239,6 @@ namespace Returns.Controllers
 
         }
 
-        /* [HttpPost("RequestFormResubmission")]
-         public async Task<IActionResult> RequestFormResubmission([FromBody] ResubmissionRequestDto request)
-         {
-             try
-             {
-                 LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                 if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
-                 {
-                     return StatusCode(401);
-                 }
-
-                 var returnToResubmit = await _context.Returns.FindAsync(request.ReturnId);
-                 if (returnToResubmit == null)
-                 {
-                     return NotFound("Return not found");
-                 }
-
-                 var formToResubmit = await _context.ReturnForms.FindAsync(request.FormId);
-                 if (formToResubmit == null)
-                 {
-                     return NotFound("Form not found");
-                 }
-
-                 var ComplianceOfficer = await complianceService.GetUserById(loggedInAdmin.UserId);
-                 var SaccoDetails = await complianceService.GetSaccoByIdAsync(returnToResubmit.SaccoId);
-
-                 var result = await _resubmissionService.RequestFormResubmissionAsync(
-                  request.ReturnId,
-                  formToResubmit,
-                  loggedInAdmin.UserId,
-                  ComplianceOfficer?.FullName ?? "Unknown Compliance Officer",
-                  loggedInAdmin.EmailAddress,
-                  request.Reason ?? "No reason provided",
-                  returnToResubmit.SaccoId,
-                  returnToResubmit.SaccoType,
-                  SaccoDetails.OfficialSaccoEmail
-                 );
-
-                 if (result.Success)
-                 {
-                     return Ok();
-                 }
-                 else
-                 {
-                     return BadRequest(result.Message);
-                 }
-
-             }
-             catch (Exception ex)
-             {
-                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
-
-             }
-         }*/
-
-        /* [HttpPost("ResubmitForm")]
-         public async Task<IActionResult> ResubmitForm([FromForm] SaccoResubmissionDto request)
-         {
-             try
-             {
-                 var loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                 if (loggedInSacco == null)
-                 {
-                     return Unauthorized();
-                 }
-
-                 if (request.FormFile == null || request.FormFile.Length == 0)
-                 {
-                     return BadRequest("Form file is required.");
-                 }
-                 if (string.IsNullOrEmpty(request.ReturnId) || string.IsNullOrEmpty(request.FormId))
-                 {
-                     return BadRequest("ReturnId and FormId are required.");
-                 }
-
-                 var form = await _context.ReturnForms
-                             .Include(x => x.Period)
-                             .FirstOrDefaultAsync(x => x.Id == request.FormId);
-
-                 if (form == null)
-                 {
-                     return BadRequest("Form not found");
-                 }
-
-                 var returnRecord = await _context.Returns.FindAsync(request.ReturnId);
-                 if (returnRecord == null)
-                 {
-                     return BadRequest("Return not found");
-                 }
-
-                 if (returnRecord.SaccoId != loggedInSacco.SaccoId)
-                 {
-                     return StatusCode(401, "You can only resubmit your own forms");
-                 }
-
-                 var pendingRequest = await _context.FormResubmissionRequests
-                     .FirstOrDefaultAsync(r => r.ReturnId == request.ReturnId &&
-                      r.FormId == request.FormId &&
-                      r.Status == "Pending");
-
-                 if (pendingRequest == null)
-                 {
-                     return BadRequest("No pending resubmission request found for this form");
-                 }
-
-                 var result = await _resubmissionService.HandleSaccoFormResubmissionAsync(
-                    request.ReturnId,
-                    form,
-                    request.FormFile,
-                    loggedInSacco.SaccoId,
-                    loggedInSacco.SaccoType,
-                    request.ResubmissionNotes?.Trim() ?? string.Empty
-                );
-
-                 if (result.Success)
-                 {
-                     return Ok();
-                 }
-                 else
-                 {
-                     return BadRequest(result.Message);
-                 }
-             }
-             catch (Exception ex)
-             {
-                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
-             }
-         }*/
-
-        /*private async Task<(
-            bool IsValid,
-            List<string> ProcessingSummary,
-            List<ValidationError> ConsistencyErrors,
-            bool HasConsistencyBeenChecked,
-            List<CapitalAdequacyRow> CapitalAdequacy,
-            List<LiquidityStatementRow> LiquidityStatement,
-            List<DepositRangeRow> DepositReturn,
-            List<RiskClassificationRow> RiskClassification,
-            List<Form2ERow> Investment,
-            List<StatementOfFinancialPositionRow> FinancialPosition,
-            List<StatementOfComprehensiveIncomeRow> ComprehensiveStatement, string CommonPeriod)> CheckConsistencyForNWDT(NewReturnDTO createFormNWDTDTO)
-        {
-            var processingSummary = new List<string>();
-            List<ValidationError> ConsistencyErrors = new List<ValidationError>();
-            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
-
-            // Check for attachments
-            if (createFormNWDTDTO.FormUploads == null ||
-                createFormNWDTDTO.FormUploads.Count == 0 ||
-                !createFormNWDTDTO.FormUploads.Any(f => f.formFile != null))
-            {
-                throw new Exception("No attachments found. Please attach at least one form");
-            }
-
-            // await returnsHelper.NWDTValidateUploadedForms(createFormNWDTDTO);
-
-            // Initialize form data holders
-            List<CapitalAdequacyRow> capital_adequacy_form1 = null;
-            List<LiquidityStatementRow> liquidityStatement_form_2 = null;
-            List<DepositRangeRow> depositreturn_form_3 = null;
-            List<RiskClassificationRow> riskClassification_form_4 = null;
-            List<Form2ERow> inverstment_return_form_5 = null;
-            List<StatementOfFinancialPositionRow> financialPositionStatement_form_6 = null;
-            List<StatementOfComprehensiveIncomeRow> comprehensiveStatement_form7 = null;
-            var HasConsistencyBeenChecked = true;
-            Form2AStatement form1Statement = null;
-            Form2BStatement Form2 = null;
-            Form2CStatement Form3 = null;
-            Form2DStatement form4 = null;
-            Form2EStatement Form5 = null;
-            Form2GStatement form6 = null;
-            Form2FStatement form7 = null;
-
-
-            // Process each form
-            foreach (var form in createFormNWDTDTO.FormUploads)
-            {
-                if (form.formFile == null) continue;
-
-                try
-                {
-
-                    ReturnForm? fm = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
-                    if (fm == null)
-                    {
-                        processingSummary.Add($"Form with ID {form.FormId} was not found in the system");
-                        continue;
-                    }
-
-                    // Form 1: Capital Adequacy Form
-                    if (fm.IsCapitalAdequencyForm)
-                    {
-                        form1Statement = ExcelService.ImportForm2ARows(form.formFile, _logger);
-                        if (form1Statement == null || !form1Statement.Rows.Any())
-                        {
-                            throw new Exception("No data found in Capital Adequacy Form");
-                        }
-
-                        capital_adequacy_form1 = form1Statement.Rows;
-
-                        if (capital_adequacy_form1 == null || !capital_adequacy_form1.Any())
-                        {
-                            throw new Exception("No data found in Capital Adequacy Form");
-                        }
-                    }
-                    // Form 2: Liquidity Statement Form
-                    else if (fm.IsLiquidityStatement)
-                    {
-                        Form2 = ExcelService.ImportForm2BStatement(form.formFile, _logger);
-                        if (Form2 == null || !Form2.Rows.Any())
-                        {
-                            throw new Exception("No data found in Liquidity Statement Form");
-                        }
-                        liquidityStatement_form_2 = Form2.Rows;
-                        if (liquidityStatement_form_2 == null || !liquidityStatement_form_2.Any())
-                        {
-                            throw new Exception("No data found in Liquidity Statement Form");
-                        }
-                    }
-                    // Form 3: Deposit Return Form
-                    else if (fm.IsDepositReturnForm)
-                    {
-                        Form3 = ExcelService.ImportForm2CDataRows(form.formFile, _logger);
-                        if (Form3 == null || !Form3.Rows.Any())
-                        {
-                            throw new Exception("No data found in Deposit Return Form");
-                        }
-                        depositreturn_form_3 = Form3.Rows;
-                        if (depositreturn_form_3 == null || !depositreturn_form_3.Any())
-                        {
-                            throw new Exception("No data found in Deposit Return Form");
-                        }
-                    }
-                    // Form 5: Investment Return Form
-                    else if (fm.IsInvestmentReturn)
-                    {
-                        Form5 = ImportForm2ERows(form.formFile, _logger);
-                        if (Form5 == null || !Form5.Rows.Any())
-                        {
-                            throw new Exception("No data found in Investment Return Form");
-                        }
-                        inverstment_return_form_5 = Form5.Rows;
-                        if (inverstment_return_form_5 == null || !inverstment_return_form_5.Any())
-                        {
-                            throw new Exception("No data found in Investment Return Form");
-                        }
-                    }
-                    // Form 4: Risk Classification Form
-                    else if (fm.IsRiskClassification)
-                    {
-                        form4 = ExcelService.ImportForm2DRows(form.formFile, _logger);
-                        if (form4 == null || !form4.Rows.Any())
-                        {
-                            throw new Exception("No data found in Risk Classification Form");
-                        }
-                        riskClassification_form_4 = form4.Rows;
-                        if (riskClassification_form_4 == null || !riskClassification_form_4.Any())
-                        {
-                            throw new Exception("No data found in Risk Classification Form");
-                        }
-                    }
-
-                    // Form 6: Statement of Financial Position
-                    else if (fm.IsFinancialPosition)
-                    {
-                        form6 = ImportForm2GRows(form.formFile, _logger);
-                        if (form6 == null || !form6.Rows.Any())
-                        {
-                            throw new Exception("No data found in Statement of Financial Position");
-                        }
-                        financialPositionStatement_form_6 = form6.Rows;
-                        if (financialPositionStatement_form_6 == null || !financialPositionStatement_form_6.Any())
-                        {
-                            throw new Exception("No data found in Statement of Financial Position");
-                        }
-                    }
-                    // Form 7: Statement of Comprehensive Income
-                    else if (fm.IsStatementOfComprehensiveIncome)
-                    {
-                        form7 = ImportForm2FRows(form.formFile, _logger);
-                        if (form7 == null || !form7.Rows.Any())
-                        {
-                            throw new Exception("No data found in Statement of Comprehensive Income");
-                        }
-                        comprehensiveStatement_form7 = form7.Rows;
-                        if (comprehensiveStatement_form7 == null || !comprehensiveStatement_form7.Any())
-                        {
-                            throw new Exception("No data found in Statement of Comprehensive Income");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
-                    throw new FileProcessingException(form.formFile.FileName, form.FormId, ex);
-                }
-            }
-
-            var red = returnsHelper.AreAllFormsInSamePeriodNWDT(form1Statement, Form2, Form3, form4, Form5, form6, form7);
-
-            if (!red.IsValid)
-            {
-                HasConsistencyBeenChecked = false;
-                processingSummary.Add(red.Message);
-                return (false, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, null, null, null, null, null, null, null, red.CommonPeriod);
-            }
-
-
-            bool isValid = true;
-            if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                comprehensiveStatement_form7))
-            {
-                var validationResult = ValidateNWDTReturns(
-                    capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                    riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                    comprehensiveStatement_form7
-                );
-
-                isValid = validationResult.IsValid;
-                if (!isValid)
-                {
-                    ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                    IDocument report = new ConsistencyReport(validationResult, "Test", "System");
-                    var pdfBytes = report.GeneratePdf();
-                    await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
-
-                }
-            }
-
-            return (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, capital_adequacy_form1, liquidityStatement_form_2,
-                depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
-                financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
-        }
-*/
         public sealed class FileProcessingException : Exception
         {
             public string FileName { get; }
@@ -586,8 +251,37 @@ namespace Returns.Controllers
                 FormId = formId;
             }
         }
+        [HttpPost("AdminAmendmentRequest")]
+        public async Task<IActionResult> CreateAdminAmendmentRequestAsync([FromBody] AdminAmendmentRequestDTO dto)
+        {
+            try
+            {
+                LoggedInEntity admin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (admin == null)
+                {
+                    return Unauthorized(new { error = "Only admins can create amendment requests." });
+                }
+                var amendmentRequest = await _amendmentService.CreateAdminAmendmentRequestAsync(dto, admin);
+                return Ok();
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest();
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
 
-      
         [HttpGet("PendingAmendmentRequests")]
         public async Task<IActionResult> GetPendingAmendmentRequestsAsync([FromQuery] string? saccoId = null)
         {
@@ -662,6 +356,39 @@ namespace Returns.Controllers
             }
         }
 
+
+        [HttpPost("SaccoRespondToAdminAmendment")]
+        public async Task<IActionResult> RespondToAdminAmendmentAsync([FromForm] SaccoAmendmentResponseDTO dto)
+        {
+            try
+            {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return Unauthorized();
+                }
+                var amendmentRequest = await _amendmentService.RespondToAdminAmendmentRequestAsync(dto, loggedInSacco);
+                return Ok(amendmentRequest);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message );
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized( ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest( ex.Message );
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+
         [HttpPost("Draft")]
         public async Task<IActionResult> FileDraftReturnsAsync([FromForm] NewReturnDTO dto)
         {
@@ -689,7 +416,7 @@ namespace Returns.Controllers
         }
 
   
-        [HttpPost("RequestAmendment")]
+        [HttpPost("SaccoRequestAmendment")]
         public async Task<IActionResult> RequestAmendmentAsync([FromBody] AmendmentRequestDTO dto)
         {
             try
@@ -1884,8 +1611,6 @@ namespace Returns.Controllers
             }
         }
 
-
-
         [HttpGet("dt/GetPerfomanceReportPdf/{periodId}/{saccoId}")]
         public async Task<ActionResult<SaccoPerformanceReportDTO>> GetDTPerfomanceReportPdf(string periodId, string saccoId, [FromQuery] string? ratingName)
         {
@@ -2377,273 +2102,6 @@ namespace Returns.Controllers
         }
 
 
-        /*[HttpGet("nwdt/GetPerfomanceReport/{returnId}")]
-        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReport(string returnId)
-        {
-            try
-            {
-                var report = new NWDTPerformanceReportDTO();
-
-                var currentReturn = await _context.Returns.FirstOrDefaultAsync(r => r.Id == returnId);
-                if (currentReturn == null)
-                {
-                    return BadRequest("Return not found");
-                }
-                report.ReportDate = currentReturn.CreatedAt;
-                report.SaccoName = currentReturn.SaccoName;
-                report.PrudentialStandards.Add("CoreCapital", "≥5M");
-                report.PrudentialStandards.Add("CoreCapita/Total Assets", "≥8%");
-                report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", ">5%");
-                report.PrudentialStandards.Add("Retained Earnings/Core Capital", ">5%");
-                report.PrudentialStandards.Add("Non-Performing Loans", "≤5%");
-                report.PrudentialStandards.Add("Non-Earning Assets", "≤5%");
-                report.PrudentialStandards.Add("Total Finacial Investements to Core Capital", "<40%");
-                report.PrudentialStandards.Add("Subsidary Investments to Total Assets", "<50%");
-                report.PrudentialStandards.Add("Equity Investments to Core Capital Ratio", "<20%");
-                report.PrudentialStandards.Add("Other Financial investments to Core Capital Ratio ", "<30%");
-                report.PrudentialStandards.Add("Liquid Assets/Short-term Liabilities", ">10%");
-                report.PrudentialStandards.Add("External Borrowing to Total Assets", "<25%");
-                report.PrudentialStandards.Add("Gross loans /Total Assets", "70 - 80%");
-                report.PrudentialStandards.Add("Gross Loans to Deposits", ">100%");
-
-                var historicalReturns = await _context.Returns.Where(r => r.CreatedAt < currentReturn.CreatedAt && r.Id != returnId).ToListAsync();
-                historicalReturns = historicalReturns.OrderByDescending(r => r.CreatedAt).Take(2).ToList();
-
-                var allReturns = new[] { currentReturn }.Concat(historicalReturns);
-                var result = new CamelsRatingsDTO { ReturnId = returnId };
-
-                foreach (var returnPeriod in allReturns)
-                {
-                    var balanceSheet = await _context.NWDTFinancialPositionReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var incomeStatement = await _context.NWDTComprehensiveIncomeReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var capitalReturn = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var liquidityReturn = await _context.NDWTLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-                    var depositReturns = await _context.NWDTDepositReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                    var riskClassificationReturn = await _context.NWDTRiskClassificationReturns.Where(x => x.ReturnId == returnPeriod.Id).ToListAsync();
-                    var investmentReturn = await _context.NWDTInvestmentReturns.FirstOrDefaultAsync(x => x.ReturnId == returnPeriod.Id);
-
-                    // Use default objects if data is missing
-
-                    var SavedCapitalAdequacy = capitalReturn ?? new NWDTCapitalAdequacyReturn();
-                    var SavedLiquidityStatement = liquidityReturn ?? new NWDTLiquidityReturn();
-                    var SavedDepositReturn = depositReturns ?? new List<NWDTDepositReturn>();
-                    var SavedRiskClassification = riskClassificationReturn ?? new List<NWDTRiskClassificationReturn>();
-                    var SavedInvestmentReturn = investmentReturn ?? new NWDTInvestmentReturn();
-                    var SavedFinancialPositionStatement = balanceSheet ?? new NWDTFinancialPositionReturn();
-                    var SavedComprehensiveStatement = incomeStatement ?? new NWDTComprehensiveIncomeReturn();
-
-                    var periodData = new NWDTPerformanceReportDTO.NWDTPeriodData
-                    {
-                        PeriodLabel = returnPeriod.CreatedAt.ToString("dd MMMM, yyyy"),
-                        PeriodType = "Returns",
-                        PeriodStartDate = returnPeriod.CreatedAt,
-
-                        CoreCapital = SavedCapitalAdequacy.CoreCapital,
-                    };
-
-                    // CoreCapitalToTotalAssetsRatio
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.CoreCapitalToTotalAssetsRatio = (SavedCapitalAdequacy.CoreCapital / SavedCapitalAdequacy.TotalAssets) * 100;
-                    }
-                    else
-                    {
-                        periodData.CoreCapitalToTotalAssetsRatio = 0;
-                    }
-
-                    // CoreCapitalToTotalDepositsRatio
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.CoreCapitalToTotalDepositsRatio = 0 / SavedCapitalAdequacy.TotalDepositsLiabilities / SavedCapitalAdequacy.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.CoreCapitalToTotalDepositsRatio = 0;
-                    }
-
-                    periodData.NonPerformingLoans = ReturnAnalysisHelper.CalculateNwdtNonPerformingLoans(SavedRiskClassification);
-                    periodData.NPL = periodData.NonPerformingLoans;
-                    // Non Earnig Assets
-                    if (SavedFinancialPositionStatement.TotalAssets != 0)
-                    {
-                        periodData.NonEarningAssets = (SavedFinancialPositionStatement.PrepaymentsAndSundryReceivables
-                        + SavedFinancialPositionStatement.AccountsReceivables
-                        + SavedFinancialPositionStatement.PropertyEquipmentOtherAssets
-                        + SavedFinancialPositionStatement.PrepaidLeaseRentals
-                        + SavedFinancialPositionStatement.IntangibleAssets
-                        + SavedFinancialPositionStatement.OtherAssets) / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.NonEarningAssets = 0;
-                    }
-
-                    // EquityInvestmentsToDeposits
-                    if (SavedInvestmentReturn.CoreCapital != 0)
-                    {
-                        periodData.EquityInvestmentsToDeposits = SavedInvestmentReturn.FinancialAssets / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.EquityInvestmentsToDeposits = 0;
-                    }
-
-                    // SubsidiaryAndRelatedInvestmentToCoreCapitalRatio
-                    if (SavedInvestmentReturn.CoreCapital != 0)
-                    {
-                        periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = SavedInvestmentReturn.SubsidiaryRelatedEntityInvestments / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.SubsidiaryAndRelatedInvestmentToCoreCapitalRatio = 0;
-                    }
-
-                    //EquityInvestmentsToCoreCapitalRatio\
-                    if (SavedCapitalAdequacy.CoreCapital != 0)
-                    {
-                        periodData.EquityInvestmentsToCoreCapitalRatio = SavedFinancialPositionStatement.InvestmentInCompanies / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.EquityInvestmentsToCoreCapitalRatio = 0;
-                    }
-
-                    // NetIncomeToAverageAssetsRatio
-                    if (SavedFinancialPositionStatement.GrossLoanPortfolio != 0)
-                    {
-                        periodData.NetIncomeToAverageAssetsRatio = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.NetIncomeToAverageAssetsRatio = 0;
-                    }
-
-                    // TotalExpenseToTotalIncomeRatio
-                    if (SavedComprehensiveStatement.StoredNetFinancialIncome != 0) //Todo: TotalFinancialIncome not defined
-                    {
-                        periodData.TotalExpenseToTotalIncomeRatio = (SavedComprehensiveStatement.InterestExpenseOnDeposits +
-                                      SavedComprehensiveStatement.CostOfExternalBorrowings +
-                                      SavedComprehensiveStatement.DividendExpenses +
-                                      SavedComprehensiveStatement.OtherFinancialExpense +
-                                      SavedComprehensiveStatement.FeesCommissionOnLoanPortfolio +
-                                      SavedComprehensiveStatement.OtherExpense) / SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
-                    }
-                    else
-                    {
-                        periodData.TotalExpenseToTotalIncomeRatio = 0;
-                    }
-
-                    //OperatingExpenseToFinancialIncomeRatio
-                    if (SavedComprehensiveStatement.FinancialIncome != 0)
-                    {
-                        periodData.OperatingExpenseToFinancialIncomeRatio = SavedComprehensiveStatement.OperatingExpenses / SavedComprehensiveStatement.NetFinancialIncome;
-                    }
-                    else
-                    {
-                        periodData.OperatingExpenseToFinancialIncomeRatio = 0;
-                    }
-
-                    // OtherFinancialInvestmentsToCoreCapitalRatio
-                    if (SavedCapitalAdequacy.CoreCapital != 0)
-                    {
-                        periodData.OtherFinancialInvestmentsToCoreCapitalRatio = SavedInvestmentReturn.OtherInvestments / SavedCapitalAdequacy.CoreCapital;
-                    }
-                    else
-                    {
-                        periodData.OtherFinancialInvestmentsToCoreCapitalRatio = 0;
-                    }
-
-                    // Finacial Invetsment to Total Assets
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.FinancialInvestmentsToTotalAssetsRatio = SavedFinancialPositionStatement.FinancialInvestments / SavedFinancialPositionStatement.TotalAssets;
-                    }
-                    else
-                    {
-                        periodData.FinancialInvestmentsToTotalAssetsRatio = 0;
-                    }
-
-
-                    var ShorttERM = SavedFinancialPositionStatement.NonWithdrawableDeposits + SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
-                    var LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
-                    // LiquidAssetsToShortTermLiabilitiesRatio
-                    if (ShorttERM != 0)
-                    {
-                        periodData.LiquidAssetsToShortTermLiabilitiesRatio = (LiquidAssets / ShorttERM);
-                    }
-                    else
-                    {
-                        periodData.LiquidAssetsToShortTermLiabilitiesRatio = 0;
-                    }
-
-
-
-
-                    // ExternalBorrowingToTotalAssetsRatio
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.ExternalBorrowingToTotalAssetsRatio = (SavedFinancialPositionStatement.ExternalBorrowings / SavedCapitalAdequacy.TotalAssets);
-                    }
-                    else
-                    {
-                        periodData.ExternalBorrowingToTotalAssetsRatio = 0;
-                    }
-
-                    // LiquidAssetsToTotalAssets
-                    if (SavedCapitalAdequacy.TotalAssets != 0)
-                    {
-                        periodData.LiquidAssetsToTotalAssetsRatio = (SavedLiquidityStatement.NetLiquidAssets / SavedCapitalAdequacy.TotalAssets);
-                    }
-                    else
-                    {
-                        periodData.LiquidAssetsToTotalAssetsRatio = 0;
-                    }
-
-
-                    periodData.TotalAssets = SavedCapitalAdequacy.TotalAssets;
-                    periodData.TotalExpenses = SavedComprehensiveStatement.FinancialExpense + SavedComprehensiveStatement.OperatingExpenses;
-                    periodData.TotalDeposits = SavedFinancialPositionStatement.TotalDepositLiabilities;
-                    periodData.GrossLoansForm4 = SavedFinancialPositionStatement.GrossLoanPortfolio;
-                    periodData.GrossLoansForm6 = SavedCapitalAdequacy.LoansAndAdvances;
-                    periodData.PropertyAndEquipment = SavedCapitalAdequacy.PropertyAndEquipment;
-                    periodData.EquityInvestments = SavedInvestmentReturn.EquityInvestments;
-                    periodData.FinancialInvestments = SavedCapitalAdequacy.Investments;
-                    periodData.LiquidAssets = SavedLiquidityStatement.NetLiquidAssets;
-                    periodData.ShortTermLiabilities = SavedFinancialPositionStatement.TaxPayable + SavedFinancialPositionStatement.DividendsPayable + SavedFinancialPositionStatement.DeferredTaxLiability + SavedFinancialPositionStatement.RetirementBenefitsLiability + SavedFinancialPositionStatement.OtherLiabilities;
-                    periodData.ExternalBorrowing = SavedFinancialPositionStatement.ExternalBorrowings;
-                    periodData.AverageGrossLoans = (SavedFinancialPositionStatement.GrossLoanPortfolio + SavedCapitalAdequacy.LoansAndAdvances) / 2;
-                    periodData.TotalIncome = SavedComprehensiveStatement.FinancialIncome;
-                    periodData.NetFinancialIncome = SavedComprehensiveStatement.NetFinancialIncome;
-                    periodData.DividendsAndInterestOnDeposits = SavedComprehensiveStatement.DividendExpenses + SavedComprehensiveStatement.InterestExpenseOnDeposits;
-                    periodData.OperatingExpenses = SavedComprehensiveStatement.OperatingExpenses;
-                    periodData.InterestOnLoanPortfolioAndFeesCommission = SavedComprehensiveStatement.InterestOnLoanPortfolio + 0; //Todo: FeesAndCommissionOnLoanPortfolio Not defined
-                                                                                                                                   // periodData.TotalExpenses = SavedComprehensiveStatement.TotalFinancialExpense;
-                    periodData.NetIncome = SavedComprehensiveStatement.NetIncomeAfterTaxesAndDonations;
-                    report.Periods.Add(periodData);
-                }
-
-                if (report.Periods.Count < 2 && report.Periods.Count > 0)
-                {
-                    var blank = new NWDTPerformanceReportDTO.NWDTPeriodData
-                    {
-                        PeriodLabel = "N/A",
-                        PeriodType = "N/A",
-                        PeriodStartDate = DateTime.Now.ToString("yyyy-MM-dd"),
-                    };
-
-                    report.Periods.Add(blank);
-                }
-
-                return report;
-            }
-            catch (System.Exception Ex)
-            {
-                CustomErrorHandler.LogException(Ex);
-                return StatusCode(500, CustomErrorHandler.HandleException(Ex));
-            }
-
-        }*/
-
 
         [HttpGet("nwdt/GetPerfomanceReportPdf/{periodId}/{saccoId}")]
         public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string periodId, string saccoId, [FromQuery] string? ratingName)
@@ -3013,229 +2471,6 @@ namespace Returns.Controllers
         }
 
 
-        /*
-                private async Task<(
-                 bool IsValid,
-                 List<string> ProcessingSummary,
-                List<ReturnAnalysisHelper.ValidationError> ConsistencyErrors,
-                bool HasConsistencyBeenChecked,
-                 List<CapitalAdequacyRow> CapitalAdequacy,
-                 List<LiquidityStatementRow> LiquidityStatement,
-                 List<DepositRangeData> DepositReturn,
-                 List<RiskClassificationRow> RiskClassification,
-                 List<InvestmentRow> Investment,
-                 List<StatementOfFinancialPositionRow> FinancialPosition,
-                 List<StatementOfComprehensiveIncomeRow> ComprehensiveStatement,
-                 string CommonPeriod
-                    )>
-                    CheckConsistencyForDT(NewReturnDTO createFormDTO)
-                {
-                    var processingSummary = new List<string>();
-                    List<ValidationError> ConsistencyErrors = new List<ValidationError>();
-                    ReturnsHelper returnsHelper = new ReturnsHelper(_context);
-
-
-                    // Check for attachments
-                    if (createFormDTO.FormUploads == null ||
-                        createFormDTO.FormUploads.Count == 0 ||
-                        !createFormDTO.FormUploads.Any(f => f.formFile != null))
-                    {
-                        throw new Exception("No attachments found. Please attach at least one form");
-                    }
-
-                    // await returnsHelper.ValidateUploadedForms(Dto);
-                    Form1Statement form1Statement = null;
-                    Form2Statement Form2 = null;
-                    Form3Statement Form3 = null;
-                    Form4Statement form4 = null;
-                    Form5Statement Form5 = null;
-                    Form6Statement form6 = null;
-                    Form7Statement form7 = null;
-
-
-                    // Initialize form data holders
-                    List<CapitalAdequacyRow> capital_adequacy_form1 = null;
-                    List<LiquidityStatementRow> liquidityStatement_form_2 = null;
-                    List<DepositRangeData> depositreturn_form_3 = null;
-                    List<RiskClassificationRow> riskClassification_form_4 = null;
-                    List<InvestmentRow> inverstment_return_form_5 = null;
-                    List<StatementOfFinancialPositionRow> financialPositionStatement_form_6 = null;
-                    List<StatementOfComprehensiveIncomeRow> comprehensiveStatement_form7 = null;
-                    var HasConsistencyBeenChecked = true;
-                    // Process each form
-                    foreach (var form in createFormDTO.FormUploads)
-                    {
-                        try
-                        {
-                            if (form.formFile == null) continue;
-
-
-                            ReturnForm? fm = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
-                            if (fm == null)
-                            {
-                                processingSummary.Add($"Form with ID {form.FormId} was not found in the system");
-                                continue;
-                            }
-
-
-                            // Form 1: Capital Adequacy Form
-                            if (fm.IsCapitalAdequencyForm)
-                            {
-                                form1Statement = ExcelService.ImportCapitalAdequacyRows(form.formFile, _logger);
-                                if (form1Statement == null || !form1Statement.Rows.Any())
-                                {
-                                    throw new Exception("No data found in Capital Adequacy Form");
-                                }
-
-                                capital_adequacy_form1 = form1Statement.Rows;
-
-                                if (capital_adequacy_form1 == null || !capital_adequacy_form1.Any())
-                                {
-                                    throw new Exception("No data found in Capital Adequacy Form");
-                                }
-                            }
-                            // Form 2: Liquidity Statement Form
-                            else if (fm.IsLiquidityStatement)
-                            {
-                                Form2 = ExcelService.ImportLiquidityStatementRows(form.formFile, _logger);
-                                if (Form2 == null || !Form2.Rows.Any())
-                                {
-                                    throw new Exception("No data found in Liquidity Statement Form");
-                                }
-                                liquidityStatement_form_2 = Form2.Rows;
-                                if (liquidityStatement_form_2 == null || !liquidityStatement_form_2.Any())
-                                {
-                                    throw new Exception("No data found in Liquidity Statement Form");
-                                }
-                            }
-                            // Form 3: Deposit Return Form
-                            else if (fm.IsDepositReturnForm)
-                            {
-                                Form3 = ExcelService.ImportDepositRangeDataRows(form.formFile, _logger);
-                                if (Form3 == null || !Form3.Rows.Any())
-                                {
-                                    throw new Exception("No data found in Deposit Return Form");
-                                }
-                                depositreturn_form_3 = Form3.Rows;
-                                if (depositreturn_form_3 == null || !depositreturn_form_3.Any())
-                                {
-                                    throw new Exception("No data found in Deposit Return Form");
-                                }
-                            }
-                            // Form 4: Risk Classification Form
-                            else if (fm.IsRiskClassification)
-                            {
-                                form4 = ExcelService.ImportRiskClassificationRows(form.formFile, _logger);
-                                if (form4 == null || !form4.Rows.Any())
-                                {
-                                    throw new Exception("No data found in Risk Classification Form");
-                                }
-                                riskClassification_form_4 = form4.Rows;
-                                if (riskClassification_form_4 == null || !riskClassification_form_4.Any())
-                                {
-                                    throw new Exception("No data found in Risk Classification Form");
-                                }
-                            }
-                            // Form 5: Investment Return Form
-                            else if (fm.IsInvestmentReturn)
-                            {
-                                Form5 = ExcelService.ImportInvestmentRows(form.formFile, _logger);
-                                if (Form5 == null || !Form5.Rows.Any())
-                                {
-                                    throw new Exception("No data found in Investment Return Form");
-                                }
-                                inverstment_return_form_5 = Form5.Rows;
-                                if (inverstment_return_form_5 == null || !inverstment_return_form_5.Any())
-                                {
-                                    throw new Exception("No data found in Investment Return Form");
-                                }
-                            }
-                            // Form 6: Statement of Financial Position
-                            else if (fm.IsFinancialPosition)
-                            {
-                                form6 = ExcelService.ImportFinancialPositionRows(form.formFile, _logger);
-                                if (form6 == null || !form6.Rows.Any())
-                                {
-                                    throw new Exception("No data found in Statement of Financial Position");
-                                }
-                                financialPositionStatement_form_6 = form6.Rows;
-                                if (financialPositionStatement_form_6 == null || !financialPositionStatement_form_6.Any())
-                                {
-                                    throw new Exception("No data found in Statement of Financial Position");
-                                }
-                            }
-                            // Form 7: Statement of Comprehensive Income
-                            else if (fm.IsStatementOfComprehensiveIncome)
-                            {
-                                form7 = ExcelService.ImportStatementOfComprehensiveIncomeRows(form.formFile, _logger);
-                                if (form7 == null || !form7.Rows.Any())
-                                {
-                                    throw new Exception("No data found in Statement of Comprehensive Income");
-                                }
-                                comprehensiveStatement_form7 = form7.Rows;
-                                if (comprehensiveStatement_form7 == null || !comprehensiveStatement_form7.Any())
-                                {
-                                    throw new Exception("No data found in Statement of Comprehensive Income");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            processingSummary.Add($"Error processing '{form.formFile.FileName}': {ex.Message}");
-                            throw new Exception($"Error processing {form.formFile.FileName}", ex);
-                        }
-                    }
-
-                    var red = returnsHelper.AreAllFormsInSamePeriod(
-                     form1Statement,
-                     Form2,
-                     Form3,
-                     form4,
-                     Form5,
-                     form6,
-                     form7);
-
-                    if (!red.IsValid)
-                    {
-                        HasConsistencyBeenChecked = false;
-                        processingSummary.Add(red.Message);
-                        return (false, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, null, null, null, null, null, null, null, red.CommonPeriod);
-                    }
-
-
-                    bool isValid = true;
-                    if (returnsHelper.AreAllFormsPresent(capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                        riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                        comprehensiveStatement_form7))
-                    {
-                        var validationResult = ValidateReturns(
-                            capital_adequacy_form1, liquidityStatement_form_2, depositreturn_form_3,
-                            riskClassification_form_4, inverstment_return_form_5, financialPositionStatement_form_6,
-                            comprehensiveStatement_form7
-                        );
-
-                        isValid = validationResult.IsValid;
-                        if (!isValid)
-                        {
-                            ConsistencyErrors.AddRange(validationResult.ValidationErrors);
-                            IDocument report = new ConsistencyReport(validationResult, "Test", "System");
-                            var pdfBytes = report.GeneratePdf();
-                            await FormsHelper.SaveReportAsync(pdfBytes, "ConsistencyReport", "System", "Test");
-
-                        }
-                    }
-
-                    return (isValid, processingSummary, ConsistencyErrors, HasConsistencyBeenChecked, capital_adequacy_form1, liquidityStatement_form_2,
-                        depositreturn_form_3, riskClassification_form_4, inverstment_return_form_5,
-                        financialPositionStatement_form_6, comprehensiveStatement_form7, red.CommonPeriod);
-                }*/
-
-
-        /// <summary>
-        /// Bulk submit all returns for a specific period
-        /// </summary>
-        /// <param name="periodId">The period ID to submit returns for</param>
-        /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
         [HttpPost("BulkSubmitByPeriod")]
         public async Task<ActionResult<BulkSubmissionResultDTO>> BulkSubmitByPeriod(
             [FromBody] BulkSubmissionRequestDTO request)
@@ -3268,11 +2503,11 @@ namespace Returns.Controllers
         {
             try
             {
-                /* LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                 if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
-                 {
-                     return StatusCode(401, "Unauthorized");
-                 }*/
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return Unauthorized();
+                }
 
                 var results = await _adminReturnService.GetGroupedReturnsAsync(filter);
                 return Ok(results);

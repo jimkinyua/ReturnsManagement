@@ -49,21 +49,21 @@ namespace Returns.Migrations
                 table: "AmendmentRequests",
                 column: "ExpectedReturnId");
 
-            migrationBuilder.AddForeignKey(
+       /*     migrationBuilder.AddForeignKey(
                 name: "FK_AmendmentRequests_ExpectedReturns_ExpectedReturnId",
                 table: "AmendmentRequests",
                 column: "ExpectedReturnId",
                 principalTable: "ExpectedReturns",
                 principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+                onDelete: ReferentialAction.Cascade);*/
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
+          /*  migrationBuilder.DropForeignKey(
                 name: "FK_AmendmentRequests_ExpectedReturns_ExpectedReturnId",
-                table: "AmendmentRequests");
+                table: "AmendmentRequests");*/
 
             migrationBuilder.DropIndex(
                 name: "IX_AmendmentRequests_ExpectedReturnId",

@@ -33,11 +33,36 @@ namespace Returns.Helpers
         }
 
 
+
         public async Task<AmendmentRequest> CreateAmendRequestForSacco(AmendmentRequestDTO dto, LoggedInEntity loggedInEntity)
         {
+          
+            // Check if amendment is allowed (after 15th) for non-admin-initiated requests
             var today = DateTime.Now.Date;
-            if (_returnAmendmentPolicy.CanAutoAmend(today))
+            bool isAdminInitiated = false;
+            var existingRequest = await _context.AmendmentRequests
+                .Where(r => r.ReturnSubmissionId == dto.SubmissionId
+                            && (r.Status == AmendmentStatus.Pending || r.Status == AmendmentStatus.Approved))
+                .OrderByDescending(r => r.RequestedAt)
+                .FirstOrDefaultAsync();
+
+
+            if (existingRequest != null)
             {
+                if (existingRequest.IsAdminInitiated)
+                {
+                    isAdminInitiated = true;
+                }
+                else
+                {
+                    _logger.LogWarning("An amendment request is already pending or approved for submission {ReturnSubmissionId}.", dto.SubmissionId);
+                    throw new InvalidOperationException("An amendment request is already pending or approved for this submission.");
+                }
+            }
+
+            if (!isAdminInitiated && _returnAmendmentPolicy.CanAutoAmend(today))
+            {
+                _logger.LogWarning("Amendment request for submission {ReturnSubmissionId} blocked: Auto-amendments allowed on or before the 15th.", dto.SubmissionId);
                 throw new InvalidOperationException("Amendment requests are not allowed on or before the 15th. Use direct submission instead.");
             }
 
@@ -49,58 +74,98 @@ namespace Returns.Helpers
 
             if (submission == null)
             {
-                throw new InvalidOperationException("Submission not found.");
+                _logger.LogWarning("Return submission {ReturnSubmissionId} not found.", dto.SubmissionId);
+                throw new InvalidOperationException("Return submission not found.");
             }
 
-            // Check for existing amendment requests
-            var existingRequest = await _context.AmendmentRequests
-                .Where(r => r.ReturnSubmissionId == dto.SubmissionId
-                            && (r.Status == AmendmentStatus.Pending || r.Status == AmendmentStatus.Approved))
-                .OrderByDescending(r => r.RequestedAt)
-                .FirstOrDefaultAsync();
-
-            if (existingRequest != null)
+            // Validate SACCO access
+            if (loggedInEntity.SaccoId != submission.SaccoId)
             {
-                throw new InvalidOperationException("An amendment request is already pending or approved for this submission.");
+                _logger.LogWarning("Unauthorized attempt to create amendment request for submission {ReturnSubmissionId} by SACCO {SaccoId}", dto.SubmissionId, loggedInEntity.SaccoId);
+                throw new UnauthorizedAccessException("You do not have permission to amend this submission.");
             }
 
-            if (dto.FormFile != null)
+            // Validate and parse Excel file
+            if (!FormsHelper.IsValidExcelFile(dto.FormFile))
             {
-                var category = (FormCategory)submission.ExpectedReturn.ReturnForm.Category;
-                var parseResult = await _excelParser.ParseAsync(dto.FormFile, category, submission.ExpectedReturn.ReturnForm.SaccoTypeId);
-                var contentsJson = parseResult.Success
-                    ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity()))
-                    : null;
-                var draft = new AmendmentRequest
+                _logger.LogWarning("Invalid Excel file provided for amendment request for submission {ReturnSubmissionId}.", dto.SubmissionId);
+                throw new InvalidOperationException("Invalid Excel file format. Only .xlsx files are supported.");
+            }
+
+            var category = (FormCategory)submission.ExpectedReturn.ReturnForm.Category;
+            var parseResult = await _excelParser.ParseAsync(dto.FormFile, category, submission.ExpectedReturn.ReturnForm.SaccoTypeId);
+            var fileUrl = await FormsHelper.SaveFileAsync(dto.FormFile, "Drafts");
+            var parseSuccess = parseResult.Success;
+            var contentsJson = parseResult.Success ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity())) : null;
+            var parseErrorsJson = JsonSerializer.Serialize(parseResult.Errors);
+
+            if (!parseResult.Success)
+            {
+                _logger.LogWarning("Failed to parse Excel file for amendment request for submission {ReturnSubmissionId}: {Errors}", dto.SubmissionId, string.Join(", ", parseResult.Errors));
+                throw new InvalidOperationException($"Failed to parse Excel file: {string.Join(", ", parseResult.Errors)}");
+            }
+
+            if (isAdminInitiated)
+            {
+                // Update existing admin-initiated request
+                existingRequest.FileUrl = fileUrl;
+                existingRequest.ParseSuccess = parseSuccess;
+                existingRequest.ContentsJson = contentsJson;
+                existingRequest.ParseErrorsJson = parseErrorsJson;
+                existingRequest.RequestedAt = DateTime.Now;
+
+                // Process submission directly
+                var newReturnDto = new NewReturnDTO
                 {
-                    ExpectedReturnId = submission.ExpectedReturnId,
-                    SaccoId = submission.SaccoId,
-                    FileUrl = await FormsHelper.SaveFileAsync(dto.FormFile, "Drafts"),
-                    Reason = dto.AmendmentReason.Trim(),
-                    Status = AmendmentStatus.Pending,
-                    ParseSuccess = parseResult.Success,
-                    ParseErrorsJson = JsonSerializer.Serialize(parseResult.Errors),
-                    ContentsJson = contentsJson
+                    FormUploads = new List<ReturnFormUploadDTO>
+                    {
+                        new ReturnFormUploadDTO
+                        {
+                            ExpectedReturnId = submission.ExpectedReturnId,
+                            formFile = dto.FormFile
+                        }
+                    }
                 };
 
-                if (!parseResult.Success)
+                var result = await _returnSubmissionService.UploadDraftAsync(newReturnDto, loggedInEntity);
+                if (result.Any(r => r.Status == SubmissionStatus.Failed))
                 {
-                    throw new InvalidOperationException($"Failed to parse Excel file: {string.Join(", ", parseResult.Errors)}");
+                    _logger.LogWarning("Failed to process amendment for submission {ReturnSubmissionId}: {Errors}", dto.SubmissionId, string.Join(", ", result.SelectMany(r => r.Messages)));
+                    throw new InvalidOperationException($"Failed to process amendment: {string.Join(", ", result.SelectMany(r => r.Messages))}");
                 }
 
-                await _context.AmendmentRequests.AddAsync(draft);
                 await _context.SaveChangesAsync();
 
-                return draft;
+                _logger.LogInformation("SACCO amendment for admin-initiated request {RequestId} processed for submission {ReturnSubmissionId} by officer {RequestedById}", existingRequest.Id, dto.SubmissionId, loggedInEntity.UserId);
 
+                return existingRequest;
             }
 
-            throw new InvalidOperationException("No file provided for amendment request.");
-        }
+            var newRequest = new AmendmentRequest
+            {
+                ExpectedReturnId = submission.ExpectedReturnId,
+                ReturnSubmissionId = dto.SubmissionId,
+                SaccoId = submission.SaccoId,
+                RequestedById = loggedInEntity.UserId,
+                RequestedAt = DateTime.Now,
+                Reason = dto.AmendmentReason.Trim(),
+                Status = AmendmentStatus.Pending,
+                FileUrl = fileUrl,
+                ParseSuccess = parseSuccess,
+                ContentsJson = contentsJson,
+                ParseErrorsJson = parseErrorsJson
+            };
 
+            await _context.AmendmentRequests.AddAsync(newRequest);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("SACCO amendment request {RequestId} created for submission {ReturnSubmissionId} by officer {RequestedById}", newRequest.Id, dto.SubmissionId, loggedInEntity.UserId);
+
+            return newRequest;
+        }
         public async Task<IList<SubmissionResultDto>> DoAmendmentIfNecessasy(NewReturnDTO dto, TokenHelper.LoggedInEntity sacco)
         {
-            var today = DateTime.UtcNow.Date;
+            var today = DateTime.Now.Date;
             var results = new List<SubmissionResultDto>();
 
 
@@ -258,6 +323,97 @@ namespace Returns.Helpers
             return details;
         }
 
+        public async Task<AmendmentRequest> RespondToAdminAmendmentRequestAsync(SaccoAmendmentResponseDTO dto, LoggedInEntity loggedInEntity)
+        {
+
+            if (dto.FormFile == null)
+            {
+                throw new ArgumentException("An Excel file is required for amendment responses.", nameof(dto.FormFile));
+            }
+
+            // Retrieve the submission
+            var submission = await _context.ReturnSubmissions
+                .Include(s => s.ExpectedReturn)
+                .ThenInclude(er => er.ReturnForm)
+                .FirstOrDefaultAsync(s => s.Id == dto.ReturnSubmissionId);
+
+            if (submission == null)
+            {
+                _logger.LogWarning("Return submission {ReturnSubmissionId} not found.", dto.ReturnSubmissionId);
+                throw new InvalidOperationException("Return submission not found.");
+            }
+
+            // Validate SACCO access
+            if (loggedInEntity.SaccoId != submission.SaccoId)
+            {
+                _logger.LogWarning("Unauthorized attempt to respond to amendment request for submission {ReturnSubmissionId} by SACCO {SaccoId}", dto.ReturnSubmissionId, loggedInEntity.SaccoId);
+                throw new UnauthorizedAccessException("You do not have permission to respond to this amendment request.");
+            }
+
+            // Check for admin-initiated amendment request
+            var existingRequest = await _context.AmendmentRequests
+                .Where(r => r.ReturnSubmissionId == dto.ReturnSubmissionId
+                            && r.Status == AmendmentStatus.Pending
+                            && r.IsAdminInitiated)
+                .OrderByDescending(r => r.RequestedAt)
+                .FirstOrDefaultAsync();
+
+            if (existingRequest == null)
+            {
+                _logger.LogWarning("No admin-initiated amendment request found for submission {ReturnSubmissionId}.", dto.ReturnSubmissionId);
+                throw new InvalidOperationException("No admin-initiated amendment request found for this submission.");
+            }
+
+            if (!FormsHelper.IsValidExcelFile(dto.FormFile))
+            {
+                throw new InvalidOperationException("Invalid Excel file format. Only .xlsx files are supported.");
+            }
+
+            var category = (FormCategory)submission.ExpectedReturn.ReturnForm.Category;
+            var parseResult = await _excelParser.ParseAsync(dto.FormFile, category, submission.ExpectedReturn.ReturnForm.SaccoTypeId);
+            var fileUrl = await FormsHelper.SaveFileAsync(dto.FormFile, "Drafts");
+            var parseSuccess = parseResult.Success;
+            var contentsJson = parseResult.Success ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity())) : null;
+            var parseErrorsJson = JsonSerializer.Serialize(parseResult.Errors);
+
+            if (!parseResult.Success)
+            {
+                _logger.LogWarning("Failed to parse Excel file for amendment response for submission {ReturnSubmissionId}: {Errors}", dto.ReturnSubmissionId, string.Join(", ", parseResult.Errors));
+                throw new InvalidOperationException($"Failed to parse Excel file: {string.Join(", ", parseResult.Errors)}");
+            }
+
+            existingRequest.FileUrl = fileUrl;
+            existingRequest.ParseSuccess = parseSuccess;
+            existingRequest.ContentsJson = contentsJson;
+            existingRequest.ParseErrorsJson = parseErrorsJson;
+
+            var newReturnDto = new NewReturnDTO
+            {
+                FormUploads = new List<ReturnFormUploadDTO>
+                {
+                    new ReturnFormUploadDTO
+                    {
+                        ExpectedReturnId = submission.ExpectedReturnId,
+                        formFile = dto.FormFile
+                    }
+                }
+            };
+
+            var result = await _returnSubmissionService.UploadDraftAsync(newReturnDto, loggedInEntity);
+            if (result.Any(r => r.Status == SubmissionStatus.Failed))
+            {
+                _logger.LogWarning("Failed to process amendment response for submission {ReturnSubmissionId}: {Errors}", dto.ReturnSubmissionId, string.Join(", ", result.SelectMany(r => r.Messages)));
+                throw new InvalidOperationException($"Failed to process amendment: {string.Join(", ", result.SelectMany(r => r.Messages))}");
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("SACCO amendment response for admin-initiated request {RequestId} processed for submission {ReturnSubmissionId} by officer {RequestedById}", existingRequest.Id, dto.ReturnSubmissionId, loggedInEntity.UserId);
+
+            return existingRequest;
+        }
+
+
         public async Task ReviewAmendmentRequest(string requestId, bool approve, string reviewerId)
         {
              // Retrieve amendment request
@@ -330,6 +486,58 @@ namespace Returns.Helpers
 
 
             }
+        }
+
+        public async Task<AmendmentRequest> CreateAdminAmendmentRequestAsync(AdminAmendmentRequestDTO dto, LoggedInEntity admin)
+        {
+           
+            // Retrieve the submission
+            var submission = await _context.ReturnSubmissions
+                .Include(s => s.ExpectedReturn)
+                .ThenInclude(er => er.ReturnForm)
+                .FirstOrDefaultAsync(s => s.Id == dto.ReturnSubmissionId);
+
+            if (submission == null)
+            {
+                _logger.LogWarning("Return submission {ReturnSubmissionId} not found.", dto.ReturnSubmissionId);
+                throw new InvalidOperationException("Return submission not found.");
+            }
+
+            var existingRequest = await _context.AmendmentRequests
+                .Where(r => r.ReturnSubmissionId == dto.ReturnSubmissionId
+                            && (r.Status == AmendmentStatus.Pending || r.Status == AmendmentStatus.Approved))
+                .OrderByDescending(r => r.RequestedAt)
+                .FirstOrDefaultAsync();
+
+            if (existingRequest != null)
+            {
+                _logger.LogWarning("An amendment request is already pending or approved for submission {ReturnSubmissionId}.", dto.ReturnSubmissionId);
+                throw new InvalidOperationException("An amendment request is already pending or approved for this submission.");
+            }
+
+            // Create new amendment request
+            var newRequest = new AmendmentRequest
+            {
+                ExpectedReturnId = submission.ExpectedReturnId,
+                ReturnSubmissionId = dto.ReturnSubmissionId,
+                SaccoId = submission.SaccoId,
+                RequestedById = admin.UserId,
+                RequestedAt = DateTime.Now,
+                Reason = dto.Reason,
+                Status = AmendmentStatus.Pending,
+                FileUrl = string.Empty, // No file provided by admin
+                ParseSuccess = true,
+                ContentsJson = null,
+                ParseErrorsJson = null,
+                IsAdminInitiated = true // Mark as admin-initiated
+            };
+
+            await _context.AmendmentRequests.AddAsync(newRequest);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Admin amendment request {RequestId} created for submission {ReturnSubmissionId} by admin {UserId}", newRequest.Id, dto.ReturnSubmissionId, admin.UserId);
+
+            return newRequest;
         }
     }
 }

@@ -27,7 +27,8 @@ namespace Returns.Models
         public string? ParseErrorsJson { get; set; } // Parsing errors as JSON
         [ForeignKey("ReturnSubmission")]
         public string ReturnSubmissionId { get; set; } = null!;
+        public bool IsAdminInitiated { get; set; } = false; 
         public ReturnSubmission ReturnSubmission { get; set; } = null!;
-        public ExpectedReturn ExpectedReturn { get; internal set; }
+        public ExpectedReturn ExpectedReturn { get; internal set; } = null!;
     }
 }
