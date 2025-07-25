@@ -14,6 +14,7 @@
         Pending,
         Submitted,
         WithWarnings,
-        Failed
+        Failed,
+        AmendementPendingApproval
     }
 }

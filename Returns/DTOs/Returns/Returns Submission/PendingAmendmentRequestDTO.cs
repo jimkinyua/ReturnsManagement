@@ -10,7 +10,7 @@ namespace Returns.DTOs.Returns.Returns_Submission
         public string RequestedById { get; set; } = null!;
         public string ReturnSubmissionId { get; set; } = null!;
         public string ExpectedReturnId { get; set; } = null!;
-        public DateTime RequestedAt { get; set; } = DateTime.Now;
+        public string RequestedAt { get; set; } = string.Empty;
         public AmendmentStatus Status { get; set; } = AmendmentStatus.Pending;
         public string Reason { get; set; } = string.Empty;
         public FormCategory? ReturnType { get; set; }
