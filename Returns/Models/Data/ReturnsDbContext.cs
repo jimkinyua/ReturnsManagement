@@ -78,7 +78,7 @@ namespace Returns.Models.Data
         public DbSet<RatingDefination> RatingDefinations { get; set; }
         public DbSet<RatingForm> RatingForms { get; set; }
         public DbSet<AmendmentRequest> AmendmentRequests { get; set; }
-
+        public DbSet<AdHocReturnRequest> AdHocReturnRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
