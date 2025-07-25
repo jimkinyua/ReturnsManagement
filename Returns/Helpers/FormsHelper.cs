@@ -81,7 +81,6 @@ namespace Returns.Helpers
             {
                 return null;
             }
-            return "y";
             try
             {
                 // Clean and validate folder name
