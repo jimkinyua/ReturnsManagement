@@ -1746,36 +1746,41 @@ namespace Returns.Helpers
 
 
 
-        public static int CalculateOverallRating(int capitalRating, int assetRating,
-            int earningsRating, int liquidityRating, int managementRating)
+        public static int CalculateOverallRating(int capitalRating, int assetRating,int earningsRating, int liquidityRating, int managementRating)
         {
-            var CapitalWeighted = capitalRating * 0.20m;
-            var AssetWeighted = assetRating * 0.20m;
-            var EarningsWeighted = earningsRating * 0.20m;
-            var LiquidityWeighted = liquidityRating * 0.20m;
-            var ManagementWeighted = managementRating * 0.20m;
             // Calculate weighted average rating
-            decimal weightedAverage = (CapitalWeighted + AssetWeighted + EarningsWeighted + LiquidityWeighted + ManagementWeighted) / 5.0m;
+            decimal capitalWeighted = capitalRating * 0.20m;
+            decimal assetWeighted = assetRating * 0.20m;
+            decimal earningsWeighted = earningsRating * 0.20m;
+            decimal liquidityWeighted = liquidityRating * 0.20m;
+            decimal managementWeighted = managementRating * 0.20m;
+
+            // Sum weighted components
+            decimal weightedAverage = capitalWeighted + assetWeighted + earningsWeighted + liquidityWeighted + managementWeighted;
+
             // Round to nearest whole number
             int baseRating = (int)Math.Round(weightedAverage);
-            // Find worst component rating
-            int worstRating = new[] { capitalRating, assetRating, earningsRating, liquidityRating }.Max();
-            // Overall rating can't be more than one level better than worst component
-            return Math.Max(baseRating, worstRating - 1);
 
-            /*// Calculate average rating
-            decimal averageRating = (capitalRating + assetRating + earningsRating + liquidityRating + managementRating) / 5.0m;
+            // Get the maximum component rating (worst rating)
+            int worstRating = new[] { capitalRating, assetRating, earningsRating, liquidityRating, managementRating }.Max();
 
-            // Round to nearest whole number
-            int baseRating = (int)Math.Round(averageRating);
+            // Apply client rules for composite rating
+            if (baseRating == 1 && worstRating >= 3)
+            {
+                return 2; // Shift to 2 if any component is 3 or above
+            }
+            else if (baseRating == 2 && worstRating >= 3)
+            {
+                return 3; // Shift to 3 if any component is 3 or above
+            }
+            else if (baseRating == 3 && worstRating >= 4)
+            {
+                return 4; // Shift to 4 if any component is 4 or 5
+            }
 
-            // Find worst component rating
-            int worstRating = new[] { capitalRating, assetRating, earningsRating, liquidityRating }.Max();
-
-            // Overall rating can't be more than one level better than worst component
-            return Math.Min(baseRating, worstRating - 1);*/
+            // For ratings 4 and 5, or when no shift is needed, retain baseRating
+            return baseRating;
         }
-
     }
 
 }
