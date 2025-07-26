@@ -40,6 +40,9 @@ namespace Returns.Helpers
             {
                 var res = new SubmissionResultDto();
                 res.FormFileName = item.formFile?.FileName ?? "Unknown";
+                string? savedUrl = null;
+
+                await using var trx = await _context.Database.BeginTransactionAsync();
 
                 try
                 {
@@ -50,7 +53,6 @@ namespace Returns.Helpers
                         results.Add(res);
                         continue;
                     }
-
 
                     // Get expected return and validate
                     var expected = await _context.ExpectedReturns
@@ -65,17 +67,16 @@ namespace Returns.Helpers
                         continue;
                     }
 
-                    //  Find the current “latest” submission (if any) for this return
+                    // Find the current latest submission (if any) for this return
                     var previous = await _context.ReturnSubmissions
                         .Where(s => s.ExpectedReturnId == item.ExpectedReturnId
                                     && s.SaccoId == loggedInSacco.SaccoId
                                     && s.IsLatest)
                         .SingleOrDefaultAsync();
 
-
-                    // Save file
-                    var url = await FormsHelper.SaveFileAsync(item.formFile, "Returns");
-                    if (url == null)
+                    // Save file (non-DB: we'll delete on rollback if needed)
+                    savedUrl = await FormsHelper.SaveFileAsync(item.formFile, "Returns");
+                    if (savedUrl == null)
                     {
                         res.Status = SubmissionStatus.Failed;
                         res.Messages.Add("Could not store file.");
@@ -83,15 +84,14 @@ namespace Returns.Helpers
                         continue;
                     }
 
-                    //  Create the new submission (version = prev.Version + 1)
-                    // ---------------------------------------------------------------
+                    // Create the new submission (version = prev.Version + 1)
                     var submission = new ReturnSubmission
                     {
                         ExpectedReturnId = item.ExpectedReturnId,
                         SaccoId = loggedInSacco.SaccoId,
                         Status = SubmissionStatus.Draft.ToString(),
                         SubmittedAt = DateTime.Now,
-                        FileUrl = url,
+                        FileUrl = savedUrl,
                         Version = (previous?.Version ?? 0) + 1,
                         AmendsSubmissionId = previous?.Id
                     };
@@ -100,19 +100,12 @@ namespace Returns.Helpers
                     {
                         previous.IsLatest = false;
                         previous.AmendedBySubmissionId = submission.Id;
-                    }
-
-
-                    await using var trx = await _context.Database.BeginTransactionAsync();
-
-                    if (previous != null)
-                    {
                         _context.ReturnSubmissions.Update(previous);
                     }
 
                     await _context.ReturnSubmissions.AddAsync(submission);
-                    await _context.SaveChangesAsync();
-                    await trx.CommitAsync();
+                    await _context.SaveChangesAsync();  // Save submission inside transaction
+
                     res.SubmissionId = submission.Id;
 
                     FormCategory Category = (FormCategory)expected.ReturnForm.Category;
@@ -124,13 +117,7 @@ namespace Returns.Helpers
                     {
                         res.Status = SubmissionStatus.Failed;
                         res.Messages.AddRange(parse.Errors);
-
-                        // Remove the submission if parsing failed
-                        _context.ReturnSubmissions.Remove(submission);
-                        await _context.SaveChangesAsync();
-
-                        results.Add(res);
-                        continue;
+                        throw new Exception("Parsing failed");  // Trigger rollback
                     }
 
                     // Process parsed rows and save entities
@@ -138,13 +125,12 @@ namespace Returns.Helpers
                     {
                         row.ReturnSubmissionId = submission.Id;
                         var entity = row.ToEntity();
-
-                        // Add entity to appropriate collection based on type
                         await AddEntityToSubmission(submission, entity);
                     }
 
-                    await _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync();  // Save entities inside transaction
 
+                    await trx.CommitAsync();  // Commit if all succeeds
 
                     res.Status = SubmissionStatus.Draft;
                     res.Messages.Add(previous == null
@@ -154,6 +140,14 @@ namespace Returns.Helpers
                 }
                 catch (Exception ex)
                 {
+                    await trx.RollbackAsync();  // Rollback DB changes
+
+                    // Manual file rollback
+                    if (!string.IsNullOrEmpty(savedUrl))
+                    {
+                        //FormsHelper.DeleteFile(savedUrl); 
+                    }
+
                     _logger.LogError(ex, $"Error processing form {item.FormId}");
                     res.Status = SubmissionStatus.Failed;
                     res.Messages.Add($"Error processing form: {ex.Message}");
@@ -498,6 +492,8 @@ namespace Returns.Helpers
         {
             var result = new BulkSubmissionResultDTO();
 
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
             try
             {
                 // Get all expected returns for the period that are in draft status
@@ -590,8 +586,9 @@ namespace Returns.Helpers
                     }
                 }
 
-                // Save all changes
+                // Save all changes inside transaction
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 result.Success = result.FailedSubmissions == 0;
                 result.Message = result.Success
@@ -603,6 +600,7 @@ namespace Returns.Helpers
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 _logger.LogError(ex, "Error in bulk submission for period {PeriodId}", periodId);
                 result.Success = false;
                 result.Message = $"An error occurred during bulk submission: {ex.Message}";

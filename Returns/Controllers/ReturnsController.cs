@@ -32,6 +32,7 @@ using Returns.DTOs.Returns_Submission;
 using Returns.Helpers.Enums;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Authorization;
+using Hangfire;
 
 namespace Returns.Controllers
 {
@@ -412,7 +413,6 @@ namespace Returns.Controllers
         }
 
 
-
         [HttpPost("Draft")]
         public async Task<IActionResult> FileDraftReturnsAsync([FromForm] NewReturnDTO dto)
         {
@@ -425,30 +425,35 @@ namespace Returns.Controllers
                 }
 
                 var today = DateTime.UtcNow.Date;
-                var results = new List<SubmissionResultDto>();
+                var checkErrors = new List<string>();
 
+                // Check all forms for existing submissions first
                 foreach (var item in dto.FormUploads)
                 {
-                    // Check for existing submission
-                    var existing = await _amendmentService.GetSubmissionUsingExpectedIdAsync(item.ExpectedReturnId, loggedInSacco.SaccoId);
+                    var existing = await _amendmentService.GetSubmissionUsingExpectedIdAsync(item.ExpectedReturnId, loggedInSacco.SaccoId, true);
                     if (existing != null && !_returnAmendmentPolicy.CanAutoAmend(today))
                     {
-                        return BadRequest($"A submission already exists for ExpectedReturnId {item.ExpectedReturnId}. Please use the amendment request Option." );
+                        checkErrors.Add($"A submission already exists for ExpectedReturnId {item.ExpectedReturnId}. Please use the amendment request option.");
                     }
-
-                    var result = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco);
-                    results.AddRange(result);
                 }
+
+                // If any errors, abort the whole request 
+                if (checkErrors.Any())
+                {
+                    return BadRequest(string.Join("; ", checkErrors));
+                }
+
+                var results = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco);
 
                 return Ok(results);
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest( ex.Message );
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                return StatusCode(500,  CustomErrorHandler.HandleException(ex) );
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
@@ -2512,6 +2517,31 @@ namespace Returns.Controllers
                     request.PeriodId,
                     loggedInSacco.SaccoId,
                     loggedInSacco.SaccoType);
+
+                if (result.Success)
+                {
+                    var period = await _context.ReturnPeriods.FindAsync(request.PeriodId);
+                    if (period != null && period.FrequencyId == 5)  // 5 = QTR for quarterly
+                    {
+                        var ratingDef = await _context.RatingDefinations
+                            .Where(r => r.RatingName.Equals("CAELS") && r.SaccoType == loggedInSacco.SaccoType)
+                            .OrderByDescending(r => r.CreatedAt)
+                            .FirstOrDefaultAsync();
+
+                        if (ratingDef != null)
+                        {
+                            BackgroundJob.Enqueue<ICamelsAnalysisService>(s => s.CalculateCurrentDepositTakingAnalysisAsync(
+                                ratingDef.Id,  // groupId
+                                request.PeriodId,
+                                loggedInSacco.SaccoId
+                                ));
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No CAELS rating definition found for saccoType {SaccoType}", loggedInSacco.SaccoType);
+                        }
+                    }
+                }
 
                 return Ok(result);
             }

@@ -40,7 +40,7 @@ namespace Returns.Helpers
             _excelParser = excelParser;
         }
 
-        public async Task<ReturnSubmission> GetSubmissionUsingExpectedIdAsync(string submissionId, string saccoId)
+        public async Task<ReturnSubmission?> GetSubmissionUsingExpectedIdAsync(string submissionId, string saccoId, Boolean Filing = false)
         {
             var submission = await _context.ReturnSubmissions
                 .Include(s => s.ExpectedReturn)
@@ -50,6 +50,10 @@ namespace Returns.Helpers
             if (submission == null)
             {
                 _logger.LogWarning("Return submission {SubmissionId} not found.", submissionId);
+                if (Filing == true)
+                {
+                    return null;
+                }
                 throw new InvalidOperationException("Return submission not found.");
             }
 

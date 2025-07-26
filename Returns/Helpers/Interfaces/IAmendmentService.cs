@@ -9,7 +9,7 @@ using Returns.DTOs.Returns.Returns_Submission;
         public interface IAmendmentService
         {
         Task<ReturnSubmission> GetSubmissionUsingReturnIdAsync(string submissionId, string saccoId);
-        Task<ReturnSubmission> GetSubmissionUsingExpectedIdAsync(string submissionId, string saccoId);
+        Task<ReturnSubmission> GetSubmissionUsingExpectedIdAsync(string submissionId, string saccoId, Boolean Filing=false);
         Task<AmendmentRequest> CreateAmendRequestForSacco(AmendmentRequestDTO dto, LoggedInEntity loggedInEntity);
         Task<AmendmentRequest> RespondToAdminAmendmentRequestAsync(SaccoAmendmentResponseDTO dto, LoggedInEntity loggedInEntity);
         Task<AmendmentRequest> CreateAdminAmendmentRequestAsync(AdminAmendmentRequestDTO dto, LoggedInEntity admin);

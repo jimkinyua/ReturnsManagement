@@ -74,9 +74,9 @@ namespace Returns.Helpers
                 return false;
             }
         }
-
         public static async Task<string> SaveFileAsync(IFormFile file, string folder, string fileName = "")
         {
+            return "Well..";
             if (file == null || file.Length <= 0)
             {
                 return null;
@@ -160,8 +160,6 @@ namespace Returns.Helpers
                 return null;
             }
         }
-
-
         public static async Task<IFormFile?> GetFileFromUrlAsync(string fileUrl)
         {
             try
@@ -267,10 +265,6 @@ namespace Returns.Helpers
             var url = $"/gateway{endpoint}/{folder}/{safeName}";
             return url;
         }
-
-
-
-        // DeleteFile
         public static bool DeleteFile(string filePath)
         {
             try

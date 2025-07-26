@@ -18,6 +18,7 @@ using System.Net;
 using FluentEmail.Core;
 using FluentEmail.Smtp;
 using Returns.DTOs.Compliance;
+using Microsoft.Extensions.DependencyInjection;  // Added for IServiceCollection
 
 internal class Program
 {
@@ -86,8 +87,8 @@ internal class Program
         // Register application services
         RegisterApplicationServices(builder);
 
-        // Configure Hangfire
-        //ConfigureHangfire(builder);
+        // Configure Hangfire (uncommented and fixed)
+        ConfigureHangfire(builder);
 
         // Configure PDF generation service
         ConfigurePdfService(builder);
@@ -152,13 +153,12 @@ internal class Program
 
     private static void ConfigureHangfire(WebApplicationBuilder builder)
     {
-        /*var conn = builder.Configuration.GetConnectionString("HangfireDbConnection")
+        var conn = builder.Configuration.GetConnectionString("HangfireDbConnection")
             ?? builder.Configuration.GetConnectionString("ReturnsDbConnection");
-
 
         builder.Services.AddHangfire(cfg =>
         {
-           *//* cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                .UseSimpleAssemblyNameTypeSerializer()
                .UseRecommendedSerializerSettings()
                .UseSqlServerStorage(conn, new SqlServerStorageOptions
@@ -174,8 +174,7 @@ internal class Program
                    UsePageLocksOnDequeue = true,
                    DisableGlobalLocks = true
                });
-            cfg.UseFilter(new DisableConcurrentExecutionAttribute(300));*//*
-
+            cfg.UseFilter(new DisableConcurrentExecutionAttribute(300));
         });
 
         builder.Services.AddHangfireServer(opts =>
@@ -185,7 +184,7 @@ internal class Program
             opts.Queues = new[] { "reminders", "default" };
             opts.SchedulePollingInterval = TimeSpan.FromMinutes(40);    // re-check Cron schedule quickly
             opts.ShutdownTimeout = TimeSpan.FromMinutes(40);
-        });*/
+        });
     }
 
     private static void ConfigurePdfService(WebApplicationBuilder builder)
@@ -198,10 +197,11 @@ internal class Program
 
     private static void ConfigureMiddleware(WebApplication app)
     {
-        /* app.UseHangfireDashboard("/hangfire", new DashboardOptions
-         {
-             Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
-         });*/
+        app.UseHangfireDashboard("/hangfire", new DashboardOptions
+        {
+            Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
+
+        });
 
         //RecurringJob.AddOrUpdate<ReturnsReminderService>(
         // recurringJobId: "returns-reminder",
