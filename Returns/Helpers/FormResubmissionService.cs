@@ -22,7 +22,7 @@ namespace Returns.Helpers
         }
 
         public async Task<(bool Success, string Message)> RequestFormResubmissionAsync(
-             string ReturnId,
+             string ReturnSubmissionId,
              ReturnForm form,
              string complianceOfficerId,
              string complianceOfficerName,
@@ -36,13 +36,13 @@ namespace Returns.Helpers
 
             try
             {
-                var returnDetails = await _context.Returns.FindAsync(ReturnId);
+                var returnDetails = await _context.Returns.FindAsync(ReturnSubmissionId);
                 if (returnDetails == null)
                 {
                     return (false, "Return not found");
                 }
 
-                var (returnInfo, childFormId) = await GetReturnWithCurrentChildFormAsync(ReturnId, form.Id, returnDetails.SaccoType);
+                var (returnInfo, childFormId) = await GetReturnWithCurrentChildFormAsync(ReturnSubmissionId, form.Id, returnDetails.SaccoType);
                 if (string.IsNullOrEmpty(childFormId))
                 {
                     return (false, "No current form found for this return and form type");
@@ -59,7 +59,7 @@ namespace Returns.Helpers
                 {
                     Id = Guid.NewGuid().ToString(),
                     FormId = form.Id,
-                    ReturnId = ReturnId,
+                    ReturnSubmissionId = ReturnSubmissionId,
                     SaccoId = returnDetails.SaccoId,
                     SaccoType = returnDetails.SaccoType,
                     RequestedBy = complianceOfficerId,
@@ -105,7 +105,7 @@ namespace Returns.Helpers
             {
                 // Rollback transaction on any error
                 await transaction.RollbackAsync();
-                _logger.LogError(ex, "Error requesting form resubmission for ReturnId: {ReturnId}. Transaction rolled back.", ReturnId);
+                _logger.LogError(ex, "Error requesting form resubmission for ReturnSubmissionId: {ReturnSubmissionId}. Transaction rolled back.", ReturnSubmissionId);
                 return (false, $"Error: {ex.Message}");
             }
         }
@@ -248,7 +248,7 @@ namespace Returns.Helpers
 
             try
             {
-                var pendingRequest = await _context.FormResubmissionRequests.FirstOrDefaultAsync(r => r.ReturnId == returnId && r.FormId == form.Id &&r.Status == "Pending");
+                var pendingRequest = await _context.FormResubmissionRequests.FirstOrDefaultAsync(r => r.ReturnSubmissionId == returnId && r.FormId == form.Id &&r.Status == "Pending");
 
                 if (pendingRequest == null)
                 {
@@ -310,7 +310,7 @@ namespace Returns.Helpers
 
                     **Resubmission Details:**
                     - Form: {formName}
-                    - Return ID: {request.ReturnId}
+                    - Return ID: {request.ReturnSubmissionId}
                     - Resubmitted: {DateTime.Now:dd/MM/yyyy HH:mm}
                     - SACCO Notes: {request.ResubmissionNotes ?? "No additional notes provided"}
                     - Original Request Reason: {request.Reason}
@@ -395,37 +395,37 @@ namespace Returns.Helpers
                 childFormId = formType switch
                 {
                     "CapitalAdequacy" => await _context.DTCapitalAdequacyReturns
-                        .Where(c => c.ReturnId == returnId )
+                        .Where(c => c.ReturnSubmissionId == returnId )
                         .Select(c => c.Id)
                         .FirstOrDefaultAsync(),
 
                     "Liquidity" => await _context.DTLiquidityReturns
-                        .Where(l => l.ReturnId == returnId)
+                        .Where(l => l.ReturnSubmissionId == returnId)
                         .Select(l => l.Id)
                         .FirstOrDefaultAsync(),
 
                     "DepositReturn" => await _context.DepositReturns
-                        .Where(d => d.ReturnId == returnId)
+                        .Where(d => d.ReturnSubmissionId == returnId)
                         .Select(d => d.Id)
                         .FirstOrDefaultAsync(),
 
                     "RiskClassification" => await _context.DTRiskClassificationReturns
-                        .Where(r => r.ReturnId == returnId)
+                        .Where(r => r.ReturnSubmissionId == returnId)
                         .Select(r => r.Id)
                         .FirstOrDefaultAsync(),
 
                     "Investment" => await _context.DTInvestmentReturns
-                        .Where(i => i.ReturnId == returnId)
+                        .Where(i => i.ReturnSubmissionId == returnId)
                         .Select(i => i.Id)
                         .FirstOrDefaultAsync(),
 
                     "FinancialPosition" => await _context.DTFinancialPositionReturns
-                        .Where(f => f.ReturnId == returnId)
+                        .Where(f => f.ReturnSubmissionId == returnId)
                         .Select(f => f.Id)
                         .FirstOrDefaultAsync(),
 
                     "ComprehensiveIncome" => await _context.DTComprehensiveIncomeReturns
-                        .Where(c => c.ReturnId == returnId )
+                        .Where(c => c.ReturnSubmissionId == returnId )
                         .Select(c => c.Id)
                         .FirstOrDefaultAsync(),
 
@@ -437,37 +437,37 @@ namespace Returns.Helpers
                 childFormId = formType switch
                 {
                     "CapitalAdequacy" => await _context.NWDTCapitalAdequacyReturns
-                        .Where(c => c.ReturnId == returnId )
+                        .Where(c => c.ReturnSubmissionId == returnId )
                         .Select(c => c.Id)
                         .FirstOrDefaultAsync(),
 
                     "Liquidity" => await _context.NDWTLiquidityReturns
-                        .Where(l => l.ReturnId == returnId)
+                        .Where(l => l.ReturnSubmissionId == returnId)
                         .Select(l => l.Id)
                         .FirstOrDefaultAsync(),
 
                     "DepositReturn" => await _context.NWDTDepositReturns
-                        .Where(d => d.ReturnId == returnId)
+                        .Where(d => d.ReturnSubmissionId == returnId)
                         .Select(d => d.Id)
                         .FirstOrDefaultAsync(),
 
                     "Investment" => await _context.NWDTInvestmentReturns
-                        .Where(i => i.ReturnId == returnId)
+                        .Where(i => i.ReturnSubmissionId == returnId)
                         .Select(i => i.Id)
                         .FirstOrDefaultAsync(),
 
                     "FinancialPosition" => await _context.NWDTFinancialPositionReturns
-                        .Where(f => f.ReturnId == returnId )
+                        .Where(f => f.ReturnSubmissionId == returnId )
                         .Select(f => f.Id)
                         .FirstOrDefaultAsync(),
 
                     "ComprehensiveIncome" => await _context.NWDTComprehensiveIncomeReturns
-                        .Where(c => c.ReturnId == returnId )
+                        .Where(c => c.ReturnSubmissionId == returnId )
                         .Select(c => c.Id)
                         .FirstOrDefaultAsync(),
 
                     "RiskClassification" => await _context.NWDTRiskClassificationReturns
-                        .Where(r => r.ReturnId == returnId)
+                        .Where(r => r.ReturnSubmissionId == returnId)
                         .Select(r => r.Id)
                         .FirstOrDefaultAsync(),
 

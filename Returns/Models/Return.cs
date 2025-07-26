@@ -51,7 +51,6 @@ namespace Returns.Models
 
         // Assignments 
         public virtual ICollection<ReturnsAssigment> ReturnsAssigments { get; set; } = new List<ReturnsAssigment>();
-        public virtual ICollection<AdditionalInformationRequest> ReturnsAdditionalInformationRequests { get; set; } = new List<AdditionalInformationRequest>();
         public virtual ICollection<WorkflowInstance> WorkflowInstances { get; set; } = new List<WorkflowInstance>();
     }
 }

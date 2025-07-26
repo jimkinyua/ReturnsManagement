@@ -42,7 +42,7 @@ namespace Returns.Helpers
             // Check if any RatingDefinitions for SaccoTypeId = 0 already exist
             if (!context.RatingDefinations.Any(r => r.SaccoType == "0"))
             {
-                var currentDateTime = DateTime.Now; 
+                var currentDateTime = DateTime.Now;
                 var saccoTypeId = 0;
 
                 // Define RatingDefinitions for SaccoTypeId = 0
@@ -84,10 +84,10 @@ namespace Returns.Helpers
                 var returnForms = context.ReturnForms.Where(f => f.SaccoTypeId == "0" && f.IsActive).ToList();
                 var ratingCategoryMappings = new[]
                  {
-                    new { RatingName = "CAMEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification } },
-                    new { RatingName = "CAELS Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn } },
-                    new { RatingName = "CAEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn } },
-                    new { RatingName = "Consistency Check Forms DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome } }
+                    new { RatingName = "CAMEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Other } },
+                    new { RatingName = "CAELS Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
+                    new { RatingName = "CAEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
+                    new { RatingName = "Consistency Check Forms DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome, FormCategory.RiskClassification, FormCategory.InvestmentReturn } }
                 };
 
                 foreach (var mapping in ratingCategoryMappings)
@@ -97,7 +97,7 @@ namespace Returns.Helpers
 
                     foreach (var category in requiredCategories)
                     {
-                        var form = returnForms.FirstOrDefault(f => f.Category == (FormCategory)category  && f.SaccoTypeId == "0");
+                        var form = returnForms.FirstOrDefault(f => f.Category == (FormCategory)category && f.SaccoTypeId == "0");
                         if (form != null)
                         {
                             rating.RatingForms.Add(new RatingForm
@@ -134,28 +134,28 @@ namespace Returns.Helpers
                 // Define RatingDefinitions for SaccoTypeId = 1
                 var ratings = new[]
                 {
-                    new RatingDefination
-                    {
-                        RatingName = "CAMEL Forms For NWDT",
-                        Description = "Capital, Asset Quality, Management, Earnings, Liquidity Rating for SaccoType 1",
-                        SaccoType = saccoTypeId,
-                        CreatedAt = currentDateTime,
-                    },
-                    new RatingDefination
-                    {
-                        RatingName = "CAELS Forms For NWDT",
-                        Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 1",
-                        SaccoType = saccoTypeId,
-                        CreatedAt = currentDateTime,
-                    },
-                    new RatingDefination
-                    {
-                        RatingName = "CAEL Forms For NWDT",
-                        Description = "Capital, Asset Quality, Earnings, Liquidity Rating for SaccoType 1",
-                        SaccoType = saccoTypeId,
-                        CreatedAt = currentDateTime,
-                    },
-                    new RatingDefination
+                new RatingDefination
+                {
+                    RatingName = "CAMEL Forms For NWDT",
+                    Description = "Capital, Asset Quality, Management, Earnings, Liquidity Rating for SaccoType 1",
+                    SaccoType = saccoTypeId,
+                    CreatedAt = currentDateTime,
+                },
+                new RatingDefination
+                {
+                    RatingName = "CAELS Forms For NWDT",
+                    Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 1",
+                    SaccoType = saccoTypeId,
+                    CreatedAt = currentDateTime,
+                },
+                new RatingDefination
+                {
+                    RatingName = "CAEL Forms For NWDT",
+                    Description = "Capital, Asset Quality, Earnings, Liquidity Rating for SaccoType 1",
+                    SaccoType = saccoTypeId,
+                    CreatedAt = currentDateTime,
+                },
+                new RatingDefination
                     {
                         RatingName = "Consistency Check Forms NWDT",
                         Description = "Consistency Check Rating for NWDT Saccos",
@@ -174,10 +174,10 @@ namespace Returns.Helpers
                 // Define category mappings for each rating
                 var ratingCategoryMappings = new[]
                 {
-                    new { RatingName = "CAMEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification } },
-                    new { RatingName = "CAELS Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn } },
-                    new { RatingName = "CAEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn } },
-                    new { RatingName = "Consistency Check Forms NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome } }
+                    new { RatingName = "CAMEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Other } },
+                    new { RatingName = "CAELS Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
+                    new { RatingName = "CAEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
+                    new { RatingName = "Consistency Check Forms NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome, FormCategory.RiskClassification, FormCategory.InvestmentReturn } }
                 };
 
                 foreach (var mapping in ratingCategoryMappings)

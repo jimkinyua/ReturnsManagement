@@ -1160,7 +1160,7 @@ namespace Returns.Controllers
 
                   var capEntity = await _context.DTCapitalAdequacyReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(ca => ca.ReturnId == returnId);
+                      .FirstOrDefaultAsync(ca => ca.ReturnSubmissionId == returnId);
 
                   CapitalAdequacyDTO? capitalAdequacy = null;
                   int capitalDaysLate = 0;
@@ -1201,14 +1201,14 @@ namespace Returns.Controllers
                           CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
                           CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
                           FilePath = $"{baseUrl}{capEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ReturnId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ReturnSubmissionId, hdr.SaccoType)
                       };
                   }
 
                   // 2-b  Deposit-Range Return (multi-row)
                   var depositEntities = await _context.DepositReturns
                       .AsNoTracking()
-                      .Where(dr => dr.ReturnId == returnId)
+                      .Where(dr => dr.ReturnSubmissionId == returnId)
                       .ToListAsync();
 
                   int depositDaysLate = depositEntities.FirstOrDefault()?.DaysLateBy ?? 0;
@@ -1220,7 +1220,7 @@ namespace Returns.Controllers
                           FormId = depositEntities.FirstOrDefault()?.FormId ?? string.Empty,
                           RequiresResubmission = depositEntities.FirstOrDefault()?.RequiresResubmission ?? false,
                           //FilePath = depositEntities.FirstOrDefault()?.FilePath ?? string.Empty,
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DepositReturn>(depositEntities.FirstOrDefault()?.ReturnId ?? string.Empty, hdr.SaccoType),
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DepositReturn>(depositEntities.FirstOrDefault()?.ReturnSubmissionId ?? string.Empty, hdr.SaccoType),
                           //NWDTDepositReturnData = new List<NWDTDepositReturnData>()
                       };
                       foreach (var dr in depositEntities)
@@ -1238,7 +1238,7 @@ namespace Returns.Controllers
                   // 2-c  Comprehensive-Income (single row)
                   var incomeEntity = await _context.DTComprehensiveIncomeReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(ci => ci.ReturnId == returnId);
+                      .FirstOrDefaultAsync(ci => ci.ReturnSubmissionId == returnId);
 
                   ComprehesiveIncomeStatementDTO? incomeStatement = null;
                   int incomeDaysLate = 0;
@@ -1273,14 +1273,14 @@ namespace Returns.Controllers
                           Taxes = incomeEntity.Taxes,
                           Donations = incomeEntity.Donations,
                           FilePath = $"{baseUrl}{incomeEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ReturnId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ReturnSubmissionId, hdr.SaccoType)
                       };
                   }
 
                   // 2-d  Financial-Position (single row)
                   var balanceEntity = await _context.DTFinancialPositionReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(fp => fp.ReturnId == returnId);
+                      .FirstOrDefaultAsync(fp => fp.ReturnSubmissionId == returnId);
 
                   FinancialPositionDTO? financialPosition = null;
                   int balanceDaysLate = 0;
@@ -1323,14 +1323,14 @@ namespace Returns.Controllers
                           CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
                           StatutoryReserve = balanceEntity.StatutoryReserve,
                           FilePath = $"{baseUrl}{balanceEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ReturnId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ReturnSubmissionId, hdr.SaccoType)
                       };
                   }
 
                   // 2-e  Liquidity (single row)
                   var liquidityEntity = await _context.DTLiquidityReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(liq => liq.ReturnId == returnId);
+                      .FirstOrDefaultAsync(liq => liq.ReturnSubmissionId == returnId);
 
                   LiquidityStatementDTO? liquidityStatement = null;
                   int liquidityDaysLate = 0;
@@ -1368,14 +1368,14 @@ namespace Returns.Controllers
                           NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
                           NetBankBalances = liquidityEntity.NetBankBalances,
                           FilePath = $"{baseUrl}{liquidityEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ReturnId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ReturnSubmissionId, hdr.SaccoType)
                       };
                   }
 
                   // 2-f  Risk classification (multi-row)
                   var riskEntities = await _context.DTRiskClassificationReturns
                       .AsNoTracking()
-                      .Where(rc => rc.ReturnId == returnId)
+                      .Where(rc => rc.ReturnSubmissionId == returnId)
                       .ToListAsync();
 
                   int riskDaysLate = riskEntities.FirstOrDefault()?.DaysLateBy ?? 0;
@@ -1387,7 +1387,7 @@ namespace Returns.Controllers
                       riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
                       riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
                       //riskClassifications.FilePath = firstEntity.FilePath;
-                      riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ReturnId, hdr.SaccoType);
+                      riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ReturnSubmissionId, hdr.SaccoType);
 
                       foreach (var rc in riskEntities)
                       {
@@ -1407,7 +1407,7 @@ namespace Returns.Controllers
                   // 2-g  Other returns (multi-row, simple)
                   var otherReturnsEntities = await _context.OtherReturns
                       .AsNoTracking()
-                      .Where(o => o.ReturnId == returnId)
+                      .Where(o => o.ReturnSubmissionId == returnId)
                       .ToListAsync();
 
                   var otherReturns = new List<OtherReturnDTO>();
@@ -1419,18 +1419,18 @@ namespace Returns.Controllers
                           FileUrl = o.FileUrl,
                           RequiresResubmission = o.RequiresResubmission,
                           FormId = o.FormId ?? string.Empty,
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<OtherReturn>(o.ReturnId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<OtherReturn>(o.ReturnSubmissionId, hdr.SaccoType)
                       });
                   }
 
                   // 2-h  Investment (single row)
                   var investmentEntity = await _context.DTInvestmentReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(inv => inv.ReturnId == returnId);
+                      .FirstOrDefaultAsync(inv => inv.ReturnSubmissionId == returnId);
 
                   var ApprovalComments = await _context.ApprovalActions
                                             .AsNoTracking()
-                                            .Where(o => o.ReturnId == returnId)
+                                            .Where(o => o.ReturnSubmissionId == returnId)
                                             .ToListAsync();
 
                   InvestmentReturnDTO? investment = null;
@@ -1459,13 +1459,13 @@ namespace Returns.Controllers
                           FinancialInvestmentsToDepositsExcessDeficiency =
                               investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
                           FilePath = $"{baseUrl}{investmentEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ReturnId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ReturnSubmissionId, hdr.SaccoType)
                       };
                   }
 
                   var managementEntity = await _context.ManagementReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(m => m.ReturnId == returnId);
+                      .FirstOrDefaultAsync(m => m.ReturnSubmissionId == returnId);
 
                   ManagementReturnDTO? managementReturn = null;
                   if (managementEntity != null)
@@ -1502,7 +1502,7 @@ namespace Returns.Controllers
                               managementEntity.OverallRiskProfileWeightedScore,
 
                           MRating = managementEntity.MRating,
-                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<ManagementReturn>(managementEntity.ReturnId, hdr.SaccoType)
+                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<ManagementReturn>(managementEntity.ReturnSubmissionId, hdr.SaccoType)
                       };
                   }
 
@@ -1577,20 +1577,20 @@ namespace Returns.Controllers
                   // ───────────────────────────────────────────────────────────────
                   var sectoral = await _context.SectoralLendingReports
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(x => x.ReturnId == returnId);
+                      .FirstOrDefaultAsync(x => x.ReturnSubmissionId == returnId);
 
                   if (sectoral != null)
                   {
                       var sectoralData = await _context.SectoralLendingData
                           .AsNoTracking()
-                          .Where(x => x.ReturnId == returnId)
+                          .Where(x => x.ReturnSubmissionId == returnId)
                           .ToListAsync();
 
                       dto.SectoralLending = new SectoralLendingDTO
                       {
                           StartDate = sectoral.StartDate,
                           EndDate = sectoral.EndDate,
-                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<SectoralLendingReport>(sectoral.ReturnId, hdr.SaccoType),
+                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<SectoralLendingReport>(sectoral.ReturnSubmissionId, hdr.SaccoType),
                           SubSectorData = sectoralData.Select(sd => new SectoralLendingDataDTO
                           {
                               Amount = sd.Amount,
@@ -2066,7 +2066,7 @@ namespace Returns.Controllers
                 {
                     /*         var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
                     var approvals = await _context.ApprovalActions
-                        .Where(a => submissionIds.Contains(a.ReturnId))
+                        .Where(a => submissionIds.Contains(a.ReturnSubmissionId))
                         .Include(a => a.WorkFlowStep)
                         .ToListAsync();
                     report.approvalActions = approvals;*/
@@ -2475,7 +2475,7 @@ namespace Returns.Controllers
                 {
                     /* var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
                      var approvals = await _context.ApprovalActions
-                         .Where(a => submissionIds.Contains(a.ReturnId))
+                         .Where(a => submissionIds.Contains(a.ReturnSubmissionId))
                          .Include(a => a.WorkFlowStep)
                          .ToListAsync();*/
                     //report.approvalActions = approvals;

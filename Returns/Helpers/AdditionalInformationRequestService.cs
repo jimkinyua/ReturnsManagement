@@ -14,25 +14,25 @@ namespace Returns.Helpers
         private readonly ReturnsDbContext _context;
         private readonly IComplianceService _complianceService;
 
-        public AdditionalInformationRequestService( ReturnsDbContext context, IEmailService emailSender, ILogger<AdditionalInformationRequestService> logger, IComplianceService complianceService)
+        public AdditionalInformationRequestService(ReturnsDbContext context, IEmailService emailSender, ILogger<AdditionalInformationRequestService> logger, IComplianceService complianceService)
         {
             _context = context;
             _emailSender = emailSender;
             _logger = logger;
             _complianceService = complianceService;
         }
-        public async Task<AdditionalInformationRequestDto> RequestAdditionalInformationAsync(CreateAdditionalInformationRequestDto  createAdditionalInformationRequestDto, string RequestedBy)
+        public async Task<AdditionalInformationRequestDto> RequestAdditionalInformationAsync(CreateAdditionalInformationRequestDto createAdditionalInformationRequestDto, string RequestedBy)
         {
-            var ReturnDetails = await _context.Returns.FirstOrDefaultAsync(r => r.Id == createAdditionalInformationRequestDto.ReturnId);
-            if (ReturnDetails == null)
-                throw new KeyNotFoundException("Return not found");
+            var submissionDetails = await _context.ReturnSubmissions.FirstOrDefaultAsync(rs => rs.Id == createAdditionalInformationRequestDto.ReturnSubmissionId);
+            if (submissionDetails == null)
+                throw new KeyNotFoundException("Return submission not found");
 
             var entity = new AdditionalInformationRequest
             {
-                ReturnId = createAdditionalInformationRequestDto.ReturnId,
+                ReturnSubmissionId = createAdditionalInformationRequestDto.ReturnSubmissionId,
                 Description = createAdditionalInformationRequestDto.Description,
                 RequestedBy = RequestedBy,
-                SaccoId = ReturnDetails.SaccoId,
+                SaccoId = submissionDetails.SaccoId,
             };
 
 

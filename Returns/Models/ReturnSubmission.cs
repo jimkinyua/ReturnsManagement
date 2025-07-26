@@ -38,5 +38,7 @@ namespace Returns.Models
         public ICollection<NWDTRiskClassificationReturn> NWDTRiskClassificationReturns { get; set; } = new List<NWDTRiskClassificationReturn>();
 
         public ICollection<AmendmentRequest> AmendmentRequests { get; set; } = new List<AmendmentRequest>();
+        public virtual ICollection<AdditionalInformationRequest> ReturnsAdditionalInformationRequests { get; set; } = new List<AdditionalInformationRequest>();
+
     }
 }

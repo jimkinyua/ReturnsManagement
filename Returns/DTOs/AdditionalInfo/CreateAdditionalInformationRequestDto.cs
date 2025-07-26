@@ -3,6 +3,6 @@
     public class CreateAdditionalInformationRequestDto
     {
         public string Description { get; set; } = null!;
-        public string ReturnId { get; set; } = null!;
+        public string ReturnSubmissionId { get; set; } = null!;
     }
 }
