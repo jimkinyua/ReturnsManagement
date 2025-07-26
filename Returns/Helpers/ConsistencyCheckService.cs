@@ -16,14 +16,63 @@ namespace Returns.Helpers
         private readonly ReturnsDbContext _context;
         private readonly ILogger<ConsistencyCheckService> _logger;
         private readonly IRatingDefinitionService _ratingDefinitionService;
+        private readonly IEmailService _emailService;
+        private readonly IComplianceService _complianceService;
 
-        public ConsistencyCheckService(ReturnsDbContext context, ILogger<ConsistencyCheckService> logger,
-            IRatingDefinitionService ratingDefinitionService)
+
+        public ConsistencyCheckService(
+            ReturnsDbContext context, 
+
+            ILogger<ConsistencyCheckService> logger,
+            IRatingDefinitionService ratingDefinitionService,
+            IEmailService emailService,
+            IComplianceService complianceService)
         {
             _context = context;
+            _context.ChangeTracker.QueryTrackingBehavior = QueryTrackingBehavior.NoTracking; // Optimize for read-only operations
             _logger = logger;
             _ratingDefinitionService = ratingDefinitionService;
+            _emailService = emailService;
+            _complianceService = complianceService;
         }
+
+        public async Task SendConsistencyReportAsync(string saccoId, List<ValidationError> consistencyErrors, string? commonPeriod)
+        {
+            try
+            {
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoId);
+                if (saccoDetails == null)
+                {
+                    _logger.LogWarning("Sacco {SaccoId} not found for consistency report.", saccoId);
+                    return;
+                }
+
+                string htmlReport = ReportsHelper.GenerateHtmlReport(consistencyErrors, commonPeriod);
+                byte[] consistencyReport = ReportsHelper.GenerateConsistencyPdfReport(consistencyErrors, commonPeriod);
+
+                // Send HTML email
+                await _emailService.SendEmailAsync(
+                    saccoDetails.OfficialSaccoEmail,
+                    "Validation Report - Consistency Errors",
+                    htmlReport);
+
+                // Send PDF attachment email
+                await _emailService.SendEmailWithAttachmentAsync(
+                    saccoDetails.OfficialSaccoEmail,
+                    "Validation Report - Consistency Errors",
+                    $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{commonPeriod}</strong>.</p>",
+                    consistencyReport,
+                    $"ValidationReport_{commonPeriod}.pdf"
+                );
+
+                _logger.LogInformation("Consistency report emails sent successfully for Sacco {SaccoId}.", saccoId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send consistency report for Sacco {SaccoId}.", saccoId);
+            }
+        }
+
 
         public async Task<(bool IsValid, List<string> ProcessingSummary, List<ValidationError> ConsistencyErrors, bool HasConsistencyBeenChecked, List<object> FormData, string? CommonPeriod)> CheckConsistencyAsync(NewReturnDTO createFormDTO, string ratingName, LoggedInEntity  loggedInEntity)
         {

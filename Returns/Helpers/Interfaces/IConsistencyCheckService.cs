@@ -6,6 +6,7 @@ namespace Returns.Helpers.Interfaces
 {
     public interface IConsistencyCheckService
     {
+        Task SendConsistencyReportAsync(string saccoId, List<ValidationError> consistencyErrors, string? commonPeriod);
         Task<(bool IsValid, List<string> ProcessingSummary, List<ValidationError> ConsistencyErrors, bool HasConsistencyBeenChecked, List<object> FormData, string CommonPeriod)> CheckConsistencyAsync(NewReturnDTO createFormDTO, string ratingName, LoggedInEntity loggedInEntity);
     }
 }

@@ -18,7 +18,8 @@ using System.Net;
 using FluentEmail.Core;
 using FluentEmail.Smtp;
 using Returns.DTOs.Compliance;
-using Microsoft.Extensions.DependencyInjection;  // Added for IServiceCollection
+using Microsoft.Extensions.DependencyInjection;
+using Returns.Helpers.Reminders;  // Added for IServiceCollection
 
 internal class Program
 {
@@ -143,8 +144,10 @@ internal class Program
         builder.Services.AddTransient<IExcelParser, ExcelParserService>();
         builder.Services.AddTransient<IReturnSubmissionService, ReturnSubmissionService>();
 
+        // Add ReturnsReminderService
+        builder.Services.AddScoped<ReturnsReminderService>();
+
         //builder.Services.AddScoped<FormProcessingService>();    
-        //builder.Services.AddScoped<ReturnsReminderService>();
         builder.Services.AddLogging();
 
 
@@ -203,12 +206,12 @@ internal class Program
 
         });
 
-        //RecurringJob.AddOrUpdate<ReturnsReminderService>(
-        // recurringJobId: "returns-reminder",
-        //methodCall: s => s.SendRemindersAsync(CancellationToken.None),
-        // cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
-        //timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
-        //queue: "reminders");
+        RecurringJob.AddOrUpdate<ReturnsReminderService>(
+         recurringJobId: "returns-reminder",
+        methodCall: s => s.SendRemindersAsync(CancellationToken.None),
+         cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
+        timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
+        queue: "reminders");
 
 
         app.UseCors("ALLOWED_ROUTES");

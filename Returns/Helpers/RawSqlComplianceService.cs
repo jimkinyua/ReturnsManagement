@@ -84,20 +84,19 @@ namespace Returns.Helpers
                     await connection.OpenAsync();
                     string sql = @"
                         SELECT  
-                            [Id],
-                            [SaccoName],
-                            [OfficialSaccoEmail],
-                            [ContactNumber],
-                            [Kra_Pin],
-                            [SaccoType],
-                            [IsApproved],
-                            [AuthorizedRepresentative],
-                            [ApprovedAt],
-                            [CooperativeSocietyNo],
-                            [TeamId],
-                            T.TeamName
-                            JOIN Teams T On T.Id = u.TeamId
-                        FROM [Saccos]";
+                        u.[Id],
+                        u.[SaccoName],
+                        u.[OfficialSaccoEmail],
+                        u.[ContactNumber],
+                        u.[Kra_Pin],
+                        u.[SaccoType],
+                        u.[IsApproved],
+                        u.[AuthorizedRepresentative],
+                        u.[ApprovedAt],
+                        u.[CooperativeSocietyNo],
+                        u.[TeamId]
+                    FROM [Saccos] u
+                    ";
 
                     using (var command = new SqlCommand(sql, connection))
                     {
@@ -118,8 +117,8 @@ namespace Returns.Helpers
                                     AuthorizedRepresentative = reader["AuthorizedRepresentative"]?.ToString() ?? string.Empty,
                                     ApprovedAt = reader["ApprovedAt"] as DateTime?,
                                     CooperativeSocietyNo = reader["CooperativeSocietyNo"]?.ToString() ?? string.Empty,
-                                    TeamId = reader["TeamId"]?.ToString() ?? string.Empty,
-                                    TeamName = reader["TeamName"]?.ToString() ?? string.Empty
+                                    TeamId = string.Empty, //reader["TeamId"]?.ToString() ?? string.Empty,
+                                    TeamName = string.Empty, //reader["TeamName"]?.ToString() ?? string.Empty
                                 };
                                 saccos.Add(sacco);
                             }
