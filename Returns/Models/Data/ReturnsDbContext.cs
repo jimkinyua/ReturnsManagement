@@ -80,6 +80,7 @@ namespace Returns.Models.Data
         public DbSet<AmendmentRequest> AmendmentRequests { get; set; }
         public DbSet<AdHocReturnRequest> AdHocReturnRequests { get; set; }
         public DbSet<CAELSRating> CAELSRatings { get; set; }
+        public DbSet<ConsistencyCheckResult> ConsistencyCheckResults { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

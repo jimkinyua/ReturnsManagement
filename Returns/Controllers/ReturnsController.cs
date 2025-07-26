@@ -114,7 +114,7 @@ namespace Returns.Controllers
                     return NotFound("No CAMEL rating definition found for this SACCO type.");
                 }
 
-                var result = await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco.SaccoType);
+                var result = await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
 
                 /*
                                 if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())

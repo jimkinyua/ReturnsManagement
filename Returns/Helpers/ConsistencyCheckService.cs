@@ -5,7 +5,9 @@ using Returns.Helpers.Enums;
 using Returns.Helpers.Interfaces;
 using Returns.Models;
 using Returns.Models.Data;
+using System.Text.Json;
 using static Returns.Helpers.ReturnAnalysisHelper;
+using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Helpers
 {
@@ -23,12 +25,12 @@ namespace Returns.Helpers
             _ratingDefinitionService = ratingDefinitionService;
         }
 
-        public async Task<(bool IsValid, List<string> ProcessingSummary, List<ValidationError> ConsistencyErrors, bool HasConsistencyBeenChecked, List<object> FormData, string? CommonPeriod)> CheckConsistencyAsync(NewReturnDTO createFormDTO, string ratingName, string SaccoType)
+        public async Task<(bool IsValid, List<string> ProcessingSummary, List<ValidationError> ConsistencyErrors, bool HasConsistencyBeenChecked, List<object> FormData, string? CommonPeriod)> CheckConsistencyAsync(NewReturnDTO createFormDTO, string ratingName, LoggedInEntity  loggedInEntity)
         {
             var processingSummary = new List<string>();
             var consistencyErrors = new List<ValidationError>();
             var formData = new List<object>();
-            string? commonPeriod = null; // Adjusted to nullable type to match the target type  
+            string? commonPeriod = null; 
 
             try
             {
@@ -61,8 +63,11 @@ namespace Returns.Helpers
                 }
 
                 // Step 5: Perform consistency validation  
-                var validationResult = PerformConsistencyValidation(parsedForms, SaccoType);
+                var validationResult = PerformConsistencyValidation(parsedForms, loggedInEntity.SaccoType);
                 consistencyErrors.AddRange(validationResult.ValidationErrors);
+
+                // Step 6: Save or update the consistency check result (upsert)
+                await SaveOrUpdateConsistencyCheckAsync(createFormDTO, loggedInEntity, validationResult.IsValid, consistencyErrors, ratingDefinition.Id);
 
                 formData.AddRange(parsedForms.Values);
                 return (validationResult.IsValid, processingSummary, consistencyErrors, true, formData, commonPeriod);
@@ -73,6 +78,50 @@ namespace Returns.Helpers
                 processingSummary.Add($"Unexpected error: {ex.Message}");
                 return (false, processingSummary, consistencyErrors, false, formData, commonPeriod);
             }
+        }
+
+        private async Task SaveOrUpdateConsistencyCheckAsync(NewReturnDTO createFormDTO, LoggedInEntity  loggedInEntity, bool isValid, List<ValidationError> errors, string ratingDefinitionId)
+        {
+            // Assume the first form's ExpectedReturn gives us the PeriodId (since all forms are for the same period in consistency check)
+            var firstForm = createFormDTO.FormUploads.FirstOrDefault();
+            if (firstForm == null) return;
+
+            var expectedReturn = await _context.ExpectedReturns.FindAsync(firstForm.ExpectedReturnId);
+            if (expectedReturn == null) return;
+
+            var periodId = expectedReturn.PeriodId;
+            var saccoId = loggedInEntity.SaccoId;
+
+            // Serialize errors to JSON
+            var errorsJson = JsonSerializer.Serialize(errors);
+
+            // Check if existing record for this SaccoId + PeriodId
+            var existingCheck = await _context.ConsistencyCheckResults
+                .FirstOrDefaultAsync(cc => cc.SaccoId == saccoId && cc.PeriodId == periodId);
+
+            if (existingCheck != null)
+            {
+                existingCheck.IsValid = isValid;
+                existingCheck.ErrorsJson = errorsJson;
+                existingCheck.CheckedAt = DateTime.UtcNow;
+                existingCheck.RatingDefinitionId = ratingDefinitionId;
+                _context.ConsistencyCheckResults.Update(existingCheck);
+            }
+            else
+            {
+                var newCheck = new ConsistencyCheckResult
+                {
+                    SaccoId = saccoId,
+                    PeriodId = periodId,
+                    RatingDefinitionId = ratingDefinitionId,
+                    IsValid = isValid,
+                    ErrorsJson = errorsJson,
+                    CheckedAt = DateTime.UtcNow
+                };
+                _context.ConsistencyCheckResults.Add(newCheck);
+            }
+
+            await _context.SaveChangesAsync();
         }
 
         private async Task<RatingDefination?> GetRatingDefinitionAsync(string ratingName, List<string> processingSummary)

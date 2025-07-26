@@ -8,6 +8,8 @@ using Returns.Helpers.Enums;
 using Returns.Helpers.Interfaces;
 using Returns.Models;
 using Returns.Models.Data;
+using System.Text.Json;
+using static Returns.Helpers.ReturnAnalysisHelper;
 
 namespace Returns.Helpers
 {
@@ -518,6 +520,17 @@ namespace Returns.Helpers
                     detailsDto.Status = GetGroupStatus(submissions);
                     detailsDto.SubmittedAt = submissions.Any() ? submissions.Max(s => s.SubmittedAt) : DateTime.MinValue;
                     detailsDto.GroupType = ReturnGroupType.Grouped;
+
+                    // Fetch the latest consistency check result and include errors
+                    var consistencyCheck = await _context.ConsistencyCheckResults
+                        .Where(cc => cc.SaccoId == saccoId && cc.PeriodId == periodId)
+                        .OrderByDescending(cc => cc.CheckedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (consistencyCheck != null)
+                    {
+                        detailsDto.ConsistencyErrors = JsonSerializer.Deserialize<List<ValidationError>>(consistencyCheck.ErrorsJson) ?? new List<ValidationError>();
+                    }
 
                     foreach (var submission in submissions)
                     {

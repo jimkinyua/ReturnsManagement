@@ -1,5 +1,6 @@
 using Returns.DTOs.Returns_Submission.DT;
 using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
+using Returns.Helpers;
 using System;
 
 namespace Returns.DTOs.Returns_Submission
@@ -29,6 +30,7 @@ namespace Returns.DTOs.Returns_Submission
         public object? FinancialPosition { get; set; }
         public object? ComprehensiveIncome { get; set; }
         public object? InvestmentReturn { get; set; }
+        public List<ReturnAnalysisHelper.ValidationError> ConsistencyErrors { get; internal set; }
     }
 
 
