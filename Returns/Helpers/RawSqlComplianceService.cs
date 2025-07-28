@@ -495,6 +495,49 @@ namespace Returns.Helpers
             }
         }
 
-
+        public Task<string?> GetTeamIdForSaccoAsync(string saccoId)
+        {
+            throw new NotImplementedException();
         }
+
+        public Task GetTeamLeadAsync(string teamId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<UserDTO> GetUserDetailsAsync(string tlUserId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<SaccoDTO>> GetSaccosForTeamAsync(string teamId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<TeamMemberDTO>> GetTeamMembersAsync(string teamId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<string?> GetTeamIdForUserAsync(string userId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<TeamLeadDTO> GetTeamLeaderAsync(string teamId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<List<SaccoDTO>> GetSaccosForTheTeamAsync(string teamId)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<SaccoDTO> GetSaccoByTheirIdAsync(string saccoId)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }
