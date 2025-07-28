@@ -380,7 +380,7 @@ namespace Returns.Helpers
             var uncachedIds = new List<string>();
 
             // Check cache first
-            foreach (var expectedReturnId in expectedReturnIds)
+          /*  foreach (var expectedReturnId in expectedReturnIds)
             {
                 var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
                 if (_cache.TryGetValue(cacheKey, out var cachedData))
@@ -395,7 +395,7 @@ namespace Returns.Helpers
 
             // If all data was cached, return immediately
             if (!uncachedIds.Any())
-                return result;
+                return result;*/
 
             // Fetch uncached data from database
             var submissions = await _context.ReturnSubmissions
