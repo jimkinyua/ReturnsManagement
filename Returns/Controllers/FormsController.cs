@@ -655,9 +655,11 @@ namespace Returns.Controllers
                     .Include(er => er.Period)
                         .ThenInclude(p => p.ReportingYear)
                     .Include(er => er.ReturnSubmissions.Where(rs => rs.IsActive))
-                    .Where(er => er.FilingDeadline.Date.Month >= firstDayOfMonth.Date.Month &&
-                                er.FilingDeadline.Date.Month <= lastDayOfMonth.Date.Month &&
-                                er.IsActive);
+                      .Where(er =>
+                            er.FilingDeadline.Date >= firstDayOfMonth &&
+                            er.FilingDeadline.Date <= lastDayOfMonth &&
+                            er.IsActive
+                        );
 
                 // Filter by sacco type if provided
                 if (!string.IsNullOrEmpty(saccoTypeId))
