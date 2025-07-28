@@ -81,6 +81,7 @@ namespace Returns.Models.Data
         public DbSet<AdHocReturnRequest> AdHocReturnRequests { get; set; }
         public DbSet<CAELSRating> CAELSRatings { get; set; }
         public DbSet<ConsistencyCheckResult> ConsistencyCheckResults { get; set; }
+        public DbSet<SaccoReminderLog> SaccoReminderLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

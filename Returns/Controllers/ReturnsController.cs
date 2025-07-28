@@ -2419,7 +2419,7 @@ namespace Returns.Controllers
                 if (result.Success)
                 {
                     var period = await _context.ReturnPeriods.FindAsync(request.PeriodId);
-                    if (period != null && period.FrequencyId == 5)  // 5 = QTR for quarterly
+                    if (period != null && period.FrequencyId == 5)  
                     {
                         var ratingDef = await _context.RatingDefinations
                             .Where(r => r.RatingName.Equals("CAELS") && r.SaccoType == loggedInSacco.SaccoType)

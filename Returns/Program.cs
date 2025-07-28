@@ -9,7 +9,6 @@ using Returns.Helpers.Interfaces.WorkFlow;
 using Hangfire;
 using Hangfire.SqlServer;
 using Hangfire.Dashboard;
-//using Returns.Helpers.Reminders;
 using System.Globalization;
 using TuesPechkin;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
@@ -19,248 +18,165 @@ using FluentEmail.Core;
 using FluentEmail.Smtp;
 using Returns.DTOs.Compliance;
 using Microsoft.Extensions.DependencyInjection;
-using Returns.Helpers.Reminders;  // Added for IServiceCollection
+using Returns.Helpers.Reminders;
 
-internal class Program
+var builder = WebApplication.CreateBuilder(args);
+
+// Configure culture settings
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo("en-KE");
+
+// Configure services
+var connectionString = builder.Configuration.GetConnectionString("ReturnsDbConnection");
+var emailCfg = builder.Configuration.GetSection("EmailSettings").Get<EmailSettings>()!;
+
+builder.Services.AddCors(options =>
 {
-    [Obsolete]
-    private static void Main(string[] args)
-    {
-        var builder = WebApplication.CreateBuilder(args);
+    options.AddPolicy("ALLOWED_ROUTES",
+        policy => policy.AllowAnyOrigin() // Consider restricting this; see security section below
+                       .AllowAnyHeader()
+                       .AllowAnyMethod());
+});
 
-        // Configure culture settings
-        ConfigureCulture();
+builder.Services.AddHttpClient<IEnforcementService, EnforcementService>(c =>
+{
+    c.BaseAddress = new Uri("https://sasra-backend.agilebiz.co.ke/gateway/api/enforcement/");
+});
 
-        // Configure services
-        ConfigureServices(builder);
+builder.Services.AddDbContext<ReturnsDbContext>(options =>
+    options.UseSqlServer(connectionString));
 
-        var app = builder.Build();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 
-        // Configure middleware pipeline
-        ConfigureMiddleware(app);
+// Register application services (unchanged, but moved inline)
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<DbInitializer>();
+builder.Services.AddScoped<ReturnsDbContext>();
+builder.Services.AddTransient<IEmailService, FluentEmailService>();
+builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();
+builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
+builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
+builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
+builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
+builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
+builder.Services.AddTransient<IEnforcementService, EnforcementService>();
+builder.Services.AddTransient<IReturnChild, ChildGetterService>();
+builder.Services.AddTransient<IPeriodGenerator, PeriodGenerator>();
+builder.Services.AddTransient<IReturnFormAttachmentService, ReturnFormAttachmentService>();
+builder.Services.AddTransient<IRatingDefinitionService, RatingDefinitionService>();
+builder.Services.AddTransient<IConsistencyCheckService, ConsistencyCheckService>();
+builder.Services.AddTransient<IAdminReturnService, AdminReturnService>();
+builder.Services.AddTransient<IReturnAmendmentPolicy, CutOffPolicy>();
+builder.Services.AddTransient<IAmendmentService, AmendmentService>();
+builder.Services.AddTransient<IExcelParser, ExcelParserService>();
+builder.Services.AddTransient<IReturnSubmissionService, ReturnSubmissionService>();
+builder.Services.AddScoped<ReturnsReminderService>();
+builder.Services.AddLogging();
 
-        // Initialize database
-        InitializeDatabase(app);
+// Configure Hangfire
+var conn = builder.Configuration.GetConnectionString("HangfireDbConnection")
+    ?? builder.Configuration.GetConnectionString("ReturnsDbConnection");
 
-        app.Run();
-    }
-
-    private static void ConfigureCulture()
-    {
-        CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = new CultureInfo("en-KE");
-    }
-
-    private static void ConfigureServices(WebApplicationBuilder builder)
-    {
-        // Get connection string from configuration
-        // Using ReturnsDbConnection which points to: Server=10.0.0.4;Database=Returns;User Id=erp;Password=Pass@7046.;
-        var connectionString = builder.Configuration.GetConnectionString("ReturnsDbConnection");
-        var emailCfg = builder.Configuration
-                       .GetSection("EmailSettings")
-                       .Get<EmailSettings>()!;
-        // Add CORS
-        builder.Services.AddCors(options =>
-        {
-            options.AddPolicy("ALLOWED_ROUTES",
-                policy => policy.AllowAnyOrigin()
-                               .AllowAnyHeader()
-                               .AllowAnyMethod());
-        });
-
-        builder.Services.AddHttpClient<IEnforcementService, EnforcementService>(c =>
-        {
-            c.BaseAddress = new Uri("https://sasra-backend.agilebiz.co.ke/gateway/api/enforcement/");
-        });
-
-
-
-        // Add DbContext with SQL Server connection
-        builder.Services.AddDbContext<ReturnsDbContext>(options =>
-            options.UseSqlServer(connectionString));
-
-        // Add API services
-        builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
-        builder.Services.AddControllers();
-        builder.Services.AddMemoryCache();
-
-
-        // Register application services
-        RegisterApplicationServices(builder);
-
-        // Configure Hangfire (uncommented and fixed)
-        ConfigureHangfire(builder);
-
-        // Configure PDF generation service
-        ConfigurePdfService(builder);
-
-        builder.Services
-       .AddFluentEmail(emailCfg.From)
-       .AddSmtpSender(() =>
+builder.Services.AddHangfire(cfg =>
+{
+    cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+       .UseSimpleAssemblyNameTypeSerializer()
+       .UseRecommendedSerializerSettings()
+       .UseSqlServerStorage(conn, new SqlServerStorageOptions
        {
-           var client = new SmtpClient(emailCfg.Host, emailCfg.Port)
-           {
-               EnableSsl = emailCfg.EnableSsl,
-               Credentials = new NetworkCredential(
-                                 emailCfg.UserName,
-                                 emailCfg.Password
-                             )
-           };
-           // optional: tweak ServicePoint.MaxIdleTime if you like
-           client.ServicePoint!.MaxIdleTime = 120_000;
-           return client;
+           CommandBatchMaxTimeout = TimeSpan.FromMinutes(10),
+           SlidingInvisibilityTimeout = TimeSpan.FromMinutes(30),
+           QueuePollInterval = TimeSpan.FromSeconds(5),
+           UsePageLocksOnDequeue = true,
+           DisableGlobalLocks = true
        });
+    cfg.UseFilter(new DisableConcurrentExecutionAttribute(300));
+});
 
-    }
+builder.Services.AddHangfireServer(opts =>
+{
+    opts.ServerName = $"reminder-srv-{Environment.MachineName}";
+    opts.WorkerCount = Math.Max(2, Environment.ProcessorCount * 4);
+    opts.Queues = new[] { "reminders", "default" };
+    opts.SchedulePollingInterval = TimeSpan.FromMinutes(40);
+    opts.ShutdownTimeout = TimeSpan.FromMinutes(40);
+});
 
-    private static void RegisterApplicationServices(WebApplicationBuilder builder)
+// Configure PDF service
+builder.Services.AddSingleton<IConverter>(provider =>
+    new ThreadSafeConverter(
+        new RemotingToolset<PdfToolset>(
+            new TempFolderDeployment())));
+
+// FluentEmail
+builder.Services
+    .AddFluentEmail(emailCfg.From)
+    .AddSmtpSender(() =>
     {
-        builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
-
-        // Core services
-        builder.Services.AddScoped<DbInitializer>();
-        builder.Services.AddScoped<ReturnsDbContext>();
-        //builder.Services.AddTransient<IEmailService, EmailService>();
-        builder.Services.AddTransient<IEmailService, FluentEmailService>();
-        //builder.Services.AddSingleton<IEmailService, EmailService>();   // NOT AddScoped / AddTransient
-
-        builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();
-        builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
-        builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
-        builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
-        builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
-        builder.Services.AddTransient<ICamelsAnalysisService, CamelsAnalysisService>();
-        builder.Services.AddTransient<IEnforcementService, EnforcementService>();
-        builder.Services.AddTransient<IReturnChild, ChildGetterService>();
-        builder.Services.AddTransient<IPeriodGenerator, PeriodGenerator>();
-        builder.Services.AddTransient<IReturnFormAttachmentService, ReturnFormAttachmentService>();
-        builder.Services.AddTransient<IRatingDefinitionService, RatingDefinitionService>();
-        builder.Services.AddTransient<IConsistencyCheckService, ConsistencyCheckService>();
-        builder.Services.AddTransient<IAdminReturnService, AdminReturnService>();
-        builder.Services.AddTransient<IReturnAmendmentPolicy, CutOffPolicy>();
-        builder.Services.AddTransient<IAmendmentService, AmendmentService>();
-
-        // Add Excel parsing and return submission services
-        builder.Services.AddTransient<IExcelParser, ExcelParserService>();
-        builder.Services.AddTransient<IReturnSubmissionService, ReturnSubmissionService>();
-
-        // Add ReturnsReminderService
-        builder.Services.AddScoped<ReturnsReminderService>();
-
-        //builder.Services.AddScoped<FormProcessingService>();    
-        builder.Services.AddLogging();
-
-
-        //builder.Services.AddTransient<IPdfReportService, PdfReportService>();
-    }
-
-    private static void ConfigureHangfire(WebApplicationBuilder builder)
-    {
-        var conn = builder.Configuration.GetConnectionString("HangfireDbConnection")
-            ?? builder.Configuration.GetConnectionString("ReturnsDbConnection");
-
-        builder.Services.AddHangfire(cfg =>
+        var client = new SmtpClient(emailCfg.Host, emailCfg.Port)
         {
-            cfg.SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
-               .UseSimpleAssemblyNameTypeSerializer()
-               .UseRecommendedSerializerSettings()
-               .UseSqlServerStorage(conn, new SqlServerStorageOptions
-               {
-                   // give long-running jobs breathing room
-                   CommandBatchMaxTimeout = TimeSpan.FromMinutes(10),
-                   SlidingInvisibilityTimeout = TimeSpan.FromMinutes(30),
+            EnableSsl = emailCfg.EnableSsl,
+            Credentials = new NetworkCredential(emailCfg.UserName, emailCfg.Password)
+        };
+        client.ServicePoint!.MaxIdleTime = 120_000;
+        return client;
+    });
 
-                   // snappy queue polling so devs �see something happen�
-                   QueuePollInterval = TimeSpan.FromSeconds(5),
+var app = builder.Build();
 
-                   // 1.8+ best-practice flags
-                   UsePageLocksOnDequeue = true,
-                   DisableGlobalLocks = true
-               });
-            cfg.UseFilter(new DisableConcurrentExecutionAttribute(300));
-        });
+// Configure middleware
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
+});
 
-        builder.Services.AddHangfireServer(opts =>
-        {
-            opts.ServerName = $"reminder-srv-{Environment.MachineName}";
-            opts.WorkerCount = Math.Max(2, Environment.ProcessorCount * 4);
-            opts.Queues = new[] { "reminders", "default" };
-            opts.SchedulePollingInterval = TimeSpan.FromMinutes(40);    // re-check Cron schedule quickly
-            opts.ShutdownTimeout = TimeSpan.FromMinutes(40);
-        });
-    }
+RecurringJob.AddOrUpdate<ReturnsReminderService>(
+    "returns-reminder",
+    s => s.SendRemindersAsync(CancellationToken.None),
+    "0 0 * * *",  // Changed to daily at midnight; see scheduling section below
+    TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
+    "reminders");
 
-    private static void ConfigurePdfService(WebApplicationBuilder builder)
+app.UseCors("ALLOWED_ROUTES");
+app.UseSwagger();
+app.UseSwaggerUI();
+app.UseHttpsRedirection();
+app.MapControllers();
+
+// Initialize database
+using var scope = app.Services.CreateScope();
+var services = scope.ServiceProvider;
+var maxRetries = 3;
+var retryDelay = TimeSpan.FromSeconds(5);
+
+var configuration = services.GetRequiredService<IConfiguration>();
+var connString = configuration.GetConnectionString("ReturnsDbConnection");
+Console.WriteLine($"Attempting database connection to server: {connString.Split(';')[0].Split('=')[1]}");  // Masked password; see security section
+
+for (int i = 0; i < maxRetries; i++)
+{
+    try
     {
-        builder.Services.AddSingleton<IConverter>(provider =>
-            new ThreadSafeConverter(
-                new RemotingToolset<PdfToolset>(
-                        new TempFolderDeployment())));
+        var context = services.GetRequiredService<ReturnsDbContext>();
+        context.Database.Migrate();
+
+        var dbInitializer = services.GetRequiredService<DbInitializer>();
+        dbInitializer.IntialiseCamelData(context);
+        dbInitializer.SeedFrequencyCatalog(context);
+        dbInitializer.SeedPeriods(context);
+        dbInitializer.SeedRatingDefinitionsForSaccoTypeDTSaccos(context);
+        dbInitializer.SeedRatingDefinitionsForSaccoTypeNWDTSaccos(context);
+        Console.WriteLine("Database migration and seeding complete");
+        break;
     }
-
-    private static void ConfigureMiddleware(WebApplication app)
+    catch (Exception ex)
     {
-        app.UseHangfireDashboard("/hangfire", new DashboardOptions
-        {
-            Authorization = new[] { new LocalRequestsOnlyAuthorizationFilter() }
-
-        });
-
-        RecurringJob.AddOrUpdate<ReturnsReminderService>(
-         recurringJobId: "returns-reminder",
-        methodCall: s => s.SendRemindersAsync(CancellationToken.None),
-         cronExpression: "*/5 * * * *",                              // every 5 minutes; tweak as needed
-        timeZone: TimeZoneInfo.FindSystemTimeZoneById("E. Africa Standard Time"),
-        queue: "reminders");
-
-
-        app.UseCors("ALLOWED_ROUTES");
-        app.UseSwagger();
-        app.UseSwaggerUI();
-        app.UseHttpsRedirection();
-        app.MapControllers();
-    }
-
-    private static void InitializeDatabase(WebApplication app)
-    {
-        using var scope = app.Services.CreateScope();
-        var services = scope.ServiceProvider;
-        var maxRetries = 3;
-        var retryDelay = TimeSpan.FromSeconds(5);
-
-        var configuration = services.GetRequiredService<IConfiguration>();
-        var connectionString = configuration.GetConnectionString("ReturnsDbConnection");
-        Console.WriteLine($"Attempting database connection with: {connectionString}");
-        var dbserverName = connectionString.Split(';')[0].Split('=')[1];
-        Console.WriteLine($"Database server name: {dbserverName}");
-
-        for (int i = 0; i < maxRetries; i++)
-        {
-            try
-            {
-                var context = services.GetRequiredService<ReturnsDbContext>();
-                context.Database.Migrate();
-
-                var dbInitializer = services.GetRequiredService<DbInitializer>();
-                dbInitializer.IntialiseCamelData(context);
-                dbInitializer.SeedFrequencyCatalog(context);
-                dbInitializer.SeedPeriods(context);
-                dbInitializer.SeedRatingDefinitionsForSaccoTypeDTSaccos(context);
-                dbInitializer.SeedRatingDefinitionsForSaccoTypeNWDTSaccos(context);
-                Console.WriteLine("Database migration and seeding complete");
-                return; // Success - exit the retry loop
-            }
-            catch (Exception ex)
-            {
-                if (i == maxRetries - 1) // Last attempt
-                {
-                    Console.WriteLine($"Failed to seed database after {maxRetries} attempts. Last error: {ex.Message}");
-                    throw; // Re-throw on final attempt
-                }
-
-                Console.WriteLine($"Attempt {i + 1} failed, retrying in {retryDelay.TotalSeconds} seconds... Error: {ex.Message}");
-                Thread.Sleep(retryDelay);
-            }
-        }
+        Console.WriteLine($"Attempt {i + 1} failed: {ex.Message}. Retrying in {retryDelay.TotalSeconds} seconds...");
+        if (i == maxRetries - 1) throw;
+        Thread.Sleep(retryDelay);
     }
 }
+
+app.Run();
