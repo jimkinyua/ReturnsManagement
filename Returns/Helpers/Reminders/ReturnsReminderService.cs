@@ -37,7 +37,7 @@ namespace Returns.Helpers.Reminders
 
         public async Task SendRemindersAsync(CancellationToken cancellationToken)
         {
-            try
+/*            try
             {
                 var now = DateTime.UtcNow;
 
@@ -206,7 +206,7 @@ namespace Returns.Helpers.Reminders
             {
                 _logger.LogError(ex, "Error sending returns reminders");
             }
-        }
+*/        }
 
         private bool IsValidEmail(string email)
         {
