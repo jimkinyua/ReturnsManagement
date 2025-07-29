@@ -86,25 +86,35 @@ namespace Returns.Controllers
             _returnAmendmentPolicy = returnAmendmentPolicy;
             this.complianceService = complianceService;
         }
-
         [HttpPost("CheckConsistency")]
-        public async Task<IActionResult> CheckConsistency([FromForm] NewReturnDTO createFormDTO)
+        public async Task<IActionResult> CheckConsistency([FromBody] CheckConsistencyDTO dto)
         {
-
             try
             {
-                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (string.IsNullOrEmpty(dto?.PeriodId))
+                {
+                    return BadRequest("PeriodId is required.");
+                }
 
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
-                    return StatusCode(401);
+                    return Unauthorized("Unauthorized access. Invalid Sacco details.");
                 }
 
-                var SaccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
-                if (SaccoDetails == null)
+                var saccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
+                if (saccoDetails == null)
                 {
-                    return NotFound("Sacco not found");
+                    return NotFound("Sacco not found.");
                 }
+
+                // Fetch the period details (assume Periods table exists with Id and PeriodName)
+                var period = await _context.ReturnPeriods.FirstOrDefaultAsync(p => p.Id == dto.PeriodId);
+                if (period == null)
+                {
+                    return NotFound("Period not found.");
+                }
+                string commonPeriod = period.Name ?? dto.PeriodId; // Use PeriodName if available, else Id
 
                 var ratingToUse = await _context.RatingDefinations
                     .Where(r => r.RatingName == "Consistency Check Forms DT" && r.SaccoType == loggedInSacco.SaccoType)
@@ -115,27 +125,82 @@ namespace Returns.Controllers
                     return NotFound("No CAMEL rating definition found for this SACCO type.");
                 }
 
-                var result = await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
-               
-                if (!result.IsValid)
+                // Fetch all ExpectedReturns for this period
+                var expectedReturns = await _context.ExpectedReturns
+                    .Where(er => er.PeriodId == dto.PeriodId)
+                    .Include(er => er.ReturnForm)
+                    .ToListAsync();
+
+                if (!expectedReturns.Any())
+                {
+                    return BadRequest("No expected returns found for this period.");
+                }
+
+                // Build FormUploads by fetching latest draft files
+                var formUploads = new List<ReturnFormUploadDTO>();
+                foreach (var expected in expectedReturns)
+                {
+                    // Get the latest submission (IsLatest=true, order by Version desc for safety)
+                    var latestSubmission = await _context.ReturnSubmissions
+                        .Where(s => s.ExpectedReturnId == expected.Id
+                                    && s.SaccoId == loggedInSacco.SaccoId
+                                    && s.IsLatest
+                                    && s.Status == SubmissionStatus.Draft.ToString()) // Ensure it's a draft
+                        .OrderByDescending(s => s.Version)
+                        .FirstOrDefaultAsync();
+
+                    if (latestSubmission == null || string.IsNullOrEmpty(latestSubmission.FileUrl))
+                    {
+                        continue; // Skip if no draft submission or no file
+                    }
+
+                    var file = await FormsHelper.GetFileFromUrlAsync(latestSubmission.FileUrl);
+                    if (file == null)
+                    {
+                        // Log but continue; service will handle missing
+                        _logger.LogWarning($"Failed to fetch file for ExpectedReturnId {expected.Id}: {latestSubmission.FileUrl}");
+                        continue;
+                    }
+
+                    formUploads.Add(new ReturnFormUploadDTO
+                    {
+                        formFile = file,
+                        ExpectedReturnId = expected.Id,
+                        FormId = expected.ReturnForm?.Id // Assuming ReturnForm.Id is string; adjust if Guid
+                    });
+                }
+
+                if (!formUploads.Any())
+                {
+                    return BadRequest("No draft submissions with files found for this period.");
+                }
+
+                // Build DTO for service
+                var createFormDTO = new NewReturnDTO { FormUploads = formUploads };
+
+                // Call service
+                var (isValid, processingSummary, consistencyErrors, hasChecked, formData, _) =
+                    await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
+
+                if (!isValid)
                 {
                     BackgroundJob.Enqueue<IConsistencyCheckService>(
                         s => s.SendConsistencyReportAsync(
-                              loggedInSacco.SaccoId,
-                              result.ConsistencyErrors,
-                              result.CommonPeriod
-                     ));
+                            loggedInSacco.SaccoId,
+                            consistencyErrors,
+                            commonPeriod // Use the fetched commonPeriod
+                        ));
                 }
-                return Ok(result.ConsistencyErrors);
+
+                // Return just the errors list (empty if valid)
+                return Ok(consistencyErrors);
             }
             catch (Exception ex)
             {
                 var errors = CustomErrorHandler.HandleException(ex);
-                var errorsasString = string.Join(", ", errors);
-                return StatusCode(500, errorsasString);
-
+                var errorsAsString = string.Join(", ", errors);
+                return StatusCode(500, errorsAsString);
             }
-
         }
 
         public sealed class FileProcessingException : Exception
@@ -319,7 +384,7 @@ namespace Returns.Controllers
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
-                    return Unauthorized();
+                    return Unauthorized("Unauthorized access. Invalid Sacco details.");
                 }
 
                 var today = DateTime.UtcNow.Date;
@@ -335,13 +400,21 @@ namespace Returns.Controllers
                     }
                 }
 
-                // If any errors, abort the whole request 
                 if (checkErrors.Any())
                 {
                     return BadRequest(string.Join("; ", checkErrors));
                 }
 
                 var results = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco);
+
+                var failedResults = results.Where(r => r.Status == SubmissionStatus.Failed).ToList();
+                if (failedResults.Any())
+                {
+                    var errorMessages = failedResults.SelectMany(r => r.Messages)
+                                                     .Distinct() 
+                                                     .ToList();
+                    return BadRequest(string.Join("; ", errorMessages));
+                }
 
                 return Ok(results);
             }
