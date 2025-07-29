@@ -2453,7 +2453,7 @@ namespace Returns.Controllers
             }
         }
 
-        private async Task SendSubmissionConfirmationEmailAsync(string saccoId, string periodId)
+        public async Task SendSubmissionConfirmationEmailAsync(string saccoId, string periodId)
         {
             try
             {
