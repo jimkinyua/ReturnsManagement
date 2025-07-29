@@ -74,7 +74,7 @@ namespace Returns.Helpers
                 return false;
             }
         }
-        public static async Task<string> SaveFileAsync(IFormFile file, string folder, string fileName = "")
+        public static async Task<string> SaveFileAsync(IFormFile file, string folder, string fileName = "", ILogger logger = null)
         {
             if (file == null || file.Length <= 0)
             {
@@ -86,11 +86,9 @@ namespace Returns.Helpers
                 folder = string.IsNullOrEmpty(folder) ? "default" : new string(folder.Where(c => !Path.GetInvalidPathChars().Contains(c)).ToArray());
                 var ModuleFolder = "Returns";
                 folder = Path.Combine(ModuleFolder, folder);
-                // Ensure the folder name is safe
-                if (folder.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
-                {
-                    throw new ArgumentException("Folder name contains invalid characters.");
-                }
+
+                // Normalize folder for URL with forward slashes
+                string urlFolder = folder.Replace('\\', '/');
 
                 string safeFileName;
                 if (string.IsNullOrEmpty(fileName))
@@ -125,8 +123,31 @@ namespace Returns.Helpers
 
                 var targetFolderPath = Path.Combine(hostStoragePath, folder);
 
-                // Ensure directory exists
-                Directory.CreateDirectory(targetFolderPath);
+                // Ensure directory exists with specific error handling
+                try
+                {
+                    Directory.CreateDirectory(targetFolderPath);
+                }
+                catch (UnauthorizedAccessException uae)
+                {
+                    logger?.LogError(uae, $"Unauthorized access when creating directory: {targetFolderPath}. Check permissions.");
+                    return null;
+                }
+                catch (PathTooLongException pte)
+                {
+                    logger?.LogError(pte, $"Path too long for directory: {targetFolderPath}. Consider shortening folder/file names.");
+                    return null;
+                }
+                catch (IOException ioe)
+                {
+                    logger?.LogError(ioe, $"I/O error creating directory: {targetFolderPath}. Directory may be on a read-only or inaccessible drive.");
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogError(ex, $"Unexpected error creating directory: {targetFolderPath}.");
+                    return null;
+                }
 
                 // Full path to save the file
                 var hostFilePath = Path.Combine(targetFolderPath, fullFileName);
@@ -136,6 +157,9 @@ namespace Returns.Helpers
                     await file.CopyToAsync(stream);
                 }
 
+                // Log success
+                logger?.LogInformation($"File saved at {hostFilePath}");
+
                 // Get file endpoint from environment or use default
                 string fileEndpoint = Environment.GetEnvironmentVariable("FILE_API_ENDPOINT") ?? "/api/files";
                 if (!fileEndpoint.StartsWith("/"))
@@ -143,19 +167,18 @@ namespace Returns.Helpers
                     fileEndpoint = "/" + fileEndpoint;
                 }
 
-                // URL encode the folder and filename to handle spaces and special characters
-                string encodedFolder = Uri.EscapeDataString(folder);
-                string encodedFileName = Uri.EscapeDataString(fullFileName);
+                // Build URL with forward slashes and escape segments
+                string escapedUrlFolder = string.Join("/", urlFolder.Split('/').Select(Uri.EscapeDataString));
+                string escapedFileName = Uri.EscapeDataString(fullFileName);
 
-                // Generate URL for the file that works with API Gateway
-                string fileUrl = $"/gateway{fileEndpoint}/{encodedFolder}/{encodedFileName}";
+                string fileUrl = $"/gateway{fileEndpoint}/{escapedUrlFolder}/{escapedFileName}";
 
                 return fileUrl;
             }
             catch (Exception ex)
             {
-                // Log the exception (consider using proper logging instead of Console.WriteLine)
-                Console.WriteLine($"Error saving file: {ex.Message}");
+                // Log the exception for file operations (e.g., FileStream creation or CopyToAsync)
+                logger?.LogError(ex, $"Error saving file to {folder}: {ex.Message}");
                 return null;
             }
         }

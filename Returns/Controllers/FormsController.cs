@@ -39,14 +39,12 @@ namespace Returns.Controllers
         [HttpPost("CreateForm")]
         public async Task<ActionResult<FormDTO>> CreateFormAsync([FromForm] CreateFormDTO createFormDTO)
         {
-            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value?.TrimEnd('/') ?? "";
             {
                 if (!ModelState.IsValid)
                 {
                     return BadRequest(ModelState);
                 }
-
-                // baseUrl = $"{this.Request.Scheme}://{this.Request.Host}{this.Request.PathBase}";
 
                 // Check if form of this type already exists
                 await FormsHelper.ValidateFormTypeUniqueness(createFormDTO, _context);
@@ -64,7 +62,6 @@ namespace Returns.Controllers
                         return StatusCode(500, "Failed to save template file.");
                     }
                 }
-                // for other, no need to attach a file
                 else
                 {
                     createFormDTO.Template = null;
@@ -95,7 +92,6 @@ namespace Returns.Controllers
                 };
 
                 return StatusCode(201, m);
-
             }
         }
         // delete form
