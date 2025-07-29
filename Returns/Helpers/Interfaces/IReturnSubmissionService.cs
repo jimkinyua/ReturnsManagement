@@ -6,6 +6,7 @@ namespace Returns.Helpers.Interfaces
 {
     public interface IReturnSubmissionService
     {
+        Task SendSubmissionConfirmationEmailAsync(string saccoId, string periodId);
         Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco);
         Task<IList<SubmissionResultDto>> SubmitFinalAsync(string submissionId);
         Task<Dictionary<string, (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt)>> GetSubmissionStatusesAsync(List<string> expectedReturnIds);

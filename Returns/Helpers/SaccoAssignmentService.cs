@@ -177,6 +177,68 @@ namespace Returns.Helpers
             return await _complianceService.GetTeamMembersAsync(teamLead.TeamId);
         }
 
+        public async Task<List<SaccoAssignmentDTO>> GetTeamAssignmentsAsync(string tlUserId)
+        {
+            var tlDetails = await _complianceService.GetUserDetailsAsync(tlUserId);
+            if (tlDetails == null || !tlDetails.IsTeamLead)
+            {
+                _logger.LogWarning("User {UserId} is not a Team Lead.", tlUserId);
+                throw new UnauthorizedAccessException("Only Team Leads can view team assignments.");
+            }
+
+            var teamId = tlDetails.TeamId;
+            if (string.IsNullOrEmpty(teamId))
+            {
+                _logger.LogWarning("Team Lead {UserId} has no TeamId.", tlUserId);
+                throw new InvalidOperationException("Team Lead has no assigned team.");
+            }
+
+            // Fetch SACCOs for team
+            var teamSaccos = await _complianceService.GetSaccosForTeamAsync(teamId);
+            if (!teamSaccos.Any())
+            {
+                return new List<SaccoAssignmentDTO>(); // No SACCOs in team
+            }
+
+            var assignments = await _context.SaccoAssignments
+                .Where(a => teamSaccos.Select(s => s.SaccoId).Contains(a.SaccoId))
+                .ToListAsync();
+
+            var result = new List<SaccoAssignmentDTO>();
+            foreach (var sacco in teamSaccos)
+            {
+                var assignment = assignments.FirstOrDefault(a => a.SaccoId == sacco.SaccoId);
+                UserDetailsDTO? assignedUser = null;
+
+                if (assignment != null)
+                {
+                    var user = await _complianceService.GetUserDetailsAsync(assignment.AssignedUserId);
+                    if (user != null)
+                    {
+                        assignedUser = new UserDetailsDTO
+                        {
+                            UserId = user.UserId,
+                            FullName = user.FullName,
+                            Email = user.Email,
+                            Role = user.Role,
+                            IsTeamLead = user.IsTeamLead,
+                            TeamId = user.TeamId
+                        };
+                    }
+                }
+
+                result.Add(new SaccoAssignmentDTO
+                {
+                    SaccoId = sacco.SaccoId,
+                    SaccoName = sacco.SaccoName,
+                    AssignedUser = assignedUser,
+                    AssignedAt = assignment?.AssignedAt
+                });
+            }
+
+            return result.OrderBy(a => a.SaccoName).ToList();
+        }
+
         public async Task UnassignSaccoAsync(string saccoId, string teamLeadId)
         {
             var teamId = await _complianceService.GetTeamIdForSaccoAsync(saccoId);

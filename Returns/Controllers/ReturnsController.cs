@@ -2513,8 +2513,8 @@ namespace Returns.Controllers
                         }
                     }
 
-                    // Enqueue email notification for successful submission
-                    BackgroundJob.Enqueue(() => SendSubmissionConfirmationEmailAsync(loggedInSacco.SaccoId, request.PeriodId));
+                    BackgroundJob.Enqueue<IReturnSubmissionService>(s => s.SendSubmissionConfirmationEmailAsync(loggedInSacco.SaccoId, request.PeriodId));
+
                 }
 
                 return Ok(result);
@@ -2526,36 +2526,7 @@ namespace Returns.Controllers
             }
         }
 
-        public async Task SendSubmissionConfirmationEmailAsync(string saccoId, string periodId)
-        {
-            try
-            {
-                var sacco = await complianceService.GetSaccoByIdAsync(saccoId);
-                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialSaccoEmail))
-                {
-                    _logger.LogWarning("Sacco {SaccoId} not found or no email for submission confirmation.", saccoId);
-                    return;
-                }
-
-                var period = await _context.ReturnPeriods.FindAsync(periodId);
-                if (period == null)
-                {
-                    _logger.LogWarning("Period {PeriodId} not found for submission confirmation.", periodId);
-                    return;
-                }
-
-                var subject = "Returns Submission Received";
-                var message = $"Dear {sacco.SaccoName},\n\nWe have received your returns for the period {period.Name}.\n\nThank you for your submission.\n\nBest regards,\nSASRA Team";
-
-                await _emailService.SendEmailAsync(sacco.OfficialSaccoEmail, subject, message);
-
-                _logger.LogInformation("Submission confirmation email sent to Sacco {SaccoId} for period {PeriodId}.", saccoId, periodId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error sending submission confirmation email for Sacco {SaccoId} and period {PeriodId}.", saccoId, periodId);
-            }
-        }
+       
 
         // Admin Grouped Returns Methods
         [HttpGet("admin/grouped-returns")]

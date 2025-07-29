@@ -56,7 +56,13 @@ builder.Services.AddScoped<DbInitializer>();
 builder.Services.AddScoped<ReturnsDbContext>();
 builder.Services.AddTransient<IEmailService, FluentEmailService>();
 builder.Services.AddTransient<IReturnAssignmentService, ReturnAssignmentService>();
-builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
+//builder.Services.AddTransient<IComplianceService, RawSqlComplianceService>();
+builder.Services
+  .AddHttpClient<IComplianceService, RawSqlComplianceService>(client =>
+  {
+      client.BaseAddress = new Uri(builder.Configuration["GatewayConfigs:GatewayURL"]!);
+  });
+
 builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
 builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
 builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
@@ -71,6 +77,7 @@ builder.Services.AddTransient<IAdminReturnService, AdminReturnService>();
 builder.Services.AddTransient<IReturnAmendmentPolicy, CutOffPolicy>();
 builder.Services.AddTransient<IAmendmentService, AmendmentService>();
 builder.Services.AddTransient<IExcelParser, ExcelParserService>();
+builder.Services.AddTransient<ISaccoAssignmentService, SaccoAssignmentService>();
 builder.Services.AddTransient<IReturnSubmissionService, ReturnSubmissionService>();
 builder.Services.AddScoped<ReturnsReminderService>();
 builder.Services.AddLogging();

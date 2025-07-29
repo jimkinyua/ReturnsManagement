@@ -19,14 +19,20 @@ namespace Returns.Helpers
         private readonly ILogger<ReturnSubmissionService> _logger;
         private readonly IMemoryCache _cache;
         private const string SubmissionStatusCacheKey = "SubmissionStatus_";
+        private readonly IComplianceService complianceService;
+        private readonly IEmailService _emailService;
 
         public ReturnSubmissionService(
             ReturnsDbContext context,
+            IComplianceService complianceService,
+            IEmailService emailService,
             IExcelParser excelParser,
             ILogger<ReturnSubmissionService> logger,
             IMemoryCache cache)
         {
             _context = context;
+            this.complianceService = complianceService;
+            _emailService = emailService;
             _excelParser = excelParser;
             _logger = logger;
             _cache = cache;
@@ -626,6 +632,37 @@ namespace Returns.Helpers
             return type.Name.Contains("AnonymousType") &&
                    type.GetProperty("Header") != null &&
                    type.GetProperty("InsiderLoans") != null;
+        }
+
+        public async Task SendSubmissionConfirmationEmailAsync(string saccoId, string periodId)
+        {
+            try
+            {
+                var sacco = await complianceService.GetSaccoByIdAsync(saccoId);
+                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialSaccoEmail))
+                {
+                    _logger.LogWarning("Sacco {SaccoId} not found or no email for submission confirmation.", saccoId);
+                    return;
+                }
+
+                var period = await _context.ReturnPeriods.FindAsync(periodId);
+                if (period == null)
+                {
+                    _logger.LogWarning("Period {PeriodId} not found for submission confirmation.", periodId);
+                    return;
+                }
+
+                var subject = "Returns Submission Received";
+                var message = $"Dear {sacco.SaccoName},\n\nWe have received your returns for the period {period.Name}.\n\nThank you for your submission.\n\nBest regards,\nSASRA Team";
+
+                await _emailService.SendEmailAsync(sacco.OfficialSaccoEmail, subject, message);
+
+                _logger.LogInformation("Submission confirmation email sent to Sacco {SaccoId} for period {PeriodId}.", saccoId, periodId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending submission confirmation email for Sacco {SaccoId} and period {PeriodId}.", saccoId, periodId);
+            }
         }
     }
 }

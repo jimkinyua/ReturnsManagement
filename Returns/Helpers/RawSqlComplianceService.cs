@@ -2,6 +2,8 @@
 using Returns.DTOs.Compliance;
 using Returns.Helpers.Interfaces;
 using System.Data;
+using System.Net.Http;
+using System.Text.Json;
 
 namespace Returns.Helpers
 {
@@ -10,13 +12,22 @@ namespace Returns.Helpers
 
         private readonly string _connectionString;
         private readonly ILogger<RawSqlComplianceService> _logger;
-
-        public RawSqlComplianceService(IConfiguration configuration, ILogger<RawSqlComplianceService> logger)
+        private readonly HttpClient _httpClient;
+        private readonly JsonSerializerOptions _jsonOpts = new()
         {
-            _connectionString = configuration.GetConnectionString("IdentityDbConnection");
+            PropertyNameCaseInsensitive = true
+        };
+
+
+        public RawSqlComplianceService(
+        HttpClient httpClient,
+        IConfiguration configuration,
+        ILogger<RawSqlComplianceService> logger)
+        {
+            _httpClient = httpClient;
+            _connectionString = configuration.GetConnectionString("IdentityDbConnection")!;
             _logger = logger;
         }
-
 
         public async Task<ComplianceOfficerInfo> GetAssignedComplianceOfficer(string saccoId)
         {
@@ -495,49 +506,114 @@ namespace Returns.Helpers
             }
         }
 
-        public Task<string?> GetTeamIdForSaccoAsync(string saccoId)
+        public async Task<string?> GetTeamIdForSaccoAsync(string saccoId)
         {
-            throw new NotImplementedException();
+            var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}/team-id");
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+
+            var root = doc.RootElement;
+            // if the endpoint returns just a raw string:
+            if (root.ValueKind == JsonValueKind.String)
+                return root.GetString();
+
+            // or if it returns { "teamId": "..." }
+            if (root.TryGetProperty("teamId", out var prop) && prop.ValueKind == JsonValueKind.String)
+                return prop.GetString();
+
+            return null;
         }
 
-        public Task GetTeamLeadAsync(string teamId)
+
+        public async Task<UserDTO> GetUserDetailsAsync(string tlUserId)
         {
-            throw new NotImplementedException();
+            var resp = await _httpClient.GetAsync($"/api/auth/users/{tlUserId}/details");
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            var user = await JsonSerializer
+                .DeserializeAsync<UserDTO>(stream, _jsonOpts);
+
+            if (user is null)
+                throw new InvalidOperationException("Empty user payload from auth API.");
+
+            return user;
         }
 
-        public Task<UserDTO> GetUserDetailsAsync(string tlUserId)
+        public async Task<List<SaccoDTO>> GetSaccosForTeamAsync(string teamId)
         {
-            throw new NotImplementedException();
+            // Call the gateway endpoint for this team’s sacco list
+            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/saccos-list");
+            resp.EnsureSuccessStatusCode();
+
+            // Stream‑deserialize into your DTO list
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            var saccos = await JsonSerializer.DeserializeAsync<List<SaccoDTO>>(stream, _jsonOpts);
+
+            // Return an empty list if the API returned null
+            return saccos ?? new List<SaccoDTO>();
         }
 
-        public Task<List<SaccoDTO>> GetSaccosForTeamAsync(string teamId)
+        public async Task<List<TeamMemberDTO>> GetTeamMembersAsync(string teamId)
         {
-            throw new NotImplementedException();
+            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/members");
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            var members = await JsonSerializer
+                .DeserializeAsync<List<TeamMemberDTO>>(stream, _jsonOpts);
+
+            return members ?? new List<TeamMemberDTO>();
         }
 
-        public Task<List<TeamMemberDTO>> GetTeamMembersAsync(string teamId)
+        public async Task<string?> GetTeamIdForUserAsync(string userId)
         {
-            throw new NotImplementedException();
+            var resp = await _httpClient.GetAsync($"/api/auth/users/{userId}/team-id");
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+
+            var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.String)
+                return root.GetString();
+            if (root.TryGetProperty("teamId", out var t))
+                return t.GetString();
+            return null;
         }
 
-        public Task<string?> GetTeamIdForUserAsync(string userId)
+        public async Task<TeamLeadDTO> GetTeamLeaderAsync(string teamId)
         {
-            throw new NotImplementedException();
+            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/team-lead");
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            var lead = await JsonSerializer.DeserializeAsync<TeamLeadDTO>(stream, _jsonOpts)
+                       ?? throw new InvalidOperationException($"No team lead returned for team {teamId}");
+            return lead;
         }
 
-        public Task<TeamLeadDTO> GetTeamLeaderAsync(string teamId)
+        public async Task<List<SaccoDTO>> GetSaccosForTheTeamAsync(string teamId)
         {
-            throw new NotImplementedException();
+            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/saccos-list");
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            var list = await JsonSerializer.DeserializeAsync<List<SaccoDTO>>(stream, _jsonOpts);
+            return list ?? new List<SaccoDTO>();
         }
 
-        public Task<List<SaccoDTO>> GetSaccosForTheTeamAsync(string teamId)
+        public async Task<SaccoDTO> GetSaccoByTheirIdAsync(string saccoId)
         {
-            throw new NotImplementedException();
-        }
+            var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}");
+            resp.EnsureSuccessStatusCode();
 
-        public Task<SaccoDTO> GetSaccoByTheirIdAsync(string saccoId)
-        {
-            throw new NotImplementedException();
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            var sacco = await JsonSerializer.DeserializeAsync<SaccoDTO>(stream, _jsonOpts)
+                        ?? throw new InvalidOperationException($"No SACCO data returned for ID {saccoId}");
+            return sacco;
         }
     }
 }

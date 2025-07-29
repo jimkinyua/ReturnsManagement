@@ -17,8 +17,7 @@
         Task AssignSaccoToMemberAsync(string saccoId, string memberId, string teamLeadId);
         Task<List<SaccoDTO>> GetAssignableSaccosAsync(string teamLeadId);
         Task<List<TeamMemberDTO>> GetTeamMembersAsync(string teamLeadId);
-
-        //Task<List<ComplianceOfficerDTO>> GetTeamMembersAsync(string teamLeadId);
         Task UnassignSaccoAsync(string saccoId, string teamLeadId);
+        Task<List<SaccoAssignmentDTO>> GetTeamAssignmentsAsync(string tlUserId);
     }
 }

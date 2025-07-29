@@ -13,6 +13,14 @@ namespace Returns.Helpers.Interfaces
         public string? TeamId { get; set; }
     }
 
+    public class SaccoAssignmentDTO
+    {
+        public string SaccoId { get; set; } = null!;
+        public string SaccoName { get; set; } = null!;
+        public UserDetailsDTO? AssignedUser { get; set; } 
+        public DateTime? AssignedAt { get; set; }
+    }
+
     public class TeamLeadDTO : UserDTO { }  // Inherits from UserDTO
 
     public class TeamMemberDTO : UserDTO { }  // Inherits from UserDTO
@@ -45,7 +53,6 @@ namespace Returns.Helpers.Interfaces
         Task<Sacco> GetSaccoByIdAsync(string saccoId);
         Task<List<Sacco>> GetSaccosAssignedToOfficerAsync(string userId);
         Task<string?> GetTeamIdForSaccoAsync(string saccoId);
-        Task GetTeamLeadAsync(string teamId);
         Task <UserDTO>GetUserDetailsAsync(string tlUserId);
         Task<List<SaccoDTO>> GetSaccosForTeamAsync(string teamId);  
         Task<List<TeamMemberDTO>> GetTeamMembersAsync(string teamId);  
