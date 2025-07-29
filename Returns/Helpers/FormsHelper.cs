@@ -1,11 +1,16 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Forms;
 using Returns.Models.Data;
+using System.ComponentModel.DataAnnotations;
+using System.Text.RegularExpressions;
 
 namespace Returns.Helpers
 {
     public static class FormsHelper
     {
+        private static readonly HttpClient _httpClient = new HttpClient();
+        private static readonly string _baseUrl = "https://sasra-backend.sasra.go.ke"; // Configurable base URL
+        private static IConfiguration _configuration;
         public static async Task ValidateFormTypeUniqueness(CreateFormDTO createFormDTO, ReturnsDbContext context)
         {
             // Check if a form with the same category already exists for this Sacco type
@@ -35,10 +40,15 @@ namespace Returns.Helpers
         public static bool IsValidExcelFile(IFormFile file)
         {
             // 1. Check file extension
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (extension != ".xlsx")
+            var extension = Path.GetExtension(file.FileName).ToLower();
+            string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+            if (sanitizedFileName != ".xlsx")
             {
-                return false;
+                throw new ValidationException(
+                                                        $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                        "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                        "Please save the sheet in .xlsx format and upload again.");
             }
 
             // 2. Check MIME type
@@ -192,59 +202,54 @@ namespace Returns.Helpers
                     return null;
                 }
 
-                // Extract the actual file path from the URL
-                string relativePath = fileUrl;
-                if (fileUrl.StartsWith("/gateway"))
-                {
-                    // Remove gateway prefix and extract the relative path
-                    var parts = fileUrl.Split('/').Skip(3).ToArray(); // Skip empty, "gateway", and "api/files"
-                    relativePath = string.Join("/", parts);
-                }
+                // Construct full URL if the input is a relative path (starts with /gateway)
+                string fullUrl = fileUrl.StartsWith("/gateway") ? _baseUrl + fileUrl : fileUrl;
 
-                // Get the configured storage path from environment variable
-                string hostStoragePath = Environment.GetEnvironmentVariable("HOST_STORAGE_PATH") ?? "C:/inetpub/wwwroot/RBSS/Uploads";
-                if (string.IsNullOrEmpty(hostStoragePath))
-                {
-                    throw new InvalidOperationException("HOST_STORAGE_PATH environment variable is not set.");
-                }
-                hostStoragePath = hostStoragePath.Replace('\\', '/'); // Normalize path separators
+                // Make HTTP GET request to the full URL
+                using var response = await _httpClient.GetAsync(fullUrl, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
 
-                // URL decode the file path to handle encoded spaces and special characters
-                relativePath = Uri.UnescapeDataString(relativePath);
-
-                // Construct the full file path
-                var fullFilePath = Path.Combine(hostStoragePath, relativePath);
-                if (!File.Exists(fullFilePath))
-                {
-                    Console.WriteLine($"File not found at path: {fullFilePath}");
-                    return null;
-                }
-
-                // Read the file into a MemoryStream
+                // Get the content stream
+                using var contentStream = await response.Content.ReadAsStreamAsync();
                 var memoryStream = new MemoryStream();
-                using (var fileStream = new FileStream(fullFilePath, FileMode.Open, FileAccess.Read))
-                {
-                    await fileStream.CopyToAsync(memoryStream);
-                }
+                await contentStream.CopyToAsync(memoryStream);
                 memoryStream.Position = 0; // Reset stream position
 
+                // Extract filename from the URL or Content-Disposition header
+                string fileName = Path.GetFileName(new Uri(fullUrl).AbsolutePath);
+                if (response.Content.Headers.ContentDisposition?.FileNameStar != null)
+                {
+                    fileName = response.Content.Headers.ContentDisposition.FileNameStar;
+                }
+                else if (response.Content.Headers.ContentDisposition?.FileName != null)
+                {
+                    fileName = response.Content.Headers.ContentDisposition.FileName;
+                }
+
+                // Determine content type from response headers, fallback to XLSX if not provided
+                string contentType = response.Content.Headers.ContentType?.MediaType ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
                 // Create FormFile
-                var fileName = Path.GetFileName(fullFilePath);
-                var formFile = new FormFile(memoryStream, 0, memoryStream.Length, fileName, fileName)
+                var formFile = new FormFile(memoryStream, 0, memoryStream.Length, Path.GetFileNameWithoutExtension(fileName), fileName)
                 {
                     Headers = new HeaderDictionary(),
-                    ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" // Assume XLSX
+                    ContentType = contentType
                 };
 
-                // Validate Excel file
+                // Validate Excel file if applicable
                 if (!IsValidExcelFile(formFile))
                 {
-                    Console.WriteLine($"Invalid Excel file at path: {fullFilePath}");
+                    Console.WriteLine($"Invalid Excel file at URL: {fullUrl}");
                     memoryStream.Dispose();
                     return null;
                 }
 
                 return formFile;
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"HTTP error retrieving file from URL {fileUrl}: {ex.Message}");
+                return null;
             }
             catch (Exception ex)
             {

@@ -343,7 +343,7 @@ namespace Returns.Helpers
         }
 
         private void PerformCapitalConsistencyChecks(dynamic? capitalAdequacy, dynamic? financialPosition, dynamic? comprehensiveIncome, ValidationResult result)
-        {
+            {
             if (capitalAdequacy?.Rows == null || financialPosition?.Rows == null) return;
 
             var capitalRows = capitalAdequacy.Rows;

@@ -499,7 +499,8 @@ namespace Returns.Helpers
             }
 
             var extension = Path.GetExtension(file.FileName).ToLower();
-            if (extension != ".xlsx")
+            string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+            if (sanitizedFileName != ".xlsx")
             {
                 throw new ValidationException(
                      $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -709,7 +710,8 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                          $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -848,7 +850,8 @@ namespace Returns.Helpers
                     throw new ArgumentException("The uploaded file is empty", nameof(file));
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+                if (sanitizedFileName != ".xlsx")
                     throw new ValidationException($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " + "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " + "Please save the sheet in .xlsx format and upload again.");
 
                 using (var stream = new MemoryStream())
@@ -1083,7 +1086,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                         $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -1301,7 +1306,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -1400,7 +1407,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -1509,7 +1518,8 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -1632,7 +1642,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -1755,7 +1767,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " + "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " + "Please save the sheet in .xlsx format and upload again.");
                 }
@@ -1869,7 +1883,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " + "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " + "Please save the sheet in .xlsx format and upload again.");
                 }
@@ -1990,7 +2006,9 @@ namespace Returns.Helpers
                 }
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2093,7 +2111,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2198,7 +2218,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2334,7 +2356,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2476,7 +2500,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2573,7 +2599,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
                                                             $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
@@ -2669,9 +2697,14 @@ namespace Returns.Helpers
                 }
 
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
-                    throw new ArgumentException($"Invalid file type. Expected .xlsx or .xls, got {extension}", nameof(file));
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
@@ -2779,12 +2812,14 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     throw new ValidationException(
-                      $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
-                      "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
-                      "Please save the sheet in .xlsx format and upload again.");
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
                 }
 
                 using (var stream = new MemoryStream())
