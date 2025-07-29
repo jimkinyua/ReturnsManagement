@@ -1,18 +1,25 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using static Returns.Helpers.ReturnAnalysisHelper;
 
 namespace Returns.DTOs.WorkFlow_Engine
 {
     public class WorkflowStateDto
     {
-        public string WorkflowInstanceId { get; set; }
-        public string ReturnId { get; set; }
-        public string CurrentStepId { get; set; }
-        public string CurrentApproverId { get; set; }
-        public string Status { get; set; } // "Pending", "RecommendForApproval", "Rejected"
+        public string WorkflowInstanceId { get; set; } = null!;
+        public string PeriodId { get; set; } = null!;
+        public string? ReturnSubmissionId { get; set; }
+        public string SaccoId { get; set; } = null!;
+        public string CurrentStepId { get; set; } = null!;
+        public string CurrentApproverId { get; set; } = null!;
+        public string Status { get; set; } = null!;
         public int? Rating { get; set; }
-        public Boolean IsFirst { get; set; } = false;
-        public Boolean IsLast { get; set; } = false;
+        //public string Type { get; set; } = "Standalone"; // "QGroup" or "Standalone"
+        public bool CanBeSeen { get; set; } = true;
+        public bool IsFirst { get; set; } = false;
+        public bool IsLast { get; set; } = false;
+        public bool IsConsistent { get; set; } = true; 
         public List<WorkflowStepDto> NextSteps { get; set; } = new();
+        public List<ValidationError> ConsistencyErrors { get; set; } = new(); 
     }
 
 

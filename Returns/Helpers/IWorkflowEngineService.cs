@@ -7,14 +7,13 @@ namespace Returns.Helpers
 {
     public interface IWorkflowEngineService
     {
-        Task<WorkflowStateDto> StartWorkflowAsync(Return SubmittedReturn, int Rating);
+        Task<WorkflowStateDto> StartWorkflowAsync(string periodId, string saccoId, string? returnSubmissionId, int rating);
         Task<WorkflowStateDto> ApproveStepAsync(ApproveStepRequestDTO approveStepRequestDTO, string userId);
-        Task<WorkflowStateDto> RejectStepAsync(string workflowId, string userId, RejectStepRequest request);
-        Task<WorkflowStateDto> GetCurrentStateAsync(string returnId);
+        //Task<WorkflowStateDto> RejectStepAsync(string workflowId, string userId, RejectStepRequest request);
+        Task<WorkflowStateDto> GetCurrentStateAsync(string? periodId, string? saccoId, string? returnSubmissionId);
         Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId);
-        Task<List<CommentDetails>> GetComments(string StepId);
-        Task<string> GetReturnStatus(string returnId);
-        Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId, string LoggedInUserToken);
+        Task<List<CommentDetails>> GetComments(string periodId, string saccoId, string? returnSubmissionId);
+        Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId, string loggedInUserToken);
         Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest dto, string userId);
     }
 }

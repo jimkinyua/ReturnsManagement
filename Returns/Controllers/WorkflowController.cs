@@ -17,7 +17,7 @@ namespace Returns.Controllers
         private readonly IWorkflowEngineService _workflowService;
         private readonly ILogger<WorkflowController> _logger;
 
-        public WorkflowController(IWorkflowEngineService workflowService,ILogger<WorkflowController> logger)
+        public WorkflowController(IWorkflowEngineService workflowService, ILogger<WorkflowController> logger)
         {
             _workflowService = workflowService;
             _logger = logger;
@@ -29,9 +29,9 @@ namespace Returns.Controllers
             try
             {
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
                 {
-                    return StatusCode(401);
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
                 }
 
                 var results = await _workflowService.GetPendingReturnsAsync(loggedInSacco.UserId);
@@ -39,131 +39,172 @@ namespace Returns.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to fetch pending returns");
-                return StatusCode(500, "Internal server error");
+                _logger.LogError(ex, "Failed to fetch pending returns.");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
-
-        [HttpGet("ApprovalRequestComments/{ReturnId}")]
-        public async Task<ActionResult<List<CommentDetails>>> ApprovalRequestComments(string ReturnId)
+        [HttpGet("ApprovalRequestComments")]
+        public async Task<ActionResult<List<CommentDetails>>> ApprovalRequestComments(
+            [FromQuery] string? periodId,
+            [FromQuery] string? saccoId,
+            [FromQuery] string? returnSubmissionId)
         {
             try
             {
-                var results = await _workflowService.GetComments(ReturnId);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
+                }
+
+                var results = await _workflowService.GetComments(periodId, saccoId, returnSubmissionId);
                 return Ok(results);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid parameters for fetching comments.");
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to fetch pending returns");
-                return StatusCode(500, ex.Message);
+                _logger.LogError(ex, "Failed to fetch comments for period {PeriodId}, SACCO {SaccoId}, or return {ReturnSubmissionId}.", periodId, saccoId, returnSubmissionId);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
         [HttpPost("ApproveRequest")]
         public async Task<IActionResult> ApproveRequest([FromBody] ApproveStepRequestDTO approveStepRequestDTO)
         {
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }
-
             try
             {
-                //var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO.WorkFlowInstanceId, loggedInSacco.RequestedBy);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
+                }
+
                 var result = await _workflowService.ApproveStepAsync(approveStepRequestDTO, loggedInSacco.UserId);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                _logger.LogWarning(ex, "Unauthorized approval attempt for workflow {WorkflowId}.", approveStepRequestDTO.WorkFlowInstanceId);
+                return StatusCode(403, ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation for approving workflow {WorkflowId}.", approveStepRequestDTO.WorkFlowInstanceId);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Approval failed for workflow {approveStepRequestDTO.WorkFlowInstanceId}");
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "Failed to approve workflow {WorkflowId}.", approveStepRequestDTO.WorkFlowInstanceId);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
         [HttpPost("RecommendForEnforcement")]
-        public async Task<IActionResult> RecommendForEnforcement([FromBody] RecommendStepRequest rejectStepRequestDTO)
+        public async Task<IActionResult> RecommendForEnforcement([FromBody] RecommendStepRequest recommendStepRequestDTO)
         {
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }
             try
             {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
+                }
+
                 var bearer = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
-                if (string.IsNullOrWhiteSpace(bearer) ||!bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
-                return Unauthorized();
+                if (string.IsNullOrWhiteSpace(bearer) || !bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing bearer token.");
+                }
 
-                var accessToken = bearer["Bearer ".Length..].Trim();   // strip the prefix
-
-                var result = await _workflowService.RecommendForEnforcementAsync(rejectStepRequestDTO, loggedInSacco.UserId, accessToken);
-                //var result = await _workflowService.RejectStepAsync(rejectStepRequestDTO.WorkFlowInstanceId, "7ded1b0a-bca9-491e-8880-3743d4b3cae5", rejectStepRequestDTO);
+                var accessToken = bearer["Bearer ".Length..].Trim();
+                var result = await _workflowService.RecommendForEnforcementAsync(recommendStepRequestDTO, loggedInSacco.UserId, accessToken);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                _logger.LogWarning(ex, "Unauthorized enforcement recommendation for workflow {WorkflowId}.", recommendStepRequestDTO.WorkFlowInstanceId);
+                return StatusCode(403, ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation for recommending enforcement for workflow {WorkflowId}.", recommendStepRequestDTO.WorkFlowInstanceId);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Rejection failed for workflow {rejectStepRequestDTO.WorkFlowInstanceId}");
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "Failed to recommend enforcement for workflow {WorkflowId}.", recommendStepRequestDTO.WorkFlowInstanceId);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
-        //[Authorize(AuthenticationSchemes = "Bearer")]
         [HttpPost("RejectWithReservations")]
         public async Task<IActionResult> RejectWithReservations([FromBody] ReturnWithReservationsRequest rejectStepRequestDTO)
         {
-            LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }
             try
             {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
+                }
+
                 var result = await _workflowService.ReturnWithReservationsAsync(rejectStepRequestDTO, loggedInSacco.UserId);
                 return Ok(result);
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                _logger.LogWarning(ex, "Unauthorized rejection attempt for workflow {WorkflowId}.", rejectStepRequestDTO.WorkFlowInstanceId);
+                return StatusCode(403, ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation for rejecting workflow {WorkflowId}.", rejectStepRequestDTO.WorkFlowInstanceId);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Rejection failed for workflow {rejectStepRequestDTO.WorkFlowInstanceId}");
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "Failed to reject workflow {WorkflowId}.", rejectStepRequestDTO.WorkFlowInstanceId);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
-
-        [HttpGet("CurrentState/{returnId}")]
-        public async Task<IActionResult> GetCurrentState(string returnId)
+        [HttpGet("CurrentState")]
+        public async Task<IActionResult> GetCurrentState(
+            [FromQuery] string? periodId,
+            [FromQuery] string? saccoId,
+            [FromQuery] string? returnSubmissionId)
         {
-            /*LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-            if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoCsNumber) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-            {
-                return StatusCode(401);
-            }*/
             try
             {
-                var result = await _workflowService.GetCurrentStateAsync(returnId);
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
+                }
+
+                var result = await _workflowService.GetCurrentStateAsync(periodId, saccoId, returnSubmissionId);
                 return Ok(result);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid parameters for fetching current state.");
+                return BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Workflow not found for period {PeriodId}, SACCO {SaccoId}, or return {ReturnSubmissionId}.", periodId, saccoId, returnSubmissionId);
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to fetch current state for return {returnId}");
-                return BadRequest(ex.Message);
+                _logger.LogError(ex, "Failed to fetch current state for period {PeriodId}, SACCO {SaccoId}, or return {ReturnSubmissionId}.", periodId, saccoId, returnSubmissionId);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
-
-
-
     }
 }

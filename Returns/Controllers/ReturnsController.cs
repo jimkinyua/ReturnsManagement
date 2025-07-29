@@ -179,8 +179,7 @@ namespace Returns.Controllers
                 var createFormDTO = new NewReturnDTO { FormUploads = formUploads };
 
                 // Call service
-                var (isValid, processingSummary, consistencyErrors, hasChecked, formData, _) =
-                    await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
+                var (isValid, processingSummary, consistencyErrors, hasChecked, formData, _) =await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
 
                 if (!isValid)
                 {
@@ -190,10 +189,10 @@ namespace Returns.Controllers
                             consistencyErrors,
                             commonPeriod // Use the fetched commonPeriod
                         ));
-                }
 
-                // Return just the errors list (empty if valid)
-                return Ok(consistencyErrors);
+                    return BadRequest(consistencyErrors);
+                }
+                return Ok();
             }
             catch (Exception ex)
             {
@@ -2473,8 +2472,7 @@ namespace Returns.Controllers
 
 
         [HttpPost("BulkSubmitByPeriod")]
-        public async Task<ActionResult<BulkSubmissionResultDTO>> BulkSubmitByPeriod(
-    [FromBody] BulkSubmissionRequestDTO request)
+        public async Task<ActionResult> BulkSubmitByPeriod([FromBody] BulkSubmissionRequestDTO request)
         {
             try
             {
@@ -2489,44 +2487,47 @@ namespace Returns.Controllers
                     loggedInSacco.SaccoId,
                     loggedInSacco.SaccoType);
 
-                if (result.Success)
+                if (!result.Success)
                 {
-                    var period = await _context.ReturnPeriods.FindAsync(request.PeriodId);
-                    if (period != null && period.FrequencyId == 5)  
-                    {
-                        var ratingDef = await _context.RatingDefinations
-                            .Where(r => r.RatingName.Equals("CAELS") && r.SaccoType == loggedInSacco.SaccoType)
-                            .OrderByDescending(r => r.CreatedAt)
-                            .FirstOrDefaultAsync();
-
-                        if (ratingDef != null)
-                        {
-                            BackgroundJob.Enqueue<ICamelsAnalysisService>(s => s.CalculateCurrentDepositTakingAnalysisAsync(
-                                ratingDef.Id,  // groupId
-                                request.PeriodId,
-                                loggedInSacco.SaccoId
-                                ));
-                        }
-                        else
-                        {
-                            _logger.LogWarning("No CAELS rating definition found for saccoType {SaccoType}", loggedInSacco.SaccoType);
-                        }
-                    }
-
-                    BackgroundJob.Enqueue<IReturnSubmissionService>(s => s.SendSubmissionConfirmationEmailAsync(loggedInSacco.SaccoId, request.PeriodId));
-
+                    // Handle cases where the operation failed but no exception was thrown
+                    return StatusCode(400, result.Message); // Bad Request for validation or process failures
                 }
 
-                return Ok(result);
+                // Success case with additional processing
+                var period = await _context.ReturnPeriods.FindAsync(request.PeriodId);
+                if (period != null && period.FrequencyId == 5)
+                {
+                    var ratingDef = await _context.RatingDefinations
+                        .Where(r => r.RatingName.Equals("CAELS") && r.SaccoType == loggedInSacco.SaccoType)
+                        .OrderByDescending(r => r.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (ratingDef != null)
+                    {
+                        BackgroundJob.Enqueue<ICamelsAnalysisService>(s => s.CalculateCurrentDepositTakingAnalysisAsync(
+                            ratingDef.Id,
+                            request.PeriodId,
+                            loggedInSacco.SaccoId
+                        ));
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No CAELS rating definition found for saccoType {SaccoType}", loggedInSacco.SaccoType);
+                    }
+                }
+
+                BackgroundJob.Enqueue<IReturnSubmissionService>(s => s.SendSubmissionConfirmationEmailAsync(loggedInSacco.SaccoId, request.PeriodId));
+
+                return Ok(result); // 200 OK with the result object
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in bulk submission for period {PeriodId}", request.PeriodId);
-                return StatusCode(500, new { error = "An error occurred during bulk submission", details = ex.Message });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
-       
+
 
         // Admin Grouped Returns Methods
         [HttpGet("admin/grouped-returns")]
