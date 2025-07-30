@@ -10,6 +10,8 @@ using static Returns.Helpers.Constants;
 using Microsoft.Extensions.Caching.Memory;
 using static Returns.Helpers.TokenHelper;
 using Hangfire;
+using System.Text.Json;
+using Returns.DTOs.Forms;
 
 namespace Returns.Helpers
 {
@@ -25,6 +27,8 @@ namespace Returns.Helpers
         private readonly IBackgroundJobClient _backgroundJobClient;
         private readonly IWorkflowEngineService _workflowService;
         private readonly ICamelsAnalysisService _camelsAnalysisService;
+        private readonly IConsistencyCheckService _consistencyCheckService;
+
 
 
         public ReturnSubmissionService(
@@ -33,6 +37,7 @@ namespace Returns.Helpers
             IEmailService emailService,
             IBackgroundJobClient backgroundJobClient,
             IExcelParser excelParser,
+            IConsistencyCheckService consistencyCheckService,
             IWorkflowEngineService workflowService,
             ICamelsAnalysisService camelsAnalysisService,
             ILogger<ReturnSubmissionService> logger,
@@ -44,6 +49,7 @@ namespace Returns.Helpers
             _excelParser = excelParser;
             _logger = logger;
             _cache = cache;
+            _consistencyCheckService = consistencyCheckService;
             _backgroundJobClient = backgroundJobClient;
             _workflowService = workflowService;
             _camelsAnalysisService = camelsAnalysisService;
@@ -537,10 +543,8 @@ namespace Returns.Helpers
 
             try
             {
-                // 1. Get all expected returns for the period
                 var expectedReturns = await _context.ExpectedReturns
                     .Include(er => er.ReturnForm)
-                    .Include(er => er.Period)
                     .Include(er => er.ReturnSubmissions.Where(rs => rs.IsActive))
                     .Where(er => er.PeriodId == periodId &&
                                 er.IsActive &&
@@ -554,11 +558,11 @@ namespace Returns.Helpers
                     return result;
                 }
 
-                // 2. Get submission statuses without cache
+                // Get submission statuses without cache to ensure fresh data
                 var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
                 var submissionStatuses = await GetSubmissionStatusesAsync(expectedReturnIds, useCache: false);
 
-                // 3. Filter to only draft submissions
+                // Filter to only draft submissions
                 var draftReturns = expectedReturns.Where(er =>
                 {
                     var status = submissionStatuses.GetValueOrDefault(er.Id).Status;
@@ -572,96 +576,50 @@ namespace Returns.Helpers
                     return result;
                 }
 
-                result.TotalForms = draftReturns.Count;
+                result.TotalForms = draftReturns.Count();
+                var details = new List<BulkSubmissionDetailDTO>();
 
                 foreach (var expectedReturn in draftReturns)
                 {
+
                     try
                     {
-                        // 4. Get the latest submission
+                        // Get the latest submission (already tracked with expectedReturn)
                         var latestSubmission = expectedReturn.ReturnSubmissions
                             .OrderByDescending(rs => rs.SubmittedAt)
                             .FirstOrDefault();
 
                         if (latestSubmission == null)
                         {
-                            throw new InvalidOperationException("No draft submission found.");
+                            throw new Exception("No draft submission found.");
                         }
 
-                        // 5. Update submission status to Submitted
                         latestSubmission.Status = SubmissionStatus.Submitted.ToString();
                         latestSubmission.SubmittedAt = DateTime.UtcNow;
                         _context.Entry(latestSubmission).State = EntityState.Modified;
                         _context.ReturnSubmissions.Update(latestSubmission);
-
-                        // Debug log
+                        // Debug log to verify status changes before save
                         _logger.LogInformation("Before save - Submission Status: {Status}, ExpectedReturn Status: {ExpectedStatus}",
                             latestSubmission.Status, expectedReturn.Status);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error processing submission for expected return {ExpectedReturnId}", expectedReturn.Id);
-                        throw; // Re-throw to trigger rollback
+                        throw; // Throw to trigger rollback and stop processing
                     }
                 }
 
-                // 6. Save changes
+                // Save all changes inside transaction
                 int changesSaved = await _context.SaveChangesAsync();
                 _logger.LogInformation("Saved {ChangesSaved} changes to database", changesSaved);
                 await transaction.CommitAsync();
 
-                // 7. Set result
                 result.Success = true;
-                result.Message = $"Successfully submitted {draftReturns.Count} forms.";
-                result.SuccessfullySubmitted = draftReturns.Count;
+                result.Message = $"Successfully submitted {draftReturns.Count()} forms.";
+                result.Details = details;
+                result.SuccessfullySubmitted = draftReturns.Count();
 
-                // 8. Enqueue submission confirmation email
-                _backgroundJobClient.Enqueue(() => SendSubmissionConfirmationEmailAsync(saccoId, periodId));
-
-                // 9. Enqueue workflow start
-                var period = await _context.ReturnPeriods.FindAsync(periodId);
-                if (period != null)
-                {
-                    if (period.FrequencyId == 5) // QTR for quarterly group
-                    {
-                        // Q group: Single workflow for all submissions
-                        _backgroundJobClient.Enqueue(() => _workflowService.StartWorkflowAsync(periodId, saccoId, null, 0));
-
-                        // Enqueue CAELS rating calculation
-                        var ratingDef = await _context.RatingDefinations
-                            .Where(r => r.RatingName.Contains("CAELS") && r.SaccoType == saccoType)
-                            .OrderByDescending(r => r.CreatedAt)
-                            .FirstOrDefaultAsync();
-
-                        if (ratingDef != null)
-                        {
-                            if (saccoType == "0")
-                            {
-                                _backgroundJobClient.Enqueue(() => _camelsAnalysisService.CalculateCurrentDepositTakingAnalysisAsync(
-                                                            ratingDef.Id, periodId, saccoId));
-                            }
-                                               
-                        }
-                        else
-                        {
-                            _logger.LogWarning("No CAELS rating definition found for saccoType {SaccoType}", saccoType);
-                        }
-                    }
-                    else
-                    {
-                        // Non-Q: Workflow for each submission
-                        foreach (var expectedReturn in draftReturns)
-                        {
-                            var latestSubmission = expectedReturn.ReturnSubmissions
-                                .OrderByDescending(rs => rs.SubmittedAt)
-                                .FirstOrDefault();
-                            if (latestSubmission != null)
-                            {
-                                _backgroundJobClient.Enqueue(() => _workflowService.StartWorkflowAsync(periodId, saccoId, latestSubmission.Id, 0));
-                            }
-                        }
-                    }
-                }
+                // Update ReturnCompleteness table after successful submission
+                await UpdateReturnCompletenessAsync(periodId, saccoId, saccoType);
 
                 return result;
             }
@@ -673,6 +631,126 @@ namespace Returns.Helpers
                 result.Message = $"An error occurred during bulk submission: {ex.Message}";
                 result.FailedSubmissions = result.TotalForms - result.SuccessfullySubmitted;
                 return result;
+            }
+        }
+
+        private async Task UpdateReturnCompletenessAsync(string periodId, string saccoId, string saccoType)
+        {
+            // Fetch all expected returns for the period and saccoType
+            var expectedReturns = await _context.ExpectedReturns
+                .Where(er => er.PeriodId == periodId && er.ReturnForm.SaccoTypeId == saccoType)
+                .Select(er => er.ReturnForm.Code)
+                .ToListAsync();
+
+            var expectedCount = expectedReturns.Count;
+
+            // Fetch all filed submissions for the SACCO and period
+            var filedSubmissions = await _context.ReturnSubmissions
+                .Include(rs => rs.ExpectedReturn)
+                .Where(rs => rs.SaccoId == saccoId && rs.ExpectedReturn.PeriodId == periodId && rs.Status == ExpectedStatus.Filed.ToString())
+                .ToListAsync();
+
+            var FiledCodes = filedSubmissions.Select(fs => fs.ExpectedReturn.ReturnForm.Code).ToList();
+
+            var actualCount = filedSubmissions.Count;
+
+            // Calculate missing forms
+            var missingForms = expectedReturns.Except(FiledCodes).ToList();
+            var missingFormsJson = JsonSerializer.Serialize(missingForms);
+
+            var isComplete = expectedCount == actualCount;
+
+            // Fetch or create ReturnCompleteness record
+            var completeness = await _context.ReturnCompleteness
+                .FirstOrDefaultAsync(rc => rc.PeriodId == periodId && rc.SaccoId == saccoId);
+
+            if (completeness != null)
+            {
+                // Update existing record
+                completeness.IsComplete = isComplete;
+                completeness.ExpectedReturnCount = expectedCount;
+                completeness.ActualReturnCount = actualCount;
+                completeness.MissingForms = missingFormsJson;
+                completeness.LastUpdated = DateTime.UtcNow;
+                _context.ReturnCompleteness.Update(completeness);
+            }
+            else
+            {
+                // Create new record
+                completeness = new ReturnCompleteness
+                {
+                    PeriodId = periodId,
+                    SaccoId = saccoId,
+                    IsComplete = isComplete,
+                    ExpectedReturnCount = expectedCount,
+                    ActualReturnCount = actualCount,
+                    MissingForms = missingFormsJson,
+                    LastUpdated = DateTime.UtcNow
+                };
+                await _context.ReturnCompleteness.AddAsync(completeness);
+            }
+
+            await _context.SaveChangesAsync();
+
+            // If incomplete, do not conduct consistency check (skip enqueue or call)
+            if (!isComplete)
+            {
+                // Notify SACCO about missing forms
+                _backgroundJobClient.Enqueue(() => SendIncompleteSubmissionNotificationAsync(saccoId, periodId, missingForms.Count));
+                return;
+            }
+
+            // Fetch rating definition for consistency check
+            var ratingToUse = await _context.RatingDefinations
+                .Where(r => r.RatingName == "Consistency Check Forms DT" && r.SaccoType == saccoType)
+                .OrderByDescending(r => r.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (ratingToUse == null)
+            {
+                _logger.LogWarning("No consistency rating definition found for saccoType {SaccoType}", saccoType);
+                return;
+            }
+
+            // Build FormUploads from filed submissions
+            var formUploads = new List<ReturnFormUploadDTO>();
+            foreach (var item in filedSubmissions)
+            {
+                var file = await FormsHelper.GetFileFromUrlAsync(item.FileUrl);
+                if (file == null)
+                {
+                    _logger.LogWarning("Failed to fetch file for submission {SubmissionId}", item.Id);
+                    continue;
+                }
+
+                formUploads.Add(new ReturnFormUploadDTO
+                {
+                    formFile = file,
+                    ExpectedReturnId = item.ExpectedReturnId,
+                    FormId = item.ExpectedReturn.ReturnForm?.Id
+                });
+            }
+
+            if (!formUploads.Any())
+            {
+                _logger.LogWarning("No files found for consistency check for period {PeriodId} and sacco {SaccoId}", periodId, saccoId);
+                return;
+            }
+
+            var createFormDTO = new NewReturnDTO { FormUploads = formUploads };
+
+            // Call consistency check
+            var (isValid, processingSummary, consistencyErrors, hasChecked, formData, _) = await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, new LoggedInEntity { SaccoId = saccoId, SaccoType = saccoType });
+
+            if (!hasChecked)
+            {
+                _logger.LogWarning("Consistency check not performed for period {PeriodId} and sacco {SaccoId}", periodId, saccoId);
+            }
+
+            // Log processing summary if needed
+            if (processingSummary.Any())
+            {
+                _logger.LogInformation(string.Join(", ", processingSummary));
             }
         }
 
@@ -725,6 +803,29 @@ namespace Returns.Helpers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error sending submission confirmation email for Sacco {SaccoId} and period {PeriodId}.", saccoId, periodId);
+            }
+        }
+        private async Task SendIncompleteSubmissionNotificationAsync(string saccoId, string periodId, int missingCount)
+        {
+            try
+            {
+                var sacco = await complianceService.GetSaccoByIdAsync(saccoId);
+                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialSaccoEmail))
+                {
+                    _logger.LogWarning("Sacco {SaccoId} not found or no email.", saccoId);
+                    return;
+                }
+
+                var period = await _context.ReturnPeriods.FindAsync(periodId);
+                var subject = "Incomplete Quarterly Return Submission";
+                var message = $"Your quarterly return submission for {period?.Name ?? periodId} is incomplete. {missingCount} forms are missing. Please submit the remaining forms.";
+
+                await _emailService.SendEmailAsync(sacco.OfficialSaccoEmail, subject, message);
+                _logger.LogInformation("Incomplete submission notification sent to Sacco {SaccoId} for period {PeriodId}.", saccoId, periodId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending incomplete submission notification for Sacco {SaccoId} and period {PeriodId}.", saccoId, periodId);
             }
         }
     }

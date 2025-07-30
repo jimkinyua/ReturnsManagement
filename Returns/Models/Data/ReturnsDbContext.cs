@@ -83,6 +83,7 @@ namespace Returns.Models.Data
         public DbSet<ConsistencyCheckResult> ConsistencyCheckResults { get; set; }
         public DbSet<SaccoReminderLog> SaccoReminderLogs { get; set; }
         public DbSet<SaccoAssignment> SaccoAssignments { get; set; }
+        public DbSet<ReturnCompleteness> ReturnCompleteness { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
