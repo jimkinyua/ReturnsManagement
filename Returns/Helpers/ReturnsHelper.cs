@@ -57,10 +57,10 @@ namespace Returns.Helpers
 
 
 
-        /*public async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync<T>(string ReturnSubmissionId, string saccoType) where T : class
+        /*public async Task<List<VersionChoice>> GetPreviousVersionChoicesAsync<T>(string ResubmissionRequestId, string saccoType) where T : class
         {
             // Step 1: Get all version data for this return type
-            var versionLookups = await GetVersionLookupsAsync<T>(ReturnSubmissionId, saccoType);
+            var versionLookups = await GetVersionLookupsAsync<T>(ResubmissionRequestId, saccoType);
 
             // Step 2: Filter to get only non-current (inactive) versions
             var inactiveVersions = versionLookups.Values
@@ -172,11 +172,11 @@ namespace Returns.Helpers
         {
             var results = await _context.DTCapitalAdequacyReturns
                 .AsNoTracking()
-                .Where(ca => ca.ReturnSubmissionId == ChildId)
+                .Where(ca => ca.ResubmissionRequestId == ChildId)
                 .Select(ca => new VersionLookup
                 {
                     Id = ca.Id,
-                    ReturnSubmissionId = ca.ReturnSubmissionId,
+                    ResubmissionRequestId = ca.ResubmissionRequestId,
                     PreviousReturnId = ca.PreviousReturnId,
                     CreatedAt = ca.CreatedAt,
                     IsAmended = ca.IsAmended,
@@ -184,14 +184,14 @@ namespace Returns.Helpers
                 })
                 .ToListAsync();
 
-            return results.GroupBy(x => x.ReturnSubmissionId).ToDictionary(g => g.Key, g => g.First());
+            return results.GroupBy(x => x.ResubmissionRequestId).ToDictionary(g => g.Key, g => g.First());
         }
 
         private async Task<Dictionary<string, VersionLookup>> GetDepositReturnVersionLookupsAsync(string childId)
         {
             var results = await _context.DepositReturns
                 .AsNoTracking()
-                .Where(dr => dr.ReturnSubmissionId == childId || dr.PreviousReturnId == childId)
+                .Where(dr => dr.ResubmissionRequestId == childId || dr.PreviousReturnId == childId)
                 .Select(dr => new VersionLookup
                 {
                     Id = dr.Id,
@@ -209,7 +209,7 @@ namespace Returns.Helpers
         {
             var results = await _context.DTComprehensiveIncomeReturns
                 .AsNoTracking()
-                .Where(ci => ci.ReturnSubmissionId == childId || ci.PreviousReturnId == childId)
+                .Where(ci => ci.ResubmissionRequestId == childId || ci.PreviousReturnId == childId)
                 .Select(ci => new VersionLookup
                 {
                     Id = ci.Id,
@@ -227,7 +227,7 @@ namespace Returns.Helpers
         {
             var results = await _context.DTFinancialPositionReturns
                 .AsNoTracking()
-                .Where(fp => fp.ReturnSubmissionId == childId || fp.PreviousReturnId == childId)
+                .Where(fp => fp.ResubmissionRequestId == childId || fp.PreviousReturnId == childId)
                 .Select(fp => new VersionLookup
                 {
                     Id = fp.Id,
@@ -245,7 +245,7 @@ namespace Returns.Helpers
         {
             var results = await _context.DTLiquidityReturns
                 .AsNoTracking()
-                .Where(lq => lq.ReturnSubmissionId == childId || lq.PreviousReturnId == childId)
+                .Where(lq => lq.ResubmissionRequestId == childId || lq.PreviousReturnId == childId)
                 .Select(lq => new VersionLookup
                 {
                     Id = lq.Id,
@@ -263,12 +263,12 @@ namespace Returns.Helpers
         {
             var results = await _context.DTRiskClassificationReturns
                 .AsNoTracking()
-                .Where(rc => rc.ReturnSubmissionId == childId || rc.PreviousReturnId == childId)
+                .Where(rc => rc.ResubmissionRequestId == childId || rc.PreviousReturnId == childId)
                 .Select(rc => new VersionLookup
                 {
                     Id = rc.Id,
                     PreviousReturnId = rc.PreviousReturnId,
-                    ReturnSubmissionId = rc.ReturnSubmissionId,
+                    ResubmissionRequestId = rc.ResubmissionRequestId,
                     CreatedAt = rc.CreatedAt,
                     IsAmended = rc.IsAmended,
                     IsCurrent = rc.IsCurrent
@@ -282,12 +282,12 @@ namespace Returns.Helpers
         {
             var results = await _context.DTInvestmentReturns
                 .AsNoTracking()
-                .Where(inv => inv.ReturnSubmissionId == childId || inv.PreviousReturnId == childId)
+                .Where(inv => inv.ResubmissionRequestId == childId || inv.PreviousReturnId == childId)
                 .Select(inv => new VersionLookup
                 {
                     Id = inv.Id,
                     PreviousReturnId = inv.PreviousReturnId,
-                    ReturnSubmissionId = inv.ReturnSubmissionId,
+                    ResubmissionRequestId = inv.ResubmissionRequestId,
                     CreatedAt = inv.CreatedAt,
                     IsAmended = inv.IsAmended,
                     IsCurrent = inv.IsCurrent
@@ -301,11 +301,11 @@ namespace Returns.Helpers
         {
             var results = await _context.ManagementReturns
                 .AsNoTracking()
-                .Where(mg => mg.ReturnSubmissionId == childId || mg.PreviousReturnId == childId)
+                .Where(mg => mg.ResubmissionRequestId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
                     Id = mg.Id,
-                    ReturnSubmissionId = mg.ReturnSubmissionId,
+                    ResubmissionRequestId = mg.ResubmissionRequestId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -320,11 +320,11 @@ namespace Returns.Helpers
         {
             var results = await _context.NDWTLiquidityReturns
                 .AsNoTracking()
-                .Where(mg => mg.ReturnSubmissionId == childId || mg.PreviousReturnId == childId)
+                .Where(mg => mg.ResubmissionRequestId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
                     Id = mg.Id,
-                    ReturnSubmissionId = mg.ReturnSubmissionId,
+                    ResubmissionRequestId = mg.ResubmissionRequestId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -339,11 +339,11 @@ namespace Returns.Helpers
         {
             var results = await _context.NWDTDepositReturns
                 .AsNoTracking()
-                .Where(mg => mg.ReturnSubmissionId == childId || mg.PreviousReturnId == childId)
+                .Where(mg => mg.ResubmissionRequestId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
                     Id = mg.Id,
-                    ReturnSubmissionId = mg.ReturnSubmissionId,
+                    ResubmissionRequestId = mg.ResubmissionRequestId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -358,11 +358,11 @@ namespace Returns.Helpers
         {
             var results = await _context.NWDTRiskClassificationReturns
                 .AsNoTracking()
-                .Where(mg => mg.ReturnSubmissionId == childId || mg.PreviousReturnId == childId)
+                .Where(mg => mg.ResubmissionRequestId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
                     Id = mg.Id,
-                    ReturnSubmissionId = mg.ReturnSubmissionId,
+                    ResubmissionRequestId = mg.ResubmissionRequestId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -377,11 +377,11 @@ namespace Returns.Helpers
         {
             var results = await _context.NWDTInvestmentReturns
                 .AsNoTracking()
-                .Where(mg => mg.ReturnSubmissionId == childId || mg.PreviousReturnId == childId)
+                .Where(mg => mg.ResubmissionRequestId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
                     Id = mg.Id,
-                    ReturnSubmissionId = mg.ReturnSubmissionId,
+                    ResubmissionRequestId = mg.ResubmissionRequestId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -396,11 +396,11 @@ namespace Returns.Helpers
         {
             var results = await _context.NWDTFinancialPositionReturns
                 .AsNoTracking()
-                .Where(mg => mg.ReturnSubmissionId == childId || mg.PreviousReturnId == childId)
+                .Where(mg => mg.ResubmissionRequestId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
                     Id = mg.Id,
-                    ReturnSubmissionId = mg.ReturnSubmissionId,
+                    ResubmissionRequestId = mg.ResubmissionRequestId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -415,11 +415,11 @@ namespace Returns.Helpers
         {
             var results = await _context.NWDTComprehensiveIncomeReturns
                 .AsNoTracking()
-                .Where(mg => mg.ReturnSubmissionId == childId || mg.PreviousReturnId == childId)
+                .Where(mg => mg.ResubmissionRequestId == childId || mg.PreviousReturnId == childId)
                 .Select(mg => new VersionLookup
                 {
                     Id = mg.Id,
-                    ReturnSubmissionId = mg.ReturnSubmissionId,
+                    ResubmissionRequestId = mg.ResubmissionRequestId,
                     PreviousReturnId = mg.PreviousReturnId,
                     CreatedAt = mg.CreatedAt,
                     IsAmended = mg.IsAmended,
@@ -940,7 +940,7 @@ namespace Returns.Helpers
 
                 var managementReturn = new ManagementReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     //FilePath = Path,
                     MRating = ManagementReturnData.MRating,
                     //FormId = form.Id,
@@ -1041,7 +1041,7 @@ namespace Returns.Helpers
                 // Create new Capital Adequacy form
                 DTCapitalAdequacyReturn capitalAdequacy = new DTCapitalAdequacyReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     //FilePath = Path,
                     //Year = Form1Statement.Period,
                     StartDate = Form1Statement.StartDate,
@@ -1401,7 +1401,7 @@ namespace Returns.Helpers
                 {
                     insiderLendingHeader = new InsiderLendingHeader
                     {
-                        //ReturnSubmissionId = returnId,
+                        //ResubmissionRequestId = returnId,
                         FilePath = Path,
                         StartDate = ImportedLendingReport.StartDate,
                         EndDate = ImportedLendingReport.EndDate,
@@ -1421,7 +1421,7 @@ namespace Returns.Helpers
                     }
 
                     insiderLendingHeader.PreviousReturnId = PrevId;
-                    //insiderLendingHeader.ReturnSubmissionId = returnId;
+                    //insiderLendingHeader.ResubmissionRequestId = returnId;
                     insiderLendingHeader.Version = insiderLendingHeader.Version;// + 1;
                     insiderLendingHeader.IsCurrent = true;
                     insiderLendingHeader.IsAmended = false;
@@ -1523,7 +1523,7 @@ namespace Returns.Helpers
                     // Create new record
                     dailyLiquidity = new DailyLiquidityReturn
                     {
-                        ReturnSubmissionId = returnId,
+                        ResubmissionRequestId = returnId,
                         FilePath = Path,
                         ReportDate = liquidityData.ReportDate,
                         DaysLateBy = DaysLateBy,
@@ -1535,7 +1535,7 @@ namespace Returns.Helpers
                 }
                 else
                 {
-                    dailyLiquidity = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnSubmissionId == EffectiveReturnId);
+                    dailyLiquidity = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ResubmissionRequestId == EffectiveReturnId);
                     if (dailyLiquidity == null)
                     {
                         throw new Exception("Return not found for amendment");
@@ -1543,7 +1543,7 @@ namespace Returns.Helpers
 
                     // Update amendment information
                     dailyLiquidity.PreviousReturnId = PrevId;
-                    dailyLiquidity.ReturnSubmissionId = returnId;
+                    dailyLiquidity.ResubmissionRequestId = returnId;
                     dailyLiquidity.Version = dailyLiquidity.Version + 1;
                     dailyLiquidity.IsCurrent = true;
                     dailyLiquidity.IsAmended = false;
@@ -1601,7 +1601,7 @@ namespace Returns.Helpers
                 if (IsAmendment)
                 {
                     // Mark old record as amended
-                    var oldRecord = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ReturnSubmissionId == PrevId);
+                    var oldRecord = await _context.DailyLiquidityReturns.FirstOrDefaultAsync(x => x.ResubmissionRequestId == PrevId);
                     if (oldRecord != null)
                     {
                         oldRecord.IsCurrent = false;
@@ -1781,7 +1781,7 @@ namespace Returns.Helpers
                 // Create new Liquidity return object
                 var liquidityStatement = new NWDTLiquidityReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     Period = form2BData.Period,
                     //Frequency = form.Period.Name,
                     DaysLateBy = DaysLateBy,
@@ -1912,7 +1912,7 @@ namespace Returns.Helpers
 
                 var liquidityStatement = new DTLiquidityReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     Year = form2.Period,
                     FormId = form.Id,
                     StartDate = form2.StartDate,
@@ -2046,7 +2046,7 @@ namespace Returns.Helpers
                 {
                     var depositReturn = new DepositReturn
                     {
-                        //ReturnSubmissionId = returnId,
+                        //ResubmissionRequestId = returnId,
                         FormId = form.Id,
                         RangeName = row.RangeName,
                         DepositType = row.DepositType,
@@ -2128,7 +2128,7 @@ namespace Returns.Helpers
                         DaysLateBy = DaysLateBy,
                         //FilePath = FilePath,
                         SaccoCsNumber = form2CData.SaccoCsNumber,
-                        //ReturnSubmissionId = returnId,
+                        //ResubmissionRequestId = returnId,
                         FormId = form.Id,
                         AmountInKshs000 = row.Amount,
                         RangeName = row.Range,
@@ -2209,7 +2209,7 @@ namespace Returns.Helpers
                         OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
                         RequiredProvision = row.RequiredProvision,
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
-                        //ReturnSubmissionId = returnId,
+                        //ResubmissionRequestId = returnId,
                         FormId = form.Id,
                         //Period = form2DData.Period,
                         //Frequency = form.Period.Name,
@@ -2291,7 +2291,7 @@ namespace Returns.Helpers
                         OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
                         RequiredProvision = row.RequiredProvision,
                         RequiredProvisionAmount = row.RequiredProvisionAmount,
-                        //ReturnSubmissionId = returnId,
+                        //ResubmissionRequestId = returnId,
                         FormId = form.Id,
                         Year = form4.Period,
                         StartDate = form4.StartDate,
@@ -2352,7 +2352,7 @@ namespace Returns.Helpers
 
                 var investmentReturn = new DTInvestmentReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     Year = form5.Period,
                     FormId = form.Id,
                     StartDate = form5.StartDate,
@@ -2472,7 +2472,7 @@ namespace Returns.Helpers
                     //Frequency = form.Period.Name,
                     //FilePath = FilePath,
                     DaysLateBy = DaysLateBy,
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     FormId = form.Id,
                     RequiresResubmission = false,
                     CreatedAt = DateTime.Now
@@ -2615,7 +2615,7 @@ namespace Returns.Helpers
                 var FilePath = await FormsHelper.SaveFileAsync(formFile, "Statement of Financial Position Returns");
                 var statement = new DTFinancialPositionReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     Year = form6.Period,
                     StartDate = form6.StartDate,
                     EndDate = form6.EndDate,
@@ -2786,7 +2786,7 @@ namespace Returns.Helpers
                 {
                     capitalAdequacy = new NWDTCapitalAdequacyReturn
                     {
-                        //ReturnSubmissionId = returnId,
+                        //ResubmissionRequestId = returnId,
                         StartDate = form2A.StartDate,
                         EndDate = form2A.EndDate,
                         //FilePath = Path,
@@ -2802,7 +2802,7 @@ namespace Returns.Helpers
                 }
                 else
                 {
-                   /* capitalAdequacy = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ReturnSubmissionId == EffectiveReturnId);
+                   /* capitalAdequacy = await _context.NWDTCapitalAdequacyReturns.FirstOrDefaultAsync(x => x.ResubmissionRequestId == EffectiveReturnId);
                     if (capitalAdequacy == null)
                     {
                         throw new Exception(
@@ -2966,7 +2966,7 @@ namespace Returns.Helpers
 
                 var comprehensiveIncome = new NWDTComprehensiveIncomeReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     StartDate = form2F.StartDate,
                     EndDate = form2F.EndDate,
                     //Period = form2F.Period,
@@ -3141,7 +3141,7 @@ namespace Returns.Helpers
 
                 var financialPosition = new NWDTFinancialPositionReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     StartDate = form2G.StartDate,
                     EndDate = form2G.EndDate,
                     //Period = form2G.Period,
@@ -3338,7 +3338,7 @@ namespace Returns.Helpers
                 var FilePath = await FormsHelper.SaveFileAsync(file, "Statement of Comprehensive Income Returns");
                 var statement = new DTComprehensiveIncomeReturn
                 {
-                    //ReturnSubmissionId = returnId,
+                    //ResubmissionRequestId = returnId,
                     Year = form7.Period,
                     StartDate = form7.StartDate,
                     EndDate = form7.EndDate,
@@ -3463,7 +3463,7 @@ namespace Returns.Helpers
                 {
                     sectoralLendingReport = new SectoralLendingReport
                     {
-                        ReturnSubmissionId = returnId,
+                        ResubmissionRequestId = returnId,
                         FilePath = FilePath,
                         Year = ImportedSectoralReport.Year,
                         Month = ImportedSectoralReport.Month,
@@ -3480,7 +3480,7 @@ namespace Returns.Helpers
                 else
                 {
                     // For an amendment, update the existing report.
-                    sectoralLendingReport = await _context.SectoralLendingReports.FirstOrDefaultAsync(x => x.ReturnSubmissionId == EffectiveReturnId);
+                    sectoralLendingReport = await _context.SectoralLendingReports.FirstOrDefaultAsync(x => x.ResubmissionRequestId == EffectiveReturnId);
                     if (sectoralLendingReport == null)
                     {
                         throw new Exception("Existing report not found for amendment.");
@@ -3489,7 +3489,7 @@ namespace Returns.Helpers
                     sectoralLendingReport.IsCurrent = true;
                     sectoralLendingReport.IsAmended = false;
                     sectoralLendingReport.FilePath = FilePath;
-                    sectoralLendingReport.ReturnSubmissionId = EffectiveReturnId;
+                    sectoralLendingReport.ResubmissionRequestId = EffectiveReturnId;
                 }
 
                 if (!IsAmendMent)
@@ -3576,7 +3576,7 @@ namespace Returns.Helpers
                                 Category = categoryEntity.CategoryName,
                                 SubCategory = subCategoryEntity.Name,
                                 EconomicSectorName = econEntity.Name,
-                                //ReturnSubmissionId = sectoralLendingReport.ReturnSubmissionId,
+                                //ResubmissionRequestId = sectoralLendingReport.ResubmissionRequestId,
                                 IsCurrent = sectoralLendingReport.IsCurrent,
                                 PreviousReturnId = sectoralLendingReport.PreviousReturnId,
                                 IsAmended = sectoralLendingReport.IsAmended,

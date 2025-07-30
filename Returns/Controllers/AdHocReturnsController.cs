@@ -54,6 +54,38 @@ namespace Returns.Controllers
             }
         }
 
+        [HttpPost("admin/CloseRequest")]
+        public async Task<IActionResult> CloseRequest([FromForm] CloseAdHocReturnRequestDTO dto)
+        {
+            try
+            {
+                LoggedInEntity admin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (admin == null)
+                {
+                    return Unauthorized();
+                }
+                var adHocRequest = await _adhocReturnsService.CloseRequest(dto.RequestId, admin);
+                return Ok(adHocRequest);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid input for ad hoc return request: {Message}", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
 
         [HttpPost("sacco/SaccoRespondToAdHocReturn")]
         public async Task<IActionResult> RespondToAdHocReturnAsync([FromForm] AdHocReturnResponseDTO dto)
@@ -87,7 +119,7 @@ namespace Returns.Controllers
             }
         }
 
-        [HttpGet("AdHocReturnRequestDetails/{requestId}")]
+        [HttpGet("admin/AdHocReturnRequestDetails/{requestId}")]
         public async Task<IActionResult> GetAdHocReturnRequestDetailsAsync(string requestId)
         {
             try
@@ -120,7 +152,7 @@ namespace Returns.Controllers
         }
 
         [HttpGet("sacco/PendingAdHocReturnRequests")]
-        public async Task<IActionResult> GetPendingAdHocReturnRequestsAsync([FromQuery] string? saccoId = null)
+        public async Task<IActionResult> GetPendingAdHocReturnRequestsAsync()
         {
             try
             {

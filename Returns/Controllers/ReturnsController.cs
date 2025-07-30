@@ -214,7 +214,7 @@ namespace Returns.Controllers
                 FormId = formId;
             }
         }
-        [HttpPost("AdminAmendmentRequest")]
+        [HttpPost("admin/AdminAmendmentRequest")]
         public async Task<IActionResult> CreateAdminAmendmentRequestAsync([FromBody] AdminAmendmentRequestDTO dto)
         {
             try
@@ -244,13 +244,13 @@ namespace Returns.Controllers
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
-        [HttpGet("PendingAmendmentRequests")]
+        [HttpGet("sacco/AmendmentRequestsWaitngResponse")]
         public async Task<IActionResult> GetPendingAmendmentRequestsAsync([FromQuery] string? saccoId = null)
         {
             try
             {
                 LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                var requests = await _amendmentService.GetPendingAmendmentRequestsAsync();
+                var requests = await _amendmentService.GetAmendmentRequestsPendingSaccoResponseAsync();
                 if (!string.IsNullOrEmpty(saccoId))
                 {
                     requests = requests.Where(r => r.SaccoId == saccoId).ToList();
@@ -278,8 +278,34 @@ namespace Returns.Controllers
             }
         }
 
+        [HttpGet("admin/AmendmentRequestsPendingReview")]
+        public async Task<IActionResult> AmendmentRequestsPendingReview([FromQuery] string? saccoId = null)
+        {
+            try
+            {
+                LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                var requests = await _amendmentService.GetAmendmentRequestsPendingAdminApprovalAsync();
+                if (!string.IsNullOrEmpty(saccoId))
+                {
+                    requests = requests.Where(r => r.SaccoId == saccoId).ToList();
+                }
+                return Ok(requests);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized attempt to get pending amendment requests.");
+                return Unauthorized(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during retrieval of pending amendment requests.");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
 
-        [HttpGet("AmendmentRequestDetails/{requestId}")]
+
+
+        [HttpGet("admin/AmendmentRequestDetails/{requestId}")]
         public async Task<IActionResult> GetAmendmentRequestDetailsAsync(string requestId)
         {
             try
@@ -305,7 +331,7 @@ namespace Returns.Controllers
             }
         }
 
-        [HttpPost("ReviewAmendmentRequest")]
+        [HttpPost("admin/ReviewAmendmentRequest")]
         public async Task<IActionResult> ReviewAmendmentRequestAsync([FromBody] ReviewAmendmentRequestDTO dto)
         {
             try
@@ -343,7 +369,7 @@ namespace Returns.Controllers
         }
 
 
-        [HttpPost("SaccoRespondToAdminAmendment")]
+        [HttpPost("sacco/SaccoRespondToAdminAmendment")]
         public async Task<IActionResult> RespondToAdminAmendmentAsync([FromForm] SaccoAmendmentResponseDTO dto)
         {
             try
@@ -404,7 +430,7 @@ namespace Returns.Controllers
                     return BadRequest(string.Join("; ", checkErrors));
                 }
 
-                var results = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco);
+                var results = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco, true);
 
                 var failedResults = results.Where(r => r.Status == SubmissionStatus.Failed).ToList();
                 if (failedResults.Any())
@@ -428,7 +454,7 @@ namespace Returns.Controllers
         }
 
 
-        [HttpPost("SaccoRequestAmendment")]
+        [HttpPost("sacco/SaccoRequestAmendment")]
         public async Task<IActionResult> RequestAmendmentAsync([FromForm] AmendmentRequestDTO dto)
         {
             try
@@ -453,189 +479,6 @@ namespace Returns.Controllers
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
-
-
-        // File Return
-        /* [HttpPost("Draft")]
-        public async Task<IActionResult> FileReturnsAsync([FromForm] NewReturnDTO createFormDTO)
-        {
-
-            ReturnsHelper returnsHelper = new ReturnsHelper(_context);
-            try
-            {
-                var processingSummary = new List<string>();
-                var ConError = new List<string>();
-                Boolean IsConsistent = true;
-                string PeriodToUse = string.Empty;
-                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-                {
-                    return StatusCode(401);
-                }
-
-
-                if (!returnsHelper.HasValidUploads(createFormDTO))
-                {
-                    return BadRequest("No attachments found. Please attach at least one form.");
-                }
-                // Validate that all forms have the same reporting period
-                foreach (var upload in createFormDTO.FormUploads.Where(u => u.formFile != null && !string.IsNullOrEmpty(u.FormId)))
-                {
-                    var form = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == upload.FormId);
-                    if (form != null)
-                    {
-                        // Skip validation for management forms since they don't have periods
-                        if (!form.IsManagement)
-                        {
-                            var (endDate, year) = await _formProcessor.ExtractReportingEndDate(upload.formFile, form, loggedInSacco.SaccoType);
-
-                            if (endDate != DateTime.MinValue && !string.IsNullOrEmpty(year))
-                            {
-                                if (PeriodToUse == string.Empty)
-                                {
-                                    // First valid form sets the period
-                                    PeriodToUse = year;
-                                }
-                                else if (PeriodToUse != year)
-                                {
-                                    // If we find a different period, flag inconsistency
-                                    ConError.Add($"Form {form.Code} has period {year} which differs from {PeriodToUse}. Are you using the Correct template? ");
-                                    IsConsistent = false;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (PeriodToUse == null)
-                {
-                    return BadRequest("No valid reporting period found in the uploaded forms.");
-                }
-
-
-                if (!IsConsistent)
-                {
-                    return BadRequest(new
-                    {
-                        Message = "Inconsistent reporting periods detected across forms",
-                        Errors = ConError
-                    });
-                }
-
-
-                var HasAssignedUser = await _returnAssignmentService.CheckSaccoAssignedUserAsync(loggedInSacco.SaccoId);
-
-                if (!HasAssignedUser.Success)
-                {
-                    return BadRequest(HasAssignedUser.ErrorMessage);
-                }
-
-                if (loggedInSacco.SaccoType == Constants.SaccoType.DepositTaking.ToString())
-                {
-                    if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
-                    {
-                        var (isValid, _, ConsistencyErrors, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForDT(createFormDTO);
-                        if (!isValid)
-                        {
-                            ConError = ConsistencyErrors.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
-                        }
-                    }
-
-                    //PeriodToUse = CommonPeriod;
-                }
-                else
-                {
-
-                    if (_formProcessor.ShouldConsistencyChecksBeDone(_context, createFormDTO).Result)
-                    {
-                        var (isValid, _, ConsistencyError, _, _, _, _, _, _, _, _, CommonPeriod) = await CheckConsistencyForNWDT(createFormDTO);
-                        if (!isValid)
-                        {
-
-                            ConError = ConsistencyError.Select(error => $"{error.Category}: {error.Description} - {string.Join(", ", error.Details.Select(d => $"{d.Key}: {d.Value}"))}").ToList();
-                        }
-                    }
-
-                    //PeriodToUse = CommonPeriod;
-                }
-
-                var (success, EffectiveReturnId, processingMessages) = await _formProcessor.ProcessFormBatchAsync(createFormDTO, loggedInSacco, IsConsistent, ConError, PeriodToUse);
-
-                if (!success)
-                {
-                    return StatusCode(409, string.Join(", ", processingMessages));
-                }
-                var PreviousReturnDetails = _context.Returns.Find(EffectiveReturnId);
-                var IsAssigned = await _returnAssignmentService.AssignReturnAsync(PreviousReturnDetails, loggedInSacco.SaccoId);
-                if (!IsAssigned.Success)
-                {
-                    _logger.LogError("Error assigning return: {ErrorMessage}", IsAssigned.ErrorMessage);
-
-                    var returnToDelete = await _context.Returns.FindAsync(EffectiveReturnId);
-                    if (returnToDelete != null)
-                    {
-                        _context.Returns.Remove(returnToDelete);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    return StatusCode(500, IsAssigned.ErrorMessage);
-                }
-                var ratingResult = await camelsAnalysisService.CalculateAnalysisAsync(PreviousReturnDetails.Id, PreviousReturnDetails.SaccoType);
-                var WorkFlowResult = await _workflowService.StartWorkflowAsync(PreviousReturnDetails, ratingResult.OverallRating);
-
-                await _emailService.SendEmailAsync(loggedInSacco.EmailAddress, "Return Submission Confirmation", "Your returns have been successfully submitted.");
-
-                var lateForms = new List<(string FormName, DateTime DueDate, DateTime SubmissionDate)>();
-                var saccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
-                foreach (var form in createFormDTO.FormUploads)
-                {
-                    if (form.formFile == null) continue;
-
-                    var formDetails = await _context.ReturnForms.FirstOrDefaultAsync(f => f.Id == form.FormId);
-                    if (formDetails != null)
-                    {
-                        (DateTime reportingStartDate, DateTime reportingEndDate) = returnsHelper.GetReportingPeriod(formDetails, DateTime.Now);
-                        DateTime dueDate = returnsHelper.GetDueDate(formDetails, reportingEndDate);
-
-                        // Check if submission is late
-                        if (DateTime.Now > dueDate)
-                        {
-                            lateForms.Add((formDetails.FormName, dueDate, DateTime.Now));
-                        }
-                    }
-                }
-                if (lateForms.Any())
-                {
-                    var subject = lateForms.Count == 1
-                        ? $"Late Submission – {lateForms.First().FormName} Return"
-                        : $"Late Submissions – {lateForms.Count} Returns";
-
-                    var body = GenerateLateFormsEmailBody(saccoDetails.SaccoName, lateForms);
-
-                    await _emailService
-                        .SendEmailAsync(saccoDetails.OfficialSaccoEmail, subject, body)
-                        .ContinueWith(t =>
-                        {
-                            if (t.IsFaulted)
-                            {
-                                _logger.LogError(t.Exception, "Failed to send late forms notification email.");
-                            }
-                            else
-                            {
-                                _logger.LogInformation($"Late forms notification email sent successfully for {lateForms.Count} form(s).");
-                            }
-                        });
-                }
-
-                return Ok(processingMessages);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error processing files");
-                return StatusCode(500, CustomErrorHandler.HandleException(ex));
-            }
-
-        }*/
 
         private string GenerateLateFormsEmailBody(string saccoName, List<(string FormName, DateTime DueDate, DateTime SubmissionDate)> lateForms)
         {
@@ -1130,7 +973,7 @@ namespace Returns.Controllers
 
                   var capEntity = await _context.DTCapitalAdequacyReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(ca => ca.ReturnSubmissionId == returnId);
+                      .FirstOrDefaultAsync(ca => ca.ResubmissionRequestId == returnId);
 
                   CapitalAdequacyDTO? capitalAdequacy = null;
                   int capitalDaysLate = 0;
@@ -1171,14 +1014,14 @@ namespace Returns.Controllers
                           CoreCapitalToDepositsRatio = capEntity.CoreCapitalToDepositsRatio,
                           CoreCapitalToDepositsRatioExcessDeficiency = capEntity.CoreCapitalToDepositsRatioExcessDeficiency,
                           FilePath = $"{baseUrl}{capEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ReturnSubmissionId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTCapitalAdequacyReturn>(capEntity.ResubmissionRequestId, hdr.SaccoType)
                       };
                   }
 
                   // 2-b  Deposit-Range Return (multi-row)
                   var depositEntities = await _context.DepositReturns
                       .AsNoTracking()
-                      .Where(dr => dr.ReturnSubmissionId == returnId)
+                      .Where(dr => dr.ResubmissionRequestId == returnId)
                       .ToListAsync();
 
                   int depositDaysLate = depositEntities.FirstOrDefault()?.DaysLateBy ?? 0;
@@ -1190,7 +1033,7 @@ namespace Returns.Controllers
                           FormId = depositEntities.FirstOrDefault()?.FormId ?? string.Empty,
                           RequiresResubmission = depositEntities.FirstOrDefault()?.RequiresResubmission ?? false,
                           //FilePath = depositEntities.FirstOrDefault()?.FilePath ?? string.Empty,
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DepositReturn>(depositEntities.FirstOrDefault()?.ReturnSubmissionId ?? string.Empty, hdr.SaccoType),
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DepositReturn>(depositEntities.FirstOrDefault()?.ResubmissionRequestId ?? string.Empty, hdr.SaccoType),
                           //NWDTDepositReturnData = new List<NWDTDepositReturnData>()
                       };
                       foreach (var dr in depositEntities)
@@ -1208,7 +1051,7 @@ namespace Returns.Controllers
                   // 2-c  Comprehensive-Income (single row)
                   var incomeEntity = await _context.DTComprehensiveIncomeReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(ci => ci.ReturnSubmissionId == returnId);
+                      .FirstOrDefaultAsync(ci => ci.ResubmissionRequestId == returnId);
 
                   ComprehesiveIncomeStatementDTO? incomeStatement = null;
                   int incomeDaysLate = 0;
@@ -1243,14 +1086,14 @@ namespace Returns.Controllers
                           Taxes = incomeEntity.Taxes,
                           Donations = incomeEntity.Donations,
                           FilePath = $"{baseUrl}{incomeEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ReturnSubmissionId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTComprehensiveIncomeReturn>(incomeEntity.ResubmissionRequestId, hdr.SaccoType)
                       };
                   }
 
                   // 2-d  Financial-Position (single row)
                   var balanceEntity = await _context.DTFinancialPositionReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(fp => fp.ReturnSubmissionId == returnId);
+                      .FirstOrDefaultAsync(fp => fp.ResubmissionRequestId == returnId);
 
                   FinancialPositionDTO? financialPosition = null;
                   int balanceDaysLate = 0;
@@ -1293,14 +1136,14 @@ namespace Returns.Controllers
                           CurrentYearSurplus = balanceEntity.CurrentYearSurplus,
                           StatutoryReserve = balanceEntity.StatutoryReserve,
                           FilePath = $"{baseUrl}{balanceEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ReturnSubmissionId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTFinancialPositionReturn>(balanceEntity.ResubmissionRequestId, hdr.SaccoType)
                       };
                   }
 
                   // 2-e  Liquidity (single row)
                   var liquidityEntity = await _context.DTLiquidityReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(liq => liq.ReturnSubmissionId == returnId);
+                      .FirstOrDefaultAsync(liq => liq.ResubmissionRequestId == returnId);
 
                   LiquidityStatementDTO? liquidityStatement = null;
                   int liquidityDaysLate = 0;
@@ -1338,14 +1181,14 @@ namespace Returns.Controllers
                           NetFinancialInstitutionBalances = liquidityEntity.NetFinancialInstitutionBalances,
                           NetBankBalances = liquidityEntity.NetBankBalances,
                           FilePath = $"{baseUrl}{liquidityEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ReturnSubmissionId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTLiquidityReturn>(liquidityEntity.ResubmissionRequestId, hdr.SaccoType)
                       };
                   }
 
                   // 2-f  Risk classification (multi-row)
                   var riskEntities = await _context.DTRiskClassificationReturns
                       .AsNoTracking()
-                      .Where(rc => rc.ReturnSubmissionId == returnId)
+                      .Where(rc => rc.ResubmissionRequestId == returnId)
                       .ToListAsync();
 
                   int riskDaysLate = riskEntities.FirstOrDefault()?.DaysLateBy ?? 0;
@@ -1357,7 +1200,7 @@ namespace Returns.Controllers
                       riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
                       riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
                       //riskClassifications.FilePath = firstEntity.FilePath;
-                      riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ReturnSubmissionId, hdr.SaccoType);
+                      riskClassifications.PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTRiskClassificationReturn>(firstEntity.ResubmissionRequestId, hdr.SaccoType);
 
                       foreach (var rc in riskEntities)
                       {
@@ -1377,7 +1220,7 @@ namespace Returns.Controllers
                   // 2-g  Other returns (multi-row, simple)
                   var otherReturnsEntities = await _context.OtherReturns
                       .AsNoTracking()
-                      .Where(o => o.ReturnSubmissionId == returnId)
+                      .Where(o => o.ResubmissionRequestId == returnId)
                       .ToListAsync();
 
                   var otherReturns = new List<OtherReturnDTO>();
@@ -1389,18 +1232,18 @@ namespace Returns.Controllers
                           FileUrl = o.FileUrl,
                           RequiresResubmission = o.RequiresResubmission,
                           FormId = o.FormId ?? string.Empty,
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<OtherReturn>(o.ReturnSubmissionId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<OtherReturn>(o.ResubmissionRequestId, hdr.SaccoType)
                       });
                   }
 
                   // 2-h  Investment (single row)
                   var investmentEntity = await _context.DTInvestmentReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(inv => inv.ReturnSubmissionId == returnId);
+                      .FirstOrDefaultAsync(inv => inv.ResubmissionRequestId == returnId);
 
                   var ApprovalComments = await _context.ApprovalActions
                                             .AsNoTracking()
-                                            .Where(o => o.ReturnSubmissionId == returnId)
+                                            .Where(o => o.ResubmissionRequestId == returnId)
                                             .ToListAsync();
 
                   InvestmentReturnDTO? investment = null;
@@ -1429,13 +1272,13 @@ namespace Returns.Controllers
                           FinancialInvestmentsToDepositsExcessDeficiency =
                               investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
                           FilePath = $"{baseUrl}{investmentEntity.FilePath}",
-                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ReturnSubmissionId, hdr.SaccoType)
+                          PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<DTInvestmentReturn>(investmentEntity.ResubmissionRequestId, hdr.SaccoType)
                       };
                   }
 
                   var managementEntity = await _context.ManagementReturns
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(m => m.ReturnSubmissionId == returnId);
+                      .FirstOrDefaultAsync(m => m.ResubmissionRequestId == returnId);
 
                   ManagementReturnDTO? managementReturn = null;
                   if (managementEntity != null)
@@ -1472,7 +1315,7 @@ namespace Returns.Controllers
                               managementEntity.OverallRiskProfileWeightedScore,
 
                           MRating = managementEntity.MRating,
-                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<ManagementReturn>(managementEntity.ReturnSubmissionId, hdr.SaccoType)
+                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<ManagementReturn>(managementEntity.ResubmissionRequestId, hdr.SaccoType)
                       };
                   }
 
@@ -1547,20 +1390,20 @@ namespace Returns.Controllers
                   // ───────────────────────────────────────────────────────────────
                   var sectoral = await _context.SectoralLendingReports
                       .AsNoTracking()
-                      .FirstOrDefaultAsync(x => x.ReturnSubmissionId == returnId);
+                      .FirstOrDefaultAsync(x => x.ResubmissionRequestId == returnId);
 
                   if (sectoral != null)
                   {
                       var sectoralData = await _context.SectoralLendingData
                           .AsNoTracking()
-                          .Where(x => x.ReturnSubmissionId == returnId)
+                          .Where(x => x.ResubmissionRequestId == returnId)
                           .ToListAsync();
 
                       dto.SectoralLending = new SectoralLendingDTO
                       {
                           StartDate = sectoral.StartDate,
                           EndDate = sectoral.EndDate,
-                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<SectoralLendingReport>(sectoral.ReturnSubmissionId, hdr.SaccoType),
+                          //PreviousVersionIds = await helper.GetPreviousVersionChoicesAsync<SectoralLendingReport>(sectoral.ResubmissionRequestId, hdr.SaccoType),
                           SubSectorData = sectoralData.Select(sd => new SectoralLendingDataDTO
                           {
                               Amount = sd.Amount,
@@ -2036,7 +1879,7 @@ namespace Returns.Controllers
                 {
                     /*         var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
                     var approvals = await _context.ApprovalActions
-                        .Where(a => submissionIds.Contains(a.ReturnSubmissionId))
+                        .Where(a => submissionIds.Contains(a.ResubmissionRequestId))
                         .Include(a => a.WorkFlowStep)
                         .ToListAsync();
                     report.approvalActions = approvals;*/
@@ -2445,7 +2288,7 @@ namespace Returns.Controllers
                 {
                     /* var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
                      var approvals = await _context.ApprovalActions
-                         .Where(a => submissionIds.Contains(a.ReturnSubmissionId))
+                         .Where(a => submissionIds.Contains(a.ResubmissionRequestId))
                          .Include(a => a.WorkFlowStep)
                          .ToListAsync();*/
                     //report.approvalActions = approvals;

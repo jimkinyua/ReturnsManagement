@@ -412,7 +412,7 @@ namespace Returns.Helpers
             var commentsQuery = _db.ApprovalActions.AsQueryable();
             if (!string.IsNullOrEmpty(returnSubmissionId))
             {
-                // Non-Q return: Filter by ReturnSubmissionId
+                // Non-Q return: Filter by ResubmissionRequestId
                 commentsQuery = commentsQuery.Where(c => c.ReturnSubmissionId == returnSubmissionId);
             }
             else

@@ -2,7 +2,7 @@
 {
     public class SaccoAmendmentResponseDTO
     {
-        public string ReturnSubmissionId { get; set; } = null!;
+        public string ResubmissionRequestId { get; set; } = null!;
         public IFormFile FormFile { get; set; } = null!;
     }
 }

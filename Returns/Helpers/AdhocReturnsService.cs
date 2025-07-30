@@ -16,14 +16,14 @@ namespace Returns.Helpers
         private readonly IReturnSubmissionService _returnSubmissionService;
         private readonly IReturnAmendmentPolicy _returnAmendmentPolicy;
         private readonly IExcelParser _excelParser;
-        private readonly RawSqlComplianceService _complianceService;
+        private readonly IComplianceService _complianceService;
         public AdhocReturnsService(
                  ReturnsDbContext context,
                  IEmailService emailService,
                  ILogger<AmendmentService> logger,
                  IReturnSubmissionService returnSubmissionService,
                  IReturnAmendmentPolicy returnAmendmentPolicy,
-                 RawSqlComplianceService complianceService,
+                 IComplianceService complianceService,
                  IExcelParser excelParser)
         {
             _context = context;
@@ -38,12 +38,12 @@ namespace Returns.Helpers
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetPendingAdHocReturnRequestsAsync(string? saccoId = null)
         {
             var query = _context.AdHocReturnRequests
-                .Where(r => r.Status == AdHocReturnRequestStatus.Pending.ToString());
+                .Where(r => r.Status == AdHocReturnRequestStatus.Pending);
 
-            if (!string.IsNullOrEmpty(saccoId))
+           /* if (!string.IsNullOrEmpty(saccoId))
             {
                 query = query.Where(r => r.SaccoId == saccoId);
-            }
+            }*/
 
             var rawData = await query
             .OrderByDescending(r => r.RequestedAt)
@@ -69,7 +69,7 @@ namespace Returns.Helpers
                 AttachmentUrls = string.IsNullOrEmpty(r.AttachmentUrlsJson)
          ? new List<string>()
          : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!,
-                Status = r.Status
+                Status = r.Status.ToString()
             }).ToList();
 
             return requests;
@@ -105,7 +105,7 @@ namespace Returns.Helpers
                 RequestedAt = DateTime.UtcNow,
                 Description = dto.Description.Trim(),
                 AttachmentUrlsJson = JsonSerializer.Serialize(attachmentUrls),
-                Status = AdHocReturnRequestStatus.Pending.ToString(),
+                Status = AdHocReturnRequestStatus.Pending,
             };
 
             await _context.AdHocReturnRequests.AddAsync(newRequest);
@@ -157,7 +157,7 @@ namespace Returns.Helpers
                 ResponseFileUrls = responseFileUrls,
                 RespondedById = request.RespondedById,
                 RespondedAt = request.RespondedAt,
-                Status = request.Status
+                Status = request.Status.ToString()
             };
         }
         public async Task<AdHocReturnRequest> RespondToAdHocReturnRequestAsync(AdHocReturnResponseDTO dto, LoggedInEntity loggedInEntity)
@@ -168,7 +168,7 @@ namespace Returns.Helpers
             }
 
             var request = await _context.AdHocReturnRequests
-                .FirstOrDefaultAsync(r => r.Id == dto.RequestId && r.Status == AdHocReturnRequestStatus.Pending.ToString());
+                .FirstOrDefaultAsync(r => r.Id == dto.RequestId && r.Status == AdHocReturnRequestStatus.Pending);
 
             if (request == null)
             {
@@ -183,12 +183,12 @@ namespace Returns.Helpers
             }
 
             List<string> attachmentUrls = new List<string>();
-            foreach (var item in dto?.ResponseFiles)
+             
+            foreach (var item in dto.ResponseFiles)
             {
                 var attachmentUrl = await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
                 if (attachmentUrl == null)
                 {
-                    _logger.LogWarning("Failed to save attachment file {FileName} for SACCO {SaccoId}", item.FileName, dto.SaccoId);
                     throw new InvalidOperationException("Failed to save attachment file.");
                 }
                 attachmentUrls.Add(attachmentUrl);
@@ -197,14 +197,12 @@ namespace Returns.Helpers
             // Update request
             request.ResponseDescription = dto.ResponseDescription.Trim();
             request.ResponseFileUrlsJson = JsonSerializer.Serialize(attachmentUrls);
-            request.RespondedById = dto.RequestedById;
+            request.RespondedById = loggedInEntity.UserId;
             request.RespondedAt = DateTime.UtcNow;
-            request.Status = AdHocReturnRequestStatus.Completed.ToString();
+            request.Status = AdHocReturnRequestStatus.Responded;
 
             await _context.SaveChangesAsync();
                 
-            _logger.LogInformation("SACCO responded to ad hoc return request {RequestId} by officer {RequestedById}", request.Id, dto.RequestedById);
-
             return request;
         }
         private async Task<ReturnSubmission> GetSubmissionAsync(string submissionId, string saccoId)
@@ -232,7 +230,7 @@ namespace Returns.Helpers
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetCompletedAdHocReturnRequestsAsync(string? saccoId = null)
         {
             var query = _context.AdHocReturnRequests
-                          .Where(r => r.Status == AdHocReturnRequestStatus.Completed.ToString());
+                          .Where(r => r.Status == AdHocReturnRequestStatus.Completed);
 
             if (!string.IsNullOrEmpty(saccoId))
             {
@@ -263,7 +261,7 @@ namespace Returns.Helpers
                 AttachmentUrls = string.IsNullOrEmpty(r.AttachmentUrlsJson)
          ? new List<string>()
          : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!,
-                Status = r.Status
+                Status = r.Status.ToString()
             }).ToList();
 
             return requests;
@@ -273,7 +271,7 @@ namespace Returns.Helpers
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetRespondedAdHocReturnRequestsAsync(string? saccoId = null)
         {
             var query = _context.AdHocReturnRequests
-                          .Where(r => r.Status == AdHocReturnRequestStatus.Responded.ToString());
+                          .Where(r => r.Status == AdHocReturnRequestStatus.Responded);
 
             if (!string.IsNullOrEmpty(saccoId))
             {
@@ -304,10 +302,26 @@ namespace Returns.Helpers
                 AttachmentUrls = string.IsNullOrEmpty(r.AttachmentUrlsJson)
          ? new List<string>()
          : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!,
-                Status = r.Status
+                Status = r.Status.ToString()
             }).ToList();
 
             return requests;
+        }
+
+        public async Task<AdHocReturnRequest> CloseRequest(string RequestId, LoggedInEntity admin)
+        {
+            var request = await _context.AdHocReturnRequests
+                .FirstOrDefaultAsync(r => r.Id == RequestId);
+
+            if (request == null)
+            {
+                _logger.LogWarning("Ad hoc return request {RequestId} not found or not pending.", RequestId);
+                throw new InvalidOperationException("Ad hoc return request not found or not pending.");
+            }
+            request.Status = AdHocReturnRequestStatus.Completed;
+            request.RespondedById = admin.UserId;
+            await  _context.SaveChangesAsync();
+            return request;
         }
     }
 }   

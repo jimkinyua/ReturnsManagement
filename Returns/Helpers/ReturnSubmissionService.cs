@@ -52,7 +52,7 @@ namespace Returns.Helpers
 
         }
 
-        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco)
+        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco, Boolean IsAmendment=false)
         {
             var results = new List<SubmissionResultDto>();
 
@@ -94,6 +94,15 @@ namespace Returns.Helpers
                                     && s.IsLatest)
                         .SingleOrDefaultAsync();
 
+                    // If IsAmendment is true but no previous submission exists, treat as error or fallback to Draft
+                    if (IsAmendment && previous == null)
+                    {
+                        res.Status = SubmissionStatus.Failed;
+                        res.Messages.Add("Cannot process amendment without a previous submission.");
+                        results.Add(res);
+                        continue;
+                    }
+
                     // Save file (non-DB: we'll delete on rollback if needed)
                     savedUrl = await FormsHelper.SaveFileAsync(item.formFile, "Returns");
                     if (savedUrl == null)
@@ -104,12 +113,15 @@ namespace Returns.Helpers
                         continue;
                     }
 
+                    // Determine the status for the new submission
+                    string newStatus = IsAmendment ? previous!.Status : SubmissionStatus.Draft.ToString();
+
                     // Create the new submission (version = prev.Version + 1)
                     var submission = new ReturnSubmission
                     {
                         ExpectedReturnId = item.ExpectedReturnId,
                         SaccoId = loggedInSacco.SaccoId,
-                        Status = SubmissionStatus.Draft.ToString(),
+                        Status = newStatus,
                         SubmittedAt = DateTime.Now,
                         FileUrl = savedUrl,
                         Version = (previous?.Version ?? 0) + 1,
@@ -152,10 +164,10 @@ namespace Returns.Helpers
 
                     await trx.CommitAsync();  // Commit if all succeeds
 
-                    res.Status = SubmissionStatus.Draft;
+                    res.Status = Enum.Parse<SubmissionStatus>(newStatus);  // Assuming SubmissionStatus enum matches the string values
                     res.Messages.Add(previous == null
-                                     ? "Saved as draft."
-                                     : $"Saved as draft – supersedes v{previous.Version}.");
+                                     ? $"Saved as {newStatus.ToLower()}."
+                                     : $"Saved as {newStatus.ToLower()} – supersedes v{previous.Version}.");
                     results.Add(res);
                 }
                 catch (Exception ex)

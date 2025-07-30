@@ -5,10 +5,12 @@ namespace Returns.Models
 {
     public enum AmendmentStatus
     {
-        Pending = 0,
-        Approved = 1,
-        Rejected = 2,
-        Cancelled = 3   // closed after successful re‑upload
+        PendingSaccoResponse = 0,
+        PendingAdminApproval = 1,
+        Approved = 2,
+        Rejected = 3,
+        Responded = 4,
+        Cancelled = 5   // closed after successful re‑upload
     }
 
     public class AmendmentRequest:CommonFields
@@ -17,7 +19,7 @@ namespace Returns.Models
         public string RequestedById { get; set; } = null!;
         public string ExpectedReturnId { get; set; } = null!;
         public DateTime RequestedAt { get; set; } = DateTime.Now;
-        public AmendmentStatus Status { get; set; } = AmendmentStatus.Pending;
+        public AmendmentStatus Status { get; set; } = AmendmentStatus.PendingAdminApproval;
         public string? ReviewedById { get; set; }
         public DateTime? ReviewedAt { get; set; }
         public string Reason { get; set; } = string.Empty;

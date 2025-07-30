@@ -1436,7 +1436,7 @@ namespace Returns.Helpers
                         var economicSectorData = new EconomicSectorData
                         {
                             ReturnSubmissionId = ReturnSubmissionId,
-                            //ReturnSubmissionId = ReturnSubmissionId, // This will be updated when linked to actual return
+                            //ResubmissionRequestId = ResubmissionRequestId, // This will be updated when linked to actual return
                             Amount = economicSector.Amount,
                             EconomicSectorCode = economicSector.EconomicSectorCode,
                             //EconomicSectorId = economicSector.EconomicSectorCode, // This should be a proper ID reference

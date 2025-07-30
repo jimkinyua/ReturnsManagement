@@ -11,7 +11,7 @@ namespace Returns.DTOs.Returns.Returns_Submission
         public string ReturnSubmissionId { get; set; } = null!;
         public string ExpectedReturnId { get; set; } = null!;
         public string RequestedAt { get; set; } = string.Empty;
-        public AmendmentStatus Status { get; set; } = AmendmentStatus.Pending;
+        public AmendmentStatus Status { get; set; } = AmendmentStatus.PendingAdminApproval;
         public string Reason { get; set; } = string.Empty;
         public FormCategory? ReturnType { get; set; }
 

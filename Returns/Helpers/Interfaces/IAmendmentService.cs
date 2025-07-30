@@ -13,7 +13,8 @@ using Returns.DTOs.Returns.Returns_Submission;
         Task<AmendmentRequest> CreateAmendRequestForSacco(AmendmentRequestDTO dto, LoggedInEntity loggedInEntity);
         Task<AmendmentRequest> RespondToAdminAmendmentRequestAsync(SaccoAmendmentResponseDTO dto, LoggedInEntity loggedInEntity);
         Task<AmendmentRequest> CreateAdminAmendmentRequestAsync(AdminAmendmentRequestDTO dto, LoggedInEntity admin);
-        Task<IList<PendingAmendmentRequestDTO>> GetPendingAmendmentRequestsAsync();
+        Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingAdminApprovalAsync();
+        Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingSaccoResponseAsync();
         Task<AmendmentRequestDetailsDTO> GetAmendmentRequestDetailsAsync(string requestId, LoggedInEntity admin);
         Task ReviewAmendmentRequest(string requestId, bool approve, string reviewerId);
 

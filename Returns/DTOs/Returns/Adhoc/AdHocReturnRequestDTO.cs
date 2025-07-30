@@ -6,4 +6,9 @@
         public string Description { get; set; } = null!;
         public List<IFormFile>? AttachmentFiles { get; set; }
     }
+
+    public class CloseAdHocReturnRequestDTO
+    {
+        public string RequestId { get; set; } = null!;
+    }
 }

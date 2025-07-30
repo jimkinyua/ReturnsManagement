@@ -20,6 +20,6 @@ namespace Returns.Models
         public string? ResponseFileUrlsJson { get; set; }
         public string? RespondedById { get; set; }
         public DateTime? RespondedAt { get; set; }
-        public string Status { get; set; } = AdHocReturnRequestStatus.Pending.ToString();
+        public AdHocReturnRequestStatus Status { get; set; } = AdHocReturnRequestStatus.Pending;
     }
 }

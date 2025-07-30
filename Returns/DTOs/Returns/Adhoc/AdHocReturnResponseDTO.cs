@@ -3,9 +3,6 @@
     public class AdHocReturnResponseDTO
     {
         public string RequestId { get; set; } = null!;
-        public string SaccoName { get; set; } = null!;
-        public string SaccoId { get; set; } = null!;
-        public string RequestedById { get; set; } = null!;
         public string ResponseDescription { get; set; } = null!;
         public List<IFormFile> ResponseFiles { get; set; } = null!;
     }

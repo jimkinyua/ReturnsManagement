@@ -57,11 +57,11 @@ namespace Returns.Helpers
                 throw new InvalidOperationException("Return submission not found.");
             }
 
-            if (saccoId != submission.SaccoId)
+           /* if (saccoId != submission.SaccoId)
             {
                 _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
                 throw new UnauthorizedAccessException("You do not have permission to access this submission.");
-            }
+            }*/
 
             return submission;
         }      
@@ -79,11 +79,11 @@ namespace Returns.Helpers
                 throw new InvalidOperationException("Return submission not found.");
             }
 
-            if (saccoId != submission.SaccoId)
+          /*  if (saccoId != submission.SaccoId)
             {
                 _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
                 throw new UnauthorizedAccessException("You do not have permission to access this submission.");
-            }
+            }*/
 
             return submission;
         }
@@ -115,7 +115,7 @@ namespace Returns.Helpers
         {
             return await _context.AmendmentRequests
                 .Where(r => r.ReturnSubmissionId == submissionId
-                            && (r.Status == AmendmentStatus.Pending || r.Status == AmendmentStatus.Approved))
+                            && (r.Status == AmendmentStatus.PendingAdminApproval || r.Status == AmendmentStatus.PendingSaccoResponse))
                 .OrderByDescending(r => r.RequestedAt)
                 .FirstOrDefaultAsync();
         }
@@ -167,7 +167,7 @@ namespace Returns.Helpers
                 RequestedById = loggedInEntity.UserId,
                 RequestedAt = DateTime.Now,
                 Reason = dto.AmendmentReason.Trim(),
-                Status = AmendmentStatus.Pending,
+                Status = AmendmentStatus.PendingAdminApproval,
                 FileUrl = fileUrl,
                 ParseSuccess = parseSuccess,
                 ContentsJson = contentsJson,
@@ -182,38 +182,45 @@ namespace Returns.Helpers
 
         public async Task<AmendmentRequest> RespondToAdminAmendmentRequestAsync(SaccoAmendmentResponseDTO dto, LoggedInEntity loggedInEntity)
         {
-         
+
 
             // Retrieve and validate submission
-            var submission = await GetSubmissionUsingExpectedIdAsync(dto.ReturnSubmissionId, loggedInEntity.SaccoId);
 
             // Check for admin-initiated amendment request
             var existingRequest = await _context.AmendmentRequests
-                .Where(r => r.ReturnSubmissionId == dto.ReturnSubmissionId
-                            && r.Status == AmendmentStatus.Pending
-                            && r.IsAdminInitiated)
-                .OrderByDescending(r => r.RequestedAt)
-                .FirstOrDefaultAsync();
+                 .Where(r =>
+                     r.Id == dto.ResubmissionRequestId
+                  && r.Status == AmendmentStatus.PendingSaccoResponse    // direct enum comparison
+                  && r.IsAdminInitiated                     // bool comparison
+                 )
+                 .OrderByDescending(r => r.RequestedAt)
+                 .FirstOrDefaultAsync();
+
 
             if (existingRequest == null)
             {
                 throw new InvalidOperationException("No admin-initiated amendment request found for this submission.");
             }
 
+            var submission = await GetSubmissionUsingExpectedIdAsync(existingRequest.ExpectedReturnId, loggedInEntity.SaccoId);
+
+
             // Parse and save file
             var (fileUrl, parseSuccess, contentsJson, parseErrorsJson) = await ParseAndSaveFileAsync(
                 dto.FormFile,
                 (FormCategory)submission.ExpectedReturn.ReturnForm.Category,
                 submission.ExpectedReturn.ReturnForm.SaccoTypeId,
-                dto.ReturnSubmissionId);
+                dto.ResubmissionRequestId);
 
             // Update existing amendment request
             existingRequest.FileUrl = fileUrl;
             existingRequest.ParseSuccess = parseSuccess;
             existingRequest.ContentsJson = contentsJson;
             existingRequest.ParseErrorsJson = parseErrorsJson;
-            existingRequest.Status = AmendmentStatus.Cancelled; // Mark as Cancelled after processing
+            existingRequest.Status = AmendmentStatus.Responded; // Mark as Responded after processing
 
+            _context.AmendmentRequests.Entry(existingRequest).State = EntityState.Modified;
+            _context.AmendmentRequests.Update(existingRequest);
             // Process submission directly
             var newReturnDto = new NewReturnDTO
             {
@@ -227,7 +234,7 @@ namespace Returns.Helpers
                 }
             };
 
-            var result = await _returnSubmissionService.UploadDraftAsync(newReturnDto, loggedInEntity);
+            var result = await _returnSubmissionService.UploadDraftAsync(newReturnDto, loggedInEntity, true);
             if (result.Any(r => r.Status == SubmissionStatus.Failed))
             {
                 throw new InvalidOperationException($"Failed to process amendment: {string.Join(", ", result.SelectMany(r => r.Messages))}");
@@ -243,7 +250,7 @@ namespace Returns.Helpers
         {
     
             // Retrieve and validate submission
-            var submission = await GetSubmissionUsingExpectedIdAsync(dto.ReturnSubmissionId, admin.SaccoId);
+            var submission = await GetSubmissionUsingReturnIdAsync(dto.ReturnSubmissionId, admin.SaccoId);
 
             // Check for existing amendment requests
             var existingRequest = await CheckExistingAmendmentRequestAsync(dto.ReturnSubmissionId);
@@ -255,14 +262,13 @@ namespace Returns.Helpers
             // Create new amendment request
             var newRequest = new AmendmentRequest
             {
-                Id = Guid.NewGuid().ToString(),
                 ExpectedReturnId = submission.ExpectedReturnId,
                 ReturnSubmissionId = dto.ReturnSubmissionId,
                 SaccoId = submission.SaccoId,
                 RequestedById = admin.UserId,
                 RequestedAt = DateTime.UtcNow,
                 Reason = dto.Reason.Trim(),
-                Status = AmendmentStatus.Pending,
+                Status = AmendmentStatus.PendingSaccoResponse,
                 FileUrl = string.Empty,
                 ParseSuccess = true,
                 ContentsJson = null,
@@ -280,13 +286,13 @@ namespace Returns.Helpers
             return newRequest;
         }
 
-        public async Task<IList<PendingAmendmentRequestDTO>> GetPendingAmendmentRequestsAsync()
+        public async Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingSaccoResponseAsync()
         {
             var requests = await _context.AmendmentRequests
                 .Include(r => r.ReturnSubmission)
                 .ThenInclude(er => er.ExpectedReturn)
                 .ThenInclude(er => er.ReturnForm)
-                .Where(r => r.Status == AmendmentStatus.Pending)
+                .Where(r => r.Status == AmendmentStatus.PendingSaccoResponse)
                 .OrderByDescending(r => r.RequestedAt)
                 .Select(r => new PendingAmendmentRequestDTO
                 {
@@ -376,7 +382,7 @@ namespace Returns.Helpers
                 throw new InvalidOperationException("Amendment request not found.");
             }
 
-            if (request.Status != AmendmentStatus.Pending)
+            if (request.Status != AmendmentStatus.PendingAdminApproval)
             {
                 _logger.LogWarning("Amendment request {RequestId} is not in Pending status. Current status: {Status}", requestId, request.Status);
                 throw new InvalidOperationException($"Amendment request is not pending. Current status: {request.Status}.");
@@ -423,7 +429,7 @@ namespace Returns.Helpers
                 if (result.Any(r => r.Status == SubmissionStatus.Failed))
                 {
                     _logger.LogWarning("Failed to process approved amendment request {RequestId}: {Errors}", requestId, string.Join(", ", result.SelectMany(r => r.Messages)));
-                    request.Status = AmendmentStatus.Pending; // Revert to Pending on failure
+                    request.Status = AmendmentStatus.PendingAdminApproval; // Revert to Pending on failure
                     await _context.SaveChangesAsync();
                     throw new InvalidOperationException($"Failed to process approved submission: {string.Join(", ", result.SelectMany(r => r.Messages))}");
                 }
@@ -431,6 +437,33 @@ namespace Returns.Helpers
 
             await _context.SaveChangesAsync();
             _logger.LogInformation("Amendment request {RequestId} {Status} by reviewer {ReviewerId}", requestId, request.Status, reviewerId);
+        }
+
+        public async Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingAdminApprovalAsync()
+        {
+            var requests = await _context.AmendmentRequests
+                            .Include(r => r.ReturnSubmission)
+                            .ThenInclude(er => er.ExpectedReturn)
+                            .ThenInclude(er => er.ReturnForm)
+                            .Where(r => r.Status == AmendmentStatus.PendingAdminApproval)
+                            .OrderByDescending(r => r.RequestedAt)
+                            .Select(r => new PendingAmendmentRequestDTO
+                            {
+                                Id = r.Id,
+                                ExpectedReturnId = r.ExpectedReturnId,
+                                ReturnSubmissionId = r.ReturnSubmissionId,
+                                SaccoId = r.SaccoId,
+                                RequestedById = r.RequestedById,
+                                RequestedAt = r.RequestedAt.ToLongDateString(),
+                                Reason = r.Reason,
+                                Status = r.Status,
+                                ReturnType = r.ReturnSubmission.ExpectedReturn.ReturnForm != null
+                                    ? (FormCategory?)r.ReturnSubmission.ExpectedReturn.ReturnForm.Category
+                                    : null
+                            })
+                            .ToListAsync();
+
+            return requests;
         }
     }
 }

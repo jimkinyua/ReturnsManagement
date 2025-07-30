@@ -62,7 +62,7 @@ builder.Services
   {
       client.BaseAddress = new Uri(builder.Configuration["GatewayConfigs:GatewayURL"]!);
   });
-
+builder.Services.AddSingleton<IBackgroundJobClient>(sp => new BackgroundJobClient(sp.GetRequiredService<JobStorage>()));
 builder.Services.AddTransient<IAdditionalInformationRequestService, AdditionalInformationRequestService>();
 builder.Services.AddTransient<IWorkflowTemplateAdminService, WorkflowTemplateService>();
 builder.Services.AddTransient<IWorkflowEngineService, WorkflowEngineService>();
@@ -79,6 +79,7 @@ builder.Services.AddTransient<IAmendmentService, AmendmentService>();
 builder.Services.AddTransient<IExcelParser, ExcelParserService>();
 builder.Services.AddTransient<ISaccoAssignmentService, SaccoAssignmentService>();
 builder.Services.AddTransient<IReturnSubmissionService, ReturnSubmissionService>();
+builder.Services.AddTransient<IAdhocReturnsService, AdhocReturnsService>();
 builder.Services.AddScoped<ReturnsReminderService>();
 builder.Services.AddLogging();
 
