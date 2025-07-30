@@ -686,7 +686,7 @@ namespace Returns.Helpers
                     await _emailService.SendEmailAsync(
                         assigneeDetails.Email,
                         "New Return Assigned for Review",
-                        $"A new {(isQuarterly ? "quarterly return group" : "return")} for SACCO {sacco?.SaccoName ?? saccoId} (Period: {period.Name}) has been assigned to you for review.");
+                        $"A new {(isQuarterly ? "quarterly return" : "return")} for SACCO {sacco?.SaccoName ?? saccoId} (Period: {period.Name}) has been assigned to you for review.");
                 }
                 catch (Exception ex)
                 {
@@ -875,17 +875,17 @@ namespace Returns.Helpers
             var RoleAssignedThisStep = RoleDetails.RoleName;
             CommonFieldForUser commonFieldForUser = new CommonFieldForUser();
 
-            if (RoleAssignedThisStep == "Team Lead")
+            if (RoleAssignedThisStep == "Assistant Manager")
             {
-                var teamLead = await _complianceService.GetTeamLead(teamId);
+                var teamLead = await _complianceService.GetTeamLeaderAsync(teamId);
                 if (teamLead == null)
                 {
                     throw new Exception("No Team Lead found for this team.");
                 }
                 commonFieldForUser.FullName = teamLead.FullName;
                 commonFieldForUser.Email = teamLead.Email;
-                commonFieldForUser.RoleId = teamLead.RoleId;
-                commonFieldForUser.UserId = teamLead.Id;
+                commonFieldForUser.RoleId = teamLead.Role;
+                commonFieldForUser.UserId = teamLead.UserId;
             }
             // if we are back to step 0, get assigned compliance officer
             else if (stepdetails.Sequence == 0)

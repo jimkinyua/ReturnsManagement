@@ -468,42 +468,20 @@ namespace Returns.Helpers
         }
 
 
-        public Task<SasraRoleDetails?> GetRoleDetails(string RoleId)
+        public async Task<SasraRoleDetails?> GetRoleDetails(string RoleId)
         {
-            try
-            {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-                    string sql = @"  
-                       SELECT TOP (1) [Id],[Name]
-                        FROM [AspNetRoles] as R
-                        WHERE R.Id = @RoleId
-                        ";
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.Add(new SqlParameter("@RoleId", SqlDbType.NVarChar) { Value = RoleId });
-                        using (var reader = command.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                var officer = new SasraRoleDetails
-                                {
-                                    RoleName = reader["Name"]?.ToString() ?? string.Empty,
-                                    RoleId = reader["Id"]?.ToString() ?? string.Empty,
-                                };
-                                return Task.FromResult<SasraRoleDetails?>(officer);
-                            }
-                            return Task.FromResult<SasraRoleDetails?>(null);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving team lead for Team ID {TeamId}", RoleId);
-                return Task.FromResult<SasraRoleDetails?>(null);
-            }
+            var resp = await _httpClient.GetAsync($"/api/auth/roles/{RoleId}");
+            resp.EnsureSuccessStatusCode();
+
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            using var doc = await JsonDocument.ParseAsync(stream);
+
+            var roleDetails = new SasraRoleDetails();
+
+            var user = await JsonSerializer
+                .DeserializeAsync<SasraRoleDetails>(stream, _jsonOpts);
+
+            return user;
         }
 
         public async Task<string?> GetTeamIdForSaccoAsync(string saccoId)
