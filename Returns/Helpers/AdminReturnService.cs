@@ -529,7 +529,7 @@ namespace Returns.Helpers
 
                     //var requiredFormCodes = ratingDef.RatingForms.Select(rf => rf.FormCode).ToList();
                     var submittedFormCodes = submissions.Select(s => s.ExpectedReturn.ReturnForm.Code).ToList();
-               
+
                     detailsDto.SubmittedForms = submittedFormCodes.Count;
                     detailsDto.Status = GetGroupStatus(submissions);
                     detailsDto.SubmittedAt = submissions.Any() ? submissions.Max(s => s.SubmittedAt) : DateTime.MinValue;
@@ -550,7 +550,7 @@ namespace Returns.Helpers
                         .Where(cr => cr.SaccoId == saccoId && cr.PeriodId == periodId)
                         .OrderByDescending(cr => cr.CreatedAt)
                         .FirstOrDefaultAsync();
-                   
+
 
 
                     detailsDto.Ratings = CaelsRatings != null ? new SingleCAELSDTO
@@ -755,7 +755,7 @@ namespace Returns.Helpers
         {
             public static string BuildFullUrl(IConfiguration configuration, string relativeUrl)
             {
-                var baseUrl = configuration.GetSection("GateWayConfigs:GatewayURL").Value ?? "https://sasra-backend.sasra.go.ke";
+                var baseUrl = configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value ?? "https://sasra-backend.sasra.go.ke";
                 return new UriBuilder(baseUrl) { Path = relativeUrl.TrimStart('/') }.Uri.ToString();
             }
         }
@@ -769,6 +769,7 @@ namespace Returns.Helpers
                 return new Returns.DTOs.Returns_Submission.DT.CapitalAdequacyDTO
                 {
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
+                    SubmissionId = submission.Id,
                     ShareCapital = entity.ShareCapital,
                     StatutoryReserves = entity.StatutoryReserves,
                     RetainedEarningsAccumulatedLosses = entity.RetainedEarningsAccumulatedLosses,
@@ -812,6 +813,7 @@ namespace Returns.Helpers
                 if (entity == null) return null;
                 return new NWDTCapitalAdequacyDTO
                 {
+                    SubmissionId = submission.Id,
                     StartDate = entity.StartDate,
                     EndDate = entity.EndDate,
                     DaysLateBy = entity.DaysLateBy,
@@ -867,6 +869,7 @@ namespace Returns.Helpers
                 {
                     investment = new InvestmentReturnDTO
                     {
+                        SubmissionId = submission.Id,
                         FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                         FormId = investmentEntity.FormId ?? string.Empty,
                         RequiresResubmission = investmentEntity.RequiresResubmission,
@@ -899,6 +902,7 @@ namespace Returns.Helpers
                 {
                     nwdtInvestment = new NWDTInvestmentReturnDTO
                     {
+                        SubmissionId = submission.Id,
                         FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                         FormId = inv.FormId,
                         RequiresResubmission = inv.RequiresResubmission,
@@ -943,6 +947,7 @@ namespace Returns.Helpers
                 if (liquidityEntity == null) return null;
                 return new DTOs.Returns_Submission.DT.LiquidityStatementDTO
                 {
+                    SubmissionId = submission.Id,
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                     RequiresResubmission = liquidityEntity.RequiresResubmission,
                     LocalNotesAndCoins = liquidityEntity.LocalNotesAndCoins,
@@ -992,6 +997,7 @@ namespace Returns.Helpers
                 if (entity == null) return null;
                 return new NWDTLiquidityStatementDTO
                 {
+                    SubmissionId = submission.Id,
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                     StartDate = entity.StartDate,
                     EndDate = entity.EndDate,
@@ -1036,6 +1042,7 @@ namespace Returns.Helpers
 
                 var firstEntity = entities.First();
                 riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
+                riskClassifications.FormId = submission.Id;
                 riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
                 riskClassifications.FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl);
 
@@ -1043,6 +1050,7 @@ namespace Returns.Helpers
                 {
                     riskClassifications.RiskClassificationData.Add(new RiskClassificationData
                     {
+
                         LoanType = rc.LoanType,
                         Classification = rc.Classification,
                         NumberOfAccounts = rc.NumberOfAccounts,
@@ -1066,6 +1074,7 @@ namespace Returns.Helpers
                 nwdtRiskClassification.FormId = firstItem.FormId;
                 nwdtRiskClassification.RequiresResubmission = firstItem.RequiresResubmission;
                 nwdtRiskClassification.FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl);
+                nwdtRiskClassification.FormId = submission.Id;
 
                 nwdtRiskClassification.NWDTRiskClassificationData = risks.Select(rc => new NWDTRiskClassificationData
                 {
@@ -1097,6 +1106,7 @@ namespace Returns.Helpers
                 depositReturn = new DepositReturnDto
                 {
                     FormId = depositEntities.FirstOrDefault()?.FormId ?? string.Empty,
+                    SubmissionId = submission.Id,
                     RequiresResubmission = depositEntities.FirstOrDefault()?.RequiresResubmission ?? false,
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                 };
@@ -1125,6 +1135,7 @@ namespace Returns.Helpers
                 {
                     FormId = deposits[0].FormId ?? string.Empty,
                     RequiresResubmission = deposits[0].RequiresResubmission,
+                    SubmissionId = submission.Id,
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                     DepositReturnData = deposits.Select(dr => new NWDTDepositReturnData
                     {
@@ -1150,6 +1161,7 @@ namespace Returns.Helpers
                 {
                     financialPosition = new Returns.DTOs.Returns_Submission.Returns_Submission.DT.FinancialPositionDTO
                     {
+                        SubmissionId = submission.Id,
                         FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                         FormId = balanceEntity.FormId ?? string.Empty,
                         RequiresResubmission = balanceEntity.RequiresResubmission,
@@ -1198,6 +1210,7 @@ namespace Returns.Helpers
                 {
                     nwdtFinancialPosition = new NWDTFinancialPositionDTO
                     {
+                        SubmissionId = submission.Id,
                         FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                         FormId = entity.FormId ?? string.Empty,
                         RequiresResubmission = entity.RequiresResubmission,
@@ -1262,6 +1275,7 @@ namespace Returns.Helpers
                 {
                     incomeStatement = new ComprehesiveIncomeStatementDTO
                     {
+                        SubmissionId = submission.Id,
                         FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                         FormId = incomeEntity.FormId ?? string.Empty,
                         RequiresResubmission = incomeEntity.RequiresResubmission,
@@ -1304,7 +1318,7 @@ namespace Returns.Helpers
                     nwdtIncomeStatement = new NWDTComprehesiveIncomeStatementDTO
                     {
                         FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
-
+                        SubmissionId = submission.Id,
                         FormId = inc.FormId,
                         RequiresResubmission = inc.RequiresResubmission,
                         InterestOnLoanPortfolio = inc.InterestOnLoanPortfolio,

@@ -6,6 +6,7 @@ namespace Returns.DTOs
     {
         public string? FormId { get; set; } = null!;
         public string FileUrl { get; set; } = string.Empty;
+        public string SubmissionId { get; set; } = string.Empty;
         public bool CanAutoAmend { get; private set; } = false; 
         public bool RequiresResubmission { get; set; } = false;
         public List<VersionChoice> PreviousVersionIds { get; set; } = new List<VersionChoice>();

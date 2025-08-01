@@ -86,7 +86,7 @@ namespace Returns.Helpers
         }
         public static async Task<string> SaveFileAsync(IFormFile file, string folder, string fileName = "", ILogger logger = null)
         {
-            return "local";
+            //return "local";
             if (file == null || file.Length <= 0)
             {
                 return null;
