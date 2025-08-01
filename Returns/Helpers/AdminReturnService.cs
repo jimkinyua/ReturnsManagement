@@ -1,10 +1,13 @@
 ﻿using iText.Commons.Utils;
 using Microsoft.EntityFrameworkCore;
+using Returns.DTOs.Returns.Returns_Analysis;
 using Returns.DTOs.Returns.Returns_Submission;
+using Returns.DTOs.Returns_Analysis;
 using Returns.DTOs.Returns_Submission;
 using Returns.DTOs.Returns_Submission.DT;
 using Returns.DTOs.Returns_Submission.NWDT;
 using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
+using Returns.DTOs.WorkFlow_Engine;
 using Returns.Helpers.Enums;
 using Returns.Helpers.Interfaces;
 using Returns.Models;
@@ -20,14 +23,17 @@ namespace Returns.Helpers
         private readonly ILogger<AdminReturnService> _logger;
         private readonly IComplianceService _complianceService;
         private readonly IConfiguration _configuration;
+        private readonly IWorkflowEngineService _workflowEngineService;
 
 
-        public AdminReturnService(ReturnsDbContext context,  ILogger<AdminReturnService> logger, IComplianceService complianceService, IConfiguration configuration)
+
+        public AdminReturnService(ReturnsDbContext context, IWorkflowEngineService workflowEngineService, ILogger<AdminReturnService> logger, IComplianceService complianceService, IConfiguration configuration)
         {
             _context = context;
             _logger = logger;
             _complianceService = complianceService;
             _configuration = configuration;
+            _workflowEngineService = workflowEngineService;
         }
 
         public async Task<List<AdminGroupedReturnDTO>> GetGroupedReturnsAsync(AdminReturnFilterDTO filter)
@@ -407,6 +413,9 @@ namespace Returns.Helpers
         {
             try
             {
+                WorkflowStateDto? workflowState = null;
+                List<CommentDetails> comments = new();
+
                 var period = await _context.ReturnPeriods
                     .Include(p => p.FrequencyCatalog)
                     .Include(p => p.ReportingYear)
@@ -482,16 +491,19 @@ namespace Returns.Helpers
                             detailsDto.InvestmentReturn = MapInvestment(submission, saccoType);
                             break;
                     }
-                    return detailsDto;
+
+                    workflowState = await _workflowEngineService.GetCurrentStateAsync(null, null, submission.Id);
+                    comments = await _workflowEngineService.GetComments(null, null, submission.Id);
+
                 }
                 else
                 {
-                    var ratingDef = await _context.RatingDefinations
+                    /*var ratingDef = await _context.RatingDefinations
                         .Include(rd => rd.RatingForms)
                         .FirstOrDefaultAsync(rd => rd.Id == groupId);
 
                     if (ratingDef == null)
-                        throw new ArgumentException("Rating definition not found");
+                        throw new ArgumentException("Rating definition not found");*/
 
                     var submissions = await _context.ReturnSubmissions
                         .Include(rs => rs.ExpectedReturn)
@@ -515,10 +527,9 @@ namespace Returns.Helpers
                         .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
                         .ToListAsync();
 
-                    var requiredFormCodes = ratingDef.RatingForms.Select(rf => rf.FormCode).ToList();
+                    //var requiredFormCodes = ratingDef.RatingForms.Select(rf => rf.FormCode).ToList();
                     var submittedFormCodes = submissions.Select(s => s.ExpectedReturn.ReturnForm.Code).ToList();
-                    var isComplete = requiredFormCodes.All(required => submittedFormCodes.Contains(required));
-                    detailsDto.IsComplete = isComplete;
+               
                     detailsDto.SubmittedForms = submittedFormCodes.Count;
                     detailsDto.Status = GetGroupStatus(submissions);
                     detailsDto.SubmittedAt = submissions.Any() ? submissions.Max(s => s.SubmittedAt) : DateTime.MinValue;
@@ -526,14 +537,47 @@ namespace Returns.Helpers
 
                     // Fetch the latest consistency check result and include errors
                     var consistencyCheck = await _context.ConsistencyCheckResults
+                               .Where(cc => cc.SaccoId == saccoId && cc.PeriodId == periodId)
+                               .OrderByDescending(cc => cc.CheckedAt)
+                               .FirstOrDefaultAsync();
+
+                    var completenessCheck = await _context.ReturnCompleteness
                         .Where(cc => cc.SaccoId == saccoId && cc.PeriodId == periodId)
-                        .OrderByDescending(cc => cc.CheckedAt)
+                        .OrderByDescending(cc => cc.CreatedAt)
                         .FirstOrDefaultAsync();
+
+                    var CaelsRatings = await _context.CAELSRatings
+                        .Where(cr => cr.SaccoId == saccoId && cr.PeriodId == periodId)
+                        .OrderByDescending(cr => cr.CreatedAt)
+                        .FirstOrDefaultAsync();
+                   
+
+
+                    detailsDto.Ratings = CaelsRatings != null ? new SingleCAELSDTO
+                    {
+                        CapitalRating = (int)CaelsRatings.CapitalRating,
+                        AssetQualityRating = (int)CaelsRatings.AssetQualityRating,
+                        ManagementRating = (int)CaelsRatings.ManagementRating,
+                        EarningsRating = (int)CaelsRatings.EarningsRating,
+                        LiquidityRating = (int)CaelsRatings.LiquidityRating,
+                        OverallRating = (int)CaelsRatings.OverallRating,
+                        Average = (int)CaelsRatings.AverageRating,
+                        RiskLevel = CaelsRatings.RiskLevel
+                    } : new SingleCAELSDTO();
+
+                    var isComplete = completenessCheck != null && completenessCheck.IsComplete;
+                    detailsDto.IsComplete = isComplete;
 
                     if (consistencyCheck != null)
                     {
                         detailsDto.ConsistencyErrors = JsonSerializer.Deserialize<List<ValidationError>>(consistencyCheck.ErrorsJson) ?? new List<ValidationError>();
                     }
+
+                    if (completenessCheck != null)
+                    {
+                        detailsDto.MissingForms = JsonSerializer.Deserialize<List<string>>(completenessCheck.MissingForms) ?? new List<string>();
+                    }
+
 
                     foreach (var submission in submissions)
                     {
@@ -563,8 +607,13 @@ namespace Returns.Helpers
                                 break;
                         }
                     }
-                    return detailsDto;
+                    workflowState = await _workflowEngineService.GetCurrentStateAsync(periodId, saccoId, null);
+                    comments = await _workflowEngineService.GetComments(periodId, saccoId, null);
                 }
+
+                detailsDto.WorkflowState = workflowState;
+                detailsDto.Comments = comments;
+                return detailsDto;
             }
             catch (Exception ex)
             {

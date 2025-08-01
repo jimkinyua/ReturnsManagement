@@ -1,5 +1,8 @@
+using Returns.DTOs.Returns.Returns_Analysis;
+using Returns.DTOs.Returns_Analysis;
 using Returns.DTOs.Returns_Submission.DT;
 using Returns.DTOs.Returns_Submission.Returns_Submission.DT;
+using Returns.DTOs.WorkFlow_Engine;
 using Returns.Helpers;
 using System;
 
@@ -30,7 +33,11 @@ namespace Returns.DTOs.Returns_Submission
         public object? FinancialPosition { get; set; }
         public object? ComprehensiveIncome { get; set; }
         public object? InvestmentReturn { get; set; }
-        public List<ReturnAnalysisHelper.ValidationError> ConsistencyErrors { get; internal set; }
+        public List<ReturnAnalysisHelper.ValidationError> ConsistencyErrors { get; internal set; } = new List<ReturnAnalysisHelper.ValidationError>();
+        public WorkflowStateDto? WorkflowState { get; set; }
+        public SingleCAELSDTO Ratings { get; set; } = new SingleCAELSDTO();
+        public List<CommentDetails> Comments { get; set; } = new List<CommentDetails>();
+        public List<string> MissingForms { get; internal set; } = new List<string>();
     }
 
 

@@ -677,9 +677,6 @@ namespace Returns.Controllers
                         FrequencyCode = g.Key.Code,
                         FrequencyName = g.Key.Name,
                         TotalFormsInGroup = g.Count(),
-                        //FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
-                        //DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
-                        //LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
                         Forms = g.Select(er => CreateFormDueDTO(er, baseUrl, currentDate, submissionData.GetValueOrDefault(er.Id)))
                             .OrderBy(f => f.FilingDeadline)
                             .ThenBy(f => f.FormName)
@@ -808,7 +805,7 @@ namespace Returns.Controllers
         /// <summary>
         /// Create FormDueDTO with optimized status determination
         /// </summary>
-        private FormsDueByMonthDTO CreateFormDueDTO(ExpectedReturn er, string baseUrl, DateTime currentDate, (Returns.DTOs.Returns.Returns_Submission.SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt) submissionData)
+        private FormsDueByMonthDTO CreateFormDueDTO(ExpectedReturn er, string baseUrl, DateTime currentDate, (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt, string? FileUrl) submissionData)
         {
             var isSubmitted = submissionData.Status != Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted;
             var isLate = _returnSubmissionService.IsFormLate(er.FilingDeadline, submissionData.Status);
@@ -830,7 +827,9 @@ namespace Returns.Controllers
                 //IsSubmitted = isSubmitted,
                 SubmissionId = submissionData.SubmissionId,
                 SubmissionStatus = submissionData.Status,
-                SubmittedAt = submissionData.SubmittedAt
+                SubmittedAt = submissionData.SubmittedAt,
+                UploadUrl = submissionData.FileUrl
+
             };
         }
 

@@ -15,6 +15,9 @@ namespace Returns.DTOs.Returns.Returns_Submission
         public int TotalForms { get; set; }
         public int SuccessfullySubmitted { get; set; }
         public int FailedSubmissions { get; set; }
+        public bool IsPeriodComplete { get; set; } 
+        public int MissingCount { get; set; }
+        public string SubmissionId { get; set; } = "";
         public List<BulkSubmissionDetailDTO> Details { get; set; } = new List<BulkSubmissionDetailDTO>();
     }
 

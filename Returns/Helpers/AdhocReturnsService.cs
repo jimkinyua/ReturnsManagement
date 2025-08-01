@@ -17,6 +17,7 @@ namespace Returns.Helpers
         private readonly IReturnAmendmentPolicy _returnAmendmentPolicy;
         private readonly IExcelParser _excelParser;
         private readonly IComplianceService _complianceService;
+        private readonly IWorkflowEngineService _workflowEngineService;
         public AdhocReturnsService(
                  ReturnsDbContext context,
                  IEmailService emailService,
@@ -24,6 +25,7 @@ namespace Returns.Helpers
                  IReturnSubmissionService returnSubmissionService,
                  IReturnAmendmentPolicy returnAmendmentPolicy,
                  IComplianceService complianceService,
+                 IWorkflowEngineService workflowEngineService,
                  IExcelParser excelParser)
         {
             _context = context;
@@ -33,6 +35,7 @@ namespace Returns.Helpers
             _returnSubmissionService = returnSubmissionService;
             _returnAmendmentPolicy = returnAmendmentPolicy;
             _excelParser = excelParser;
+            _workflowEngineService = workflowEngineService;
         }
 
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetPendingAdHocReturnRequestsAsync(string? saccoId = null)

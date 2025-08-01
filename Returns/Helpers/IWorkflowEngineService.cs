@@ -7,7 +7,7 @@ namespace Returns.Helpers
 {
     public interface IWorkflowEngineService
     {
-        Task<WorkflowStateDto> StartWorkflowAsync(string periodId, string saccoId, string? returnSubmissionId, int rating);
+        Task<WorkflowStateDto> StartWorkflowAsync(string periodId, string saccoId, string? returnSubmissionId);
         Task<WorkflowStateDto> ApproveStepAsync(ApproveStepRequestDTO approveStepRequestDTO, string userId);
         //Task<WorkflowStateDto> RejectStepAsync(string workflowId, string userId, RejectStepRequest request);
         Task<WorkflowStateDto> GetCurrentStateAsync(string? periodId, string? saccoId, string? returnSubmissionId);

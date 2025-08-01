@@ -18,6 +18,7 @@ namespace Returns.DTOs.Forms
         public ExpectedStatus Status { get; set; }
         public bool IsLate => DateTime.Now > FilingDeadline && SubmissionStatus != SubmissionStatusEnum.Submitted;
         public string? TemplateUrl { get; set; }
+        public string? UploadUrl { get; set; }
         public string SaccoTypeId { get; set; } = null!;
 
         // Enhanced properties for submission handling

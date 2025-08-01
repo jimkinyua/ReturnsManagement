@@ -13,20 +13,18 @@ namespace Returns.Helpers
         private readonly IComplianceService _complianceService;
         private readonly IEmailService _emailService;
         private readonly ILogger<SaccoAssignmentService> _logger;
-        private readonly IBackgroundJobClient _backgroundJobClient;
 
         public SaccoAssignmentService(
             ReturnsDbContext context,
             IComplianceService complianceService,
             IEmailService emailService,
-            ILogger<SaccoAssignmentService> logger,
-            IBackgroundJobClient backgroundJobClient)
+            ILogger<SaccoAssignmentService> logger
+            )
         {
             _context = context;
             _complianceService = complianceService;
             _emailService = emailService;
             _logger = logger;
-            _backgroundJobClient = backgroundJobClient;
         }
 
         public async Task AssignSaccoAsync(string saccoId, string memberUserId, string tlUserId)
@@ -82,7 +80,7 @@ namespace Returns.Helpers
 
             await _context.SaveChangesAsync();
 
-            _backgroundJobClient.Enqueue(() => SendAssignmentNotificationAsync(saccoId, memberUserId, tlUserId));
+            BackgroundJob.Enqueue(() => SendAssignmentNotificationAsync(saccoId, memberUserId, tlUserId));
         }
 
         public async Task AssignSaccoToMemberAsync(string saccoId, string memberId, string teamLeadId)
@@ -103,8 +101,8 @@ namespace Returns.Helpers
             }
 
             // Validate member is in team
-            var teamMembers = await _complianceService.GetTeamMembers(teamId);
-            var member = teamMembers.FirstOrDefault(m => m.Id == memberId);
+            var teamMembers = await _complianceService.GetTeamMembersAsync(teamId);
+            var member = teamMembers.FirstOrDefault(m => m.UserId == memberId); // Assuming memberId is UserId; corrected from m.Id
             if (member == null)
             {
                 _logger.LogWarning("User {MemberId} is not in team {TeamId}.", memberId, teamId);
@@ -136,45 +134,46 @@ namespace Returns.Helpers
 
             await _context.SaveChangesAsync();
 
-            // Enqueue email notification
-            _backgroundJobClient.Enqueue(() => SendAssignmentNotificationAsync(saccoId, memberId, teamLeadId));
+            BackgroundJob.Enqueue(() => SendAssignmentNotificationAsync(saccoId, memberId, teamLeadId));
         }
 
         public async Task<List<SaccoDTO>> GetAssignableSaccosAsync(string teamLeadId)
         {
-            var teamLead = await _complianceService.GetTeamLeaderAsync(null); // Fetch TL's team
-            if (teamLead == null || teamLead.UserId != teamLeadId)
+            var tlDetails = await _complianceService.GetUserDetailsAsync(teamLeadId); // Fetch TL details to get teamId
+            if (tlDetails == null || !tlDetails.IsTeamLead)
             {
                 _logger.LogWarning("User {TeamLeadId} is not a team lead.", teamLeadId);
                 throw new UnauthorizedAccessException("Only team leads can view assignable SACCOs.");
             }
 
-            var teamId = teamLead.TeamId;
-            var saccoIds = await _complianceService.GetSaccosForTheTeamAsync(teamId);
-            var saccos = new List<SaccoDTO>();
-
-            foreach (var saccoId in saccoIds)
+            var teamId = tlDetails.TeamId;
+            if (string.IsNullOrEmpty(teamId))
             {
-                var sacco = await _complianceService.GetSaccoByTheirIdAsync(saccoId.SaccoId);
-                if (sacco != null)
-                {
-                    saccos.Add(sacco);
-                }
+                _logger.LogWarning("Team Lead {UserId} has no TeamId.", teamLeadId);
+                throw new InvalidOperationException("Team Lead has no assigned team.");
             }
 
-            return saccos;
+            var teamSaccos = await _complianceService.GetSaccosForTeamAsync(teamId);
+            return teamSaccos;
         }
 
         public async Task<List<TeamMemberDTO>> GetTeamMembersAsync(string teamLeadId)
         {
-            var teamLead = await _complianceService.GetTeamLeaderAsync(teamLeadId); // Fetch TL's team
-            if (teamLead == null || teamLead.UserId != teamLeadId)
+            var tlDetails = await _complianceService.GetUserDetailsAsync(teamLeadId); // Fetch TL details to validate and get teamId
+            if (tlDetails == null || !tlDetails.IsTeamLead)
             {
                 _logger.LogWarning("User {TeamLeadId} is not a team lead.", teamLeadId);
                 throw new UnauthorizedAccessException("Only team leads can view team members.");
             }
 
-            return await _complianceService.GetTeamMembersAsync(teamLead.TeamId);
+            var teamId = tlDetails.TeamId;
+            if (string.IsNullOrEmpty(teamId))
+            {
+                _logger.LogWarning("Team Lead {UserId} has no TeamId.", teamLeadId);
+                throw new InvalidOperationException("Team Lead has no assigned team.");
+            }
+
+            return await _complianceService.GetTeamMembersAsync(teamId);
         }
 
         public async Task<List<SaccoAssignmentDTO>> GetTeamAssignmentsAsync(string tlUserId)
@@ -220,7 +219,7 @@ namespace Returns.Helpers
                             UserId = user.UserId,
                             FullName = user.FullName,
                             Email = user.Email,
-                            Role = user.Role,
+                            Role = user.RoleName,
                             IsTeamLead = user.IsTeamLead,
                             TeamId = user.TeamId
                         };
@@ -268,16 +267,16 @@ namespace Returns.Helpers
             await _context.SaveChangesAsync();
 
             // Notify member of unassignment
-            _backgroundJobClient.Enqueue(() => SendUnassignmentNotificationAsync(saccoId, assignment.AssignedUserId, teamLeadId));
+            BackgroundJob.Enqueue(() => SendUnassignmentNotificationAsync(saccoId, assignment.AssignedUserId, teamLeadId));
         }
 
         public async Task SendAssignmentNotificationAsync(string saccoId, string memberId, string teamLeadId)
         {
             try
             {
-                var sacco = await _complianceService.GetSaccoByIdAsync(saccoId);
-                var member = await _complianceService.GetUserById(memberId);
-                var teamLead = await _complianceService.GetUserById(teamLeadId);
+                var sacco = await _complianceService.GetSaccoByTheirIdAsync(saccoId); // Corrected method name based on previous compliance service
+                var member = await _complianceService.GetUserDetailsAsync(memberId); // Corrected to GetUserDetailsAsync
+                var teamLead = await _complianceService.GetUserDetailsAsync(teamLeadId); // Corrected to GetUserDetailsAsync
 
                 if (sacco == null || member == null || string.IsNullOrEmpty(member.Email))
                 {
@@ -308,9 +307,9 @@ namespace Returns.Helpers
         {
             try
             {
-                var sacco = await _complianceService.GetSaccoByIdAsync(saccoId);
-                var member = await _complianceService.GetUserById(memberId);
-                var teamLead = await _complianceService.GetUserById(teamLeadId);
+                var sacco = await _complianceService.GetSaccoByTheirIdAsync(saccoId); // Corrected method name
+                var member = await _complianceService.GetUserDetailsAsync(memberId); // Corrected to GetUserDetailsAsync
+                var teamLead = await _complianceService.GetUserDetailsAsync(teamLeadId); // Corrected to GetUserDetailsAsync
 
                 if (sacco == null || member == null || string.IsNullOrEmpty(member.Email))
                 {
@@ -335,11 +334,6 @@ namespace Returns.Helpers
             {
                 _logger.LogError(ex, "Error sending unassignment notification for Sacco {SaccoId} to Member {MemberId}.", saccoId, memberId);
             }
-        }
-
-        Task<List<TeamMemberDTO>> ISaccoAssignmentService.GetTeamMembersAsync(string teamLeadId)
-        {
-            throw new NotImplementedException();
         }
     }
 }

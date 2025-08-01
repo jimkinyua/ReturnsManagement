@@ -425,7 +425,7 @@ namespace Returns.Helpers
                     SaccoType = request.ReturnSubmission.ExpectedReturn.ReturnForm?.SaccoTypeId ?? string.Empty
                 };
 
-                var result = await _returnSubmissionService.UploadDraftAsync(dto, sacco);
+                var result = await _returnSubmissionService.UploadDraftAsync(dto, sacco,true);
                 if (result.Any(r => r.Status == SubmissionStatus.Failed))
                 {
                     _logger.LogWarning("Failed to process approved amendment request {RequestId}: {Errors}", requestId, string.Join(", ", result.SelectMany(r => r.Messages)));

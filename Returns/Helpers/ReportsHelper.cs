@@ -468,7 +468,7 @@ namespace Returns.Helpers
                         .SetFont(regularFont))
                         .SetPadding(8));
 
-                    // Step/Role cell
+                    // Step/RoleName cell
                     commentsTable.AddCell(new Cell()
                         .Add(new Paragraph(comment.WorkFlowStep.RoleName)
                         .SetFont(regularFont))

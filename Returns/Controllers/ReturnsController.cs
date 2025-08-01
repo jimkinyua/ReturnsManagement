@@ -33,6 +33,8 @@ using Returns.Helpers.Enums;
 using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.AspNetCore.Authorization;
 using Hangfire;
+using DocumentFormat.OpenXml.Drawing.Charts;
+using Returns.DTOs.Compliance;
 
 namespace Returns.Controllers
 {
@@ -430,7 +432,7 @@ namespace Returns.Controllers
                     return BadRequest(string.Join("; ", checkErrors));
                 }
 
-                var results = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco, true);
+                var results = await _returnSubmissionService.UploadDraftAsync(dto, loggedInSacco);
 
                 var failedResults = results.Where(r => r.Status == SubmissionStatus.Failed).ToList();
                 if (failedResults.Any())
@@ -2319,49 +2321,79 @@ namespace Returns.Controllers
         {
             try
             {
-                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-                {
+                var logged = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (logged == null || string.IsNullOrWhiteSpace(logged.SaccoId) || string.IsNullOrWhiteSpace(logged.SaccoType))
                     return StatusCode(401, "Unauthorized");
-                }
+
+                var rating = await _context.RatingDefinations
+                            .Where(r => r.RatingName == "CAELS" && r.SaccoType == logged.SaccoType)
+                            .OrderByDescending(r => r.CreatedAt)
+                            .FirstOrDefaultAsync();
 
                 var result = await _returnSubmissionService.BulkSubmitByPeriodAsync(
-                    request.PeriodId,
-                    loggedInSacco.SaccoId,
-                    loggedInSacco.SaccoType);
+              request.PeriodId,
+              logged.SaccoId,
+              logged.SaccoType);
 
                 if (!result.Success)
                 {
-                    // Handle cases where the operation failed but no exception was thrown
-                    return StatusCode(400, result.Message); // Bad Request for validation or process failures
+                    return BadRequest(result.Message);
                 }
 
-                // Success case with additional processing
                 var period = await _context.ReturnPeriods.FindAsync(request.PeriodId);
-                if (period != null && period.FrequencyId == 5)
-                {
-                    var ratingDef = await _context.RatingDefinations
-                        .Where(r => r.RatingName.Equals("CAELS") && r.SaccoType == loggedInSacco.SaccoType)
-                        .OrderByDescending(r => r.CreatedAt)
-                        .FirstOrDefaultAsync();
 
-                    if (ratingDef != null)
+                if (period?.FrequencyId == 5)// quarterly returns detected
+                {
+                    // Always start workflow for quarterly, but handle analysis only if complete
+                    if (result.IsPeriodComplete)
                     {
-                        BackgroundJob.Enqueue<ICamelsAnalysisService>(s => s.CalculateCurrentDepositTakingAnalysisAsync(
-                            ratingDef.Id,
-                            request.PeriodId,
-                            loggedInSacco.SaccoId
-                        ));
+                        BackgroundJob.Enqueue<IReturnSubmissionService>(s =>
+                            s.SendSubmissionConfirmationEmailAsync(logged.SaccoId, request.PeriodId));
+
+                        if (rating != null)
+                        {
+                            var analysisJobId = BackgroundJob.Enqueue<ICamelsAnalysisService>(s =>
+                                s.CalculateCurrentAnalysisAsync(
+                                    rating.Id, request.PeriodId, logged.SaccoId, logged.SaccoType));
+
+                            // Chain workflow to run after analysis succeeds
+                            BackgroundJob.ContinueJobWith<IWorkflowEngineService>(analysisJobId, s =>
+                                s.StartWorkflowAsync(request.PeriodId, logged.SaccoId, null));
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No CAELS rating definition for saccoType {SaccoType}", logged.SaccoType);
+
+                            // Still start workflow even without rating
+                            BackgroundJob.Enqueue<IWorkflowEngineService>(s =>
+                                s.StartWorkflowAsync(request.PeriodId, logged.SaccoId, null));
+                        }
                     }
                     else
                     {
-                        _logger.LogWarning("No CAELS rating definition found for saccoType {SaccoType}", loggedInSacco.SaccoType);
+                        // Incomplete: Start workflow directly, without analysis
+                        BackgroundJob.Enqueue<IWorkflowEngineService>(s =>
+                            s.StartWorkflowAsync(request.PeriodId, logged.SaccoId, null));
+                    }
+                }
+                else
+                {
+                    // Non-quarterly: Workflow per successful detail, regardless of completeness
+                    foreach (var d in result.Details.Where(x => x.Success))
+                    {
+                        BackgroundJob.Enqueue<IWorkflowEngineService>(s =>
+                            s.StartWorkflowAsync(request.PeriodId, logged.SaccoId, d.SubmissionId));
+                    }
+
+                    if (result.IsPeriodComplete)
+                    {
+                        BackgroundJob.Enqueue<IReturnSubmissionService>(s =>
+                            s.SendSubmissionConfirmationEmailAsync(logged.SaccoId, request.PeriodId));
                     }
                 }
 
-                BackgroundJob.Enqueue<IReturnSubmissionService>(s => s.SendSubmissionConfirmationEmailAsync(loggedInSacco.SaccoId, request.PeriodId));
+                return Ok(result);
 
-                return Ok(result); // 200 OK with the result object
             }
             catch (Exception ex)
             {
@@ -2369,6 +2401,7 @@ namespace Returns.Controllers
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
+
 
 
 

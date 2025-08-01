@@ -14,7 +14,7 @@ namespace Returns.DTOs.WorkFlow_Engine
         public string Status { get; set; } = null!;
         public int? Rating { get; set; }
         //public string Type { get; set; } = "Standalone"; // "QGroup" or "Standalone"
-        public bool CanBeSeen { get; set; } = true;
+        //public bool CanBeSeen { get; set; } = true;
         public bool IsFirst { get; set; } = false;
         public bool IsLast { get; set; } = false;
         public bool IsConsistent { get; set; } = true; 

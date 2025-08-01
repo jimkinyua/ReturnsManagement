@@ -3,6 +3,7 @@ using Returns.DTOs.Compliance;
 using Returns.Helpers.Interfaces;
 using System.Data;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 
 namespace Returns.Helpers
@@ -470,128 +471,327 @@ namespace Returns.Helpers
 
         public async Task<SasraRoleDetails?> GetRoleDetails(string RoleId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/roles/{RoleId}");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/gateway/api/auth/roles/{RoleId}");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get role details for {RoleId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
+                await using var stream = await resp.Content.ReadAsStreamAsync();
+                var roleDetails = await JsonSerializer.DeserializeAsync<SasraRoleDetails>(stream, _jsonOpts);
 
-            var roleDetails = new SasraRoleDetails();
-
-            var user = await JsonSerializer
-                .DeserializeAsync<SasraRoleDetails>(stream, _jsonOpts);
-
-            return user;
+                return roleDetails ?? throw new InvalidDataException($"Deserialized role details for {RoleId} is null.");
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for role {RoleId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                // Already thrown with details, or rethrow/log
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting role details for {RoleId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<string?> GetTeamIdForSaccoAsync(string saccoId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}/team-id");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/gateway/api/auth/saccos/{saccoId}/team-id");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get team ID for sacco {saccoId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
+                var content = await resp.Content.ReadAsStringAsync();
+                if (string.IsNullOrEmpty(content))
+                    return null;
 
-            var root = doc.RootElement;
-            // if the endpoint returns just a raw string:
-            if (root.ValueKind == JsonValueKind.String)
-                return root.GetString();
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
 
-            // or if it returns { "teamId": "..." }
-            if (root.TryGetProperty("teamId", out var prop) && prop.ValueKind == JsonValueKind.String)
-                return prop.GetString();
+                // if the endpoint returns just a raw string:
+                if (root.ValueKind == JsonValueKind.String)
+                    return root.GetString();
 
-            return null;
+                // or if it returns { "teamId": "..." } or { "teamId": 123 }
+                if (root.TryGetProperty("teamId", out var prop))
+                {
+                    if (prop.ValueKind == JsonValueKind.String)
+                        return prop.GetString();
+                    else if (prop.ValueKind == JsonValueKind.Number)
+                        return prop.GetInt32().ToString();  // or GetInt64() if large numbers possible
+                }
+
+                return null;
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON parsing error for team ID of sacco {saccoId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting team ID for sacco {saccoId}: {ex.Message}", ex);
+            }
         }
-
 
         public async Task<UserDTO> GetUserDetailsAsync(string tlUserId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/users/{tlUserId}/details");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var relativeUri = $"/gateway/api/auth/users/{tlUserId}/details";
+                var fullUri = new Uri(_httpClient.BaseAddress ?? throw new InvalidOperationException("BaseAddress not set"), relativeUri);
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var user = await JsonSerializer
-                .DeserializeAsync<UserDTO>(stream, _jsonOpts);
+                // Log the full URL (use your logging framework, e.g., ILogger)
+                _logger.LogInformation("Requesting full URL: {FullUrl}", fullUri.ToString());
 
-            if (user is null)
-                throw new InvalidOperationException("Empty user payload from auth API.");
+                var resp = await _httpClient.GetAsync(relativeUri);
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get user details for {tlUserId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            return user;
+                var content = await resp.Content.ReadAsStringAsync();
+                if (string.IsNullOrEmpty(content))
+                    return null;
+
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+
+                await using var stream = await resp.Content.ReadAsStreamAsync();
+                var user = await JsonSerializer.DeserializeAsync<UserDTO>(stream, _jsonOpts);
+
+                return user ?? throw new InvalidDataException($"Deserialized user details for {tlUserId} is null.");
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for user {tlUserId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting user details for {tlUserId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<List<SaccoDTO>> GetSaccosForTeamAsync(string teamId)
         {
-            // Call the gateway endpoint for this team’s sacco list
-            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/saccos-list");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                // Call the gateway endpoint for this team’s sacco list
+                var resp = await _httpClient.GetAsync($"gateway/api/auth/teams/{teamId}/saccos-list");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get saccos for team {teamId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            // Stream‑deserialize into your DTO list
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var saccos = await JsonSerializer.DeserializeAsync<List<SaccoDTO>>(stream, _jsonOpts);
+                // Read content as string to inspect/log
+                var jsonContent = await resp.Content.ReadAsStringAsync();
 
-            // Return an empty list if the API returned null
-            return saccos ?? new List<SaccoDTO>();
+                // Log the JSON (assuming you have an ILogger<RawSqlComplianceService> _logger injected)
+                _logger.LogInformation("JSON response for saccos of team {TeamId}: {JsonContent}", teamId, jsonContent);
+
+                // For debugging, you could also breakpoint here or Console.WriteLine(jsonContent);
+
+                // Deserialize from the string using MemoryStream
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(jsonContent));
+                var saccos = await JsonSerializer.DeserializeAsync<List<SaccoDTO>>(stream, _jsonOpts);
+
+                // Return an empty list if the API returned null
+                return saccos ?? new List<SaccoDTO>();
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for saccos of team {teamId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting saccos for team {teamId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<List<TeamMemberDTO>> GetTeamMembersAsync(string teamId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/members");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/gateway/api/auth/teams/{teamId}/members");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get members for team {teamId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var members = await JsonSerializer
-                .DeserializeAsync<List<TeamMemberDTO>>(stream, _jsonOpts);
+                await using var stream = await resp.Content.ReadAsStreamAsync();
+                var members = await JsonSerializer.DeserializeAsync<List<TeamMemberDTO>>(stream, _jsonOpts);
 
-            return members ?? new List<TeamMemberDTO>();
+                return members ?? new List<TeamMemberDTO>();
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for members of team {teamId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting members for team {teamId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<string?> GetTeamIdForUserAsync(string userId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/users/{userId}/team-id");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/api/auth/users/{userId}/team-id");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get team ID for user {userId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            using var doc = await JsonDocument.ParseAsync(stream);
+                var content = await resp.Content.ReadAsStringAsync();
+                if (string.IsNullOrEmpty(content))
+                    return null;
 
-            var root = doc.RootElement;
-            if (root.ValueKind == JsonValueKind.String)
-                return root.GetString();
-            if (root.TryGetProperty("teamId", out var t))
-                return t.GetString();
-            return null;
+                using var doc = JsonDocument.Parse(content);
+                var root = doc.RootElement;
+
+                if (root.ValueKind == JsonValueKind.String)
+                    return root.GetString();
+
+                if (root.TryGetProperty("teamId", out var t))
+                    return t.GetString();
+
+                return null;
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON parsing error for team ID of user {userId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting team ID for user {userId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<TeamLeadDTO> GetTeamLeaderAsync(string teamId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/team-lead");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/gateway/api/auth/teams/{teamId}/team-lead");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get team lead for {teamId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var lead = await JsonSerializer.DeserializeAsync<TeamLeadDTO>(stream, _jsonOpts)
-                       ?? throw new InvalidOperationException($"No team lead returned for team {teamId}");
-            return lead;
+                await using var stream = await resp.Content.ReadAsStreamAsync();
+                var lead = await JsonSerializer.DeserializeAsync<TeamLeadDTO>(stream, _jsonOpts)
+                           ?? throw new InvalidDataException($"Deserialized team lead for {teamId} is null.");
+
+                return lead;
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for team lead of {teamId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting team lead for {teamId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<List<SaccoDTO>> GetSaccosForTheTeamAsync(string teamId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/saccos-list");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/saccos-list");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get saccos for team {teamId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var list = await JsonSerializer.DeserializeAsync<List<SaccoDTO>>(stream, _jsonOpts);
-            return list ?? new List<SaccoDTO>();
+                await using var stream = await resp.Content.ReadAsStreamAsync();
+                var list = await JsonSerializer.DeserializeAsync<List<SaccoDTO>>(stream, _jsonOpts);
+
+                return list ?? new List<SaccoDTO>();
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for saccos of team {teamId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting saccos for team {teamId}: {ex.Message}", ex);
+            }
         }
 
         public async Task<SaccoDTO> GetSaccoByTheirIdAsync(string saccoId)
         {
-            var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}");
-            resp.EnsureSuccessStatusCode();
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/gateway/api/auth/saccos/{saccoId}");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get sacco by ID {saccoId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
 
-            await using var stream = await resp.Content.ReadAsStreamAsync();
-            var sacco = await JsonSerializer.DeserializeAsync<SaccoDTO>(stream, _jsonOpts)
-                        ?? throw new InvalidOperationException($"No SACCO data returned for ID {saccoId}");
-            return sacco;
+                await using var stream = await resp.Content.ReadAsStreamAsync();
+                var sacco = await JsonSerializer.DeserializeAsync<SaccoDTO>(stream, _jsonOpts)
+                            ?? throw new InvalidDataException($"Deserialized sacco for {saccoId} is null.");
+
+                return sacco;
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for sacco {saccoId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting sacco by ID {saccoId}: {ex.Message}", ex);
+            }
         }
+
     }
 }

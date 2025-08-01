@@ -21,6 +21,7 @@ namespace Returns.Models
         public bool CanBeSeen { get; set; } = true;  // Flag to determine if current user can see (updated based on status/assignment)
         [ForeignKey("CurrentStepId")]
         public virtual WorkFlowStep CurrentStep { get; set; } = null!;
-
+        public bool IsComplete { get; internal set; } = false;
+        public string? IncompletenessNotes { get; internal set; }
     }
 }

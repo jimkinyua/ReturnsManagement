@@ -1,20 +1,52 @@
 ﻿using Returns.DTOs.Compliance;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Returns.Helpers.Interfaces
 {
 
     public class UserDTO
     {
+        [JsonConverter(typeof(NumberToStringConverter))]
         public string UserId { get; set; } = null!;
         public string FullName { get; set; } = null!;
         public string Email { get; set; } = null!;
-        public string Role { get; set; } = null!;
+        public string RoleName { get; set; } = null!;
         public bool IsTeamLead { get; set; }
+        [JsonConverter(typeof(NumberToStringConverter))]
         public string? TeamId { get; set; }
+    }
+
+    public class NumberToStringConverter : JsonConverter<string>
+    {
+        public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Number)
+            {
+                // Handle integer (adjust to GetInt64/GetDouble if larger numbers expected)
+                return reader.GetInt32().ToString();
+            }
+            else if (reader.TokenType == JsonTokenType.String)
+            {
+                return reader.GetString();
+            }
+            else if (reader.TokenType == JsonTokenType.Null)
+            {
+                return null;
+            }
+
+            throw new JsonException($"Unexpected token type '{reader.TokenType}' for string property.");
+        }
+
+        public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value);
+        }
     }
 
     public class SaccoAssignmentDTO
     {
+        [JsonConverter(typeof(NumberToStringConverter))]
         public string SaccoId { get; set; } = null!;
         public string SaccoName { get; set; } = null!;
         public UserDetailsDTO? AssignedUser { get; set; } 
@@ -27,14 +59,16 @@ namespace Returns.Helpers.Interfaces
 
     public class SaccoDTO
     {
-        public string SaccoId { get; set; } = null!;
-        public string SaccoName { get; set; } = null!;
-        public string OfficialEmail { get; set; } = null!;
-        public string SaccoType { get; set; } = null!;
+        [JsonConverter(typeof(NumberToStringConverter))]
+        public string SaccoId { get; set; }
+        public string SaccoName { get; set; } = string.Empty;
+        public int SaccoType { get; set; }
+        public string OfficialEmail { get; set; } = string.Empty;
     }
 
     public class RoleDTO
     {
+        [JsonConverter(typeof(NumberToStringConverter))]
         public string RoleId { get; set; } = null!;
         public string RoleName { get; set; } = null!;
         public string Description { get; set; } = null!;
