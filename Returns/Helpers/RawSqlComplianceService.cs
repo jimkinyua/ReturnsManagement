@@ -473,7 +473,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/roles/{RoleId}");
+                var resp = await _httpClient.GetAsync($"/api/auth/roles/{RoleId}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -504,7 +504,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/saccos/{saccoId}/team-id");
+                var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}/team-id");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -551,7 +551,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var relativeUri = $"/gateway/api/auth/users/{tlUserId}/details";
+                var relativeUri = $"/api/auth/users/{tlUserId}/details";
                 var fullUri = new Uri(_httpClient.BaseAddress ?? throw new InvalidOperationException("BaseAddress not set"), relativeUri);
 
                 // Log the full URL (use your logging framework, e.g., ILogger)
@@ -635,7 +635,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/teams/{teamId}/members");
+                var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/members");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -705,7 +705,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/teams/{teamId}/team-lead");
+                var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/team-lead");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -766,7 +766,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/saccos/{saccoId}");
+                var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
