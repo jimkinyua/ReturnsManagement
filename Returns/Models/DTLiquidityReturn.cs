@@ -45,10 +45,15 @@ namespace Returns.Models
         public decimal TotalOtherLiabilities { get; set; }
 
         // 8. Liquidity Ratio
+        [Column(TypeName = "decimal(18,8)")]
         public decimal TotalShortTermLiabilities { get; set; }
+        [Column(TypeName = "decimal(18,8)")]
         public decimal LiquidityRatio { get; set; }
+        [Column(TypeName = "decimal(18,8)")]
         public decimal LiquidityRatioExcessDeficit { get; set; }
+        [Column(TypeName = "decimal(18,8)")]
         public decimal NetLiquidAssetsToShortTermLiabilities { get; set; }
+        [Column(TypeName = "decimal(18,8)")]
         public decimal MinimumLiquidityRequirement { get; set; } = 15;
         public string Year { get; set; } = null!;
         public DateTime StartDate { get; set; }

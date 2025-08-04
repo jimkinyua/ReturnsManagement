@@ -1042,7 +1042,7 @@ namespace Returns.Helpers
 
                 var firstEntity = entities.First();
                 riskClassifications.FormId = firstEntity.FormId ?? string.Empty;
-                riskClassifications.FormId = submission.Id;
+                riskClassifications.SubmissionId = submission.Id;
                 riskClassifications.RequiresResubmission = firstEntity.RequiresResubmission;
                 riskClassifications.FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl);
 

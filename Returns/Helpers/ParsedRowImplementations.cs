@@ -251,6 +251,7 @@ namespace Returns.Helpers
                         break;
                     case "8.3":
                         liquidityStatement.NetLiquidAssetsToShortTermLiabilities = liquidityRow.Amount ?? 0;
+                        liquidityStatement.NetLiquidAssetsToShortTermLiabilities = liquidityRow.Amount ?? 0;
                         break;
                     case "8.4":
                         liquidityStatement.MinimumLiquidityRequirement = liquidityRow.Amount ?? 0;
