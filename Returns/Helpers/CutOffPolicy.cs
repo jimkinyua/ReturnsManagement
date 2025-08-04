@@ -4,6 +4,6 @@ namespace Returns.Helpers
 {
     public class CutOffPolicy : IReturnAmendmentPolicy
     {
-        public bool CanAutoAmend(DateTime today) => today.Day < 15;
+        public bool CanAutoAmend(DateTime today) => true; //today.Day < 15;
     }
 }

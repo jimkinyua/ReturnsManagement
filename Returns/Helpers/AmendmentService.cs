@@ -143,11 +143,11 @@ namespace Returns.Helpers
                 }
             }
 
-            var today = DateTime.Now.Date;
+           /* var today = DateTime.Now.Date;
             if (_returnAmendmentPolicy.CanAutoAmend(today))
             {
                 throw new InvalidOperationException("Amendment requests are not allowed on or before the 15th. Use direct submission instead.");
-            }
+            }*/
 
             // Retrieve and validate submission
             var submission = await GetSubmissionUsingReturnIdAsync(dto.SubmissionId, loggedInEntity.SaccoId);

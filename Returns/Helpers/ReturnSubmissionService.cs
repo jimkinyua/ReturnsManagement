@@ -58,7 +58,7 @@ namespace Returns.Helpers
 
         }
 
-        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco, Boolean IsAmendment=false)
+        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco, Boolean IsAmendment = false)
         {
             var results = new List<SubmissionResultDto>();
 
@@ -137,6 +137,7 @@ namespace Returns.Helpers
                     if (previous != null)
                     {
                         previous.IsLatest = false;
+                        IsAmendment = true;
                         previous.AmendedBySubmissionId = submission.Id;
                         _context.ReturnSubmissions.Entry(previous).State = EntityState.Modified;
                         _context.ReturnSubmissions.Update(previous);
@@ -166,6 +167,9 @@ namespace Returns.Helpers
                         var entity = row.ToEntity();
                         await AddEntityToSubmission(submission, entity);
                     }
+
+                    // Update children status (mark as current/inactive based on amendment status)
+                    await UpdateChildrenStatusAsync(submission, IsAmendment);
 
                     await _context.SaveChangesAsync();  // Save entities inside transaction
 
@@ -357,7 +361,269 @@ namespace Returns.Helpers
             }
         }
 
+        /// <summary>
+        /// Updates the IsActive status for all children entities in a submission
+        /// This ensures that when a new submission is created, all previous children are marked as inactive
+        /// and the new children are marked as active
+        /// </summary>
+        private async Task UpdateChildrenStatusAsync(ReturnSubmission submission, bool isAmendment)
+        {
+            try
+            {
+                if (!isAmendment)
+                {
+                    // For new submissions, mark all new children as active
+                    await MarkChildrenAsActiveAsync(submission);
+                }
+                else
+                {
+                    // For amendments, mark previous children as inactive and new children as active
+                    await MarkPreviousChildrenAsInactiveAsync(submission);
+                    await MarkChildrenAsActiveAsync(submission);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating children status for submission {SubmissionId}", submission.Id);
+                throw;
+            }
+        }
 
+        /// <summary>
+        /// Marks all children entities in the submission as active (IsCurrent = true)
+        /// </summary>
+        private async Task MarkChildrenAsActiveAsync(ReturnSubmission submission)
+        {
+            // DT Returns
+            foreach (var capitalAdequacy in submission.DTCapitalAdequacyReturns)
+            {
+                capitalAdequacy.IsCurrent = true;
+                capitalAdequacy.IsAmended = false;
+                _context.Entry(capitalAdequacy).State = EntityState.Modified;
+            }
+
+            foreach (var liquidity in submission.DTLiquidityReturns)
+            {
+                liquidity.IsCurrent = true;
+                liquidity.IsAmended = false;
+                _context.Entry(liquidity).State = EntityState.Modified;
+            }
+
+            foreach (var deposit in submission.DepositReturns)
+            {
+                deposit.IsCurrent = true;
+                deposit.IsAmended = false;
+                _context.Entry(deposit).State = EntityState.Modified;
+            }
+
+            foreach (var risk in submission.DTRiskClassificationReturns)
+            {
+                risk.IsCurrent = true;
+                risk.IsAmended = false;
+                _context.Entry(risk).State = EntityState.Modified;
+            }
+
+            foreach (var investment in submission.DTInvestmentReturns)
+            {
+                investment.IsCurrent = true;
+                investment.IsAmended = false;
+                _context.Entry(investment).State = EntityState.Modified;
+            }
+
+            foreach (var financialPosition in submission.DTFinancialPositionReturns)
+            {
+                financialPosition.IsCurrent = true;
+                financialPosition.IsAmended = false;
+                _context.Entry(financialPosition).State = EntityState.Modified;
+            }
+
+            foreach (var comprehensiveIncome in submission.DTComprehensiveIncomeReturns)
+            {
+                comprehensiveIncome.IsCurrent = true;
+                comprehensiveIncome.IsAmended = false;
+                _context.Entry(comprehensiveIncome).State = EntityState.Modified;
+            }
+
+            // NWDT Returns
+            foreach (var nwdtCapitalAdequacy in submission.NWDTCapitalAdequacyReturns)
+            {
+                nwdtCapitalAdequacy.IsCurrent = true;
+                nwdtCapitalAdequacy.IsAmended = false;
+                _context.Entry(nwdtCapitalAdequacy).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtLiquidity in submission.NWDTLiquidityReturns)
+            {
+                nwdtLiquidity.IsCurrent = true;
+                nwdtLiquidity.IsAmended = false;
+                _context.Entry(nwdtLiquidity).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtDeposit in submission.NWDTDepositReturns)
+            {
+                nwdtDeposit.IsCurrent = true;
+                nwdtDeposit.IsAmended = false;
+                _context.Entry(nwdtDeposit).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtRisk in submission.NWDTRiskClassificationReturns)
+            {
+                nwdtRisk.IsCurrent = true;
+                nwdtRisk.IsAmended = false;
+                _context.Entry(nwdtRisk).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtInvestment in submission.NWDTInvestmentReturns)
+            {
+                nwdtInvestment.IsCurrent = true;
+                nwdtInvestment.IsAmended = false;
+                _context.Entry(nwdtInvestment).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtFinancialPosition in submission.NWDTFinancialPositionReturns)
+            {
+                nwdtFinancialPosition.IsCurrent = true;
+                nwdtFinancialPosition.IsAmended = false;
+                _context.Entry(nwdtFinancialPosition).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtComprehensiveIncome in submission.NWDTComprehensiveIncomeReturns)
+            {
+                nwdtComprehensiveIncome.IsCurrent = true;
+                nwdtComprehensiveIncome.IsAmended = false;
+                _context.Entry(nwdtComprehensiveIncome).State = EntityState.Modified;
+            }
+        }
+
+        /// <summary>
+        /// Marks all previous children entities as inactive (IsCurrent = false, IsAmended = true)
+        /// This is called when processing amendments to ensure previous versions are properly marked
+        /// </summary>
+        private async Task MarkPreviousChildrenAsInactiveAsync(ReturnSubmission submission)
+        {
+            if (submission.AmendsSubmissionId == null)
+                return;
+
+            var previousSubmission = await _context.ReturnSubmissions
+                .Include(s => s.DTCapitalAdequacyReturns)
+                .Include(s => s.DTLiquidityReturns)
+                .Include(s => s.DepositReturns)
+                .Include(s => s.DTRiskClassificationReturns)
+                .Include(s => s.DTInvestmentReturns)
+                .Include(s => s.DTFinancialPositionReturns)
+                .Include(s => s.DTComprehensiveIncomeReturns)
+                .Include(s => s.NWDTCapitalAdequacyReturns)
+                .Include(s => s.NWDTLiquidityReturns)
+                .Include(s => s.NWDTDepositReturns)
+                .Include(s => s.NWDTRiskClassificationReturns)
+                .Include(s => s.NWDTInvestmentReturns)
+                .Include(s => s.NWDTFinancialPositionReturns)
+                .Include(s => s.NWDTComprehensiveIncomeReturns)
+                .FirstOrDefaultAsync(s => s.Id == submission.AmendsSubmissionId);
+
+            if (previousSubmission == null)
+                return;
+
+            // Mark DT Returns as inactive
+            foreach (var capitalAdequacy in previousSubmission.DTCapitalAdequacyReturns)
+            {
+                capitalAdequacy.IsCurrent = false;
+                capitalAdequacy.IsAmended = true;
+                _context.Entry(capitalAdequacy).State = EntityState.Modified;
+            }
+
+            foreach (var liquidity in previousSubmission.DTLiquidityReturns)
+            {
+                liquidity.IsCurrent = false;
+                liquidity.IsAmended = true;
+                _context.Entry(liquidity).State = EntityState.Modified;
+            }
+
+            foreach (var deposit in previousSubmission.DepositReturns)
+            {
+                deposit.IsCurrent = false;
+                deposit.IsAmended = true;
+                _context.Entry(deposit).State = EntityState.Modified;
+            }
+
+            foreach (var risk in previousSubmission.DTRiskClassificationReturns)
+            {
+                risk.IsCurrent = false;
+                risk.IsAmended = true;
+                _context.Entry(risk).State = EntityState.Modified;
+            }
+
+            foreach (var investment in previousSubmission.DTInvestmentReturns)
+            {
+                investment.IsCurrent = false;
+                investment.IsAmended = true;
+                _context.Entry(investment).State = EntityState.Modified;
+            }
+
+            foreach (var financialPosition in previousSubmission.DTFinancialPositionReturns)
+            {
+                financialPosition.IsCurrent = false;
+                financialPosition.IsAmended = true;
+                _context.Entry(financialPosition).State = EntityState.Modified;
+            }
+
+            foreach (var comprehensiveIncome in previousSubmission.DTComprehensiveIncomeReturns)
+            {
+                comprehensiveIncome.IsCurrent = false;
+                comprehensiveIncome.IsAmended = true;
+                _context.Entry(comprehensiveIncome).State = EntityState.Modified;
+            }
+
+            // Mark NWDT Returns as inactive
+            foreach (var nwdtCapitalAdequacy in previousSubmission.NWDTCapitalAdequacyReturns)
+            {
+                nwdtCapitalAdequacy.IsCurrent = false;
+                nwdtCapitalAdequacy.IsAmended = true;
+                _context.Entry(nwdtCapitalAdequacy).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtLiquidity in previousSubmission.NWDTLiquidityReturns)
+            {
+                nwdtLiquidity.IsCurrent = false;
+                nwdtLiquidity.IsAmended = true;
+                _context.Entry(nwdtLiquidity).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtDeposit in previousSubmission.NWDTDepositReturns)
+            {
+                nwdtDeposit.IsCurrent = false;
+                nwdtDeposit.IsAmended = true;
+                _context.Entry(nwdtDeposit).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtRisk in previousSubmission.NWDTRiskClassificationReturns)
+            {
+                nwdtRisk.IsCurrent = false;
+                nwdtRisk.IsAmended = true;
+                _context.Entry(nwdtRisk).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtInvestment in previousSubmission.NWDTInvestmentReturns)
+            {
+                nwdtInvestment.IsCurrent = false;
+                nwdtInvestment.IsAmended = true;
+                _context.Entry(nwdtInvestment).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtFinancialPosition in previousSubmission.NWDTFinancialPositionReturns)
+            {
+                nwdtFinancialPosition.IsCurrent = false;
+                nwdtFinancialPosition.IsAmended = true;
+                _context.Entry(nwdtFinancialPosition).State = EntityState.Modified;
+            }
+
+            foreach (var nwdtComprehensiveIncome in previousSubmission.NWDTComprehensiveIncomeReturns)
+            {
+                nwdtComprehensiveIncome.IsCurrent = false;
+                nwdtComprehensiveIncome.IsAmended = true;
+                _context.Entry(nwdtComprehensiveIncome).State = EntityState.Modified;
+            }
+        }
 
         public async Task<IList<SubmissionResultDto>> SubmitFinalAsync(string submissionId)
         {
@@ -484,7 +750,7 @@ namespace Returns.Helpers
 
                 if (latestSubmission == null)
                 {
-                    submissionData = (SubmissionStatus.NotSubmitted, null, null,null);
+                    submissionData = (SubmissionStatus.NotSubmitted, null, null, null);
                 }
                 else
                 {
@@ -572,6 +838,21 @@ namespace Returns.Helpers
                                sts.GetValueOrDefault(er.Id).Status == SubmissionStatus.Draft)
                                .ToList();
 
+                // Check if all returns are already submitted
+                var submittedReturns = expectedReturns.Where(er =>
+                    sts.GetValueOrDefault(er.Id).Status == SubmissionStatus.Submitted)
+                    .ToList();
+
+                if (!drafts.Any() && submittedReturns.Count == expectedReturns.Count)
+                {
+                    result.Success = false;
+                    result.Message = "All returns for this period have already been submitted.";
+                    result.TotalForms = expectedReturns.Count;
+                    result.SuccessfullySubmitted = 0;
+                    result.FailedSubmissions = expectedReturns.Count;
+                    return result;
+                }
+
                 if (!drafts.Any())
                 {
                     result.Success = false;
@@ -596,10 +877,10 @@ namespace Returns.Helpers
 
                     result.Details
                         .Add(new BulkSubmissionDetailDTO
-                            {
-                                SubmissionId = latest.Id,
-                                Success = true
-                            });
+                        {
+                            SubmissionId = latest.Id,
+                            Success = true
+                        });
                 }
 
                 await _context.SaveChangesAsync();
@@ -672,7 +953,7 @@ namespace Returns.Helpers
                     () => SendIncompleteSubmissionNotificationAsync(
                                 saccoId, periodId, missing.Count));
             }
-                
+
 
             return (complete, missing.Count);
         }
