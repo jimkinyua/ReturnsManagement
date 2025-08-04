@@ -6,6 +6,8 @@ namespace Returns.DTOs.Returns.Returns_Submission
     public class PendingAmendmentRequestDTO
     {
         public string SaccoId { get; set; } = null!;
+        public string SaccoName { get; set; } = null!;
+        public string SaccoType { get; set; } = null!;
         public string Id { get; set; } = null!;
         public string RequestedById { get; set; } = null!;
         public string ReturnSubmissionId { get; set; } = null!;

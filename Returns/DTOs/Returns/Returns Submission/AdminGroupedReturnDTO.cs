@@ -22,6 +22,11 @@ namespace Returns.DTOs.Returns_Submission
         public int SubmittedForms { get; set; }
         public List<GroupedReturnFormDTO> Forms { get; set; } = new List<GroupedReturnFormDTO>();
         public ReturnGroupType GroupType { get; set; } = ReturnGroupType.Grouped; // New property
+
+        // Lateness information for admin visibility
+        public bool HasLateSubmissions { get; set; } // True if any form in the group was submitted late
+        public int TotalDaysLate { get; set; } // Total days late across all forms
+        public int LateFormsCount { get; set; } // Number of forms that were submitted late
     }
 
     public enum ReturnGroupType
@@ -49,6 +54,9 @@ namespace Returns.DTOs.Returns_Submission
         private int? _month;
         private bool _hasAnyFilter = false;
 
+        /// <summary>
+        /// Filter by the year when returns were DUE (period end date), not when they were submitted
+        /// </summary>
         public int? Year
         {
             get => _hasAnyFilter ? _year : (_year ?? DateTime.Now.Year);
@@ -59,14 +67,17 @@ namespace Returns.DTOs.Returns_Submission
             }
         }
 
+        /// <summary>
+        /// Filter by the month when returns were DUE (period end date), not when they were submitted
+        /// </summary>
         public int? Month
         {
-            get => _hasAnyFilter ? _month : (_month ?? DateTime.Now.Month);
-            set
-            {
-                _month = value;
-                _hasAnyFilter = true;
-            }
+            get;// _hasAnyFilter ? _month : (_month ?? DateTime.Now.Month);
+            set;
+            /*{
+                *//*_month = value;
+                _hasAnyFilter = true;*//*
+            }*/
         }
 
         public string? SaccoType

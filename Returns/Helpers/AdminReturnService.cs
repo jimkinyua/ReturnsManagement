@@ -55,14 +55,14 @@ namespace Returns.Helpers
                     .Where(rs => rs.Status == SubmissionStatus.Submitted.ToString())
                     .AsQueryable();
 
-                // Apply filters
+                // Apply filters based on DUE DATES (period end dates) instead of submission dates
                 if (filter.Year.HasValue)
                 {
-                    submissionsQuery = submissionsQuery.Where(rs => rs.SubmittedAt.Year == filter.Year.Value);
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.EndDate.Year == filter.Year.Value);
                 }
                 if (filter.Month.HasValue)
                 {
-                    submissionsQuery = submissionsQuery.Where(rs => rs.SubmittedAt.Month == filter.Month.Value);
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.EndDate.Month == filter.Month.Value);
                 }
                 if (!string.IsNullOrEmpty(filter.Frequency))
                 {
@@ -112,6 +112,9 @@ namespace Returns.Helpers
                             var ratingDef = await _context.RatingDefinations
                                 .FirstOrDefaultAsync(rd => rd.RatingName.Contains("CAELS") && rd.SaccoType == saccoType);
 
+                            // Calculate lateness statistics
+                            var (hasLateSubmissions, totalDaysLate, lateFormsCount) = CalculateLatenessStats(saccoSubmissions, period);
+
                             results.Add(new AdminGroupedReturnDTO
                             {
                                 GroupId = ratingDef?.Id ?? period.Id,  // Use rating ID or period ID
@@ -129,7 +132,10 @@ namespace Returns.Helpers
                                 SubmittedForms = filedCodes.Count,  // Counts all Q forms (e.g., 7)
                                 Forms = await BuildFormListAsync(saccoSubmissions, expectedQForms.ToList(), period),
                                 GroupType = ReturnGroupType.Grouped,
-                                GroupName = $"{period.Name} {period.ReportingYear.Year} Returns - {saccoDetails?.SaccoName ?? "Unknown SACCO"}"
+                                GroupName = $"{period.Name} {period.ReportingYear.Year} Returns - {saccoDetails?.SaccoName ?? "Unknown SACCO"}",
+                                HasLateSubmissions = hasLateSubmissions,
+                                TotalDaysLate = totalDaysLate,
+                                LateFormsCount = lateFormsCount
                             });
                         }
                     }
@@ -143,6 +149,9 @@ namespace Returns.Helpers
                             var saccoSubmissions = saccoFormGroup.ToList();
                             var saccoDetails = await GetSaccoDetailsAsync(saccoFormGroup.Key.SaccoId);
                             var form = saccoSubmissions.First().ExpectedReturn.ReturnForm;
+
+                            // Calculate lateness statistics
+                            var (hasLateSubmissions, totalDaysLate, lateFormsCount) = CalculateLatenessStats(saccoSubmissions, period);
 
                             results.Add(new AdminGroupedReturnDTO
                             {
@@ -161,7 +170,10 @@ namespace Returns.Helpers
                                 SubmittedForms = 1,  // One form per standalone
                                 Forms = await BuildStandaloneFormListAsync(saccoSubmissions, period),
                                 GroupType = ReturnGroupType.Standalone,
-                                GroupName = $"{period.Name} {period.ReportingYear.Year} {form.FormName} - {saccoDetails?.SaccoName ?? "Unknown SACCO"}"
+                                GroupName = $"{period.Name} {period.ReportingYear.Year} {form.FormName} - {saccoDetails?.SaccoName ?? "Unknown SACCO"}",
+                                HasLateSubmissions = hasLateSubmissions,
+                                TotalDaysLate = totalDaysLate,
+                                LateFormsCount = lateFormsCount
                             });
                         }
                     }
@@ -676,6 +688,32 @@ namespace Returns.Helpers
                 return "On Time";
             else
                 return "Late";
+        }
+
+        /// <summary>
+        /// Calculates lateness statistics for a group of submissions
+        /// </summary>
+        private (bool hasLateSubmissions, int totalDaysLate, int lateFormsCount) CalculateLatenessStats(
+            List<ReturnSubmission> submissions, ReturnPeriods period)
+        {
+            var hasLateSubmissions = false;
+            var totalDaysLate = 0;
+            var lateFormsCount = 0;
+
+            foreach (var submission in submissions)
+            {
+                var deadline = period.FilingDeadline;
+                var isLate = submission.SubmittedAt > deadline;
+
+                if (isLate)
+                {
+                    hasLateSubmissions = true;
+                    lateFormsCount++;
+                    totalDaysLate += (int)(submission.SubmittedAt - deadline).TotalDays;
+                }
+            }
+
+            return (hasLateSubmissions, totalDaysLate, lateFormsCount);
         }
 
         private async Task<List<GroupedReturnFormDTO>> BuildFormListAsync(

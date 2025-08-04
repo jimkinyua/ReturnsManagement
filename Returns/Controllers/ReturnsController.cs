@@ -247,16 +247,14 @@ namespace Returns.Controllers
             }
         }
         [HttpGet("sacco/AmendmentRequestsWaitngResponse")]
-        public async Task<IActionResult> GetPendingAmendmentRequestsAsync([FromQuery] string? saccoId = null)
+        public async Task<IActionResult> GetPendingAmendmentRequestsAsync([FromQuery])
         {
             try
             {
                 LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 var requests = await _amendmentService.GetAmendmentRequestsPendingSaccoResponseAsync();
-                if (!string.IsNullOrEmpty(saccoId))
-                {
-                    requests = requests.Where(r => r.SaccoId == saccoId).ToList();
-                }
+                
+                 requests = requests.Where(r => r.SaccoId == loggedInEntity.SaccoId).ToList();
 
                /* if (loggedInEntity.IsAdmin && !string.IsNullOrEmpty(saccoId))
                 {

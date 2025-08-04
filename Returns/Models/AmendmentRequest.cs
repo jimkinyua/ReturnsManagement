@@ -16,6 +16,7 @@ namespace Returns.Models
     public class AmendmentRequest:CommonFields
     {
         public string SaccoId { get; set; } = null!;
+        public string SaccoType { get; set; } = null!;
         public string RequestedById { get; set; } = null!;
         public string ExpectedReturnId { get; set; } = null!;
         public DateTime RequestedAt { get; set; } = DateTime.Now;
@@ -32,5 +33,6 @@ namespace Returns.Models
         public bool IsAdminInitiated { get; set; } = false; 
         public ReturnSubmission ReturnSubmission { get; set; } = null!;
         public ExpectedReturn ExpectedReturn { get; internal set; } = null!;
+        public string SaccoName { get; internal set; }
     }
 }

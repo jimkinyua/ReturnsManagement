@@ -19,6 +19,7 @@ namespace Returns.Helpers
     {
         private readonly ReturnsDbContext _context;
         private readonly IEmailService _emailService;
+        private readonly IComplianceService _complianceService;
         private readonly ILogger<AmendmentService> _logger;
         private readonly IReturnSubmissionService _returnSubmissionService;
         private readonly IReturnAmendmentPolicy _returnAmendmentPolicy;
@@ -27,12 +28,14 @@ namespace Returns.Helpers
         public AmendmentService(
             ReturnsDbContext context,
             IEmailService emailService,
+            IComplianceService complianceService,
             ILogger<AmendmentService> logger,
             IReturnSubmissionService returnSubmissionService,
             IReturnAmendmentPolicy returnAmendmentPolicy,
             IExcelParser excelParser)
         {
             _context = context;
+            _complianceService = complianceService;
             _emailService = emailService;
             _logger = logger;
             _returnSubmissionService = returnSubmissionService;
@@ -57,15 +60,15 @@ namespace Returns.Helpers
                 throw new InvalidOperationException("Return submission not found.");
             }
 
-           /* if (saccoId != submission.SaccoId)
-            {
-                _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
-                throw new UnauthorizedAccessException("You do not have permission to access this submission.");
-            }*/
+            /* if (saccoId != submission.SaccoId)
+             {
+                 _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
+                 throw new UnauthorizedAccessException("You do not have permission to access this submission.");
+             }*/
 
             return submission;
-        }      
-        
+        }
+
         public async Task<ReturnSubmission> GetSubmissionUsingReturnIdAsync(string submissionId, string saccoId)
         {
             var submission = await _context.ReturnSubmissions
@@ -79,11 +82,11 @@ namespace Returns.Helpers
                 throw new InvalidOperationException("Return submission not found.");
             }
 
-          /*  if (saccoId != submission.SaccoId)
-            {
-                _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
-                throw new UnauthorizedAccessException("You do not have permission to access this submission.");
-            }*/
+            /*  if (saccoId != submission.SaccoId)
+              {
+                  _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
+                  throw new UnauthorizedAccessException("You do not have permission to access this submission.");
+              }*/
 
             return submission;
         }
@@ -99,7 +102,10 @@ namespace Returns.Helpers
             var parseResult = await _excelParser.ParseAsync(formFile, category, saccoTypeId);
             var fileUrl = await FormsHelper.SaveFileAsync(formFile, "Drafts");
             var parseSuccess = parseResult.Success;
-            var contentsJson = parseResult.Success ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity())) : null;
+            var contentsJson = parseResult.Success ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity()), new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            }) : null;
             var parseErrorsJson = JsonSerializer.Serialize(parseResult.Errors);
 
             if (!parseResult.Success)
@@ -122,7 +128,7 @@ namespace Returns.Helpers
 
         public async Task<AmendmentRequest> CreateAmendRequestForSacco(AmendmentRequestDTO dto, LoggedInEntity loggedInEntity)
         {
-  
+
 
             if (dto.FormFile == null)
             {
@@ -143,11 +149,11 @@ namespace Returns.Helpers
                 }
             }
 
-           /* var today = DateTime.Now.Date;
-            if (_returnAmendmentPolicy.CanAutoAmend(today))
-            {
-                throw new InvalidOperationException("Amendment requests are not allowed on or before the 15th. Use direct submission instead.");
-            }*/
+            /* var today = DateTime.Now.Date;
+             if (_returnAmendmentPolicy.CanAutoAmend(today))
+             {
+                 throw new InvalidOperationException("Amendment requests are not allowed on or before the 15th. Use direct submission instead.");
+             }*/
 
             // Retrieve and validate submission
             var submission = await GetSubmissionUsingReturnIdAsync(dto.SubmissionId, loggedInEntity.SaccoId);
@@ -163,6 +169,8 @@ namespace Returns.Helpers
             {
                 ExpectedReturnId = submission.ExpectedReturnId,
                 ReturnSubmissionId = dto.SubmissionId,
+                SaccoType = loggedInEntity.SaccoType,
+                SaccoName = loggedInEntity.SaccoName,
                 SaccoId = submission.SaccoId,
                 RequestedById = loggedInEntity.UserId,
                 RequestedAt = DateTime.Now,
@@ -248,10 +256,10 @@ namespace Returns.Helpers
 
         public async Task<AmendmentRequest> CreateAdminAmendmentRequestAsync(AdminAmendmentRequestDTO dto, LoggedInEntity admin)
         {
-    
+
             // Retrieve and validate submission
             var submission = await GetSubmissionUsingReturnIdAsync(dto.ReturnSubmissionId, admin.SaccoId);
-
+            var saccoDetails =await  _complianceService.GetSaccoByTheirIdAsync(submission.SaccoId);
             // Check for existing amendment requests
             var existingRequest = await CheckExistingAmendmentRequestAsync(dto.ReturnSubmissionId);
             if (existingRequest != null)
@@ -263,6 +271,8 @@ namespace Returns.Helpers
             var newRequest = new AmendmentRequest
             {
                 ExpectedReturnId = submission.ExpectedReturnId,
+                SaccoType = submission.ExpectedReturn.ReturnForm.SaccoTypeId,
+                SaccoName = saccoDetails.SaccoName,
                 ReturnSubmissionId = dto.ReturnSubmissionId,
                 SaccoId = submission.SaccoId,
                 RequestedById = admin.UserId,
@@ -280,7 +290,7 @@ namespace Returns.Helpers
             await _context.SaveChangesAsync();
 
             // Notify SACCO
-         
+
             _logger.LogInformation("Admin amendment request {RequestId} created for submission {ReturnSubmissionId} by admin {UserId}", newRequest.Id, dto.ReturnSubmissionId, admin.UserId);
 
             return newRequest;
@@ -300,6 +310,8 @@ namespace Returns.Helpers
                     ExpectedReturnId = r.ExpectedReturnId,
                     ReturnSubmissionId = r.ReturnSubmissionId,
                     SaccoId = r.SaccoId,
+                    SaccoType = r.SaccoType,
+                    SaccoName = r.SaccoName,
                     RequestedById = r.RequestedById,
                     RequestedAt = r.RequestedAt.ToLongDateString(),
                     Reason = r.Reason,
@@ -347,12 +359,24 @@ namespace Returns.Helpers
                 parseErrors.Add("Failed to deserialize amendment request contents.");
             }
 
+            // Get current child data based on ReturnType
+            List<object> currentData = new List<object>();
+            var returnType = request.ReturnSubmission.ExpectedReturn.ReturnForm != null
+                ? (FormCategory?)request.ReturnSubmission.ExpectedReturn.ReturnForm.Category
+                : null;
+
+            if (returnType.HasValue)
+            {
+                currentData = await GetCurrentChildDataAsync(request.ReturnSubmission, returnType.Value);
+            }
+
             var details = new AmendmentRequestDetailsDTO
             {
                 Id = request.Id,
                 ExpectedReturnId = request.ExpectedReturnId,
                 ReturnSubmissionId = request.ReturnSubmissionId,
                 SaccoId = request.SaccoId,
+                SaccoType = request.SaccoType,
                 RequestedById = request.RequestedById,
                 RequestedAt = request.RequestedAt,
                 ReviewedById = request.ReviewedById,
@@ -361,12 +385,335 @@ namespace Returns.Helpers
                 Status = request.Status,
                 FileUrl = request.FileUrl,
                 Rows = rows,
-                ReturnType = request.ReturnSubmission.ExpectedReturn.ReturnForm != null
-                    ? (FormCategory?)request.ReturnSubmission.ExpectedReturn.ReturnForm.Category
-                    : null
+                CurrentData = currentData,
+                ReturnType = returnType
             };
 
             return details;
+        }
+
+        /// <summary>
+        /// Fetches current child data based on the form category
+        /// </summary>
+        private async Task<List<object>> GetCurrentChildDataAsync(ReturnSubmission returnSubmission, FormCategory formCategory)
+        {
+            var currentData = new List<object>();
+
+            try
+            {
+                // Get the SACCO type from the amendment request context
+                var saccoType = returnSubmission.ExpectedReturn.ReturnForm.SaccoTypeId;
+
+                switch (formCategory)
+                {
+                    case FormCategory.CapitalAdequacy:
+                        if (saccoType == "0") // DT Returns
+                        {
+                            var capitalAdequacyData = await _context.DTCapitalAdequacyReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(capitalAdequacyData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        else if (saccoType == "1") // NWDT Returns
+                        {
+                            var nwdtCapitalAdequacyData = await _context.NWDTCapitalAdequacyReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(nwdtCapitalAdequacyData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        break;
+
+                    case FormCategory.LiquidityStatement:
+                        if (saccoType == "0") // DT Returns
+                        {
+                            var liquidityData = await _context.DTLiquidityReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(liquidityData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        else if (saccoType == "1") // NWDT Returns
+                        {
+                            var nwdtLiquidityData = await _context.NDWTLiquidityReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(nwdtLiquidityData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        break;
+
+                    case FormCategory.RiskClassification:
+                        if (saccoType == "0") // DT Returns
+                        {
+                            var riskData = await _context.DTRiskClassificationReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(riskData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        else if (saccoType == "1") // NWDT Returns
+                        {
+                            var nwdtRiskData = await _context.NWDTRiskClassificationReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(nwdtRiskData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        break;
+
+                    case FormCategory.InvestmentReturn:
+                        if (saccoType == "0") // DT Returns
+                        {
+                            var investmentData = await _context.DTInvestmentReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(investmentData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        else if (saccoType == "1") // NWDT Returns
+                        {
+                            var nwdtInvestmentData = await _context.NWDTInvestmentReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(nwdtInvestmentData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        break;
+
+                    case FormCategory.FinancialPosition:
+                        if (saccoType == "0") // DT Returns
+                        {
+                            var financialPositionData = await _context.DTFinancialPositionReturns
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(financialPositionData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        else if (saccoType == "1") // NWDT Returns
+                        {
+                            var nwdtFinancialPositionData = await _context.NWDTFinancialPositionReturns
+                                .Include(r => r.ReturnSubmission)
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(nwdtFinancialPositionData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        break;
+
+                    case FormCategory.StatementOfComprehensiveIncome:
+                        if (saccoType == "0") // DT Returns
+                        {
+                            var comprehensiveIncomeData = await _context.DTComprehensiveIncomeReturns
+                                .Include(r => r.ReturnSubmission)
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(comprehensiveIncomeData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        else if (saccoType == "1") // NWDT Returns
+                        {
+                            var nwdtComprehensiveIncomeData = await _context.NWDTComprehensiveIncomeReturns
+                                .Include(r => r.ReturnSubmission)
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(nwdtComprehensiveIncomeData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        break;
+
+                    case FormCategory.DepositReturn:
+                        if (saccoType == "0") // DT Returns
+                        {
+                            var depositData = await _context.DepositReturns
+                                .Include(r => r.ReturnSubmission)
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(depositData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        else if (saccoType == "1") // NWDT Returns
+                        {
+                            var nwdtDepositData = await _context.NWDTDepositReturns
+                                .Include(r => r.ReturnSubmission)
+                                .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                                .OrderByDescending(r => r.CreatedAt)
+                                .Take(1)
+                                .ToListAsync();
+                            // Serialize with camelCase to match rows format
+                            var serializedData = JsonSerializer.Serialize(nwdtDepositData, new JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            });
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            currentData.AddRange(deserializedData ?? new List<object>());
+                        }
+                        break;
+
+                    case FormCategory.Management:
+                        var managementData = await _context.ManagementReturns
+                            .Include(r => r.Return)
+                            .Where(r => r.Return.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                            .OrderByDescending(r => r.CreatedAt)
+                            .Take(1)
+                            .ToListAsync();
+                        // Serialize with camelCase to match rows format
+                        var managementSerializedData = JsonSerializer.Serialize(managementData, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                        var managementDeserializedData = JsonSerializer.Deserialize<List<object>>(managementSerializedData);
+                        currentData.AddRange(managementDeserializedData ?? new List<object>());
+                        break;
+
+                    case FormCategory.DailyLiquidity:
+                        var dailyLiquidityData = await _context.DailyLiquidityReturns
+                            .Include(r => r.Return)
+                            .Where(r => r.Return.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                            .OrderByDescending(r => r.CreatedAt)
+                            .Take(1)
+                            .ToListAsync();
+                        // Serialize with camelCase to match rows format
+                        var dailyLiquiditySerializedData = JsonSerializer.Serialize(dailyLiquidityData, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                        var dailyLiquidityDeserializedData = JsonSerializer.Deserialize<List<object>>(dailyLiquiditySerializedData);
+                        currentData.AddRange(dailyLiquidityDeserializedData ?? new List<object>());
+                        break;
+
+                    case FormCategory.SectoralLending:
+                        var sectoralLendingData = await _context.SectoralLendingReports
+                            .Include(r => r.ReturnSubmission)
+                            .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                            .OrderByDescending(r => r.CreatedAt)
+                            .Take(1)
+                            .ToListAsync();
+                        // Serialize with camelCase to match rows format
+                        var sectoralLendingSerializedData = JsonSerializer.Serialize(sectoralLendingData, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                        var sectoralLendingDeserializedData = JsonSerializer.Deserialize<List<object>>(sectoralLendingSerializedData);
+                        currentData.AddRange(sectoralLendingDeserializedData ?? new List<object>());
+                        break;
+
+                    case FormCategory.InsiderLending:
+                        var insiderLendingData = await _context.InsiderLendingHeaders
+                            .Include(r => r.Return)
+                            .Where(r => r.Return.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
+                            .OrderByDescending(r => r.CreatedAt)
+                            .Take(1)
+                            .ToListAsync();
+                        // Serialize with camelCase to match rows format
+                        var insiderLendingSerializedData = JsonSerializer.Serialize(insiderLendingData, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        });
+                        var insiderLendingDeserializedData = JsonSerializer.Deserialize<List<object>>(insiderLendingSerializedData);
+                        currentData.AddRange(insiderLendingDeserializedData ?? new List<object>());
+                        break;
+
+                    default:
+                        // _logger.LogWarning("Unsupported form category {FormCategory} for sacco {SaccoId}", formCategory, saccoId);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                // _logger.LogError(ex, "Error fetching current child data for form category {FormCategory} and sacco {SaccoId}", formCategory, saccoId);
+            }
+
+            return currentData;
         }
 
         public async Task ReviewAmendmentRequest(string requestId, bool approve, string reviewerId)
@@ -425,7 +772,7 @@ namespace Returns.Helpers
                     SaccoType = request.ReturnSubmission.ExpectedReturn.ReturnForm?.SaccoTypeId ?? string.Empty
                 };
 
-                var result = await _returnSubmissionService.UploadDraftAsync(dto, sacco,true);
+                var result = await _returnSubmissionService.UploadDraftAsync(dto, sacco, true);
                 if (result.Any(r => r.Status == SubmissionStatus.Failed))
                 {
                     _logger.LogWarning("Failed to process approved amendment request {RequestId}: {Errors}", requestId, string.Join(", ", result.SelectMany(r => r.Messages)));

@@ -9,6 +9,7 @@ namespace Returns.DTOs.Returns
         public string ExpectedReturnId { get; set; } = string.Empty;
         public string ReturnSubmissionId { get; set; } = string.Empty;
         public string SaccoId { get; set; } = string.Empty;
+        public string SaccoType { get; set; } = string.Empty;
         public string RequestedById { get; set; } = string.Empty;
         public DateTime RequestedAt { get; set; }
         public string? ReviewedById { get; set; }
@@ -17,6 +18,7 @@ namespace Returns.DTOs.Returns
         public AmendmentStatus Status { get; set; }
         public string FileUrl { get; set; } = string.Empty;
         public List<object> Rows { get; set; } // Parsed contents (e.g., DTCapitalAdequacyReturns)
+        public List<object> CurrentData { get; set; }  = new List<object>(); 
         public FormCategory? ReturnType { get; set; }
     }
 }
