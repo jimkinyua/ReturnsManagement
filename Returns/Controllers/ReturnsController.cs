@@ -247,7 +247,7 @@ namespace Returns.Controllers
             }
         }
         [HttpGet("sacco/AmendmentRequestsWaitngResponse")]
-        public async Task<IActionResult> GetPendingAmendmentRequestsAsync([FromQuery])
+        public async Task<IActionResult> GetPendingAmendmentRequestsAsync()
         {
             try
             {
