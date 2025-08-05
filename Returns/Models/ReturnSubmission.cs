@@ -40,6 +40,7 @@ namespace Returns.Models
         public ICollection<AmendmentRequest> AmendmentRequests { get; set; } = new List<AmendmentRequest>();
         public virtual ICollection<AdditionalInformationRequest> ReturnsAdditionalInformationRequests { get; set; } = new List<AdditionalInformationRequest>();
         public virtual ICollection<AuditedFinancialPosition> AuditedFinancialPositions { get; set; } = new List<AuditedFinancialPosition>();
+        public virtual ICollection<AuditedComprehensiveIncome> AuditedComprehensiveIncomes { get; set; } = new List<AuditedComprehensiveIncome>();
 
     }
 }

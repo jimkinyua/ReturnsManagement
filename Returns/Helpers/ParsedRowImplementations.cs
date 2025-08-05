@@ -4,7 +4,80 @@ using static Returns.Helpers.ExcelService;
 
 namespace Returns.Helpers
 {
-    public class CapitalAdequacyParsedRow : IParsedRow
+
+    public class AuditedComprehensiveIncomeParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public AuditedComprehensiveIncomeStatement Data { get; set; } = null!;
+
+        public object ToEntity()
+        {
+            var entity = new AuditedComprehensiveIncome
+            {
+                ReturnSubmissionId = ReturnSubmissionId,
+                /* StartDate = Data.StartDate,
+                 EndDate = Data.EndDate,*/
+                SaccoCsNumber = Data.SaccoCsNumber,
+                CreatedAt = DateTime.Now,
+                FinancialIncome = Data.FinancialIncome,
+                FinancialIncomeFromLoansPortfolio = Data.FinancialIncomeFromLoansPortfolio,
+                InterestFromLoanPortfolioBosaLoans = Data.InterestFromLoanPortfolioBosaLoans,
+                InterestFromLoanPortfolioFosaLoans = Data.InterestFromLoanPortfolioFosaLoans,
+                InterestFromMobileLoans = Data.InterestFromMobileLoans,
+                FeesAndCommissionOnAllLoanPortfolio = Data.FeesAndCommissionOnAllLoanPortfolio,
+                FinancialIncomeFromInvestments = Data.FinancialIncomeFromInvestments,
+                GovernmentSecuritiesTreasuryBillsBonds = Data.GovernmentSecuritiesTreasuryBillsBonds,
+                SavingsDepositsAtKuscco = Data.SavingsDepositsAtKuscco,
+                MoneyMarketAtCic = Data.MoneyMarketAtCic,
+                MoneyMarketAtCooperativeBank = Data.MoneyMarketAtCooperativeBank,
+                SavingsDepositsAtKenyaTeachersAssociationKetsa = Data.SavingsDepositsAtKenyaTeachersAssociationKetsa,
+                MoneyMarketOthers = Data.MoneyMarketOthers,
+                InvestmentSharesAtCooperativeBankAndCoopHoldings = Data.InvestmentSharesAtCooperativeBankAndCoopHoldings,
+                InvestmentSharesAtCic = Data.InvestmentSharesAtCic,
+                InvestmentSharesAtKuscco = Data.InvestmentSharesAtKuscco,
+                InvestmentSharesInCooperativeAllianceOfKenyaCak = Data.InvestmentSharesInCooperativeAllianceOfKenyaCak,
+                InvestmentSharesInCodic = Data.InvestmentSharesInCodic,
+                InvestmentSharesInKenyaTeachersAssociationKetsa = Data.InvestmentSharesInKenyaTeachersAssociationKetsa,
+                InvestmentInCompaniesAllSharesTradedAtNse = Data.InvestmentInCompaniesAllSharesTradedAtNse,
+                InterestFromFixedDepositsWithBanks = Data.InterestFromFixedDepositsWithBanks,
+                RentalIncome = Data.RentalIncome,
+                OtherOperatingIncome = Data.OtherOperatingIncome,
+                FinancialExpense = Data.FinancialExpense,
+                InterestPaidOnNonWithdrawableDepositsBosaDeposits = Data.InterestPaidOnNonWithdrawableDepositsBosaDeposits,
+                InterestPaidOnFixedTermDeposits = Data.InterestPaidOnFixedTermDeposits,
+                DividendExpensesOnMemberSharesCapital = Data.DividendExpensesOnMemberSharesCapital,
+                InterestPaidOnExternalBorrowings = Data.InterestPaidOnExternalBorrowings,
+                FeesAndCommissionExpense = Data.FeesAndCommissionExpense,
+                OtherFinancialExpense = Data.OtherFinancialExpense,
+                NetFinancialIncomeLoss = Data.NetFinancialIncomeLoss,
+                AllowanceForLoanLoss = Data.AllowanceForLoanLoss,
+                ProvisionForLoanLosses = Data.ProvisionForLoanLosses,
+                ValueOfLoansRecovered = Data.ValueOfLoansRecovered,
+                OperatingExpenses = Data.OperatingExpenses,
+                PersonnelSalariesAndWages = Data.PersonnelSalariesAndWages,
+                PersonnelTrainingCosts = Data.PersonnelTrainingCosts,
+                OtherPersonnelExpense = Data.OtherPersonnelExpense,
+                GovernanceExpenseRelatedToBoardMembers = Data.GovernanceExpenseRelatedToBoardMembers,
+                GovernanceExpenseRelatedToMembers = Data.GovernanceExpenseRelatedToMembers,
+                MarketingExpenses = Data.MarketingExpenses,
+                DepreciationAndAmortizationCharges = Data.DepreciationAndAmortizationCharges,
+                IctRelatedExpense = Data.IctRelatedExpense,
+                OtherAdministrationExpenses = Data.OtherAdministrationExpenses,
+                NetOperatingIncome = Data.NetOperatingIncome,
+                NetNonOperatingIncomeExpense = Data.NetNonOperatingIncomeExpense,
+                NonOperatingIncome = Data.NonOperatingIncome,
+                NonOperatingExpense = Data.NonOperatingExpense,
+                NetIncomeBeforeTaxesAndDonations = Data.NetIncomeBeforeTaxesAndDonations,
+                Taxes = Data.Taxes,
+                NetIncomeAfterTaxesBeforeDonations = Data.NetIncomeAfterTaxesBeforeDonations,
+                Donations = Data.Donations,
+                NetIncomeAfterTaxesAndDonations = Data.NetIncomeAfterTaxesAndDonations
+            };
+            return entity;
+        }
+    }
+
+     public class CapitalAdequacyParsedRow : IParsedRow
     {
         public string ReturnSubmissionId { get; set; } = string.Empty;
         public Form1Statement Data { get; set; } = null!;
@@ -263,6 +336,9 @@ namespace Returns.Helpers
             return liquidityStatement;
         }
     }
+
+
+
 
 
     public class AuditedFinancialPositionParsedRow : IParsedRow

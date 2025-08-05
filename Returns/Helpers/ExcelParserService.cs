@@ -52,8 +52,10 @@ namespace Returns.Helpers
                         {
                             case FormCategory.CapitalAdequacy:
                                 return await ParseCapitalAdequacy(file);
-                            case FormCategory.Other:
+                            case FormCategory.AuditedFinancialPosition:
                                 return await ParseAuditedFinancialPosition(file);
+                            case FormCategory.Other:
+                                return await ParseAuditedComprehensiveIncomeStatement(file);
                             case FormCategory.LiquidityStatement:
                                 return await ParseLiquidity(file);
                             case FormCategory.DepositReturn:
@@ -155,6 +157,45 @@ namespace Returns.Helpers
                     result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
 
                     var parsedRow = new AuditedFinancialPositionParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+        private async Task<ExcelParseResult> ParseAuditedComprehensiveIncomeStatement(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportAuditedComprehensiveIncomeRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Capital Adequacy Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "AuditedFinancialPosition";
+                    result.Metadata["StartDate"] = data.StartDate;
+                    result.Metadata["EndDate"] = data.EndDate;
+                    //result.Metadata["Period"] = data.Year;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new AuditedComprehensiveIncomeParsedRow
                     {
                         Data = data
                     };

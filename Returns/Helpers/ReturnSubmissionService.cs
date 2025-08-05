@@ -214,6 +214,12 @@ namespace Returns.Helpers
                     submission.DTCapitalAdequacyReturns.Add(capitalAdequacy);
                     break;
 
+                case AuditedComprehensiveIncome auditedComprehensiveIncome:
+                    auditedComprehensiveIncome.IsCurrent = true;
+                    auditedComprehensiveIncome.IsAmended = false;
+                    submission.AuditedComprehensiveIncomes.Add(auditedComprehensiveIncome);
+                    break;
+
                 case DTLiquidityReturn liquidity:
                     liquidity.IsCurrent = true;
                     liquidity.IsAmended = false;
@@ -471,6 +477,11 @@ namespace Returns.Helpers
                 // Update DT Capital Adequacy Returns
                 await _context.Database.ExecuteSqlRawAsync(
                     "UPDATE DTCapitalAdequacyReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update Audited Comprehensive Incomes
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE AuditedComprehensiveIncomes SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
                     previousSubmissionId);
 
                 // Update Audited Financial Positions

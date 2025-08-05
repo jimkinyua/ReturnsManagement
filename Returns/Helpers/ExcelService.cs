@@ -86,6 +86,78 @@ namespace Returns.Helpers
             public decimal? WeightedScore { get; set; }
         }
 
+        public class AuditedComprehensiveIncomeStatement
+        {
+            public DateTime StartDate { get; set; }
+            public DateTime EndDate { get; set; }
+            public string SaccoCsNumber { get; set; } = string.Empty;
+            public List<AuditedIncomeRow> Rows { get; set; } = new List<AuditedIncomeRow>();
+
+            // Flattened properties
+            public decimal FinancialIncome { get; set; }
+            public decimal FinancialIncomeFromLoansPortfolio { get; set; }
+            public decimal InterestFromLoanPortfolioBosaLoans { get; set; }
+            public decimal InterestFromLoanPortfolioFosaLoans { get; set; }
+            public decimal InterestFromMobileLoans { get; set; }
+            public decimal FeesAndCommissionOnAllLoanPortfolio { get; set; }
+            public decimal FinancialIncomeFromInvestments { get; set; }
+            public decimal GovernmentSecuritiesTreasuryBillsBonds { get; set; }
+            public decimal SavingsDepositsAtKuscco { get; set; }
+            public decimal MoneyMarketAtCic { get; set; }
+            public decimal MoneyMarketAtCooperativeBank { get; set; }
+            public decimal SavingsDepositsAtKenyaTeachersAssociationKetsa { get; set; }
+            public decimal MoneyMarketOthers { get; set; }
+            public decimal InvestmentSharesAtCooperativeBankAndCoopHoldings { get; set; }
+            public decimal InvestmentSharesAtCic { get; set; }
+            public decimal InvestmentSharesAtKuscco { get; set; }
+            public decimal InvestmentSharesInCooperativeAllianceOfKenyaCak { get; set; }
+            public decimal InvestmentSharesInCodic { get; set; }
+            public decimal InvestmentSharesInKenyaTeachersAssociationKetsa { get; set; }
+            public decimal InvestmentInCompaniesAllSharesTradedAtNse { get; set; }
+            public decimal InterestFromFixedDepositsWithBanks { get; set; }
+            public decimal RentalIncome { get; set; }
+            public decimal OtherOperatingIncome { get; set; }
+            public decimal FinancialExpense { get; set; }
+            public decimal InterestPaidOnNonWithdrawableDepositsBosaDeposits { get; set; }
+            public decimal InterestPaidOnFixedTermDeposits { get; set; }
+            public decimal DividendExpensesOnMemberSharesCapital { get; set; }
+            public decimal InterestPaidOnExternalBorrowings { get; set; }
+            public decimal FeesAndCommissionExpense { get; set; }
+            public decimal OtherFinancialExpense { get; set; }
+            public decimal NetFinancialIncomeLoss { get; set; }
+            public decimal AllowanceForLoanLoss { get; set; }
+            public decimal ProvisionForLoanLosses { get; set; }
+            public decimal ValueOfLoansRecovered { get; set; }
+            public decimal OperatingExpenses { get; set; }
+            public decimal PersonnelSalariesAndWages { get; set; }
+            public decimal PersonnelTrainingCosts { get; set; }
+            public decimal OtherPersonnelExpense { get; set; }
+            public decimal GovernanceExpenseRelatedToBoardMembers { get; set; }
+            public decimal GovernanceExpenseRelatedToMembers { get; set; }
+            public decimal MarketingExpenses { get; set; }
+            public decimal DepreciationAndAmortizationCharges { get; set; }
+            public decimal IctRelatedExpense { get; set; }
+            public decimal OtherAdministrationExpenses { get; set; }
+            public decimal NetOperatingIncome { get; set; }
+            public decimal NetNonOperatingIncomeExpense { get; set; }
+            public decimal NonOperatingIncome { get; set; }
+            public decimal NonOperatingExpense { get; set; }
+            public decimal NetIncomeBeforeTaxesAndDonations { get; set; }
+            public decimal Taxes { get; set; }
+            public decimal NetIncomeAfterTaxesBeforeDonations { get; set; }
+            public decimal Donations { get; set; }
+            public decimal NetIncomeAfterTaxesAndDonations { get; set; }
+        }
+
+        public class AuditedIncomeRow
+        {
+            public string RefNumber { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public decimal? Amount { get; set; }
+            public string CellNumberWithFigures { get; set; } = string.Empty;
+        }
+
+
         public class AuditedFinancialPositionStatement
         {
             public DateTime StartDate { get; set; }
@@ -786,6 +858,275 @@ namespace Returns.Helpers
             reportDTO.TotalLoansCount = insiderLoans.Count;
             reportDTO.Loans = insiderLoans;
         }
+
+        public static AuditedComprehensiveIncomeStatement ImportAuditedComprehensiveIncomeRows(IFormFile file, ILogger logger)
+        {
+            try
+            {
+                logger.LogInformation("File Name: " + file.FileName);
+                if (file == null)
+                {
+                    logger.LogError("File is null");
+                    throw new ArgumentNullException(nameof(file), "No file was provided for processing");
+                }
+                if (file.Length == 0)
+                {
+                    throw new ArgumentException("The uploaded file is empty", nameof(file));
+                }
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+                if (sanitizedFileName != ".xlsx")
+                {
+                    throw new ValidationException(
+                        $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                        "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                        "Please save the sheet in .xlsx format and upload again.");
+                }
+                using (var stream = new MemoryStream())
+                {
+                    logger.LogInformation("Copying file to memory stream");
+                    file.CopyTo(stream);
+                    using (var workbook = new XLWorkbook(stream))
+                    {
+                        logger.LogInformation("Workbook opened");
+                        var worksheet = workbook.Worksheets.First();
+                        if (worksheet == null)
+                        {
+                            throw new Exception("Income Statement sheet not found.");
+                        }
+                        var statement = new AuditedComprehensiveIncomeStatement
+                        {
+                            SaccoCsNumber = "DEFAULT_CS_NUMBER", // Extract if available
+                            StartDate = DateTime.Now,
+                            EndDate = DateTime.Now
+                        };
+                        var rows = new List<AuditedIncomeRow>();
+                        string currentSection = "";
+                        int firstDataRow = 1;
+                        int lastDataRow = 65; // Based on the provided rows
+                        for (int rowNum = firstDataRow; rowNum <= lastDataRow; rowNum++)
+                        {
+                            var row = worksheet.Row(rowNum);
+                            string desc = GetCellValueOrEmpty(row.Cell("B")).Trim().ToLower();
+                            decimal amount = GetDecimalOrZero(row.Cell("C"));
+                            if (string.IsNullOrEmpty(desc)) continue;
+                            // Detect sections (basic, can expand)
+                            if (desc.Contains("financial income")) currentSection = "FinancialIncome";
+                            else if (desc.Contains("financial expense")) currentSection = "FinancialExpense";
+                            else if (desc.Contains("allowance for loan loss")) currentSection = "AllowanceForLoanLoss";
+                            else if (desc.Contains("operating expenses")) currentSection = "OperatingExpenses";
+                            else if (desc.Contains("net non- operating income")) currentSection = "NetNonOperating";
+                            // Map to properties using row number
+                            MapToProperty(statement, rowNum, amount);
+                            rows.Add(new AuditedIncomeRow
+                            {
+                                RefNumber = rowNum.ToString(),
+                                Description = desc,
+                                Amount = amount,
+                                CellNumberWithFigures = row.Cell("C").Address.ToString()
+                            });
+                        }
+                        statement.Rows = rows;
+                        return statement;
+                    }
+                }
+            }
+            catch (ArgumentNullException ex)
+            {
+                logger.LogError(ex, "No file was provided for processing");
+                throw;
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "Invalid file type or empty file");
+                throw;
+            }
+            catch (FileFormatException ex)
+            {
+                logger.LogError(ex, "Invalid file format");
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing ImportAuditedComprehensiveIncomeRows");
+                throw;
+            }
+        }
+
+        private static void MapToProperty(AuditedComprehensiveIncomeStatement statement, int rowNum, decimal amount)
+        {
+            switch (rowNum)
+            {
+                case 2:
+                    statement.FinancialIncome = amount;
+                    break;
+                case 4:
+                    statement.FinancialIncome = amount;
+                    break;
+                case 5:
+                    statement.FinancialIncomeFromLoansPortfolio = amount;
+                    break;
+                case 6:
+                    statement.InterestFromLoanPortfolioBosaLoans = amount;
+                    break;
+                case 7:
+                    statement.InterestFromLoanPortfolioFosaLoans = amount;
+                    break;
+                case 8:
+                    statement.InterestFromMobileLoans = amount;
+                    break;
+                case 9:
+                    statement.FeesAndCommissionOnAllLoanPortfolio = amount;
+                    break;
+                case 11:
+                    statement.FinancialIncomeFromInvestments = amount;
+                    break;
+                case 12:
+                    statement.GovernmentSecuritiesTreasuryBillsBonds = amount;
+                    break;
+                case 13:
+                    statement.SavingsDepositsAtKuscco = amount;
+                    break;
+                case 14:
+                    statement.MoneyMarketAtCic = amount;
+                    break;
+                case 15:
+                    statement.MoneyMarketAtCooperativeBank = amount;
+                    break;
+                case 16:
+                    statement.SavingsDepositsAtKenyaTeachersAssociationKetsa = amount;
+                    break;
+                case 17:
+                    statement.MoneyMarketOthers = amount;
+                    break;
+                case 18:
+                    statement.InvestmentSharesAtCooperativeBankAndCoopHoldings = amount;
+                    break;
+                case 19:
+                    statement.InvestmentSharesAtCic = amount;
+                    break;
+                case 20:
+                    statement.InvestmentSharesAtKuscco = amount;
+                    break;
+                case 21:
+                    statement.InvestmentSharesInCooperativeAllianceOfKenyaCak = amount;
+                    break;
+                case 22:
+                    statement.InvestmentSharesInCodic = amount;
+                    break;
+                case 23:
+                    statement.InvestmentSharesInKenyaTeachersAssociationKetsa = amount;
+                    break;
+                case 24:
+                    statement.InvestmentInCompaniesAllSharesTradedAtNse = amount;
+                    break;
+                case 25:
+                    statement.InterestFromFixedDepositsWithBanks = amount;
+                    break;
+                case 26:
+                    statement.RentalIncome = amount;
+                    break;
+                case 27:
+                    statement.OtherOperatingIncome = amount;
+                    break;
+                case 29:
+                    statement.FinancialExpense = amount;
+                    break;
+                case 30:
+                    statement.InterestPaidOnNonWithdrawableDepositsBosaDeposits = amount;
+                    break;
+                case 31:
+                    statement.InterestPaidOnFixedTermDeposits = amount;
+                    break;
+                case 32:
+                    statement.DividendExpensesOnMemberSharesCapital = amount;
+                    break;
+                case 33:
+                    statement.InterestPaidOnExternalBorrowings = amount;
+                    break;
+                case 34:
+                    statement.FeesAndCommissionExpense = amount;
+                    break;
+                case 35:
+                    statement.OtherFinancialExpense = amount;
+                    break;
+                case 36:
+                    statement.NetFinancialIncomeLoss = amount;
+                    break;
+                case 38:
+                    statement.AllowanceForLoanLoss = amount;
+                    break;
+                case 39:
+                    statement.ProvisionForLoanLosses = amount;
+                    break;
+                case 40:
+                    statement.ValueOfLoansRecovered = amount;
+                    break;
+                case 42:
+                    statement.OperatingExpenses = amount;
+                    break;
+                case 43:
+                    statement.PersonnelSalariesAndWages = amount;
+                    break;
+                case 44:
+                    statement.PersonnelTrainingCosts = amount;
+                    break;
+                case 45:
+                    statement.OtherPersonnelExpense = amount;
+                    break;
+                case 46:
+                    statement.GovernanceExpenseRelatedToBoardMembers = amount;
+                    break;
+                case 47:
+                    statement.GovernanceExpenseRelatedToMembers = amount;
+                    break;
+                case 48:
+                    statement.MarketingExpenses = amount;
+                    break;
+                case 49:
+                    statement.DepreciationAndAmortizationCharges = amount;
+                    break;
+                case 50:
+                    statement.IctRelatedExpense = amount;
+                    break;
+                case 51:
+                    statement.OtherAdministrationExpenses = amount;
+                    break;
+                case 53:
+                    statement.NetOperatingIncome = amount;
+                    break;
+                case 55:
+                    statement.NetNonOperatingIncomeExpense = amount;
+                    break;
+                case 56:
+                    statement.NonOperatingIncome = amount;
+                    break;
+                case 57:
+                    statement.NonOperatingExpense = amount;
+                    break;
+                case 59:
+                    statement.NetIncomeBeforeTaxesAndDonations = amount;
+                    break;
+                case 61:
+                    statement.Taxes = amount;
+                    break;
+                case 63:
+                    statement.NetIncomeAfterTaxesBeforeDonations = amount;
+                    break;
+                case 64:
+                    statement.Donations = amount;
+                    break;
+                case 66:
+                    statement.NetIncomeAfterTaxesAndDonations = amount;
+                    break;
+                default:
+                    break;
+            }
+        }
+
 
         public static DailyLiquidityStatement ImportDailyLiquidityRows(IFormFile file, ILogger logger)
         {

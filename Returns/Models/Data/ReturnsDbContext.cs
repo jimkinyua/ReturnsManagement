@@ -85,6 +85,7 @@ namespace Returns.Models.Data
         public DbSet<SaccoAssignment> SaccoAssignments { get; set; }
         public DbSet<ReturnCompleteness> ReturnCompleteness { get; set; }
         public DbSet<AuditedFinancialPosition> AuditedFinancialPositions { get; set; }
+        public DbSet<AuditedComprehensiveIncome> AuditedComprehensiveIncomes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
