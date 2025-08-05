@@ -181,7 +181,7 @@ namespace Returns.Controllers
                 var createFormDTO = new NewReturnDTO { FormUploads = formUploads };
 
                 // Call service
-                var (isValid, processingSummary, consistencyErrors, hasChecked, formData, _) =await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
+                var (isValid, processingSummary, consistencyErrors, hasChecked, formData, _) = await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
 
                 if (!isValid)
                 {
@@ -253,13 +253,13 @@ namespace Returns.Controllers
             {
                 LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 var requests = await _amendmentService.GetAmendmentRequestsPendingSaccoResponseAsync();
-                
-                 requests = requests.Where(r => r.SaccoId == loggedInEntity.SaccoId).ToList();
 
-               /* if (loggedInEntity.IsAdmin && !string.IsNullOrEmpty(saccoId))
-                {
-                    requests = requests.Where(r => r.SaccoId == saccoId).ToList();
-                }*/
+                requests = requests.Where(r => r.SaccoId == loggedInEntity.SaccoId).ToList();
+
+                /* if (loggedInEntity.IsAdmin && !string.IsNullOrEmpty(saccoId))
+                 {
+                     requests = requests.Where(r => r.SaccoId == saccoId).ToList();
+                 }*/
                 /*else if (!loggedInEntity.IsAdmin)
                 {
                     requests = requests.Where(r => r.SaccoId == loggedInEntity.SaccoId).ToList();
@@ -303,6 +303,33 @@ namespace Returns.Controllers
             }
         }
 
+        [HttpGet("admin/AdminInitiatedAmendmentRequests")]
+        public async Task<IActionResult> GetAdminInitiatedAmendmentRequests([FromQuery] string? saccoId = null)
+        {
+            try
+            {
+                LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                var requests = await _amendmentService.GetAdminInitiatedAmendmentRequestsAsync();
+
+                if (!string.IsNullOrEmpty(saccoId))
+                {
+                    requests = requests.Where(r => r.SaccoId == saccoId).ToList();
+                }
+
+                return Ok(requests);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized attempt to get admin-initiated amendment requests.");
+                return Unauthorized(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during retrieval of admin-initiated amendment requests.");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
 
 
         [HttpGet("admin/AmendmentRequestDetails/{requestId}")]
@@ -317,7 +344,7 @@ namespace Returns.Controllers
             catch (UnauthorizedAccessException ex)
             {
                 _logger.LogWarning(ex, "Unauthorized attempt to get amendment request details {RequestId}.", requestId);
-                return Unauthorized(ex.Message );
+                return Unauthorized(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
@@ -327,7 +354,7 @@ namespace Returns.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error retrieving amendment request details {RequestId}.", requestId);
-                return StatusCode(500, CustomErrorHandler.HandleException(ex) );
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
@@ -384,15 +411,15 @@ namespace Returns.Controllers
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message );
+                return BadRequest(ex.Message);
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized( ex.Message);
+                return Unauthorized(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                return BadRequest( ex.Message );
+                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -436,7 +463,7 @@ namespace Returns.Controllers
                 if (failedResults.Any())
                 {
                     var errorMessages = failedResults.SelectMany(r => r.Messages)
-                                                     .Distinct() 
+                                                     .Distinct()
                                                      .ToList();
                     return BadRequest(string.Join("; ", errorMessages));
                 }

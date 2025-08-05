@@ -259,7 +259,7 @@ namespace Returns.Helpers
 
             // Retrieve and validate submission
             var submission = await GetSubmissionUsingReturnIdAsync(dto.ReturnSubmissionId, admin.SaccoId);
-            var saccoDetails =await  _complianceService.GetSaccoByTheirIdAsync(submission.SaccoId);
+            var saccoDetails = await _complianceService.GetSaccoByTheirIdAsync(submission.SaccoId);
             // Check for existing amendment requests
             var existingRequest = await CheckExistingAmendmentRequestAsync(dto.ReturnSubmissionId);
             if (existingRequest != null)
@@ -295,16 +295,34 @@ namespace Returns.Helpers
 
             return newRequest;
         }
-
         public async Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingSaccoResponseAsync()
         {
+            
             var requests = await _context.AmendmentRequests
-                .Include(r => r.ReturnSubmission)
-                .ThenInclude(er => er.ExpectedReturn)
-                .ThenInclude(er => er.ReturnForm)
+            .Include(r => r.ReturnSubmission)
+                .ThenInclude(rs => rs.ExpectedReturn)
+                    .ThenInclude(er => er.ReturnForm)
+            .Include(r => r.ReturnSubmission)
+                .ThenInclude(rs => rs.ExpectedReturn)
+                    .ThenInclude(er => er.Period)
+                        .ThenInclude(p => p.ReportingYear)
                 .Where(r => r.Status == AmendmentStatus.PendingSaccoResponse)
-                .OrderByDescending(r => r.RequestedAt)
-                .Select(r => new PendingAmendmentRequestDTO
+            .OrderByDescending(r => r.RequestedAt)
+            .ToListAsync();
+
+
+
+            var pendingRequests = new List<PendingAmendmentRequestDTO>();
+
+            foreach (var r in requests)
+            {
+                var Year = r.ReturnSubmission.ExpectedReturn.Period.ReportingYear.Year;
+                var Period = r.ReturnSubmission.ExpectedReturn.Period.Name;
+                var PeriodStart = r.ReturnSubmission.ExpectedReturn.Period.StartDate.ToLongDateString();
+                var PeriodEnd = r.ReturnSubmission.ExpectedReturn.Period.EndDate.ToLongDateString();
+                var OriginalSubmittedAt = r.ReturnSubmission.CreatedAt.ToLongDateString();
+
+                var dto = new PendingAmendmentRequestDTO
                 {
                     Id = r.Id,
                     ExpectedReturnId = r.ExpectedReturnId,
@@ -317,12 +335,19 @@ namespace Returns.Helpers
                     Reason = r.Reason,
                     Status = r.Status,
                     ReturnType = r.ReturnSubmission.ExpectedReturn.ReturnForm != null
-                        ? (FormCategory?)r.ReturnSubmission.ExpectedReturn.ReturnForm.Category
-                        : null
-                })
-                .ToListAsync();
+                        ? r.ReturnSubmission.ExpectedReturn.ReturnForm.Category.ToString()
+                        : null,
+                    OriginalYear = Year.ToString(),
+                    OriginalPeriod = Period,
+                    PeriodStart = PeriodStart,
+                    PeriodEnd = PeriodEnd,
+                    OriginalSubmittedAt = OriginalSubmittedAt
+                };
 
-            return requests;
+                pendingRequests.Add(dto);
+            }
+
+            return pendingRequests;
         }
 
         public async Task<AmendmentRequestDetailsDTO> GetAmendmentRequestDetailsAsync(string requestId, LoggedInEntity admin)
@@ -789,11 +814,15 @@ namespace Returns.Helpers
         public async Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingAdminApprovalAsync()
         {
             var requests = await _context.AmendmentRequests
-                            .Include(r => r.ReturnSubmission)
-                            .ThenInclude(er => er.ExpectedReturn)
-                            .ThenInclude(er => er.ReturnForm)
-                            .Where(r => r.Status == AmendmentStatus.PendingAdminApproval)
-                            .OrderByDescending(r => r.RequestedAt)
+           .Include(r => r.ReturnSubmission)
+               .ThenInclude(rs => rs.ExpectedReturn)
+                   .ThenInclude(er => er.ReturnForm)
+           .Include(r => r.ReturnSubmission)
+               .ThenInclude(rs => rs.ExpectedReturn)
+                   .ThenInclude(er => er.Period)
+                       .ThenInclude(p => p.ReportingYear)
+            .Where(r => r.Status == AmendmentStatus.PendingAdminApproval)
+           .OrderByDescending(r => r.RequestedAt)
                             .Select(r => new PendingAmendmentRequestDTO
                             {
                                 Id = r.Id,
@@ -805,12 +834,66 @@ namespace Returns.Helpers
                                 Reason = r.Reason,
                                 Status = r.Status,
                                 ReturnType = r.ReturnSubmission.ExpectedReturn.ReturnForm != null
-                                    ? (FormCategory?)r.ReturnSubmission.ExpectedReturn.ReturnForm.Category
+                                    ? r.ReturnSubmission.ExpectedReturn.ReturnForm.Category.ToString()
                                     : null
                             })
                             .ToListAsync();
 
             return requests;
+        }
+
+        public async Task<IList<PendingAmendmentRequestDTO>> GetAdminInitiatedAmendmentRequestsAsync()
+        {
+
+
+            var requests = await _context.AmendmentRequests
+                .Include(r => r.ReturnSubmission)
+                    .ThenInclude(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                .Include(r => r.ReturnSubmission)
+                    .ThenInclude(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                            .ThenInclude(p => p.ReportingYear)
+                .Where(r => r.IsAdminInitiated)
+                .OrderByDescending(r => r.RequestedAt)
+                .ToListAsync();
+
+            var adminRequests = new List<PendingAmendmentRequestDTO>();
+
+            foreach (var r in requests)
+            {
+                var Year = r.ReturnSubmission.ExpectedReturn.Period.ReportingYear.Year;
+                var Period = r.ReturnSubmission.ExpectedReturn.Period.Name;
+                var PeriodStart = r.ReturnSubmission.ExpectedReturn.Period.StartDate.ToLongDateString();
+                var PeriodEnd = r.ReturnSubmission.ExpectedReturn.Period.EndDate.ToLongDateString();
+                var OriginalSubmittedAt = r.ReturnSubmission.CreatedAt.ToLongDateString();
+
+                var dto = new PendingAmendmentRequestDTO
+                {
+                    Id = r.Id,
+                    ExpectedReturnId = r.ExpectedReturnId,
+                    ReturnSubmissionId = r.ReturnSubmissionId,
+                    SaccoId = r.SaccoId,
+                    SaccoType = r.SaccoType,
+                    SaccoName = r.SaccoName,
+                    RequestedById = r.RequestedById,
+                    RequestedAt = r.RequestedAt.ToLongDateString(),
+                    Reason = r.Reason,
+                    Status = r.Status,
+                    ReturnType = r.ReturnSubmission.ExpectedReturn.ReturnForm != null
+                        ? r.ReturnSubmission.ExpectedReturn.ReturnForm.Category.ToString()
+                        : null,
+                    OriginalYear = Year.ToString(),
+                    OriginalPeriod = Period,
+                    PeriodStart = PeriodStart,
+                    PeriodEnd = PeriodEnd,
+                    OriginalSubmittedAt = OriginalSubmittedAt
+                };
+
+                adminRequests.Add(dto);
+            }
+
+            return adminRequests;
         }
     }
 }

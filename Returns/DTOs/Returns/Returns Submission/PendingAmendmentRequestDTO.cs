@@ -15,7 +15,11 @@ namespace Returns.DTOs.Returns.Returns_Submission
         public string RequestedAt { get; set; } = string.Empty;
         public AmendmentStatus Status { get; set; } = AmendmentStatus.PendingAdminApproval;
         public string Reason { get; set; } = string.Empty;
-        public FormCategory? ReturnType { get; set; }
-
+        public string OriginalYear { get; set; } = string.Empty;
+        public string OriginalPeriod { get; set; } = string.Empty;
+        public string PeriodStart { get; set; } = string.Empty;
+        public string PeriodEnd { get; set; } = string.Empty;
+        public string OriginalSubmittedAt { get; set; } = string.Empty;
+        public string? ReturnType { get; set; }
     }
 }
