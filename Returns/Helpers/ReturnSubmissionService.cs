@@ -129,6 +129,8 @@ namespace Returns.Helpers
                         SaccoId = loggedInSacco.SaccoId,
                         Status = newStatus,
                         SubmittedAt = DateTime.Now,
+                        IsLatest = true,
+                        IsActive = true,
                         FileUrl = savedUrl,
                         Version = (previous?.Version ?? 0) + 1,
                         AmendsSubmissionId = previous?.Id
@@ -207,59 +209,87 @@ namespace Returns.Helpers
             {
                 // DT Returns
                 case DTCapitalAdequacyReturn capitalAdequacy:
+                    capitalAdequacy.IsCurrent = true;
+                    capitalAdequacy.IsAmended = false;
                     submission.DTCapitalAdequacyReturns.Add(capitalAdequacy);
                     break;
 
                 case DTLiquidityReturn liquidity:
+                    liquidity.IsCurrent = true;
+                    liquidity.IsAmended = false;
                     submission.DTLiquidityReturns.Add(liquidity);
                     break;
 
                 case DepositReturn deposit:
+                    deposit.IsCurrent = true;
+                    deposit.IsAmended = false;
                     submission.DepositReturns.Add(deposit);
                     break;
 
                 case DTRiskClassificationReturn risk:
+                    risk.IsCurrent = true;
+                    risk.IsAmended = false;
                     submission.DTRiskClassificationReturns.Add(risk);
                     break;
 
                 case DTInvestmentReturn investment:
+                    investment.IsCurrent = true;
+                    investment.IsAmended = false;
                     submission.DTInvestmentReturns.Add(investment);
                     break;
 
                 case DTFinancialPositionReturn financialPosition:
+                    financialPosition.IsCurrent = true;
+                    financialPosition.IsAmended = false;
                     submission.DTFinancialPositionReturns.Add(financialPosition);
                     break;
 
                 case DTComprehensiveIncomeReturn comprehensiveIncome:
+                    comprehensiveIncome.IsCurrent = true;
+                    comprehensiveIncome.IsAmended = false;
                     submission.DTComprehensiveIncomeReturns.Add(comprehensiveIncome);
                     break;
 
                 // NWDT Returns
                 case NWDTCapitalAdequacyReturn nwdtCapitalAdequacy:
+                    nwdtCapitalAdequacy.IsCurrent = true;
+                    nwdtCapitalAdequacy.IsAmended = false;
                     submission.NWDTCapitalAdequacyReturns.Add(nwdtCapitalAdequacy);
                     break;
 
                 case NWDTLiquidityReturn nwdtLiquidity:
+                    nwdtLiquidity.IsCurrent = true;
+                    nwdtLiquidity.IsAmended = false;
                     submission.NWDTLiquidityReturns.Add(nwdtLiquidity);
                     break;
 
                 case NWDTDepositReturn nwdtDeposit:
+                    nwdtDeposit.IsCurrent = true;
+                    nwdtDeposit.IsAmended = false;
                     submission.NWDTDepositReturns.Add(nwdtDeposit);
                     break;
 
                 case NWDTRiskClassificationReturn nwdtRisk:
+                    nwdtRisk.IsCurrent = true;
+                    nwdtRisk.IsAmended = false;
                     submission.NWDTRiskClassificationReturns.Add(nwdtRisk);
                     break;
 
                 case NWDTInvestmentReturn nwdtInvestment:
+                    nwdtInvestment.IsCurrent = true;
+                    nwdtInvestment.IsAmended = false;
                     submission.NWDTInvestmentReturns.Add(nwdtInvestment);
                     break;
 
                 case NWDTFinancialPositionReturn nwdtFinancialPosition:
+                    nwdtFinancialPosition.IsCurrent = true;
+                    nwdtFinancialPosition.IsAmended = false;
                     submission.NWDTFinancialPositionReturns.Add(nwdtFinancialPosition);
                     break;
 
                 case NWDTComprehensiveIncomeReturn nwdtComprehensiveIncome:
+                    nwdtComprehensiveIncome.IsCurrent = true;
+                    nwdtComprehensiveIncome.IsAmended = false;
                     submission.NWDTComprehensiveIncomeReturns.Add(nwdtComprehensiveIncome);
                     break;
 
@@ -267,6 +297,8 @@ namespace Returns.Helpers
                 case List<DepositReturn> depositList:
                     foreach (var depositItem in depositList)
                     {
+                        depositItem.IsCurrent = true;
+                        depositItem.IsAmended = false;
                         submission.DepositReturns.Add(depositItem);
                     }
                     break;
@@ -274,6 +306,8 @@ namespace Returns.Helpers
                 case List<NWDTDepositReturn> nwdtDepositList:
                     foreach (var nwdtDepositItem in nwdtDepositList)
                     {
+                        nwdtDepositItem.IsCurrent = true;
+                        nwdtDepositItem.IsAmended = false;
                         submission.NWDTDepositReturns.Add(nwdtDepositItem);
                     }
                     break;
@@ -281,6 +315,8 @@ namespace Returns.Helpers
                 case List<DTRiskClassificationReturn> riskList:
                     foreach (var riskItem in riskList)
                     {
+                        riskItem.IsCurrent = true;
+                        riskItem.IsAmended = false;
                         submission.DTRiskClassificationReturns.Add(riskItem);
                     }
                     break;
@@ -288,20 +324,31 @@ namespace Returns.Helpers
                 case List<NWDTRiskClassificationReturn> nwdtRiskList:
                     foreach (var nwdtRiskItem in nwdtRiskList)
                     {
+                        nwdtRiskItem.IsCurrent = true;
+                        nwdtRiskItem.IsAmended = false;
                         submission.NWDTRiskClassificationReturns.Add(nwdtRiskItem);
                     }
                     break;
 
                 // Management Return - stored as separate entity
                 case ManagementReturn managementReturn:
+                    managementReturn.IsCurrent = true;
+                    managementReturn.IsAmended = false;
                     await _context.ManagementReturns.AddAsync(managementReturn);
                     break;
 
                 // Daily Liquidity Return - stored as separate entity
                 case DailyLiquidityReturn dailyLiquidityReturn:
+                    dailyLiquidityReturn.IsCurrent = true;
+                    dailyLiquidityReturn.IsAmended = false;
                     await _context.DailyLiquidityReturns.AddAsync(dailyLiquidityReturn);
                     break;
 
+                case AuditedFinancialPosition auditedFinancialPosition:
+                    auditedFinancialPosition.IsCurrent = true;
+                    auditedFinancialPosition.IsAmended = false;
+                    await _context.AuditedFinancialPositions.AddAsync(auditedFinancialPosition);
+                    break;
                 // Sectoral Lending Report - returns anonymous object with Report and EconomicSectorData
                 case var sectoralLending when IsSectoralLendingObject(entity):
                     try
@@ -311,6 +358,8 @@ namespace Returns.Helpers
 
                         if (report is SectoralLendingReport sectoralReport)
                         {
+                            sectoralReport.IsCurrent = true;
+                            sectoralReport.IsAmended = false;
                             // Save the report first to get its ID
                             await _context.SectoralLendingReports.AddAsync(sectoralReport);
                             await _context.SaveChangesAsync(); // Save to get the ID
@@ -341,6 +390,8 @@ namespace Returns.Helpers
 
                         if (header is InsiderLendingHeader insiderHeader)
                         {
+                            insiderHeader.IsCurrent = true;
+                            insiderHeader.IsAmended = false;
                             await _context.InsiderLendingHeaders.AddAsync(insiderHeader);
                         }
 
@@ -354,6 +405,7 @@ namespace Returns.Helpers
                         _logger.LogError(ex, "Error processing insider lending data");
                     }
                     break;
+
 
                 default:
                     _logger.LogWarning($"Unknown entity type: {entity?.GetType()?.Name ?? "null"}");
@@ -373,13 +425,13 @@ namespace Returns.Helpers
                 if (!isAmendment)
                 {
                     // For new submissions, mark all new children as active
-                    await MarkChildrenAsActiveAsync(submission);
+                    MarkChildrenAsActive(submission);
                 }
                 else
                 {
                     // For amendments, mark previous children as inactive and new children as active
                     await MarkPreviousChildrenAsInactiveAsync(submission);
-                    await MarkChildrenAsActiveAsync(submission);
+                    MarkChildrenAsActive(submission);
                 }
             }
             catch (Exception ex)
@@ -392,107 +444,14 @@ namespace Returns.Helpers
         /// <summary>
         /// Marks all children entities in the submission as active (IsCurrent = true)
         /// </summary>
-        private async Task MarkChildrenAsActiveAsync(ReturnSubmission submission)
+        private void MarkChildrenAsActive(ReturnSubmission submission)
         {
-            // DT Returns
-            foreach (var capitalAdequacy in submission.DTCapitalAdequacyReturns)
-            {
-                capitalAdequacy.IsCurrent = true;
-                capitalAdequacy.IsAmended = false;
-                _context.Entry(capitalAdequacy).State = EntityState.Modified;
-            }
+            // For new entities, we don't need to explicitly mark them as Modified
+            // since they are already being tracked as Added by EF Core
+            // The IsCurrent and IsAmended properties are set during entity creation in AddEntityToSubmission
 
-            foreach (var liquidity in submission.DTLiquidityReturns)
-            {
-                liquidity.IsCurrent = true;
-                liquidity.IsAmended = false;
-                _context.Entry(liquidity).State = EntityState.Modified;
-            }
-
-            foreach (var deposit in submission.DepositReturns)
-            {
-                deposit.IsCurrent = true;
-                deposit.IsAmended = false;
-                _context.Entry(deposit).State = EntityState.Modified;
-            }
-
-            foreach (var risk in submission.DTRiskClassificationReturns)
-            {
-                risk.IsCurrent = true;
-                risk.IsAmended = false;
-                _context.Entry(risk).State = EntityState.Modified;
-            }
-
-            foreach (var investment in submission.DTInvestmentReturns)
-            {
-                investment.IsCurrent = true;
-                investment.IsAmended = false;
-                _context.Entry(investment).State = EntityState.Modified;
-            }
-
-            foreach (var financialPosition in submission.DTFinancialPositionReturns)
-            {
-                financialPosition.IsCurrent = true;
-                financialPosition.IsAmended = false;
-                _context.Entry(financialPosition).State = EntityState.Modified;
-            }
-
-            foreach (var comprehensiveIncome in submission.DTComprehensiveIncomeReturns)
-            {
-                comprehensiveIncome.IsCurrent = true;
-                comprehensiveIncome.IsAmended = false;
-                _context.Entry(comprehensiveIncome).State = EntityState.Modified;
-            }
-
-            // NWDT Returns
-            foreach (var nwdtCapitalAdequacy in submission.NWDTCapitalAdequacyReturns)
-            {
-                nwdtCapitalAdequacy.IsCurrent = true;
-                nwdtCapitalAdequacy.IsAmended = false;
-                _context.Entry(nwdtCapitalAdequacy).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtLiquidity in submission.NWDTLiquidityReturns)
-            {
-                nwdtLiquidity.IsCurrent = true;
-                nwdtLiquidity.IsAmended = false;
-                _context.Entry(nwdtLiquidity).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtDeposit in submission.NWDTDepositReturns)
-            {
-                nwdtDeposit.IsCurrent = true;
-                nwdtDeposit.IsAmended = false;
-                _context.Entry(nwdtDeposit).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtRisk in submission.NWDTRiskClassificationReturns)
-            {
-                nwdtRisk.IsCurrent = true;
-                nwdtRisk.IsAmended = false;
-                _context.Entry(nwdtRisk).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtInvestment in submission.NWDTInvestmentReturns)
-            {
-                nwdtInvestment.IsCurrent = true;
-                nwdtInvestment.IsAmended = false;
-                _context.Entry(nwdtInvestment).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtFinancialPosition in submission.NWDTFinancialPositionReturns)
-            {
-                nwdtFinancialPosition.IsCurrent = true;
-                nwdtFinancialPosition.IsAmended = false;
-                _context.Entry(nwdtFinancialPosition).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtComprehensiveIncome in submission.NWDTComprehensiveIncomeReturns)
-            {
-                nwdtComprehensiveIncome.IsCurrent = true;
-                nwdtComprehensiveIncome.IsAmended = false;
-                _context.Entry(nwdtComprehensiveIncome).State = EntityState.Modified;
-            }
+            // This method is kept for consistency but the actual marking is done in AddEntityToSubmission
+            // when the entities are first created
         }
 
         /// <summary>
@@ -504,124 +463,93 @@ namespace Returns.Helpers
             if (submission.AmendsSubmissionId == null)
                 return;
 
-            var previousSubmission = await _context.ReturnSubmissions
-                .Include(s => s.DTCapitalAdequacyReturns)
-                .Include(s => s.DTLiquidityReturns)
-                .Include(s => s.DepositReturns)
-                .Include(s => s.DTRiskClassificationReturns)
-                .Include(s => s.DTInvestmentReturns)
-                .Include(s => s.DTFinancialPositionReturns)
-                .Include(s => s.DTComprehensiveIncomeReturns)
-                .Include(s => s.NWDTCapitalAdequacyReturns)
-                .Include(s => s.NWDTLiquidityReturns)
-                .Include(s => s.NWDTDepositReturns)
-                .Include(s => s.NWDTRiskClassificationReturns)
-                .Include(s => s.NWDTInvestmentReturns)
-                .Include(s => s.NWDTFinancialPositionReturns)
-                .Include(s => s.NWDTComprehensiveIncomeReturns)
-                .FirstOrDefaultAsync(s => s.Id == submission.AmendsSubmissionId);
-
-            if (previousSubmission == null)
-                return;
-
-            // Mark DT Returns as inactive
-            foreach (var capitalAdequacy in previousSubmission.DTCapitalAdequacyReturns)
+            try
             {
-                capitalAdequacy.IsCurrent = false;
-                capitalAdequacy.IsAmended = true;
-                _context.Entry(capitalAdequacy).State = EntityState.Modified;
+                // Use direct SQL updates to avoid concurrency issues
+                var previousSubmissionId = submission.AmendsSubmissionId;
+
+                // Update DT Capital Adequacy Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE DTCapitalAdequacyReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update Audited Financial Positions
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE AuditedFinancialPositions SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update DT Liquidity Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE DTLiquidityReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update Deposit Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE DepositReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update DT Risk Classification Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE DTRiskClassificationReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update DT Investment Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE DTInvestmentReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update DT Financial Position Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE DTFinancialPositionReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update DT Comprehensive Income Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE DTComprehensiveIncomeReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update NWDT Capital Adequacy Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE NWDTCapitalAdequacyReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update NWDT Liquidity Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE NWDTLiquidityReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update NWDT Deposit Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE NWDTDepositReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update NWDT Risk Classification Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE NWDTRiskClassificationReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update NWDT Investment Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE NWDTInvestmentReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update NWDT Financial Position Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE NWDTFinancialPositionReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update NWDT Comprehensive Income Returns
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE NWDTComprehensiveIncomeReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                _logger.LogInformation("Successfully marked previous children as inactive for submission {SubmissionId}", submission.Id);
             }
-
-            foreach (var liquidity in previousSubmission.DTLiquidityReturns)
+            catch (Exception ex)
             {
-                liquidity.IsCurrent = false;
-                liquidity.IsAmended = true;
-                _context.Entry(liquidity).State = EntityState.Modified;
-            }
-
-            foreach (var deposit in previousSubmission.DepositReturns)
-            {
-                deposit.IsCurrent = false;
-                deposit.IsAmended = true;
-                _context.Entry(deposit).State = EntityState.Modified;
-            }
-
-            foreach (var risk in previousSubmission.DTRiskClassificationReturns)
-            {
-                risk.IsCurrent = false;
-                risk.IsAmended = true;
-                _context.Entry(risk).State = EntityState.Modified;
-            }
-
-            foreach (var investment in previousSubmission.DTInvestmentReturns)
-            {
-                investment.IsCurrent = false;
-                investment.IsAmended = true;
-                _context.Entry(investment).State = EntityState.Modified;
-            }
-
-            foreach (var financialPosition in previousSubmission.DTFinancialPositionReturns)
-            {
-                financialPosition.IsCurrent = false;
-                financialPosition.IsAmended = true;
-                _context.Entry(financialPosition).State = EntityState.Modified;
-            }
-
-            foreach (var comprehensiveIncome in previousSubmission.DTComprehensiveIncomeReturns)
-            {
-                comprehensiveIncome.IsCurrent = false;
-                comprehensiveIncome.IsAmended = true;
-                _context.Entry(comprehensiveIncome).State = EntityState.Modified;
-            }
-
-            // Mark NWDT Returns as inactive
-            foreach (var nwdtCapitalAdequacy in previousSubmission.NWDTCapitalAdequacyReturns)
-            {
-                nwdtCapitalAdequacy.IsCurrent = false;
-                nwdtCapitalAdequacy.IsAmended = true;
-                _context.Entry(nwdtCapitalAdequacy).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtLiquidity in previousSubmission.NWDTLiquidityReturns)
-            {
-                nwdtLiquidity.IsCurrent = false;
-                nwdtLiquidity.IsAmended = true;
-                _context.Entry(nwdtLiquidity).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtDeposit in previousSubmission.NWDTDepositReturns)
-            {
-                nwdtDeposit.IsCurrent = false;
-                nwdtDeposit.IsAmended = true;
-                _context.Entry(nwdtDeposit).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtRisk in previousSubmission.NWDTRiskClassificationReturns)
-            {
-                nwdtRisk.IsCurrent = false;
-                nwdtRisk.IsAmended = true;
-                _context.Entry(nwdtRisk).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtInvestment in previousSubmission.NWDTInvestmentReturns)
-            {
-                nwdtInvestment.IsCurrent = false;
-                nwdtInvestment.IsAmended = true;
-                _context.Entry(nwdtInvestment).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtFinancialPosition in previousSubmission.NWDTFinancialPositionReturns)
-            {
-                nwdtFinancialPosition.IsCurrent = false;
-                nwdtFinancialPosition.IsAmended = true;
-                _context.Entry(nwdtFinancialPosition).State = EntityState.Modified;
-            }
-
-            foreach (var nwdtComprehensiveIncome in previousSubmission.NWDTComprehensiveIncomeReturns)
-            {
-                nwdtComprehensiveIncome.IsCurrent = false;
-                nwdtComprehensiveIncome.IsAmended = true;
-                _context.Entry(nwdtComprehensiveIncome).State = EntityState.Modified;
+                _logger.LogError(ex, "Error marking previous children as inactive for submission {SubmissionId}", submission.Id);
+                // Don't throw the exception - this is not critical for the main operation
+                // The new entities will still be marked as active
             }
         }
 
@@ -968,6 +896,8 @@ namespace Returns.Helpers
                    type.GetProperty("Report") != null &&
                    type.GetProperty("EconomicSectorData") != null;
         }
+
+
 
         private bool IsInsiderLendingObject(object entity)
         {

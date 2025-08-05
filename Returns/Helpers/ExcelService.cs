@@ -86,6 +86,101 @@ namespace Returns.Helpers
             public decimal? WeightedScore { get; set; }
         }
 
+        public class AuditedFinancialPositionStatement
+        {
+            public DateTime StartDate { get; set; }
+            public DateTime EndDate { get; set; }
+            public string SaccoCsNumber { get; set; } = string.Empty;
+            public List<AuditedFinancialRow> Rows { get; set; } = new List<AuditedFinancialRow>();
+
+            // Flattened properties (populated during parsing)
+            public decimal InterestRateOnDeposits { get; set; }
+            public decimal RebateRateOnShareCapital { get; set; }
+            public decimal CashAndCashEquivalent { get; set; }
+            public decimal CashInHand { get; set; }
+            public decimal CashInMobileWallets { get; set; }
+            public decimal CashBalanceHeldInOtherSACCOs { get; set; }
+            public decimal CashAtBankCurrentAccountsKsh { get; set; }
+            public decimal CashAtBankFixedAccountsKsh { get; set; }
+            public decimal CashAtBankDollarDenominated { get; set; }
+            public decimal PrepaymentsAndSundryReceivables { get; set; }
+            public decimal FinancialInvestments { get; set; }
+            public decimal GovernmentSecuritiesTreasuryBillsBonds { get; set; }
+            public decimal SavingsDepositsAtKUSCCO { get; set; }
+            public decimal MoneyMarketAtCIC { get; set; }
+            public decimal MoneyMarketAtCooperativeBank { get; set; }
+            public decimal SavingsDepositsAtKenyaTeachersAssociationKETSA { get; set; }
+            public decimal MoneyMarketOthers { get; set; }
+            public decimal InvestmentSharesAtCooperativeBankAndCoopHoldings { get; set; }
+            public decimal InvestmentSharesAtCIC { get; set; }
+            public decimal InvestmentSharesAtKUSCCO { get; set; }
+            public decimal InvestmentSharesInCooperativeAllianceOfKenyaCAK { get; set; }
+            public decimal InvestmentSharesInCODIC { get; set; }
+            public decimal InvestmentSharesInKenyaTeachersAssociationKETSA { get; set; }
+            public decimal InvestmentInCompaniesAllSharesTradedAtNSE { get; set; }
+            public decimal InvestmentInSACCOSubsidiaries { get; set; }
+            public decimal InvestmentInKMRC { get; set; }
+            public decimal InvestmentsInSaccoCentral { get; set; }
+            public decimal AnyOtherInvestmentsNotListedAbove { get; set; }
+            public decimal NetLoanPortfolio { get; set; }
+            public decimal GrossLoanPortfolio { get; set; }
+            public decimal AllowanceForLoanLoss { get; set; }
+            public decimal AccountsReceivables { get; set; }
+            public decimal TaxRecoverable { get; set; }
+            public decimal DeferredTaxAssets { get; set; }
+            public decimal RetirementBenefitAssets { get; set; }
+            public decimal PropertyEquipmentAndOtherAssets { get; set; }
+            public decimal InvestmentProperties { get; set; }
+            public decimal PropertyAndEquipment { get; set; }
+            public decimal PrepaidLeaseRentals { get; set; }
+            public decimal IntangibleAssetsManagementInformationSystemCoreBanking { get; set; }
+            public decimal IntangibleAssetsOthers { get; set; }
+            public decimal OtherAssets { get; set; }
+            public decimal TotalAssets { get; set; }
+            public decimal SavingsDepositsWithdrawableDepositsFOSA { get; set; }
+            public decimal ShortTermDeposits { get; set; }
+            public decimal NonWithdrawableDeposits { get; set; }
+            public decimal TotalDepositLiabilities { get; set; }
+            public decimal AccountsPayableAndOtherLiabilities { get; set; }
+            public decimal TaxPayable { get; set; }
+            public decimal DividendsPayable { get; set; }
+            public decimal DeferredTaxLiability { get; set; }
+            public decimal RetirementBenefitsLiability { get; set; }
+            public decimal OtherLiabilities { get; set; }
+            public decimal ExternalBorrowingsFromCommercialBanksAndMicroFinanceBanks { get; set; }
+            public decimal ExternalBorrowingsFromKUSCCO { get; set; }
+            public decimal ExternalBorrowingsFromWomenEnterpriseFunds { get; set; }
+            public decimal ExternalBorrowingsFromMESPT { get; set; }
+            public decimal ExternalBorrowingsFromAgricultureFinanceCorporationAFC { get; set; }
+            public decimal ExternalBorrowingsFromYouthFund { get; set; }
+            public decimal ExternalBorrowingsFromKMRC { get; set; }
+            public decimal ExternalBorrowingsFromOtherInstitutions { get; set; }
+            public decimal TotalLiabilities { get; set; }
+            public decimal ShareCapital { get; set; }
+            public decimal CapitalGrants { get; set; }
+            public decimal RetainedEarnings { get; set; }
+            public decimal PriorYearsRetainedEarnings { get; set; }
+            public decimal CurrentYearsSurplus { get; set; }
+            public decimal OtherEquityAccounts { get; set; }
+            public decimal StatutoryReserve { get; set; }
+            public decimal OtherReserves { get; set; }
+            public decimal RevaluationReserves { get; set; }
+            public decimal ProposedDividends { get; set; }
+            public decimal AdjustmentToEquity { get; set; }
+            public decimal TotalEquity { get; set; }
+            public decimal TotalLiabilitiesAndEquity { get; set; }
+            public string? Year { get; internal set; }
+        }
+
+        public class AuditedFinancialRow
+        {
+            public string RefNumber { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public decimal? Amount { get; set; }
+            public string CellNumberWithFigures { get; set; } = string.Empty;
+        }
+
+
         public class DailyLiquidityStatement
         {
             public string SACCOName { get; set; } = string.Empty;
@@ -1499,6 +1594,343 @@ namespace Returns.Helpers
                     $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
             }
         }
+
+        public static AuditedFinancialPositionStatement ImportAuditedFinancialPositionRows(IFormFile file, ILogger logger)
+        {
+            try
+            {
+                logger.LogInformation("File Name: " + file.FileName);
+                if (file == null)
+                {
+                    logger.LogError("File is null");
+                    throw new ArgumentNullException(nameof(file), "No file was provided for processing");
+                }
+                if (file.Length == 0)
+                {
+                    throw new ArgumentException("The uploaded file is empty", nameof(file));
+                }
+                // Check file extension
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+                if (sanitizedFileName != ".xlsx")
+                {
+                    throw new ValidationException(
+                        $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                        "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                        "Please save the sheet in .xlsx format and upload again.");
+                }
+                using (var stream = new MemoryStream())
+                {
+                    // Copy the file to a memory stream
+                    logger.LogInformation("Copying file to memory stream");
+                    file.CopyTo(stream);
+                    // Open the Excel workbook
+                    using (var workbook = new XLWorkbook(stream))
+                    {
+                        logger.LogInformation("Workbook opened");
+                        var worksheet = workbook.Worksheet("Balance Sheet");
+                        if (worksheet == null)
+                        {
+                            throw new Exception("Balance Sheet sheet not found.");
+                        }
+                        var statement = new AuditedFinancialPositionStatement
+                        {
+                            SaccoCsNumber = "DEFAULT_CS_NUMBER", // Extract from cell if available, e.g., GetCellValueOrEmpty(worksheet.Cell("A1"))
+                            StartDate = DateTime.Now, // Extract if present
+                            EndDate = DateTime.Now
+                        };
+                        var rows = new List<AuditedFinancialRow>();
+                        string currentSection = "";
+                        int firstDataRow = 1;
+                        int lastDataRow = 92;
+                        for (int rowNum = firstDataRow; rowNum <= lastDataRow; rowNum++)
+                        {
+                            var row = worksheet.Row(rowNum);
+                            string desc = GetCellValueOrEmpty(row.Cell("B")).Trim().ToLower();
+                            decimal amount = GetDecimalOrZero(row.Cell("C"));
+                            if (string.IsNullOrEmpty(desc)) continue;
+                            // Detect sections
+                            if (desc.Contains("assets")) currentSection = "Assets";
+                            else if (desc.Contains("liabilities")) currentSection = "Liabilities";
+                            else if (desc.Contains("equity")) currentSection = "Equity";
+                            // Map to properties using row number
+                            MapToProperty(statement, rowNum, amount);
+                            rows.Add(new AuditedFinancialRow
+                            {
+                                RefNumber = rowNum.ToString(),
+                                Description = desc,
+                                Amount = amount,
+                                CellNumberWithFigures = row.Cell("C").Address.ToString()
+                            });
+                        }
+                        statement.Rows = rows;
+                        return statement;
+                    }
+                }
+            }
+            catch (ArgumentNullException ex)
+            {
+                logger.LogError(ex, "No file was provided for processing");
+                throw;
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "Invalid file type or empty file");
+                throw;
+            }
+            catch (FileFormatException ex)
+            {
+                logger.LogError(ex, "Invalid file format");
+                throw new ValidationException(
+                    $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                    "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                    "Please save the sheet in .xlsx format and upload again.");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing ImportAuditedFinancialPositionRows");
+                throw;
+            }
+        }
+
+        private static void MapToProperty(AuditedFinancialPositionStatement statement, int rowNum, decimal amount)
+        {
+            switch (rowNum)
+            {
+                case 1: 
+                    statement.Year  = amount.ToString();
+                    break;
+                case 3:
+                    statement.InterestRateOnDeposits = amount;
+                    break;
+                case 4:
+                    statement.RebateRateOnShareCapital = amount;
+                    break;
+                case 7:
+                    statement.CashAndCashEquivalent = amount;
+                    break;
+                case 8:
+                    statement.CashInHand = amount;
+                    break;
+                case 9:
+                    statement.CashInMobileWallets = amount;
+                    break;
+                case 10:
+                    statement.CashBalanceHeldInOtherSACCOs = amount;
+                    break;
+                case 11:
+                    statement.CashAtBankCurrentAccountsKsh = amount;
+                    break;
+                case 12:
+                    statement.CashAtBankFixedAccountsKsh = amount;
+                    break;
+                case 13:
+                    statement.CashAtBankDollarDenominated = amount;
+                    break;
+                case 14:
+                    statement.PrepaymentsAndSundryReceivables = amount;
+                    break;
+                case 16:
+                    statement.FinancialInvestments = amount;
+                    break;
+                case 17:
+                    statement.GovernmentSecuritiesTreasuryBillsBonds = amount;
+                    break;
+                case 18:
+                    statement.SavingsDepositsAtKUSCCO = amount;
+                    break;
+                case 19:
+                    statement.MoneyMarketAtCIC = amount;
+                    break;
+                case 20:
+                    statement.MoneyMarketAtCooperativeBank = amount;
+                    break;
+                case 21:
+                    statement.SavingsDepositsAtKenyaTeachersAssociationKETSA = amount;
+                    break;
+                case 22:
+                    statement.MoneyMarketOthers = amount;
+                    break;
+                case 23:
+                    statement.InvestmentSharesAtCooperativeBankAndCoopHoldings = amount;
+                    break;
+                case 24:
+                    statement.InvestmentSharesAtCIC = amount;
+                    break;
+                case 25:
+                    statement.InvestmentSharesAtKUSCCO = amount;
+                    break;
+                case 26:
+                    statement.InvestmentSharesInCooperativeAllianceOfKenyaCAK = amount;
+                    break;
+                case 27:
+                    statement.InvestmentSharesInCODIC = amount;
+                    break;
+                case 28:
+                    statement.InvestmentSharesInKenyaTeachersAssociationKETSA = amount;
+                    break;
+                case 29:
+                    statement.InvestmentInCompaniesAllSharesTradedAtNSE = amount;
+                    break;
+                case 30:
+                    statement.InvestmentInSACCOSubsidiaries = amount;
+                    break;
+                case 31:
+                    statement.InvestmentInKMRC = amount;
+                    break;
+                case 32:
+                    statement.InvestmentsInSaccoCentral = amount;
+                    break;
+                case 33:
+                    statement.AnyOtherInvestmentsNotListedAbove = amount;
+                    break;
+                case 34:
+                    statement.NetLoanPortfolio = amount;
+                    break;
+                case 35:
+                    statement.GrossLoanPortfolio = amount;
+                    break;
+                case 36:
+                    statement.AllowanceForLoanLoss = amount;
+                    break;
+                case 38:
+                    statement.AccountsReceivables = amount;
+                    break;
+                case 39:
+                    statement.TaxRecoverable = amount;
+                    break;
+                case 40:
+                    statement.DeferredTaxAssets = amount;
+                    break;
+                case 41:
+                    statement.RetirementBenefitAssets = amount;
+                    break;
+                case 43:
+                    statement.PropertyEquipmentAndOtherAssets = amount;
+                    break;
+                case 44:
+                    statement.InvestmentProperties = amount;
+                    break;
+                case 45:
+                    statement.PropertyAndEquipment = amount;
+                    break;
+                case 46:
+                    statement.PrepaidLeaseRentals = amount;
+                    break;
+                case 47:
+                    statement.IntangibleAssetsManagementInformationSystemCoreBanking = amount;
+                    break;
+                case 48:
+                    statement.IntangibleAssetsOthers = amount;
+                    break;
+                case 49:
+                    statement.OtherAssets = amount;
+                    break;
+                case 51:
+                    statement.TotalAssets = amount;
+                    break;
+                case 55:
+                    statement.SavingsDepositsWithdrawableDepositsFOSA = amount;
+                    break;
+                case 56:
+                    statement.ShortTermDeposits = amount;
+                    break;
+                case 57:
+                    statement.NonWithdrawableDeposits = amount;
+                    break;
+                case 58:
+                    statement.TotalDepositLiabilities = amount;
+                    break;
+                case 60:
+                    statement.AccountsPayableAndOtherLiabilities = amount;
+                    break;
+                case 61:
+                    statement.TaxPayable = amount;
+                    break;
+                case 62:
+                    statement.DividendsPayable = amount;
+                    break;
+                case 63:
+                    statement.DeferredTaxLiability = amount;
+                    break;
+                case 64:
+                    statement.RetirementBenefitsLiability = amount;
+                    break;
+                case 65:
+                    statement.OtherLiabilities = amount;
+                    break;
+                case 66:
+                    statement.ExternalBorrowingsFromCommercialBanksAndMicroFinanceBanks = amount;
+                    break;
+                case 67:
+                    statement.ExternalBorrowingsFromKUSCCO = amount;
+                    break;
+                case 68:
+                    statement.ExternalBorrowingsFromWomenEnterpriseFunds = amount;
+                    break;
+                case 69:
+                    statement.ExternalBorrowingsFromMESPT = amount;
+                    break;
+                case 70:
+                    statement.ExternalBorrowingsFromAgricultureFinanceCorporationAFC = amount;
+                    break;
+                case 71:
+                    statement.ExternalBorrowingsFromYouthFund = amount;
+                    break;
+                case 72:
+                    statement.ExternalBorrowingsFromKMRC = amount;
+                    break;
+                case 73:
+                    statement.ExternalBorrowingsFromOtherInstitutions = amount;
+                    break;
+                case 75:
+                    statement.TotalLiabilities = amount;
+                    break;
+                case 77:
+                    statement.ShareCapital = amount;
+                    break;
+                case 78:
+                    statement.CapitalGrants = amount;
+                    break;
+                case 80:
+                    statement.RetainedEarnings = amount;
+                    break;
+                case 81:
+                    statement.PriorYearsRetainedEarnings = amount;
+                    break;
+                case 82:
+                    statement.CurrentYearsSurplus = amount;
+                    break;
+                case 84:
+                    statement.OtherEquityAccounts = amount;
+                    break;
+                case 85:
+                    statement.StatutoryReserve = amount;
+                    break;
+                case 86:
+                    statement.OtherReserves = amount;
+                    break;
+                case 87:
+                    statement.RevaluationReserves = amount;
+                    break;
+                case 88:
+                    statement.ProposedDividends = amount;
+                    break;
+                case 89:
+                    statement.AdjustmentToEquity = amount;
+                    break;
+                case 90:
+                    statement.TotalEquity = amount;
+                    break;
+                case 92:
+                    statement.TotalLiabilitiesAndEquity = amount;
+                    break;
+                default:
+                    break;
+            }
+        }
+
+   
 
         public static Form1Statement ImportCapitalAdequacyRows(IFormFile file, ILogger logger)
         {

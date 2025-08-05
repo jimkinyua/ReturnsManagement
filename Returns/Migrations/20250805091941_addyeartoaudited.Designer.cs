@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250805091941_addyeartoaudited")]
+    partial class addyeartoaudited
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -475,7 +478,7 @@ namespace Returns.Migrations
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("RevaluationReserves")
                         .HasColumnType("decimal(18,2)");
@@ -527,8 +530,6 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("AuditedFinancialPositions");
                 });
@@ -4093,17 +4094,6 @@ namespace Returns.Migrations
                     b.Navigation("WorkFlowStep");
                 });
 
-            modelBuilder.Entity("Returns.Models.AuditedFinancialPosition", b =>
-                {
-                    b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
-                        .WithMany("AuditedFinancialPositions")
-                        .HasForeignKey("ReturnSubmissionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("ReturnSubmission");
-                });
-
             modelBuilder.Entity("Returns.Models.CAELSRating", b =>
                 {
                     b.HasOne("Returns.Models.ReturnPeriods", "ReturnPeriod")
@@ -4723,8 +4713,6 @@ namespace Returns.Migrations
             modelBuilder.Entity("Returns.Models.ReturnSubmission", b =>
                 {
                     b.Navigation("AmendmentRequests");
-
-                    b.Navigation("AuditedFinancialPositions");
 
                     b.Navigation("DTCapitalAdequacyReturns");
 

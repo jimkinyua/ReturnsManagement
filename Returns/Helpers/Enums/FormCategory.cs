@@ -13,6 +13,7 @@ namespace Returns.Helpers.Enums
         InsiderLending,
         StatementOfComprehensiveIncome,
         DepositReturn,
-        Other
+        Other,
+        AuditedFinancialPosition
     }
 }

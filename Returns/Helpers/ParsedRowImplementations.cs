@@ -149,6 +149,7 @@ namespace Returns.Helpers
         }
     }
 
+
     public class LiquidityParsedRow : IParsedRow
     {
         public string ReturnSubmissionId { get; set; } = string.Empty;
@@ -262,6 +263,108 @@ namespace Returns.Helpers
             return liquidityStatement;
         }
     }
+
+
+    public class AuditedFinancialPositionParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public AuditedFinancialPositionStatement Data { get; set; } = null!;
+
+        public object ToEntity()
+        {
+            var entity = new AuditedFinancialPosition
+            {
+                ReturnSubmissionId = ReturnSubmissionId,
+                StartDate = Data.StartDate,
+                EndDate = Data.EndDate,
+                SaccoCsNumber = Data.SaccoCsNumber,
+                CreatedAt = DateTime.Now,
+
+                // Map from Data.Rows or directly if flattened
+                InterestRateOnDeposits = Data.InterestRateOnDeposits,
+                RebateRateOnShareCapital = Data.RebateRateOnShareCapital,
+                // ASSETS
+                CashAndCashEquivalent = Data.CashAndCashEquivalent,
+                CashInHand = Data.CashInHand,
+                CashInMobileWallets = Data.CashInMobileWallets,
+                CashBalanceHeldInOtherSACCOs = Data.CashBalanceHeldInOtherSACCOs,
+                CashAtBankCurrentAccountsKsh = Data.CashAtBankCurrentAccountsKsh,
+                CashAtBankFixedAccountsKsh = Data.CashAtBankFixedAccountsKsh,
+                CashAtBankDollarDenominated = Data.CashAtBankDollarDenominated,
+                PrepaymentsAndSundryReceivables = Data.PrepaymentsAndSundryReceivables,
+                FinancialInvestments = Data.FinancialInvestments,
+                GovernmentSecuritiesTreasuryBillsBonds = Data.GovernmentSecuritiesTreasuryBillsBonds,
+                SavingsDepositsAtKUSCCO = Data.SavingsDepositsAtKUSCCO,
+                MoneyMarketAtCIC = Data.MoneyMarketAtCIC,
+                MoneyMarketAtCooperativeBank = Data.MoneyMarketAtCooperativeBank,
+                SavingsDepositsAtKenyaTeachersAssociationKETSA = Data.SavingsDepositsAtKenyaTeachersAssociationKETSA,
+                MoneyMarketOthers = Data.MoneyMarketOthers,
+                InvestmentSharesAtCooperativeBankAndCoopHoldings = Data.InvestmentSharesAtCooperativeBankAndCoopHoldings,
+                InvestmentSharesAtCIC = Data.InvestmentSharesAtCIC,
+                InvestmentSharesAtKUSCCO = Data.InvestmentSharesAtKUSCCO,
+                InvestmentSharesInCooperativeAllianceOfKenyaCAK = Data.InvestmentSharesInCooperativeAllianceOfKenyaCAK,
+                InvestmentSharesInCODIC = Data.InvestmentSharesInCODIC,
+                InvestmentSharesInKenyaTeachersAssociationKETSA = Data.InvestmentSharesInKenyaTeachersAssociationKETSA,
+                InvestmentInCompaniesAllSharesTradedAtNSE = Data.InvestmentInCompaniesAllSharesTradedAtNSE,
+                InvestmentInSACCOSubsidiaries = Data.InvestmentInSACCOSubsidiaries,
+                InvestmentInKMRC = Data.InvestmentInKMRC,
+                InvestmentsInSaccoCentral = Data.InvestmentsInSaccoCentral,
+                AnyOtherInvestmentsNotListedAbove = Data.AnyOtherInvestmentsNotListedAbove,
+                NetLoanPortfolio = Data.NetLoanPortfolio,
+                GrossLoanPortfolio = Data.GrossLoanPortfolio,
+                AllowanceForLoanLoss = Data.AllowanceForLoanLoss,
+                AccountsReceivables = Data.AccountsReceivables,
+                TaxRecoverable = Data.TaxRecoverable,
+                DeferredTaxAssets = Data.DeferredTaxAssets,
+                RetirementBenefitAssets = Data.RetirementBenefitAssets,
+                PropertyEquipmentAndOtherAssets = Data.PropertyEquipmentAndOtherAssets,
+                InvestmentProperties = Data.InvestmentProperties,
+                PropertyAndEquipment = Data.PropertyAndEquipment,
+                PrepaidLeaseRentals = Data.PrepaidLeaseRentals,
+                IntangibleAssetsManagementInformationSystemCoreBanking = Data.IntangibleAssetsManagementInformationSystemCoreBanking,
+                IntangibleAssetsOthers = Data.IntangibleAssetsOthers,
+                OtherAssets = Data.OtherAssets,
+                TotalAssets = Data.TotalAssets,
+                // LIABILITIES
+                SavingsDepositsWithdrawableDepositsFOSA = Data.SavingsDepositsWithdrawableDepositsFOSA,
+                ShortTermDeposits = Data.ShortTermDeposits,
+                NonWithdrawableDeposits = Data.NonWithdrawableDeposits,
+                TotalDepositLiabilities = Data.TotalDepositLiabilities,
+                AccountsPayableAndOtherLiabilities = Data.AccountsPayableAndOtherLiabilities,
+                TaxPayable = Data.TaxPayable,
+                DividendsPayable = Data.DividendsPayable,
+                DeferredTaxLiability = Data.DeferredTaxLiability,
+                RetirementBenefitsLiability = Data.RetirementBenefitsLiability,
+                OtherLiabilities = Data.OtherLiabilities,
+                ExternalBorrowingsFromCommercialBanksAndMicroFinanceBanks = Data.ExternalBorrowingsFromCommercialBanksAndMicroFinanceBanks,
+                ExternalBorrowingsFromKUSCCO = Data.ExternalBorrowingsFromKUSCCO,
+                ExternalBorrowingsFromWomenEnterpriseFunds = Data.ExternalBorrowingsFromWomenEnterpriseFunds,
+                ExternalBorrowingsFromMESPT = Data.ExternalBorrowingsFromMESPT,
+                ExternalBorrowingsFromAgricultureFinanceCorporationAFC = Data.ExternalBorrowingsFromAgricultureFinanceCorporationAFC,
+                ExternalBorrowingsFromYouthFund = Data.ExternalBorrowingsFromYouthFund,
+                ExternalBorrowingsFromKMRC = Data.ExternalBorrowingsFromKMRC,
+                ExternalBorrowingsFromOtherInstitutions = Data.ExternalBorrowingsFromOtherInstitutions,
+                TotalLiabilities = Data.TotalLiabilities,
+                // EQUITY
+                ShareCapital = Data.ShareCapital,
+                CapitalGrants = Data.CapitalGrants,
+                RetainedEarnings = Data.RetainedEarnings,
+                PriorYearsRetainedEarnings = Data.PriorYearsRetainedEarnings,
+                CurrentYearsSurplus = Data.CurrentYearsSurplus,
+                OtherEquityAccounts = Data.OtherEquityAccounts,
+                StatutoryReserve = Data.StatutoryReserve,
+                OtherReserves = Data.OtherReserves,
+                RevaluationReserves = Data.RevaluationReserves,
+                ProposedDividends = Data.ProposedDividends,
+                AdjustmentToEquity = Data.AdjustmentToEquity,
+                TotalEquity = Data.TotalEquity,
+                TotalLiabilitiesAndEquity = Data.TotalLiabilitiesAndEquity
+            };
+            return entity;
+        }
+    }
+
+
 
     public class DepositReturnParsedRow : IParsedRow
     {
