@@ -56,12 +56,12 @@ namespace Returns.Helpers
                                 return await ParseAuditedFinancialPosition(file);
                             case FormCategory.AuditedStatementOfComprehensiveIncome:
                                 return await ParseAuditedComprehensiveIncomeStatement(file);
+                            case FormCategory.AuditedRiskClassification:
+                                return await ParseAuditedRiskClassification(file);
                             case FormCategory.LiquidityStatement:
                                 return await ParseLiquidity(file);
                             case FormCategory.DepositReturn:
                                 return await ParseDepositReturn(file);
-                            case FormCategory.AuditedRiskClassification:
-                                return await ParseAuditedRiskClassification(file);
                             case FormCategory.RiskClassification:
                                 return await ParseRiskClassification(file);
                             case FormCategory.InvestmentReturn:
@@ -87,6 +87,12 @@ namespace Returns.Helpers
                     case Constants.SaccoType.NWDT:
                         switch (formCategory)
                         {
+                            case FormCategory.AuditedFinancialPosition:
+                                return await ParseAuditedFinancialPosition(file);
+                            case FormCategory.AuditedStatementOfComprehensiveIncome:
+                                return await ParseAuditedComprehensiveIncomeStatement(file);
+                            case FormCategory.AuditedRiskClassification:
+                                return await ParseAuditedRiskClassification(file);
                             case FormCategory.CapitalAdequacy:
                                 return await ParseNWDTCapitalAdequacy(file);
                             case FormCategory.LiquidityStatement:
