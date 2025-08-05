@@ -327,6 +327,15 @@ namespace Returns.Helpers
                     }
                     break;
 
+                case List<AuditedRiskClassification> riskList:
+                    foreach (var riskItem in riskList)
+                    {
+                        riskItem.IsCurrent = true;
+                        riskItem.IsAmended = false;
+                        submission.AuditedRiskClassifications.Add(riskItem);
+                    }
+                    break;
+
                 case List<NWDTRiskClassificationReturn> nwdtRiskList:
                     foreach (var nwdtRiskItem in nwdtRiskList)
                     {
@@ -503,6 +512,10 @@ namespace Returns.Helpers
                 await _context.Database.ExecuteSqlRawAsync(
                     "UPDATE DTRiskClassificationReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
                     previousSubmissionId);
+
+                await _context.Database.ExecuteSqlRawAsync(
+                  "UPDATE AuditedRiskClassifications SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                  previousSubmissionId);
 
                 // Update DT Investment Returns
                 await _context.Database.ExecuteSqlRawAsync(

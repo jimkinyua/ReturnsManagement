@@ -625,6 +625,41 @@ namespace Returns.Helpers
     // - DailyLiquidityParsedRow
     // - InsiderLendingParsedRow
 
+    public class AuditedRiskClassificationParsedRow : IParsedRow
+    {
+        public string ReturnSubmissionId { get; set; } = string.Empty;
+        public AuditedRiskClassificationStatement Data { get; set; } = null!;
+
+        public object ToEntity()
+        {
+            var AuditedriskClassifications = new List<AuditedRiskClassification>();
+
+            foreach (var row in Data.Rows)
+            {
+                var entity = new AuditedRiskClassification
+                {
+                    ReturnSubmissionId = ReturnSubmissionId,
+                    SaccoCsNumber = Data.SaccoCsNumber,
+                    Year = Data.Period,
+                   /* StartDate = Data.StartDate,
+                    EndDate = Data.EndDate,*/
+                    LoanType = row.LoanType,
+                    Classification = row.Classification,
+                    NumberOfAccounts = row.NumberOfAccounts,
+                    OutstandingLoanPortfolio = row.OutstandingLoanPortfolio,
+                    RequiredProvision = row.RequiredProvision,
+                    RequiredProvisionAmount = row.RequiredProvisionAmount,
+                    CreatedAt = DateTime.Now
+                };
+
+                AuditedriskClassifications.Add(entity);
+            }
+
+            return AuditedriskClassifications;
+        }
+    }
+
+
     public class RiskClassificationParsedRow : IParsedRow
     {
         public string ReturnSubmissionId { get; set; } = string.Empty;

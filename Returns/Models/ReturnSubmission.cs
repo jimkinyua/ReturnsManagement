@@ -41,6 +41,8 @@ namespace Returns.Models
         public virtual ICollection<AdditionalInformationRequest> ReturnsAdditionalInformationRequests { get; set; } = new List<AdditionalInformationRequest>();
         public virtual ICollection<AuditedFinancialPosition> AuditedFinancialPositions { get; set; } = new List<AuditedFinancialPosition>();
         public virtual ICollection<AuditedComprehensiveIncome> AuditedComprehensiveIncomes { get; set; } = new List<AuditedComprehensiveIncome>();
+        public virtual ICollection<AuditedRiskClassification> AuditedRiskClassifications { get; set; } = new List<AuditedRiskClassification>();
+
 
     }
 }

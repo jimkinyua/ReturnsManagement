@@ -14,6 +14,8 @@ namespace Returns.Helpers.Enums
         StatementOfComprehensiveIncome,
         DepositReturn,
         Other,
-        AuditedFinancialPosition
+        AuditedFinancialPosition,
+        AuditedStatementOfComprehensiveIncome,
+        AuditedRiskClassification,
     }
 }

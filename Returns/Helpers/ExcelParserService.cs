@@ -54,12 +54,14 @@ namespace Returns.Helpers
                                 return await ParseCapitalAdequacy(file);
                             case FormCategory.AuditedFinancialPosition:
                                 return await ParseAuditedFinancialPosition(file);
-                            case FormCategory.Other:
+                            case FormCategory.AuditedStatementOfComprehensiveIncome:
                                 return await ParseAuditedComprehensiveIncomeStatement(file);
                             case FormCategory.LiquidityStatement:
                                 return await ParseLiquidity(file);
                             case FormCategory.DepositReturn:
                                 return await ParseDepositReturn(file);
+                            case FormCategory.AuditedRiskClassification:
+                                return await ParseAuditedRiskClassification(file);
                             case FormCategory.RiskClassification:
                                 return await ParseRiskClassification(file);
                             case FormCategory.InvestmentReturn:
@@ -398,6 +400,44 @@ namespace Returns.Helpers
                     result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
 
                     var parsedRow = new RiskClassificationParsedRow
+                    {
+                        Data = data
+                    };
+                    result.Rows.Add(parsedRow);
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    result.Success = false;
+                    result.Errors.Add(ex.Message);
+                    return result;
+                }
+            });
+        }
+
+
+        private async Task<ExcelParseResult> ParseAuditedRiskClassification(IFormFile file)
+        {
+            return await Task.Run(() =>
+            {
+                var result = new ExcelParseResult();
+                try
+                {
+                    var data = ExcelService.ImportAuditedRiskClassificationRows(file, _logger);
+                    if (data == null || !data.Rows.Any())
+                    {
+                        result.Success = false;
+                        result.Errors.Add("No data found in Risk Classification Form");
+                        return result;
+                    }
+
+                    result.Success = true;
+                    result.FormType = "AuditedRiskClassification";
+                    result.Metadata["Period"] = data.Period;
+                    result.Metadata["SaccoCsNumber"] = data.SaccoCsNumber;
+
+                    var parsedRow = new AuditedRiskClassificationParsedRow
                     {
                         Data = data
                     };

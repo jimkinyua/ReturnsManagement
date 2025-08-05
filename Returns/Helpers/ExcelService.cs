@@ -316,6 +316,15 @@ namespace Returns.Helpers
             public List<LiquidityStatementRow> Rows { get; set; } = new List<LiquidityStatementRow>();
         }
 
+
+        public class AuditedRiskClassificationStatement
+        {
+            public string Period { get; set; } = string.Empty;
+            public string SaccoCsNumber { get; set; } = string.Empty;
+            public List<RiskClassificationRow> Rows { get; set; } = new List<RiskClassificationRow>();
+        }
+
+
         public class Form4Statement
         {
             public DateTime StartDate { get; set; }
@@ -3078,6 +3087,142 @@ namespace Returns.Helpers
 
                         form4Statement.Rows = rowDataList;
                         return form4Statement;
+
+                    }
+
+                }
+
+            }
+            catch (ArgumentNullException ex)
+            {
+                logger.LogError(ex, "No file was provided for processing");
+                throw;
+            }
+            catch (ArgumentException ex)
+            {
+                logger.LogError(ex, "Invalid file type or empty file");
+                throw;
+            }
+            catch (FileFormatException ex)
+            {
+                throw new FileFormatException(
+                    $"The file '{file.FileName}' appears to be corrupted or is not a valid Excel file. " +
+                    "Please ensure you're uploading a valid Excel workbook.", ex);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error processing ImportRiskClassificationRows");
+                throw;
+                /*new Exception(
+                    $"Error processing Excel file '{file.FileName}': {ex.Message}");*/
+            }
+
+        }
+
+
+        public static AuditedRiskClassificationStatement ImportAuditedRiskClassificationRows(IFormFile file, ILogger logger)
+        {
+            try
+            {
+                logger.LogInformation("File Name: " + file.FileName);
+                if (file == null)
+                {
+                    logger.LogError("File is null");
+                    throw new ArgumentNullException(nameof(file), "No file was provided for processing");
+                }
+
+                if (file.Length == 0)
+                {
+                    throw new ArgumentException("The uploaded file is empty", nameof(file));
+                }
+
+                // Check file extension
+                var extension = Path.GetExtension(file.FileName).ToLower();
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
+                {
+                    throw new ValidationException(
+                                                            $"'{file.FileName}' is an *.xls* (Excel 97-2003) file. " +
+                                                            "The system only accepts *.xlsx* workbooks (Excel 2007 or later). " +
+                                                            "Please save the sheet in .xlsx format and upload again.");
+                }
+
+                using (var stream = new MemoryStream())
+                {
+                    file.CopyTo(stream);
+                    var rowDataList = new List<RiskClassificationRow>();
+
+                    using (var workbook = new XLWorkbook(stream))
+                    {
+                        var worksheet = workbook.Worksheets.First();
+
+                        // Parse the metadata   
+                        var AuditedReturn = new AuditedRiskClassificationStatement
+                        {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("F3")),
+                            Period = GetCellValueOrEmpty(worksheet.Cell("F4")),
+                        };
+
+                        // Parse regular loans (rows 4-8)
+                        for (int rowNum = 4; rowNum <= 8; rowNum++)
+                        {
+                            var row = worksheet.Row(rowNum);
+                            // Capture the outstanding loan portfolio cell (Column D)
+                            var outstandingCell = row.Cell(4);
+
+                            var asset = new RiskClassificationRow
+                            {
+                                LoanType = "Regular",
+                                Classification = row.Cell(2).GetString(), // Column B
+                                NumberOfAccounts = GetIntOrNull(row.Cell(3)), // Column C
+                                OutstandingLoanPortfolio = GetDecimalOrNull(outstandingCell), // Column D
+                                OutstandingLoanPortfolioCellAddress = outstandingCell.Address.ToString() ?? string.Empty,
+                                RequiredProvision = GetDecimalOrNull(row.Cell(5)), // Column E
+                                RequiredProvisionAmount = GetDecimalOrNull(row.Cell(6)) // Column F
+                            };
+                            rowDataList.Add(asset);
+                        }
+
+                        // Parse rescheduled/renegotiated loans (rows 11-15)
+                        for (int rowNum = 11; rowNum <= 15; rowNum++)
+                        {
+                            var row = worksheet.Row(rowNum);
+                            var outstandingCell = row.Cell(4);
+
+                            var asset = new RiskClassificationRow
+                            {
+                                LoanType = "Rescheduled/Renegotiated",
+                                Classification = row.Cell(2).GetString(), // Column B
+                                NumberOfAccounts = GetIntOrNull(row.Cell(3)), // Column C
+                                OutstandingLoanPortfolio = GetDecimalOrNull(outstandingCell), // Column D
+                                OutstandingLoanPortfolioCellAddress = outstandingCell.Address.ToString() ?? string.Empty,
+                                RequiredProvision = GetDecimalOrNull(row.Cell(5)), // Column E
+                                RequiredProvisionAmount = GetDecimalOrNull(row.Cell(6)) // Column F
+                            };
+                            rowDataList.Add(asset);
+                        }
+
+                        // Get the Totals. They Start at row 17. If they chage this we are doomed.
+                        {
+                            var row = worksheet.Row(17);
+                            var outstandingCell = row.Cell(4);
+
+                            var totalsRow = new RiskClassificationRow
+                            {
+                                LoanType = "Total",
+                                Classification = row.Cell(2).GetString(), // e.g., "Total"
+                                NumberOfAccounts = GetIntOrNull(row.Cell(3)),
+                                OutstandingLoanPortfolio = GetDecimalOrNull(outstandingCell),
+                                OutstandingLoanPortfolioCellAddress = outstandingCell.Address.ToString() ?? string.Empty,
+                                RequiredProvision = GetDecimalOrNull(row.Cell(5)),
+                                RequiredProvisionAmount = GetDecimalOrNull(row.Cell(6))
+                            };
+                            rowDataList.Add(totalsRow);
+                        }
+
+                        AuditedReturn.Rows = rowDataList;
+                        return AuditedReturn;
 
                     }
 
