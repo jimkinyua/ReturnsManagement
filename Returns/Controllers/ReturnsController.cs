@@ -35,6 +35,7 @@ using Microsoft.AspNetCore.Authorization;
 using Hangfire;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using Returns.DTOs.Compliance;
+using Returns.DTOs;
 
 namespace Returns.Controllers
 {
@@ -2453,7 +2454,7 @@ namespace Returns.Controllers
         }
 
         [HttpGet("admin/grouped-returns/{groupId}/{periodId}/{saccoId}")]
-        public async Task<ActionResult<AdminGroupedReturnDetailsDTO>> GetAdminGroupedReturnDetails(string groupId, string periodId, string saccoId)
+        public async Task<ActionResult<AdminGroupedReturnDetailsDTO>> GetAdminGroupedReturnDetails(string groupId, string periodId, string saccoId, [FromQuery] int? version = null)
         {
             try
             {
@@ -2463,7 +2464,7 @@ namespace Returns.Controllers
                     return StatusCode(401, "Unauthorized");
                 }
 
-                var result = await _adminReturnService.GetGroupedReturnDetailsAsync(groupId, periodId, saccoId);
+                var result = await _adminReturnService.GetGroupedReturnDetailsAsync(groupId, periodId, saccoId, version);
                 return Ok(result);
             }
             catch (ArgumentException ex)
@@ -2474,6 +2475,83 @@ namespace Returns.Controllers
             {
                 _logger.LogError(ex, "Error getting admin grouped return details");
                 return StatusCode(500, new { error = "An error occurred while fetching grouped return details", details = ex.Message });
+            }
+        }
+
+        [HttpGet("admin/grouped-returns/{groupId}/{periodId}/{saccoId}/versions")]
+        public async Task<ActionResult<List<ReturnVersionDTO>>> GetAvailableVersions(string groupId, string periodId, string saccoId, [FromQuery] string? expectedReturnId = null)
+        {
+            try
+            {
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var versions = await _adminReturnService.GetAvailableVersionsAsync(periodId, saccoId, expectedReturnId);
+                return Ok(versions);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available versions");
+                return StatusCode(500, new { error = "An error occurred while fetching available versions", details = ex.Message });
+            }
+        }
+
+        [HttpGet("admin/form-versions/{periodId}/{saccoId}/{expectedReturnId}")]
+        public async Task<ActionResult<List<FormVersionDTO>>> GetAvailableFormVersions(string periodId, string saccoId, string expectedReturnId)
+        {
+            try
+            {
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+                var versions = await _adminReturnService.GetAvailableFormVersionsAsync(periodId, saccoId, expectedReturnId);
+                return Ok(versions);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available form versions for period {PeriodId}, sacco {SaccoId}, and expected return {ExpectedReturnId}", periodId, saccoId, expectedReturnId);
+                return StatusCode(500, new { error = "An error occurred while fetching available form versions", details = ex.Message });
+            }
+        }
+
+        [HttpGet("admin/form-data/{submissionId}/{expectedReturnId}")]
+        public async Task<ActionResult<object>> GetFormDataByVersion(string submissionId, string expectedReturnId, [FromQuery] string? saccoType = null)
+        {
+            try
+            {
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+                var formData = await _adminReturnService.GetFormDataByVersionAsync(submissionId, expectedReturnId, saccoType);
+                if (formData == null)
+                {
+                    return NotFound("Form data not found for the specified version.");
+                }
+                return Ok(formData);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting form data by version for submission {SubmissionId} and expected return {ExpectedReturnId}", submissionId, expectedReturnId);
+                return StatusCode(500, new { error = "An error occurred while retrieving form data", details = ex.Message });
             }
         }
 

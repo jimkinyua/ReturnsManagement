@@ -38,7 +38,21 @@ namespace Returns.DTOs.Returns_Submission
         public SingleCAELSDTO Ratings { get; set; } = new SingleCAELSDTO();
         public List<CommentDetails> Comments { get; set; } = new List<CommentDetails>();
         public List<string> MissingForms { get; internal set; } = new List<string>();
+
+        // Version-related properties
+        public int CurrentVersion { get; set; } = 1;
+        public List<ReturnVersionDTO> AvailableVersions { get; set; } = new List<ReturnVersionDTO>();
+        public bool HasMultipleVersions { get; set; } = false;
     }
 
-
+    public class ReturnVersionDTO
+    {
+        public int Version { get; set; }
+        public string SubmissionId { get; set; } = null!;
+        public DateTime SubmittedAt { get; set; }
+        public string Status { get; set; } = null!;
+        public bool IsLatest { get; set; }
+        public string? AmendsSubmissionId { get; set; }
+        public string? AmendedBySubmissionId { get; set; }
+    }
 }

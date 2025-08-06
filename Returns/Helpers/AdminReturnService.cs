@@ -1,5 +1,6 @@
 ﻿using iText.Commons.Utils;
 using Microsoft.EntityFrameworkCore;
+using Returns.DTOs;
 using Returns.DTOs.Returns.Returns_Analysis;
 using Returns.DTOs.Returns.Returns_Submission;
 using Returns.DTOs.Returns_Analysis;
@@ -457,6 +458,12 @@ namespace Returns.Helpers
                     GroupType = ReturnGroupType.Grouped
                 };
 
+                // Get all available versions for this period and sacco
+                var allVersions = await GetAvailableVersionsAsync(periodId, saccoId);
+                detailsDto.AvailableVersions = allVersions;
+                detailsDto.HasMultipleVersions = allVersions.Count > 1;
+                detailsDto.CurrentVersion = allVersions.Any() ? allVersions.First().Version : 1;
+
                 if (groupId == "standalone")
                 {
                     var submissionsR = await _context.ReturnSubmissions
@@ -482,25 +489,25 @@ namespace Returns.Helpers
                     switch (form.Category)
                     {
                         case FormCategory.CapitalAdequacy:
-                            detailsDto.CapitalAdequacy = MapCapitalAdequacy(submission, saccoType);
+                            detailsDto.CapitalAdequacy = await MapCapitalAdequacyWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                         case FormCategory.LiquidityStatement:
-                            detailsDto.Liquidity = MapLiquidity(submission, saccoType);
+                            detailsDto.Liquidity = await MapLiquidityWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                         case FormCategory.RiskClassification:
-                            detailsDto.RiskClassification = MapRiskClassification(submission, saccoType);
+                            detailsDto.RiskClassification = await MapRiskClassificationWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                         case FormCategory.DepositReturn:
-                            detailsDto.DepositReturn = MapDepositReturn(submission, saccoType);
+                            detailsDto.DepositReturn = await MapDepositReturnWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                         case FormCategory.FinancialPosition:
-                            detailsDto.FinancialPosition = MapFinancialPosition(submission, saccoType);
+                            detailsDto.FinancialPosition = await MapFinancialPositionWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                         case FormCategory.StatementOfComprehensiveIncome:
-                            detailsDto.ComprehensiveIncome = MapComprehensiveIncome(submission, saccoType);
+                            detailsDto.ComprehensiveIncome = await MapComprehensiveIncomeWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                         case FormCategory.InvestmentReturn:
-                            detailsDto.InvestmentReturn = MapInvestment(submission, saccoType);
+                            detailsDto.InvestmentReturn = await MapInvestmentWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                     }
 
@@ -660,6 +667,221 @@ namespace Returns.Helpers
                 .ToListAsync();
         }
 
+        public async Task<List<ReturnVersionDTO>> GetAvailableVersionsAsync(string periodId, string saccoId, string? expectedReturnId = null)
+        {
+            try
+            {
+                var query = _context.ReturnSubmissions
+                    .Include(rs => rs.ExpectedReturn)
+                    .ThenInclude(er => er.ReturnForm)
+                    .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId);
+
+                if (!string.IsNullOrEmpty(expectedReturnId))
+                {
+                    query = query.Where(rs => rs.ExpectedReturnId == expectedReturnId);
+                }
+
+                var submissions = await query
+                    .OrderByDescending(rs => rs.Version)
+                    .ToListAsync();
+
+                var versions = new List<ReturnVersionDTO>();
+                foreach (var submission in submissions)
+                {
+                    versions.Add(new ReturnVersionDTO
+                    {
+                        Version = submission.Version,
+                        SubmissionId = submission.Id,
+                        SubmittedAt = submission.SubmittedAt,
+                        Status = submission.Status,
+                        IsLatest = submission.IsLatest,
+                        AmendsSubmissionId = submission.AmendsSubmissionId,
+                        AmendedBySubmissionId = submission.AmendedBySubmissionId
+                    });
+                }
+
+                return versions;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available versions for period {PeriodId} and sacco {SaccoId}", periodId, saccoId);
+                throw;
+            }
+        }
+
+        public async Task<AdminGroupedReturnDetailsDTO> GetGroupedReturnDetailsAsync(string groupId, string periodId, string saccoId, int? version)
+        {
+            // If no version specified, get the latest version (default behavior)
+            if (!version.HasValue)
+            {
+                return await GetGroupedReturnDetailsAsync(groupId, periodId, saccoId);
+            }
+
+            try
+            {
+                WorkflowStateDto? workflowState = null;
+                List<CommentDetails> comments = new();
+
+                var period = await _context.ReturnPeriods
+                    .Include(p => p.FrequencyCatalog)
+                    .Include(p => p.ReportingYear)
+                    .FirstOrDefaultAsync(p => p.Id == periodId);
+
+                if (period == null)
+                    throw new ArgumentException("Period not found");
+
+                var saccoDetails = await GetSaccoDetailsAsync(saccoId);
+                var saccoType = saccoDetails?.SaccoType ?? "0";
+
+                var detailsDto = new AdminGroupedReturnDetailsDTO
+                {
+                    GroupId = groupId,
+                    GroupName = $"{period.Name} {period.ReportingYear.Year} Returns - {saccoDetails?.SaccoName ?? "Unknown SACCO"}",
+                    SaccoId = saccoId,
+                    SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                    PeriodId = period.Id,
+                    PeriodName = period.Name,
+                    Year = period.ReportingYear.Year,
+                    Frequency = period.FrequencyCatalog.Name,
+                    StartDate = period.StartDate,
+                    EndDate = period.EndDate,
+                    Status = "",
+                    IsComplete = false,
+                    SubmittedForms = 0,
+                    GroupType = ReturnGroupType.Grouped,
+                    CurrentVersion = version.Value
+                };
+
+                // Get all available versions for this period and sacco
+                var allVersions = await GetAvailableVersionsAsync(periodId, saccoId);
+                detailsDto.AvailableVersions = allVersions;
+                detailsDto.HasMultipleVersions = allVersions.Count > 1;
+
+                if (groupId == "standalone")
+                {
+                    var submissionsR = await _context.ReturnSubmissions
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                        .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId && rs.Version == version.Value)
+                        .ToListAsync();
+
+                    if (!submissionsR.Any())
+                        throw new ArgumentException($"No submissions found for version {version.Value}");
+
+                    var submission = submissionsR.First();
+                    detailsDto.Status = GetGroupStatus(submissionsR);
+                    detailsDto.IsComplete = submissionsR.Any();
+                    detailsDto.SubmittedForms = submissionsR.Any() ? 1 : 0;
+                    detailsDto.GroupType = ReturnGroupType.Standalone;
+                    detailsDto.SubmittedAt = submission.SubmittedAt;
+
+                    // Only fill the relevant property based on category
+                    var form = submission.ExpectedReturn.ReturnForm;
+                    switch (form.Category)
+                    {
+                        case FormCategory.CapitalAdequacy:
+                            detailsDto.CapitalAdequacy = await MapCapitalAdequacyWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                        case FormCategory.LiquidityStatement:
+                            detailsDto.Liquidity = await MapLiquidityWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                        case FormCategory.RiskClassification:
+                            detailsDto.RiskClassification = await MapRiskClassificationWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                        case FormCategory.DepositReturn:
+                            detailsDto.DepositReturn = await MapDepositReturnWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                        case FormCategory.FinancialPosition:
+                            detailsDto.FinancialPosition = await MapFinancialPositionWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                        case FormCategory.StatementOfComprehensiveIncome:
+                            detailsDto.ComprehensiveIncome = await MapComprehensiveIncomeWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                        case FormCategory.InvestmentReturn:
+                            detailsDto.InvestmentReturn = await MapInvestmentWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                    }
+
+                    workflowState = await _workflowEngineService.GetCurrentStateAsync(null, null, submission.Id);
+                    comments = await _workflowEngineService.GetComments(null, null, submission.Id);
+                }
+                else
+                {
+                    var submissions = await _context.ReturnSubmissions
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                        .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                        .Include(rs => rs.NWDTCapitalAdequacyReturns)
+                        .Include(rs => rs.NWDTLiquidityReturns)
+                        .Include(rs => rs.NWDTDepositReturns)
+                        .Include(rs => rs.NWDTRiskClassificationReturns)
+                        .Include(rs => rs.NWDTInvestmentReturns)
+                        .Include(rs => rs.NWDTFinancialPositionReturns)
+                        .Include(rs => rs.NWDTComprehensiveIncomeReturns)
+                        .Include(rs => rs.DTCapitalAdequacyReturns)
+                        .Include(rs => rs.DTLiquidityReturns)
+                        .Include(rs => rs.DepositReturns)
+                        .Include(rs => rs.DTRiskClassificationReturns)
+                        .Include(rs => rs.DTInvestmentReturns)
+                        .Include(rs => rs.DTFinancialPositionReturns)
+                        .Include(rs => rs.DTComprehensiveIncomeReturns)
+                        .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId && rs.Version == version.Value)
+                        .ToListAsync();
+
+                    var submittedFormCodes = submissions.Select(s => s.ExpectedReturn.ReturnForm.Code).ToList();
+
+                    detailsDto.SubmittedForms = submittedFormCodes.Count;
+                    detailsDto.Status = GetGroupStatus(submissions);
+                    detailsDto.SubmittedAt = submissions.Any() ? submissions.Max(s => s.SubmittedAt) : DateTime.MinValue;
+                    detailsDto.GroupType = ReturnGroupType.Grouped;
+
+                    // Map the data for the specific version
+                    foreach (var submission in submissions)
+                    {
+                        var form = submission.ExpectedReturn.ReturnForm;
+                        switch (form.Category)
+                        {
+                            case FormCategory.CapitalAdequacy:
+                                detailsDto.CapitalAdequacy = await MapCapitalAdequacyWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                            case FormCategory.LiquidityStatement:
+                                detailsDto.Liquidity = await MapLiquidityWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                            case FormCategory.RiskClassification:
+                                detailsDto.RiskClassification = await MapRiskClassificationWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                            case FormCategory.DepositReturn:
+                                detailsDto.DepositReturn = await MapDepositReturnWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                            case FormCategory.FinancialPosition:
+                                detailsDto.FinancialPosition = await MapFinancialPositionWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                            case FormCategory.StatementOfComprehensiveIncome:
+                                detailsDto.ComprehensiveIncome = await MapComprehensiveIncomeWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                            case FormCategory.InvestmentReturn:
+                                detailsDto.InvestmentReturn = await MapInvestmentWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                        }
+                    }
+                    workflowState = await _workflowEngineService.GetCurrentStateAsync(periodId, saccoId, null);
+                    comments = await _workflowEngineService.GetComments(periodId, saccoId, null);
+                }
+
+                detailsDto.WorkflowState = workflowState;
+                detailsDto.Comments = comments;
+                return detailsDto;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting grouped return details for version {Version}", version);
+                throw;
+            }
+        }
+
         private async Task<dynamic?> GetSaccoDetailsAsync(string saccoId)
         {
             try
@@ -808,6 +1030,11 @@ namespace Returns.Helpers
                 {
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                     SubmissionId = submission.Id,
+                    ExpectedReturnId = submission.ExpectedReturnId,
+                    FormCode = submission.ExpectedReturn.ReturnForm.FormName,
+                    CurrentVersion = submission.Version,
+                    HasMultipleVersions = false, // Will be populated by the calling method
+                    AvailableVersions = new List<FormVersionDTO>(), // Will be populated by the calling method
                     ShareCapital = entity.ShareCapital,
                     StatutoryReserves = entity.StatutoryReserves,
                     RetainedEarningsAccumulatedLosses = entity.RetainedEarningsAccumulatedLosses,
@@ -852,6 +1079,11 @@ namespace Returns.Helpers
                 return new NWDTCapitalAdequacyDTO
                 {
                     SubmissionId = submission.Id,
+                    ExpectedReturnId = submission.ExpectedReturnId,
+                    FormCode = submission.ExpectedReturn.ReturnForm.FormName,
+                    CurrentVersion = submission.Version,
+                    HasMultipleVersions = false, // Will be populated by the calling method
+                    AvailableVersions = new List<FormVersionDTO>(), // Will be populated by the calling method
                     StartDate = entity.StartDate,
                     EndDate = entity.EndDate,
                     DaysLateBy = entity.DaysLateBy,
@@ -1402,6 +1634,190 @@ namespace Returns.Helpers
                     return nwdtIncomeStatement;
                 }
                 return null;
+            }
+        }
+
+        // Async mapping methods with version information
+        private async Task<object?> MapCapitalAdequacyWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapCapitalAdequacy(submission, saccoType);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        private async Task<object?> MapLiquidityWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapLiquidity(submission, saccoType);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        private async Task<object?> MapRiskClassificationWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapRiskClassification(submission, saccoType);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        private async Task<object?> MapDepositReturnWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapDepositReturn(submission, saccoType);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        private async Task<object?> MapFinancialPositionWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapFinancialPosition(submission, saccoType);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        private async Task<object?> MapComprehensiveIncomeWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapComprehensiveIncome(submission, saccoType);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        private async Task<object?> MapInvestmentWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapInvestment(submission, saccoType);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        // Individual form versioning methods
+        public async Task<List<FormVersionDTO>> GetAvailableFormVersionsAsync(string periodId, string saccoId, string expectedReturnId)
+        {
+            try
+            {
+                var query = _context.ReturnSubmissions
+                    .Include(rs => rs.ExpectedReturn)
+                    .ThenInclude(er => er.ReturnForm)
+                    .Where(rs => rs.ExpectedReturn.PeriodId == periodId &&
+                                rs.SaccoId == saccoId &&
+                                rs.ExpectedReturnId == expectedReturnId);
+
+                var submissions = await query
+                    .OrderByDescending(rs => rs.Version)
+                    .ToListAsync();
+
+                var versions = new List<FormVersionDTO>();
+                foreach (var submission in submissions)
+                {
+                    versions.Add(new FormVersionDTO
+                    {
+                        Version = submission.Version,
+                        SubmissionId = submission.Id,
+                        SubmittedAt = submission.SubmittedAt,
+                        Status = submission.Status,
+                        IsLatest = submission.IsLatest,
+                        AmendsSubmissionId = submission.AmendsSubmissionId,
+                        AmendedBySubmissionId = submission.AmendedBySubmissionId,
+                        ExpectedReturnId = submission.ExpectedReturnId,
+                        FormCode = submission.ExpectedReturn.ReturnForm.FormName
+                    });
+                }
+                return versions;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available form versions for period {PeriodId}, sacco {SaccoId}, and expected return {ExpectedReturnId}", periodId, saccoId, expectedReturnId);
+                throw;
+            }
+        }
+
+        public async Task<object?> GetFormDataByVersionAsync(string submissionId, string expectedReturnId, string? saccoType = null)
+        {
+            try
+            {
+                var submission = await _context.ReturnSubmissions
+                    .Include(rs => rs.ExpectedReturn)
+                    .ThenInclude(er => er.ReturnForm)
+                    .FirstOrDefaultAsync(rs => rs.Id == submissionId && rs.ExpectedReturnId == expectedReturnId);
+
+                if (submission == null)
+                {
+                    return null;
+                }
+
+                // Determine sacco type if not provided
+                if (string.IsNullOrEmpty(saccoType))
+                {
+                    saccoType = submission.ExpectedReturn.ReturnForm.FormName.StartsWith("DT") ? "0" : "1";
+                }
+
+                // Map the form data based on the expected return type
+                var formCode = submission.ExpectedReturn.ReturnForm.FormName;
+
+                switch (formCode)
+                {
+                    case "DT_CAPITAL_ADEQUACY":
+                    case "NWDT_CAPITAL_ADEQUACY":
+                        return MapCapitalAdequacy(submission, saccoType);
+                    case "DT_LIQUIDITY":
+                    case "NWDT_LIQUIDITY":
+                        return MapLiquidity(submission, saccoType);
+                    case "DT_RISK_CLASSIFICATION":
+                    case "NWDT_RISK_CLASSIFICATION":
+                        return MapRiskClassification(submission, saccoType);
+                    case "DT_DEPOSIT_RETURN":
+                    case "NWDT_DEPOSIT_RETURN":
+                        return MapDepositReturn(submission, saccoType);
+                    case "DT_FINANCIAL_POSITION":
+                    case "NWDT_FINANCIAL_POSITION":
+                        return MapFinancialPosition(submission, saccoType);
+                    case "DT_COMPREHENSIVE_INCOME":
+                    case "NWDT_COMPREHENSIVE_INCOME":
+                        return MapComprehensiveIncome(submission, saccoType);
+                    case "DT_INVESTMENT":
+                    case "NWDT_INVESTMENT":
+                        return MapInvestment(submission, saccoType);
+                    default:
+                        _logger.LogWarning("Unknown form code: {FormCode}", formCode);
+                        return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting form data by version for submission {SubmissionId} and expected return {ExpectedReturnId}", submissionId, expectedReturnId);
+                throw;
             }
         }
     }
