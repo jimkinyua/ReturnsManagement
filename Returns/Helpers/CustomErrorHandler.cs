@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using System.Collections;
 
 namespace Returns.Helpers
 {
@@ -19,26 +20,50 @@ namespace Returns.Helpers
             Logger.LogError(ex, ex.Message);
         }
 
-        public static List<string> HandleException(Exception ex, bool includeStackTrace = true)
+        public static string HandleException(Exception? ex, bool includeStackTrace = true)
         {
-            if (ex == null) return new List<string> { "Unknown error." };
+            if (ex is null) return "Unknown error.";
 
-            var messages = new List<string>();
-
-            // Walk the entire InnerException chain
+            var sb = new System.Text.StringBuilder();
             for (var current = ex; current != null; current = current.InnerException)
             {
-                messages.Add(current.Message);
+                sb.AppendLine($"{current.GetType().FullName}: {current.Message}");
+
+                if (current.Data?.Count > 0)
+                {
+                    foreach (DictionaryEntry kv in current.Data)
+                        sb.AppendLine($"  Data[{kv.Key}]: {kv.Value}");
+                }
 
                 if (includeStackTrace && !string.IsNullOrWhiteSpace(current.StackTrace))
-                {
-                    if (messages.Count > 0)
-                        messages.Add(current.StackTrace.Trim());
-                }
-            }
+                    sb.AppendLine(current.StackTrace.Trim());
 
-            return messages;
+                if (current.InnerException != null)
+                    sb.AppendLine("---> inner:");
+            }
+            return sb.ToString();
         }
+
+        //public static List<string> HandleException(Exception ex, bool includeStackTrace = true)
+        //{
+        //    if (ex == null) return new List<string> { "Unknown error." };
+
+        //    var messages = new List<string>();
+
+        //    // Walk the entire InnerException chain
+        //    for (var current = ex; current != null; current = current.InnerException)
+        //    {
+        //        messages.Add(current.Message);
+
+        //        if (includeStackTrace && !string.IsNullOrWhiteSpace(current.StackTrace))
+        //        {
+        //            if (messages.Count > 0)
+        //                messages.Add(current.StackTrace.Trim());
+        //        }
+        //    }
+
+        //    return messages;
+        //}
 
 
     }

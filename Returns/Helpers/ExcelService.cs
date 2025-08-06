@@ -1321,29 +1321,28 @@ namespace Returns.Helpers
                         if (SaccoType == Constants.SaccoType.NWDT)
                         {
                             // DT Sacco metadata cells
-                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4"));
-                            saccoName = GetCellValueOrEmpty(worksheet.Cell("D3"));
-                            financialYear = GetCellValueOrEmpty(worksheet.Cell("D5"));
-                            startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
-                            endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7")));
-                        }
-                        else if (SaccoType == Constants.SaccoType.DepositTaking)
-                        {
-                            // NWDT Sacco metadata cells - adjust these cell references as needed
                             SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("C4")); // Different cell for NWDT
-                            saccoName = GetCellValueOrEmpty(worksheet.Cell("C3")); // Different cell for NWDT
+                            //saccoName = GetCellValueOrEmpty(worksheet.Cell("C3")); // Different cell for NWDT
                             financialYear = GetCellValueOrEmpty(worksheet.Cell("C5")); // Different cell for NWDT
                             startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C6"))); // Different cell for NWDT
                             endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("C7"))); // Different cell for NWDT
                         }
+                        else if (SaccoType == Constants.SaccoType.DepositTaking)
+                        {
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D3"));
+                            //saccoName = GetCellValueOrEmpty(worksheet.Cell("D4"));
+                            financialYear = GetCellValueOrEmpty(worksheet.Cell("D4"));
+                            startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D5")));
+                            endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
+                        }
                         else
                         {
                             // Default to DT cells if SaccoType is not recognized
-                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D4"));
-                            saccoName = GetCellValueOrEmpty(worksheet.Cell("D3"));
-                            financialYear = GetCellValueOrEmpty(worksheet.Cell("D5"));
-                            startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
-                            endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D7")));
+                            SaccoCsNumber = GetCellValueOrEmpty(worksheet.Cell("D3"));
+                            //saccoName = GetCellValueOrEmpty(worksheet.Cell("D4"));
+                            financialYear = GetCellValueOrEmpty(worksheet.Cell("D4"));
+                            startDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D5")));
+                            endDate = ParseDateOrNull(GetCellValueOrEmpty(worksheet.Cell("D6")));
                         }
 
                         /*  if (string.IsNullOrWhiteSpace(SaccoCsNumber))
@@ -1376,7 +1375,7 @@ namespace Returns.Helpers
                         var reportDto = new SectoralLendingReportDto
                         {
                             SaccoCsNumber = SaccoCsNumber,
-                            SaccoName = saccoName,
+                            //SaccoName = saccoName,
                             Year = financialYear,
                             Month = month,
                             StartDate = startDate.Value,

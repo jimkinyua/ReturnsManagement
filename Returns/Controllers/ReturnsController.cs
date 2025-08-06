@@ -304,16 +304,16 @@ namespace Returns.Controllers
         }
 
         [HttpGet("admin/AdminInitiatedAmendmentRequests")]
-        public async Task<IActionResult> GetAdminInitiatedAmendmentRequests([FromQuery] string? saccoId = null)
+        public async Task<IActionResult> GetAdminInitiatedAmendmentRequests([FromQuery] string? returnSubmissionId = null)
         {
             try
             {
                 LoggedInEntity loggedInEntity = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 var requests = await _amendmentService.GetAdminInitiatedAmendmentRequestsAsync();
 
-                if (!string.IsNullOrEmpty(saccoId))
+                if (!string.IsNullOrEmpty(returnSubmissionId))
                 {
-                    requests = requests.Where(r => r.SaccoId == saccoId).ToList();
+                    requests = requests.Where(r => r.ReturnSubmissionId == returnSubmissionId).ToList();
                 }
 
                 return Ok(requests);

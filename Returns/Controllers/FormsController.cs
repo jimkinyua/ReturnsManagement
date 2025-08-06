@@ -234,7 +234,7 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                var DocumentsBaseUrl = _configuration.GetSection("GatewayURLForDocuments:GatewayURL").Value;
 
                 // Validate input
                 if (month < 1 || month > 12)
@@ -278,7 +278,7 @@ namespace Returns.Controllers
                     PeriodEndDate = er.Period.EndDate,
                     FilingDeadline = er.FilingDeadline,
                     Status = er.Status,
-                    TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                    TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{DocumentsBaseUrl}{er.ReturnForm.TemplateUrl}",
                     SaccoTypeId = er.ReturnForm.SaccoTypeId
                 })
                 .OrderBy(f => f.FilingDeadline)
@@ -630,7 +630,7 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
 
                 // Validate input
                 if (month < 1 || month > 12)
@@ -822,13 +822,13 @@ namespace Returns.Controllers
                 PeriodEndDate = er.Period.EndDate,
                 FilingDeadline = er.FilingDeadline,
                 Status = er.Status,
-                TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                TemplateUrl = $"{baseUrl}{er.ReturnForm.TemplateUrl}",
                 SaccoTypeId = er.ReturnForm.SaccoTypeId,
                 //IsSubmitted = isSubmitted,
                 SubmissionId = submissionData.SubmissionId,
                 SubmissionStatus = submissionData.Status,
                 SubmittedAt = submissionData.SubmittedAt,
-                UploadUrl = submissionData.FileUrl
+                UploadUrl = $"{baseUrl}{submissionData.FileUrl}"
 
             };
         }

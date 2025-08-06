@@ -10,6 +10,8 @@ namespace Returns.Models
         public string SectoralLendingReportId { get; set; } = null!;
         public string ReturnSubmissionId { get; set; } = null!;
         public decimal Amount { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
         public string EconomicSectorCode { get; set; } = null!;
         //[ForeignKey("EconomicSector")]
         //public string EconomicSectorId { get; set; } = null!;

@@ -375,16 +375,20 @@ namespace Returns.Helpers
                         {
                             sectoralReport.IsCurrent = true;
                             sectoralReport.IsAmended = false;
+                            sectoralReport.SaccoId = sectoralReport.SaccoId; // Use existing SaccoId from report
                             // Save the report first to get its ID
                             await _context.SectoralLendingReports.AddAsync(sectoralReport);
                             await _context.SaveChangesAsync(); // Save to get the ID
 
-                            // Now update the EconomicSectorData records with the report ID
+                            // Now update the EconomicSectorData records with the report ID and SaccoId
                             if (economicSectorData is List<EconomicSectorData> sectorDataList)
                             {
                                 foreach (var sectorData in sectorDataList)
                                 {
                                     sectorData.SectoralLendingReportId = sectoralReport.Id;
+                                    sectorData.SaccoCsNumber = sectoralReport.SaccoId;
+                                    sectorData.StartDate = sectoralReport.StartDate;
+                                    sectorData.EndDate = sectoralReport.EndDate;
                                 }
                                 await _context.SectoralLendingData.AddRangeAsync(sectorDataList);
                             }
@@ -486,6 +490,16 @@ namespace Returns.Helpers
                 // Update DT Capital Adequacy Returns
                 await _context.Database.ExecuteSqlRawAsync(
                     "UPDATE DTCapitalAdequacyReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // Update Audited Risk Classifications
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE AuditedRiskClassifications SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                    previousSubmissionId);
+
+                // update SectoralLendingData
+                await _context.Database.ExecuteSqlRawAsync(
+                    "UPDATE SectoralLendingData SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
                     previousSubmissionId);
 
                 // Update Audited Comprehensive Incomes
