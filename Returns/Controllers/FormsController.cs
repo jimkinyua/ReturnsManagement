@@ -39,7 +39,7 @@ namespace Returns.Controllers
         [HttpPost("CreateForm")]
         public async Task<ActionResult<FormDTO>> CreateFormAsync([FromForm] CreateFormDTO createFormDTO)
         {
-            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value?.TrimEnd('/') ?? "";
+            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value?.TrimEnd('/') ?? "";
             {
                 if (!ModelState.IsValid)
                 {
@@ -140,7 +140,7 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
 
                 if (!ModelState.IsValid)
                 {
@@ -330,7 +330,7 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
 
                 var formsQuery = _context.ReturnForms.AsQueryable();
 
@@ -379,7 +379,7 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
 
                 // Get the first and last day of the year
                 var firstDayOfYear = new DateTime(year, 1, 1);
@@ -544,7 +544,7 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
 
                 var formsQuery = _context.ReturnForms
                     .Where(f => f.Category == category && f.IsActive);
@@ -717,7 +717,7 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURL").Value;
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
 
                 // Get the first and last day of the year
                 var firstDayOfYear = new DateTime(year, 1, 1);
