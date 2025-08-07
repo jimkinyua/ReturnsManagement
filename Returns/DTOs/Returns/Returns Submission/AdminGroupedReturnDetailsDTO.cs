@@ -33,16 +33,13 @@ namespace Returns.DTOs.Returns_Submission
         public object? FinancialPosition { get; set; }
         public object? ComprehensiveIncome { get; set; }
         public object? InvestmentReturn { get; set; }
+        public object? Management { get; set; }
         public List<ReturnAnalysisHelper.ValidationError> ConsistencyErrors { get; internal set; } = new List<ReturnAnalysisHelper.ValidationError>();
         public WorkflowStateDto? WorkflowState { get; set; }
         public SingleCAELSDTO Ratings { get; set; } = new SingleCAELSDTO();
         public List<CommentDetails> Comments { get; set; } = new List<CommentDetails>();
         public List<string> MissingForms { get; internal set; } = new List<string>();
-
-        // Version-related properties
-        public int CurrentVersion { get; set; } = 1;
         public List<ReturnVersionDTO> AvailableVersions { get; set; } = new List<ReturnVersionDTO>();
-        public bool HasMultipleVersions { get; set; } = false;
     }
 
     public class ReturnVersionDTO

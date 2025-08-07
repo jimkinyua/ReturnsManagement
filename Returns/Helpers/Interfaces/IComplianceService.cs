@@ -62,9 +62,13 @@ namespace Returns.Helpers.Interfaces
         [JsonConverter(typeof(NumberToStringConverter))]
         public string SaccoId { get; set; }
         public string SaccoName { get; set; } = string.Empty;
-        public int SaccoType { get; set; }
+        [JsonConverter(typeof(NumberToStringConverter))]
+        public string SaccoType { get; set; } = string.Empty;
         public string OfficialEmail { get; set; } = string.Empty;
+        public string CooperativeSocietyNo { get; set; } = string.Empty;
     }
+
+
 
     public class RoleDTO
     {
@@ -80,11 +84,12 @@ namespace Returns.Helpers.Interfaces
         Task<ComplianceOfficerInfo> GetAssignedComplianceOfficer(string saccoId);
         Task<SasraUser?> GetTeamLead(string teamId);
         Task<List<SasraUser>?> GetTeamMembers(string teamId);
-        Task<SasraUser?> GetUserByRole(string RoleId);
+        //Task<SasraUser?> GetUsersByRole(string RoleId);
+        Task<List<MinSasraUser>> GetUsersByRole(string RoleId);
         Task<SasraUser?> GetUserById(string UserId);
         Task<SasraRoleDetails?> GetRoleDetails(string RoleId);
         Task<List<Sacco>> GetAllSaccosAsync();
-        Task<Sacco> GetSaccoByIdAsync(string saccoId);
+        Task<SaccoDTO> GetSaccoByIdAsync(long saccoId);
         Task<List<Sacco>> GetSaccosAssignedToOfficerAsync(string userId);
         Task<string?> GetTeamIdForSaccoAsync(string saccoId);
         Task <UserDTO>GetUserDetailsAsync(string tlUserId);

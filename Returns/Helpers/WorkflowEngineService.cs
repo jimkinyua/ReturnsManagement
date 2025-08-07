@@ -115,7 +115,10 @@ namespace Returns.Helpers
                     instance.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
                     instance.CanBeSeen = false; // Hide after enforcement
 
-                    var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+                    var sac = instance.SaccoId;
+                    long LongsaccoId = long.Parse(sac);
+
+                    var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                     var caseDto = new EnforcementCaseRequestDTO
                     {
                         Title = $"Enforcement Case for {(instance.Type == "QGroup" ? "Quarterly Return" : "Return")}",
@@ -181,7 +184,8 @@ namespace Returns.Helpers
                             instance.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
                             instance.CanBeSeen = false; // Hide after enforcement
 
-                            var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+                            long LongsaccoId = long.Parse(instance.SaccoId);
+                            var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                             var caseDto = new EnforcementCaseRequestDTO
                             {
                                 Title = $"Enforcement Case for {(instance.Type == "QGroup" ? "Quarterly Return" : "Return")}",
@@ -218,7 +222,11 @@ namespace Returns.Helpers
                             // Notify the approver after next
                             try
                             {
-                                var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+
+                                var sac = instance.SaccoId;
+                                long LongsaccoId = long.Parse(sac);
+
+                                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                                 await _emailService.SendEmailAsync(
                                     afterApprover.Email,
                                     "Return Recommended for Enforcement",
@@ -245,7 +253,10 @@ namespace Returns.Helpers
                         // Notify next approver
                         try
                         {
-                            var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+
+                            var sac = instance.SaccoId;
+                            long LongsaccoId = long.Parse(sac);
+                            var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                             await _emailService.SendEmailAsync(
                                 nextApprover.Email,
                                 "Return Recommended for Enforcement",
@@ -294,7 +305,7 @@ namespace Returns.Helpers
                 .Include(w => w.CurrentStep)
                 .Where(w => w.CanBeSeen &&
                             //visibleStatuses.Contains(w.Status) &&
-                            (w.UserId == userId 
+                            (w.UserId == userId
                             //|| mySaccoIds.Contains(w.SaccoId)
                             ))
                 .OrderBy(w => w.CreatedAt)
@@ -307,7 +318,9 @@ namespace Returns.Helpers
                 // Fetch period and SACCO details
                 var period = await _db.ReturnPeriods.FindAsync(instance.PeriodId)
                     ?? throw new InvalidOperationException("Period not found");
-                var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+                var sac = instance.SaccoId;
+                long LongsaccoId = long.Parse(sac);
+                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
 
                 // Default values
                 bool isConsistent = true;
@@ -366,7 +379,7 @@ namespace Returns.Helpers
                     ReturnSubmissionId = instance.ReturnSubmissionId,
                     SaccoId = instance.SaccoId,
                     SaccoName = sacco?.SaccoName ?? "Unknown SACCO",
-                    SaccoType = sacco?.SaccoType ?? "Unknown",
+                    SaccoType = sacco?.SaccoType.ToString() ?? "Unknown",
                     Period = period.Name,
                     SubmittedDate = submittedDate,
                     IsConsistent = isConsistent,
@@ -447,34 +460,34 @@ namespace Returns.Helpers
                 });
             }
 
-           /* // 5. Fetch CAELS rating and consistency check (for Q groups)
-            decimal? rating = instance.Rating;
-            bool isConsistent = true;
-            List<ValidationError> consistencyErrors = new();
-*/
-           /* if (instance.Type == "QGroup")
-            {
-                var caelsRating = await _db.CAELSRatings
-                    .Where(r => r.SaccoId == instance.SaccoId && r.PeriodId == instance.PeriodId)
-                    .OrderByDescending(r => r.CreatedAt)
-                    .FirstOrDefaultAsync();
+            /* // 5. Fetch CAELS rating and consistency check (for Q groups)
+             decimal? rating = instance.Rating;
+             bool isConsistent = true;
+             List<ValidationError> consistencyErrors = new();
+ */
+            /* if (instance.Type == "QGroup")
+             {
+                 var caelsRating = await _db.CAELSRatings
+                     .Where(r => r.SaccoId == instance.SaccoId && r.PeriodId == instance.PeriodId)
+                     .OrderByDescending(r => r.CreatedAt)
+                     .FirstOrDefaultAsync();
 
-                if (caelsRating != null)
-                {
-                    rating = caelsRating.OverallRating;
-                }
+                 if (caelsRating != null)
+                 {
+                     rating = caelsRating.OverallRating;
+                 }
 
-                var consistencyCheck = await _db.ConsistencyCheckResults
-                    .Where(cc => cc.SaccoId == instance.SaccoId && cc.PeriodId == instance.PeriodId)
-                    .OrderByDescending(cc => cc.CheckedAt)
-                    .FirstOrDefaultAsync();
+                 var consistencyCheck = await _db.ConsistencyCheckResults
+                     .Where(cc => cc.SaccoId == instance.SaccoId && cc.PeriodId == instance.PeriodId)
+                     .OrderByDescending(cc => cc.CheckedAt)
+                     .FirstOrDefaultAsync();
 
-                if (consistencyCheck != null)
-                {
-                    isConsistent = consistencyCheck.IsValid;
-                    consistencyErrors = JsonSerializer.Deserialize<List<ValidationError>>(consistencyCheck.ErrorsJson) ?? new();
-                }
-            }*/
+                 if (consistencyCheck != null)
+                 {
+                     isConsistent = consistencyCheck.IsValid;
+                     consistencyErrors = JsonSerializer.Deserialize<List<ValidationError>>(consistencyCheck.ErrorsJson) ?? new();
+                 }
+             }*/
 
             // 6. Build DTO
             return new WorkflowStateDto
@@ -635,7 +648,9 @@ namespace Returns.Helpers
                     // Notify previous approver
                     try
                     {
-                        var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+                        var sac = instance.SaccoId;
+                        long LongsaccoId = long.Parse(sac);
+                        var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                         await _emailService.SendEmailAsync(
                             prevApprover.Email,
                             "Return Sent Back with Reservations",
@@ -710,7 +725,7 @@ namespace Returns.Helpers
                     // ReturnCompleteness for completeness info
                     var completeness = await _db.ReturnCompleteness
                         .FirstOrDefaultAsync(
-                        rc => rc.PeriodId == periodId 
+                        rc => rc.PeriodId == periodId
                         && rc.SaccoId == saccoId);
 
                     if (completeness != null)
@@ -843,7 +858,8 @@ namespace Returns.Helpers
                 // 6. Notify assignee (fire-and-forget), including incompleteness info
                 _ = Task.Run(async () =>
                 {
-                    var sacco = await _complianceService.GetSaccoByIdAsync(saccoId);
+                    long LongsaccoId = long.Parse(saccoId);
+                    var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                     var emailBody = $"A new {(isQuarterly ? "quarterly" : "")} return " +
                                     $"for SACCO {sacco?.SaccoName ?? saccoId} (Period: {period.Name}) " +
                                     $"has been submitted.";
@@ -994,7 +1010,8 @@ namespace Returns.Helpers
                             // Notify the approver after next
                             try
                             {
-                                var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+                                long LongsaccoId = long.Parse(instance.SaccoId);
+                                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                                 await _emailService.SendEmailAsync(
                                     afterApprover.Email,
                                     "New Approval Request",
@@ -1020,7 +1037,8 @@ namespace Returns.Helpers
 
                         try
                         {
-                            var sacco = await _complianceService.GetSaccoByIdAsync(instance.SaccoId);
+                            long LongsaccoId = long.Parse(instance.SaccoId);
+                            var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                             await _emailService.SendEmailAsync(
                                 nextApprover.Email,
                                 "New Approval Request",
@@ -1047,8 +1065,9 @@ namespace Returns.Helpers
         {
             try
             {
-                var sacco = await _complianceService.GetSaccoByIdAsync(saccoId);
-                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialSaccoEmail))
+                long LongsaccoId = long.Parse(saccoId);
+                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
+                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialEmail))
                 {
                     return;
                 }
@@ -1064,7 +1083,7 @@ namespace Returns.Helpers
                     ? $"Your quarterly returns for {period?.Name ?? periodId} has been approved. {(rating != null ? $"CAELS Rating: {rating.OverallRating} ({rating.RiskLevel})" : "Rating pending.")}"
                     : $"Your return for {period?.Name ?? periodId} has been approved.";
 
-                await _emailService.SendEmailAsync(sacco.OfficialSaccoEmail, subject, message);
+                await _emailService.SendEmailAsync(sacco.OfficialEmail, subject, message);
             }
             catch (Exception ex)
             {
@@ -1075,8 +1094,9 @@ namespace Returns.Helpers
         {
             try
             {
-                var sacco = await _complianceService.GetSaccoByIdAsync(saccoId);
-                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialSaccoEmail))
+                long LongsaccoId = long.Parse(saccoId);
+                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
+                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialEmail))
                 {
                     return;
                 }
@@ -1087,7 +1107,7 @@ namespace Returns.Helpers
                     ? $"Your quarterly return group for {period?.Name ?? periodId} has been rejected. Reason: {rejectionComment}"
                     : $"Your return for {period?.Name ?? periodId} has been rejected. Reason: {rejectionComment}";
 
-                await _emailService.SendEmailAsync(sacco.OfficialSaccoEmail, subject, message);
+                await _emailService.SendEmailAsync(sacco.OfficialEmail, subject, message);
             }
             catch (Exception ex)
             {
@@ -1104,16 +1124,13 @@ namespace Returns.Helpers
             {
                 throw new Exception("Step not found.");
             }
-
             var RoleDetails = await _complianceService.GetRoleDetails(stepdetails.RoleId);
             if (RoleDetails == null)
             {
                 throw new Exception("Role not assigned to this step.");
             }
-
             var RoleAssignedThisStep = RoleDetails.RoleName;
             CommonFieldForUser commonFieldForUser = new CommonFieldForUser();
-
             if (RoleAssignedThisStep == "Assistant Manager")
             {
                 var teamLead = await _complianceService.GetTeamLeaderAsync(teamId);
@@ -1126,7 +1143,7 @@ namespace Returns.Helpers
                 commonFieldForUser.RoleId = teamLead.RoleName;
                 commonFieldForUser.UserId = teamLead.UserId;
             }
-            // if we are back to step 0, get assigned compliance officer
+            // If we are back to step 0, get assigned compliance officer
             else if (stepdetails.Sequence == 0)
             {
                 var complianceOfficer = await _complianceService.GetAssignedComplianceOfficer(SaccoId);
@@ -1141,20 +1158,26 @@ namespace Returns.Helpers
             }
             else
             {
-                var approver = await _complianceService.GetUserByRole(stepdetails.RoleId);
-                if (approver == null)
+                var approvers = await _complianceService.GetUsersByRole(stepdetails.RoleId);
+                if (approvers == null || !approvers.Any())
                 {
-                    throw new Exception("No approver found for this step.");
+                    commonFieldForUser.FullName = "";
+                    commonFieldForUser.Email = "";
+                    commonFieldForUser.RoleId = "";
+                    commonFieldForUser.UserId = "";
                 }
-                commonFieldForUser.FullName = approver.FullName;
-                commonFieldForUser.Email = approver.Email;
-                commonFieldForUser.RoleId = approver.RoleId;
-                commonFieldForUser.UserId = approver.Id;
+                else
+                {
+                    // Select the first user from the list (or apply other logic)
+                    var approver = approvers.First();
+                    commonFieldForUser.FullName = approver.FullName;
+                    commonFieldForUser.Email = approver.Email;
+                    commonFieldForUser.RoleId = approver.Id;
+                    commonFieldForUser.UserId = approver.Id;
+                }
             }
-
             return commonFieldForUser;
         }
-
 
         public class CommonFieldForUser
         {

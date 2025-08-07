@@ -105,7 +105,9 @@ namespace Returns.Controllers
                     return Unauthorized("Unauthorized access. Invalid Sacco details.");
                 }
 
-                var saccoDetails = await complianceService.GetSaccoByIdAsync(loggedInSacco.SaccoId);
+                var sac = loggedInSacco.SaccoId;
+                long saccoId = long.Parse(sac);
+                var saccoDetails = await complianceService.GetSaccoByIdAsync(saccoId);
                 if (saccoDetails == null)
                 {
                     return NotFound("Sacco not found.");
@@ -1483,7 +1485,7 @@ namespace Returns.Controllers
         }
 
         [HttpGet("dt/GetPerfomanceReportPdf/{periodId}/{saccoId}")]
-        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetDTPerfomanceReportPdf(string periodId, string saccoId, [FromQuery] string? ratingName)
+        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetDTPerfomanceReportPdf(string periodId, long saccoId, [FromQuery] string? ratingName)
         {
             try
             {
@@ -1529,14 +1531,14 @@ namespace Returns.Controllers
                 report.PrudentialStandards.Add("NPL", "<5%");
                 report.PrudentialStandards.Add("NonEarningAssets", "<10%");
 
-                // Get historical periods (current + 2 previous)
+
                 var periods = await _context.ReturnPeriods
-                    .Where(p => p.FrequencyId == currentPeriod.FrequencyId &&
-                                p.StartDate <= currentPeriod.StartDate)
-                    .Include(x => x.FrequencyCatalog)
-                    .OrderByDescending(p => p.StartDate)
-                    .Take(3)
-                    .ToListAsync();
+                     .Where(p => p.FrequencyId == currentPeriod.FrequencyId && // Match quarterly periods
+                                 p.StartDate <= currentPeriod.StartDate) // Include current and previous
+                     .Include(x => x.FrequencyCatalog)
+                     .OrderByDescending(p => p.StartDate) // Most recent first (current will be first)
+                     .Take(3)
+                     .ToListAsync();
 
                 var requiredFormCodes = ratingDef.RatingForms
                     .Select(rf => rf.FormCode)
@@ -1545,7 +1547,7 @@ namespace Returns.Controllers
                 foreach (var period in periods)
                 {
                     // Get filed submissions for this period
-                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId.ToString(), requiredFormCodes);
 
                     // Find submissions by form category
                     var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
@@ -1902,7 +1904,7 @@ namespace Returns.Controllers
                 }
 
                 // Get approval actions for the current period submissions
-                var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId, requiredFormCodes);
+                var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId.ToString(), requiredFormCodes);
                 if (currentPeriodSubmissions.Any())
                 {
                     /*         var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
@@ -1975,7 +1977,7 @@ namespace Returns.Controllers
 
 
         [HttpGet("nwdt/GetPerfomanceReportPdf/{periodId}/{saccoId}")]
-        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string periodId, string saccoId, [FromQuery] string? ratingName)
+        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReportPdf(string periodId, long saccoId, [FromQuery] string? ratingName)
         {
             try
             {
@@ -2043,7 +2045,7 @@ namespace Returns.Controllers
                 foreach (var period in periods)
                 {
                     // Get filed submissions for this period
-                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId.ToString(), requiredFormCodes);
 
                     // Find submissions by form category
                     var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
@@ -2311,7 +2313,7 @@ namespace Returns.Controllers
                 }
 
                 // Get approval actions for the current period submissions
-                var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId, requiredFormCodes);
+                var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId.ToString(), requiredFormCodes);
                 if (currentPeriodSubmissions.Any())
                 {
                     /* var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
@@ -2601,7 +2603,7 @@ namespace Returns.Controllers
         }
 
         [HttpGet("dt/GetPerfomanceReport/{periodId}/{saccoId}")]
-        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetDTPerfomanceReport(string periodId, string saccoId)
+        public async Task<ActionResult<SaccoPerformanceReportDTO>> GetDTPerfomanceReport(string periodId, long saccoId)
         {
             try
             {
@@ -2666,7 +2668,7 @@ namespace Returns.Controllers
                 foreach (var period in periods)
                 {
                     // Get filed submissions for this period
-                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId.ToString(), requiredFormCodes);
 
                     // Find submissions by form category
                     var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
@@ -2761,7 +2763,7 @@ namespace Returns.Controllers
         }
 
         [HttpGet("nwdt/GetPerfomanceReport/{periodId}/{saccoId}")]
-        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReport(string periodId, string saccoId)
+        public async Task<ActionResult<NWDTPerformanceReportDTO>> GetNwdtPerfomanceReport(string periodId, long saccoId)
         {
             try
             {
@@ -2825,7 +2827,7 @@ namespace Returns.Controllers
                 foreach (var period in periods)
                 {
                     // Get filed submissions for this period
-                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId, requiredFormCodes);
+                    var submissions = await GetFiledSubmissionsForPeriod(period.Id, saccoId.ToString(), requiredFormCodes);
 
                     // Find submissions by form category
                     var finPosSub = FindSubmissionByCategory(submissions, FormCategory.FinancialPosition);
@@ -3112,9 +3114,23 @@ namespace Returns.Controllers
                 .Where(rs => rs.SaccoId == saccoId && rs.IsActive)
                 .Include(rs => rs.ExpectedReturn)
                     .ThenInclude(er => er.ReturnForm)
+                        .Include(rs => rs.NWDTCapitalAdequacyReturns)
+                        .Include(rs => rs.NWDTLiquidityReturns)
+                        .Include(rs => rs.NWDTDepositReturns)
+                        .Include(rs => rs.NWDTRiskClassificationReturns)
+                        .Include(rs => rs.NWDTInvestmentReturns)
+                        .Include(rs => rs.NWDTFinancialPositionReturns)
+                        .Include(rs => rs.NWDTComprehensiveIncomeReturns)
+                        .Include(rs => rs.DTCapitalAdequacyReturns)
+                        .Include(rs => rs.DTLiquidityReturns)
+                        .Include(rs => rs.DepositReturns)
+                        .Include(rs => rs.DTRiskClassificationReturns)
+                        .Include(rs => rs.DTInvestmentReturns)
+                        .Include(rs => rs.DTFinancialPositionReturns)
+                        .Include(rs => rs.DTComprehensiveIncomeReturns)
+                        .Include(rs => rs.ManagementReturns)
                 .Where(rs =>
-                    rs.ExpectedReturn.PeriodId == periodId &&
-                    requiredFormCodes.Contains(rs.ExpectedReturn.ReturnForm.Code))
+                    rs.ExpectedReturn.PeriodId == periodId)
                 .GroupBy(rs => rs.ExpectedReturnId)
                 .Select(g => g.OrderByDescending(x => x.SubmittedAt).First())
                 .ToDictionaryAsync(rs => rs.ExpectedReturnId);

@@ -1,8 +1,8 @@
 ﻿namespace Returns.DTOs.Returns.Returns_Submission.DT
 {
-    public class ManagementReturnDTO
+    public class ManagementReturnDTO:CommonFormDTO
     {
-        public string ReturnId { get; set; } = null!;
+        public string SubmisionId { get; set; } = null!;
         public string? SaccoCsNumber { get; set; }
         public decimal GovernanceStructureScore { get; set; }
         public decimal GovernanceStructureWeight { get; set; }

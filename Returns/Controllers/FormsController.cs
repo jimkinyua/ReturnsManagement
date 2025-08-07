@@ -39,59 +39,66 @@ namespace Returns.Controllers
         [HttpPost("CreateForm")]
         public async Task<ActionResult<FormDTO>> CreateFormAsync([FromForm] CreateFormDTO createFormDTO)
         {
-            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value?.TrimEnd('/') ?? "";
+            try
             {
-                if (!ModelState.IsValid)
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value?.TrimEnd('/') ?? "";
                 {
-                    return BadRequest(ModelState);
-                }
-
-                // Check if form of this type already exists
-                await FormsHelper.ValidateFormTypeUniqueness(createFormDTO, _context);
-                var templatePath = "";
-                if (createFormDTO.Category != Helpers.Enums.FormCategory.Other)
-                {
-                    // we need it to be an excel file
-                    if (!FormsHelper.IsValidExcelFile(createFormDTO.Template))
+                    if (!ModelState.IsValid)
                     {
-                        return StatusCode(500, "Only Excel files with .xlsx extension are allowed. Please ensure you're uploading a modern Excel file, not a legacy format.");
+                        return BadRequest(ModelState);
                     }
-                    templatePath = await FormsHelper.SaveFileAsync(createFormDTO.Template, "Templates", createFormDTO.DisplayName);
-                    if (templatePath == null)
+
+                    // Check if form of this type already exists
+                    await FormsHelper.ValidateFormTypeUniqueness(createFormDTO, _context);
+                    var templatePath = "";
+                    if (createFormDTO.Category != Helpers.Enums.FormCategory.Other)
                     {
-                        return StatusCode(500, "Failed to save template file.");
+                        // we need it to be an excel file
+                        if (!FormsHelper.IsValidExcelFile(createFormDTO.Template))
+                        {
+                            return StatusCode(500, "Only Excel files with .xlsx extension are allowed. Please ensure you're uploading a modern Excel file, not a legacy format.");
+                        }
+                        templatePath = await FormsHelper.SaveFileAsync(createFormDTO.Template, "Templates", createFormDTO.DisplayName);
+                        if (templatePath == null)
+                        {
+                            return StatusCode(500, "Failed to save template file.");
+                        }
                     }
+                    else
+                    {
+                        createFormDTO.Template = null;
+                        templatePath = "";
+                    }
+
+                    var form = new ReturnForm
+                    {
+                        FormName = createFormDTO.Name,
+                        Code = createFormDTO.DisplayName,
+                        SaccoTypeId = createFormDTO.SaccoTypeId,
+                        Category = createFormDTO.Category,
+                        TemplateUrl = templatePath,
+                        IsActive = true
+                    };
+
+                    _context.ReturnForms.Add(form);
+                    await _context.SaveChangesAsync();
+                    var m = new FormDTO
+                    {
+                        Id = form.Id,
+                        Name = form.FormName,
+                        DisplayName = form.Code,
+                        SaccoTypeId = form.SaccoTypeId,
+                        Category = form.Category,
+                        IsActive = form.IsActive,
+                        TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
+                    };
+
+                    return Ok();
                 }
-                else
-                {
-                    createFormDTO.Template = null;
-                    templatePath = "";
-                }
-
-                var form = new ReturnForm
-                {
-                    FormName = createFormDTO.Name,
-                    Code = createFormDTO.DisplayName,
-                    SaccoTypeId = createFormDTO.SaccoTypeId,
-                    Category = createFormDTO.Category,
-                    TemplateUrl = templatePath,
-                    IsActive = true
-                };
-
-                _context.ReturnForms.Add(form);
-                await _context.SaveChangesAsync();
-                var m = new FormDTO
-                {
-                    Id = form.Id,
-                    Name = form.FormName,
-                    DisplayName = form.Code,
-                    SaccoTypeId = form.SaccoTypeId,
-                    Category = form.Category,
-                    IsActive = form.IsActive,
-                    TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
-                };
-
-                return StatusCode(201, m);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
         // delete form
@@ -112,10 +119,7 @@ namespace Returns.Controllers
 
                 if (hasExpectedReturns)
                 {
-                    return BadRequest(new
-                    {
-                        error = "Cannot delete form that has expected returns. Please remove all expected returns first or disable the form instead."
-                    });
+                    return BadRequest("Cannot delete form that has expected returns. Please remove all expected returns first or disable the form instead.");
                 }
 
                 // Delete the file from the server if it exists

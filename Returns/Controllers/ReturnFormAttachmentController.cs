@@ -43,7 +43,7 @@ namespace Returns.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating attachment preview");
-                return StatusCode(500, new { error = "Failed to generate preview" });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
@@ -110,12 +110,12 @@ namespace Returns.Controllers
                     return Ok(result);
                 }
 
-                return BadRequest(result);
+                return BadRequest(result.Errors);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error confirming attachment");
-                return StatusCode(500, new { error = "Failed to confirm attachment" });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
@@ -133,7 +133,7 @@ namespace Returns.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting attached forms for period {PeriodId}", periodId);
-                return StatusCode(500, new { error = "Failed to get attached forms" });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
@@ -152,12 +152,12 @@ namespace Returns.Controllers
                     return Ok(new { message = "Attachment removed successfully" });
                 }
 
-                return NotFound(new { error = "Attachment not found or cannot be removed" });
+                return NotFound( "Attachment not found or cannot be removed");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error removing attachment {ExpectedReturnId}", expectedReturnId);
-                return StatusCode(500, new { error = "Failed to remove attachment" });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
@@ -177,12 +177,12 @@ namespace Returns.Controllers
                     return Ok(new { message = "Filing deadlines updated successfully" });
                 }
 
-                return BadRequest(new { error = "No valid expected returns found to update" });
+                return BadRequest("No valid expected returns found to update" );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating filing deadlines");
-                return StatusCode(500, new { error = "Failed to update filing deadlines" });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 
@@ -248,7 +248,7 @@ namespace Returns.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting available forms");
-                return StatusCode(500, new { error = "Failed to get available forms" });
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
     }

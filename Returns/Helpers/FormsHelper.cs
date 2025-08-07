@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Forms;
+using Returns.Helpers.Enums;
 using Returns.Models.Data;
 using System.ComponentModel.DataAnnotations;
 using System.Text.RegularExpressions;
@@ -14,27 +15,25 @@ namespace Returns.Helpers
         public static async Task ValidateFormTypeUniqueness(CreateFormDTO createFormDTO, ReturnsDbContext context)
         {
             // Check if a form with the same category already exists for this Sacco type
-            bool exists = await context.ReturnForms.AnyAsync(f =>
+            bool existingForm = await context.ReturnForms.AnyAsync(f =>
                 f.Category == createFormDTO.Category &&
                 f.SaccoTypeId == createFormDTO.SaccoTypeId &&
                 f.IsActive);
 
-            if (exists)
+            if (existingForm != null && createFormDTO.Category != FormCategory.Other)  // Skip for Other
             {
-                var categoryName = createFormDTO.Category.ToString().Replace("_", " ");
-                throw new Exception(
-                    $"A {categoryName} form already exists for this Sacco type. Please deactivate the existing form before creating a new one.");
+                throw new Exception($"A {createFormDTO.Category} form already exists for this Sacco type. Please deactivate the existing form before creating a new one.");
             }
 
             // Also check if the form code is unique
             bool codeExists = await context.ReturnForms.AnyAsync(f =>
-                f.Code == createFormDTO.DisplayName &&
+                f.Code == createFormDTO.Name &&
                 f.SaccoTypeId == createFormDTO.SaccoTypeId);
 
             if (codeExists)
             {
                 throw new Exception(
-                    $"A form with code '{createFormDTO.DisplayName}' already exists for this Sacco type. Please use a unique code.");
+                    $"A form with code '{createFormDTO.Name}' already exists for this Sacco type. Please use a unique code.");
             }
         }
         public static bool IsValidExcelFile(IFormFile file)

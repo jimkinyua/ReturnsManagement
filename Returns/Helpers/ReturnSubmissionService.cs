@@ -951,8 +951,9 @@ namespace Returns.Helpers
         {
             try
             {
-                var sacco = await complianceService.GetSaccoByIdAsync(saccoId);
-                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialSaccoEmail))
+                long LongsaccoId = long.Parse(saccoId);
+                var sacco = await complianceService.GetSaccoByIdAsync(LongsaccoId);
+                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialEmail))
                 {
                     _logger.LogWarning("Sacco {SaccoId} not found or no email for submission confirmation.", saccoId);
                     return;
@@ -968,7 +969,7 @@ namespace Returns.Helpers
                 var subject = "Returns Submission Received";
                 var message = $"Dear {sacco.SaccoName},\n\nWe have received your returns for the period {period.Name}.\n\nThank you for your submission.\n\nBest regards,\nSASRA Team";
 
-                await _emailService.SendEmailAsync(sacco.OfficialSaccoEmail, subject, message);
+                await _emailService.SendEmailAsync(sacco.OfficialEmail, subject, message);
 
                 _logger.LogInformation("Submission confirmation email sent to Sacco {SaccoId} for period {PeriodId}.", saccoId, periodId);
             }
@@ -981,8 +982,9 @@ namespace Returns.Helpers
         {
             try
             {
-                var sacco = await complianceService.GetSaccoByIdAsync(saccoId);
-                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialSaccoEmail))
+                long LongsaccoId = long.Parse(saccoId);
+                var sacco = await complianceService.GetSaccoByIdAsync(LongsaccoId);
+                if (sacco == null || string.IsNullOrEmpty(sacco.OfficialEmail))
                 {
                     _logger.LogWarning("Sacco {SaccoId} not found or no email.", saccoId);
                     return;
@@ -992,7 +994,7 @@ namespace Returns.Helpers
                 var subject = "Incomplete Quarterly Return Submission";
                 var message = $"Your quarterly return submission for {period?.Name ?? periodId} is incomplete. {missingCount} forms are missing. Please submit the remaining forms.";
 
-                await _emailService.SendEmailAsync(sacco.OfficialSaccoEmail, subject, message);
+                await _emailService.SendEmailAsync(sacco.OfficialEmail, subject, message);
                 _logger.LogInformation("Incomplete submission notification sent to Sacco {SaccoId} for period {PeriodId}.", saccoId, periodId);
             }
             catch (Exception ex)

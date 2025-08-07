@@ -746,6 +746,8 @@ namespace Returns.Helpers
             var request = await _context.AmendmentRequests
                 .Include(r => r.ExpectedReturn)
                 .Include(r => r.ReturnSubmission)
+                    .ThenInclude(r => r.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
                 .FirstOrDefaultAsync(r => r.Id == requestId);
 
             if (request == null)
@@ -760,6 +762,8 @@ namespace Returns.Helpers
                 throw new InvalidOperationException($"Amendment request is not pending. Current status: {request.Status}.");
             }
 
+            _logger.LogInformation("Reviewing amendment request {RequestId}. Current status: {CurrentStatus}", requestId, request.Status);
+
             request.ReviewedById = reviewerId;
             request.ReviewedAt = DateTime.UtcNow;
             request.Status = approve ? AmendmentStatus.Approved : AmendmentStatus.Rejected;
@@ -771,7 +775,6 @@ namespace Returns.Helpers
                     _logger.LogWarning("Amendment request {RequestId} has no associated file.", requestId);
                     throw new InvalidOperationException("No file associated with the amendment request.");
                 }
-
                 if (!request.ParseSuccess)
                 {
                     _logger.LogWarning("Amendment request {RequestId} has invalid contents: {Errors}", requestId, request.ParseErrorsJson);
@@ -781,13 +784,13 @@ namespace Returns.Helpers
                 var dto = new NewReturnDTO
                 {
                     FormUploads = new List<ReturnFormUploadDTO>
-                    {
-                        new ReturnFormUploadDTO
-                        {
-                            ExpectedReturnId = request.ExpectedReturnId,
-                            formFile = await FormsHelper.GetFileFromUrlAsync(request.FileUrl)
-                        }
-                    }
+            {
+                new ReturnFormUploadDTO
+                {
+                    ExpectedReturnId = request.ExpectedReturnId,
+                    formFile = await FormsHelper.GetFileFromUrlAsync(request.FileUrl)
+                }
+            }
                 };
 
                 var sacco = new LoggedInEntity
@@ -802,13 +805,14 @@ namespace Returns.Helpers
                 {
                     _logger.LogWarning("Failed to process approved amendment request {RequestId}: {Errors}", requestId, string.Join(", ", result.SelectMany(r => r.Messages)));
                     request.Status = AmendmentStatus.PendingAdminApproval; // Revert to Pending on failure
-                    await _context.SaveChangesAsync();
+                    await _context.SaveChangesAsync(); // Save the revert immediately
                     throw new InvalidOperationException($"Failed to process approved submission: {string.Join(", ", result.SelectMany(r => r.Messages))}");
                 }
             }
 
             await _context.SaveChangesAsync();
-            _logger.LogInformation("Amendment request {RequestId} {Status} by reviewer {ReviewerId}", requestId, request.Status, reviewerId);
+
+            _logger.LogInformation("Amendment request {RequestId} updated to {NewStatus} by reviewer {ReviewerId}", requestId, request.Status, reviewerId);
         }
 
         public async Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingAdminApprovalAsync()

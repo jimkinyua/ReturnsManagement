@@ -328,10 +328,10 @@ namespace Returns.Helpers
             var deadline = periodEndDate.AddDays(daysAfterEnd);
 
             // If deadline falls on weekend, move to next Monday
-            if (deadline.DayOfWeek == DayOfWeek.Saturday)
+           /* if (deadline.DayOfWeek == DayOfWeek.Saturday)
                 deadline = deadline.AddDays(2);
             else if (deadline.DayOfWeek == DayOfWeek.Sunday)
-                deadline = deadline.AddDays(1);
+                deadline = deadline.AddDays(1);*/
 
             return deadline;
         }

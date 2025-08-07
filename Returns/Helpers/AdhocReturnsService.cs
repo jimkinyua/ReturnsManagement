@@ -43,10 +43,10 @@ namespace Returns.Helpers
             var query = _context.AdHocReturnRequests
                 .Where(r => r.Status == AdHocReturnRequestStatus.Pending);
 
-           /* if (!string.IsNullOrEmpty(saccoId))
-            {
-                query = query.Where(r => r.SaccoId == saccoId);
-            }*/
+            /* if (!string.IsNullOrEmpty(saccoId))
+             {
+                 query = query.Where(r => r.SaccoId == saccoId);
+             }*/
 
             var rawData = await query
             .OrderByDescending(r => r.RequestedAt)
@@ -79,8 +79,9 @@ namespace Returns.Helpers
         }
         public async Task<AdHocReturnRequest> CreateAdHocReturnRequestAsync(AdHocReturnRequestDTO dto, LoggedInEntity admin)
         {
-         
-            var sacco = await _complianceService.GetSaccoByIdAsync(dto.SaccoId);
+
+            long LongsaccoId = long.Parse(dto.SaccoId);
+            var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
             if (sacco == null)
             {
                 _logger.LogWarning("SACCO {SaccoId} not found.", dto.SaccoId);
@@ -186,7 +187,7 @@ namespace Returns.Helpers
             }
 
             List<string> attachmentUrls = new List<string>();
-             
+
             foreach (var item in dto.ResponseFiles)
             {
                 var attachmentUrl = await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
@@ -205,7 +206,7 @@ namespace Returns.Helpers
             request.Status = AdHocReturnRequestStatus.Responded;
 
             await _context.SaveChangesAsync();
-                
+
             return request;
         }
         private async Task<ReturnSubmission> GetSubmissionAsync(string submissionId, string saccoId)
@@ -323,8 +324,8 @@ namespace Returns.Helpers
             }
             request.Status = AdHocReturnRequestStatus.Completed;
             request.RespondedById = admin.UserId;
-            await  _context.SaveChangesAsync();
+            await _context.SaveChangesAsync();
             return request;
         }
     }
-}   
+}

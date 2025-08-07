@@ -21,7 +21,7 @@ namespace Returns.Helpers
 
 
         public ConsistencyCheckService(
-            ReturnsDbContext context, 
+            ReturnsDbContext context,
 
             ILogger<ConsistencyCheckService> logger,
             IRatingDefinitionService ratingDefinitionService,
@@ -40,7 +40,8 @@ namespace Returns.Helpers
         {
             try
             {
-                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoId);
+                long LongsaccoId = long.Parse(saccoId);
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                 if (saccoDetails == null)
                 {
                     _logger.LogWarning("Sacco {SaccoId} not found for consistency report.", saccoId);
@@ -52,13 +53,13 @@ namespace Returns.Helpers
 
                 // Send HTML email
                 await _emailService.SendEmailAsync(
-                    saccoDetails.OfficialSaccoEmail,
+                    saccoDetails.OfficialEmail,
                     "Validation Report - Consistency Errors",
                     htmlReport);
 
                 // Send PDF attachment email
                 await _emailService.SendEmailWithAttachmentAsync(
-                    saccoDetails.OfficialSaccoEmail,
+                    saccoDetails.OfficialEmail,
                     "Validation Report - Consistency Errors",
                     $"<p>Please find attached the validation report for your SACCO's financial returns for the period <strong>{commonPeriod}</strong>.</p>",
                     consistencyReport,
@@ -74,12 +75,12 @@ namespace Returns.Helpers
         }
 
 
-        public async Task<(bool IsValid, List<string> ProcessingSummary, List<ValidationError> ConsistencyErrors, bool HasConsistencyBeenChecked, List<object> FormData, string? CommonPeriod)> CheckConsistencyAsync(NewReturnDTO createFormDTO, string ratingName, LoggedInEntity  loggedInEntity)
+        public async Task<(bool IsValid, List<string> ProcessingSummary, List<ValidationError> ConsistencyErrors, bool HasConsistencyBeenChecked, List<object> FormData, string? CommonPeriod)> CheckConsistencyAsync(NewReturnDTO createFormDTO, string ratingName, LoggedInEntity loggedInEntity)
         {
             var processingSummary = new List<string>();
             var consistencyErrors = new List<ValidationError>();
             var formData = new List<object>();
-            string? commonPeriod = null; 
+            string? commonPeriod = null;
 
             try
             {
@@ -129,7 +130,7 @@ namespace Returns.Helpers
             }
         }
 
-        private async Task SaveOrUpdateConsistencyCheckAsync(NewReturnDTO createFormDTO, LoggedInEntity  loggedInEntity, bool isValid, List<ValidationError> errors, string ratingDefinitionId)
+        private async Task SaveOrUpdateConsistencyCheckAsync(NewReturnDTO createFormDTO, LoggedInEntity loggedInEntity, bool isValid, List<ValidationError> errors, string ratingDefinitionId)
         {
             // Assume the first form's ExpectedReturn gives us the PeriodId (since all forms are for the same period in consistency check)
             var firstForm = createFormDTO.FormUploads.FirstOrDefault();
@@ -294,7 +295,7 @@ namespace Returns.Helpers
             return missingForms;
         }
 
-        private ValidationResult PerformConsistencyValidation(Dictionary<string, object> formDataMap,string SaccoType)
+        private ValidationResult PerformConsistencyValidation(Dictionary<string, object> formDataMap, string SaccoType)
         {
             var result = new ValidationResult { IsValid = true };
 
@@ -309,7 +310,7 @@ namespace Returns.Helpers
                 var financialPosition = GetFormDataByCategory(formDataMap, FormCategory.FinancialPosition);
                 var comprehensiveIncome = GetFormDataByCategory(formDataMap, FormCategory.StatementOfComprehensiveIncome);
 
-           
+
                 if (string.Equals(SaccoType, "1"))
                 {
                     // Perform NWDT consistency checks
@@ -343,7 +344,7 @@ namespace Returns.Helpers
         }
 
         private void PerformCapitalConsistencyChecks(dynamic? capitalAdequacy, dynamic? financialPosition, dynamic? comprehensiveIncome, ValidationResult result)
-            {
+        {
             if (capitalAdequacy?.Rows == null || financialPosition?.Rows == null) return;
 
             var capitalRows = capitalAdequacy.Rows;

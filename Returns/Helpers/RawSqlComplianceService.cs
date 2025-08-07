@@ -146,65 +146,7 @@ namespace Returns.Helpers
             }
         }
 
-        public async Task<Sacco> GetSaccoByIdAsync(string saccoId)
-        {
-            try
-            {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    await connection.OpenAsync();
-                    string sql = @"
-                SELECT 
-                    [Id],
-                    [SaccoName],
-                    [OfficialSaccoEmail],
-                    [ContactNumber],
-                    [Kra_Pin],
-                    [SaccoType],
-                    [IsApproved],
-                    [AuthorizedRepresentative],
-                    [ApprovedAt],
-                    [CooperativeSocietyNo],
-                    [TeamId],
-                    [TeamName]
-                FROM [Saccos]
-                WHERE Id = @saccoId";
-
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.Add(new SqlParameter("@saccoId", SqlDbType.NVarChar) { Value = saccoId });
-
-                        using (var reader = await command.ExecuteReaderAsync())
-                        {
-                            if (await reader.ReadAsync())
-                            {
-                                return new Sacco
-                                {
-                                    Id = reader["Id"]?.ToString() ?? string.Empty,
-                                    SaccoName = reader["SaccoName"]?.ToString() ?? string.Empty,
-                                    OfficialSaccoEmail = reader["OfficialSaccoEmail"]?.ToString() ?? string.Empty,
-                                    ContactNumber = reader["ContactNumber"]?.ToString() ?? string.Empty,
-                                    KraPin = reader["Kra_Pin"]?.ToString() ?? string.Empty,
-                                    SaccoType = reader["SaccoType"]?.ToString() ?? string.Empty,
-                                    IsApproved = reader["IsApproved"] as bool? ?? false,
-                                    AuthorizedRepresentative = reader["AuthorizedRepresentative"]?.ToString() ?? string.Empty,
-                                    ApprovedAt = reader["ApprovedAt"] as DateTime?,
-                                    CooperativeSocietyNo = reader["CooperativeSocietyNo"]?.ToString() ?? string.Empty,
-                                    TeamId = reader["TeamId"]?.ToString() ?? string.Empty,
-                                    TeamName = reader["TeamName"]?.ToString() ?? string.Empty
-                                };
-                            }
-                            return null; // Return null if no sacco found
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving Sacco with ID {SaccoId}", saccoId);
-                throw; // Re-throw the exception to let the caller handle it
-            }
-        }
+        
         public Task<SasraUser?> GetTeamLead(string teamId)
         {
             try
@@ -305,7 +247,7 @@ namespace Returns.Helpers
         }
 
 
-        public Task<SasraUser?> GetUserByRole(string RoleId)
+      /*  public Task<SasraUser?> GetUsersByRole(string RoleId)
         {
             try
             {
@@ -349,7 +291,7 @@ namespace Returns.Helpers
                 _logger.LogError(ex, "Error retrieving team lead for Team ID {TeamId}", RoleId);
                 return Task.FromResult<SasraUser?>(null);
             }
-        }
+        }*/
 
         public async Task<List<Sacco>> GetSaccosAssignedToOfficerAsync(string userId)
         {
@@ -500,6 +442,42 @@ namespace Returns.Helpers
             }
         }
 
+        public async Task<List<MinSasraUser>> GetUsersByRole(string RoleId)
+        {
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/api/auth/users-by-role-id/{RoleId}");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get role details for {RoleId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
+
+                // Read the raw JSON string for debugging
+                var jsonResponse = await resp.Content.ReadAsStringAsync();
+                Console.WriteLine($"Raw JSON Response for RoleId {RoleId}: {jsonResponse}"); // Log to console
+                                                                                             // Optionally, log to a file
+                await File.AppendAllTextAsync("debug_log.txt", $"[{DateTime.Now}] RoleId {RoleId}: {jsonResponse}\n");
+
+                // Convert string back to stream for deserialization
+                await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(jsonResponse));
+                var roleDetails = await JsonSerializer.DeserializeAsync<List<MinSasraUser>>(stream, _jsonOpts);
+                return roleDetails ?? throw new InvalidDataException($"Deserialized role details for {RoleId} is null.");
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for role {RoleId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting role details for {RoleId}: {ex.Message}", ex);
+            }
+        }
+
         public async Task<string?> GetTeamIdForSaccoAsync(string saccoId)
         {
             try
@@ -595,7 +573,7 @@ namespace Returns.Helpers
             try
             {
                 // Call the gateway endpoint for this team’s sacco list
-                var resp = await _httpClient.GetAsync($"gateway/api/auth/teams/{teamId}/saccos-list");
+                var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/saccos-list");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -761,6 +739,40 @@ namespace Returns.Helpers
                 throw new Exception($"Unexpected error getting saccos for team {teamId}: {ex.Message}", ex);
             }
         }
+
+        public async Task<SaccoDTO> GetSaccoByIdAsync(long saccoId)
+        {
+            try
+            {
+                var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}");
+                if (!resp.IsSuccessStatusCode)
+                {
+                    var errorContent = await resp.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Failed to get saccos for  {saccoId}. Status: {resp.StatusCode}. Error: {errorContent}");
+                }
+                var content = await resp.Content.ReadAsStringAsync();
+
+                await using var stream = await resp.Content.ReadAsStreamAsync();
+                var list = await JsonSerializer.DeserializeAsync<SaccoDTO>(stream, _jsonOpts);
+
+                return list ?? new SaccoDTO();
+            }
+            catch (JsonException ex)
+            {
+                throw new InvalidDataException($"JSON deserialization error for saccos  {saccoId}: {ex.Message}", ex);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Unexpected error getting saccos for team {saccoId}: {ex.Message}", ex);
+            }
+
+        }
+
+
 
         public async Task<SaccoDTO> GetSaccoByTheirIdAsync(string saccoId)
         {

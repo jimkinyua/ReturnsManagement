@@ -209,7 +209,8 @@ namespace Returns.Controllers
                 }
 
                 var coUser = await _complianceService.GetAssignedComplianceOfficer(submissionDetails.SaccoId);
-                var sacco = await _complianceService.GetSaccoByIdAsync(submissionDetails.SaccoId);
+                long LongsaccoId = long.Parse(submissionDetails.SaccoId);
+                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                 if (sacco == null || coUser == null)
                 {
                     return NotFound("Sacco or compliance officer not found.");
@@ -222,7 +223,7 @@ namespace Returns.Controllers
                     .Distinct();
 
                 await _emailSender.SendEmailAsyncWithCC(
-                    sacco.OfficialSaccoEmail,
+                    sacco.OfficialEmail,
                     "Additional Information Request",
                     "You have a new request for additional information.",
                     ccAddresses);
