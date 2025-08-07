@@ -58,7 +58,7 @@ namespace Returns.Helpers
 
         }
 
-        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco, Boolean IsAmendment = false)
+        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco, Boolean IsAmendment = false, Boolean NeedFileToSave=true, string SavedFileUrl="")
         {
             var results = new List<SubmissionResultDto>();
 
@@ -109,15 +109,23 @@ namespace Returns.Helpers
                         continue;
                     }
 
-                    // Save file (non-DB: we'll delete on rollback if needed)
-                    savedUrl = await FormsHelper.SaveFileAsync(item.formFile, "Returns");
-                    if (savedUrl == null)
+                    if (NeedFileToSave)
                     {
-                        res.Status = SubmissionStatus.Failed;
-                        res.Messages.Add("Could not store file.");
-                        results.Add(res);
-                        continue;
+                        // Save file (non-DB: we'll delete on rollback if needed)
+                        savedUrl = await FormsHelper.SaveFileAsync(item.formFile, "Returns");
+                        if (savedUrl == null)
+                        {
+                            res.Status = SubmissionStatus.Failed;
+                            res.Messages.Add("Could not store file.");
+                            results.Add(res);
+                            continue;
+                        }
                     }
+                    else
+                    {
+                        savedUrl = SavedFileUrl;
+                    }
+                   
 
                     // Determine the status for the new submission
                     string newStatus = IsAmendment ? previous!.Status : SubmissionStatus.Draft.ToString();
