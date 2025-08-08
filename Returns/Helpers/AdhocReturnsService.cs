@@ -184,7 +184,7 @@ namespace Returns.Helpers
             List<string> attachmentUrls = new List<string>();
             foreach (var item in dto.ResponseFiles)
             {
-                var attachmentUrl = await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
+                var attachmentUrl = "Ngori"; // await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
                 if (attachmentUrl == null)
                 {
                     throw new InvalidOperationException("Failed to save attachment file.");
@@ -197,6 +197,8 @@ namespace Returns.Helpers
             request.RespondedById = loggedInEntity.UserId;
             request.RespondedAt = DateTime.UtcNow;
             request.Status = AdHocReturnRequestStatus.Responded;
+            _context.AdHocReturnRequests.Entry(request).State = EntityState.Modified;
+            _context.AdHocReturnRequests.Update(request);
             await _context.SaveChangesAsync();
             return request;
         }
@@ -263,10 +265,10 @@ namespace Returns.Helpers
             var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
             var query = _context.AdHocReturnRequests
                           .Where(r => r.Status == AdHocReturnRequestStatus.Responded);
-            if (!string.IsNullOrEmpty(saccoId))
+           /* if (!string.IsNullOrEmpty(saccoId))
             {
                 query = query.Where(r => r.SaccoId == saccoId);
-            }
+            }*/
             var rawData = await query
             .OrderByDescending(r => r.RequestedAt)
             .Select(r => new

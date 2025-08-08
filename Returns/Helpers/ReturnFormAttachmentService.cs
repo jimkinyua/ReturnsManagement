@@ -101,7 +101,7 @@ namespace Returns.Helpers
 
                     var filingDeadline = CalculateFilingDeadline(
                         period.EndDate,
-                         period.FrequencyCatalog.DefaultDeadlineOffset);
+                         period.FrequencyCatalog.DefaultDeadlineOffset, period.FrequencyCatalog.LabelStrategy);
 
                     expectedReturns.Add(new ExpectedReturnPreviewDto
                     {
@@ -198,7 +198,9 @@ namespace Returns.Helpers
                                 // Update existing
                                 existing.FilingDeadline = CalculateFilingDeadline(
                                     period.EndDate,
-                                    period.FrequencyCatalog.DefaultDeadlineOffset);
+                                    period.FrequencyCatalog.DefaultDeadlineOffset,
+                                    period.FrequencyCatalog.LabelStrategy
+                                    );
                                 existing.IsActive = true;
                                 existing.Status = ExpectedStatus.Due;
                                 result.UpdatedCount++;
@@ -218,7 +220,8 @@ namespace Returns.Helpers
                                 ReturnFormId = form.Id,
                                 FilingDeadline = CalculateFilingDeadline(
                                     period.EndDate,
-                                    period.FrequencyCatalog.DefaultDeadlineOffset),
+                                    period.FrequencyCatalog.DefaultDeadlineOffset
+                                    ,period.FrequencyCatalog.LabelStrategy),
                                 Status = ExpectedStatus.Due,
                                 IsActive = true
                             };
@@ -323,17 +326,69 @@ namespace Returns.Helpers
             return true;
         }
 
-        private DateTime CalculateFilingDeadline(DateTime periodEndDate, int daysAfterEnd)
+        private DateTime CalculateFilingDeadline(DateTime periodEndDate, int defaultOffset, string labelStrategy)
         {
-            var deadline = periodEndDate.AddDays(daysAfterEnd);
-
-            // If deadline falls on weekend, move to next Monday
-           /* if (deadline.DayOfWeek == DayOfWeek.Saturday)
-                deadline = deadline.AddDays(2);
-            else if (deadline.DayOfWeek == DayOfWeek.Sunday)
-                deadline = deadline.AddDays(1);*/
-
+            DateTime deadline;
+            switch (labelStrategy.ToUpperInvariant())
+            {
+                case "DATE": // Daily: Same day if offset=0, or offset days
+                    deadline = periodEndDate.AddDays(defaultOffset);
+                    break;
+                case "ISO_WEEK":
+                case "BI_WEEK":
+                    // Weekly/Bi-Weekly: Fallback to offset (e.g., 15 days post-end)
+                    deadline = periodEndDate.AddDays(defaultOffset > 0 ? defaultOffset : 15);
+                    break;
+                case "MONTH":
+                case "QUARTER":
+                    var nextMonth = periodEndDate.AddMonths(1);
+                    deadline = new DateTime(nextMonth.Year, nextMonth.Month, defaultOffset);
+                    break;
+                case "SEMI_ANNUAL":
+                    deadline = periodEndDate.AddDays(defaultOffset > 0 ? defaultOffset : 45);
+                    break;
+                case "YEAR":
+                    // SASRA: Use offset from DB for annual, or default to 90 if not set
+                    deadline = periodEndDate.AddDays(defaultOffset > 0 ? defaultOffset : 90);
+                    break;
+                default:
+                    // General fallback: Use offset from DB, or default to 15 if not set
+                    deadline = periodEndDate.AddDays(defaultOffset > 0 ? defaultOffset : 15);
+                    break;
+            }
+            // Adjust for weekends and holidays (SASRA practical enforcement)
+            deadline = AdjustForBusinessDay(deadline);
             return deadline;
         }
+
+        // Helper method
+        private DateTime AdjustForBusinessDay(DateTime date)
+        {
+            if (date.DayOfWeek == DayOfWeek.Saturday)
+                date = date.AddDays(2);
+            else if (date.DayOfWeek == DayOfWeek.Sunday)
+                date = date.AddDays(1);
+          
+               var holidays = new List<DateTime>
+                {
+                    new DateTime(date.Year, 1, 1),   // New Year's Day
+                    new DateTime(date.Year, 4, 1),   // Labour Day (example; actual varies)
+                    new DateTime(date.Year, 6, 1),   // Madaraka Day
+                    new DateTime(date.Year, 10, 10), // Huduma Day
+                    new DateTime(date.Year, 10, 20), // Mashujaa Day
+                    new DateTime(date.Year, 12, 12), // Jamhuri Day
+                    new DateTime(date.Year, 12, 25), // Christmas
+                    new DateTime(date.Year, 12, 26)  // Boxing Day
+                    // Add more defaults as needed
+                };
+            
+
+            while (holidays.Contains(date.Date) || date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday)
+            {
+                date = date.AddDays(1);
+            }
+            return date;
+        }
+
     }
 }
