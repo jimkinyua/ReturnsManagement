@@ -8,6 +8,7 @@ using System.ComponentModel.DataAnnotations;
 using Returns.Models.Data;
 using Returns.Helpers.Enums;
 using static Returns.Helpers.Constants;
+using System.Text.RegularExpressions;
 
 namespace Returns.Helpers
 {
@@ -38,7 +39,9 @@ namespace Returns.Helpers
 
                 // Check file extension
                 var extension = Path.GetExtension(file.FileName).ToLower();
-                if (extension != ".xlsx")
+                string sanitizedFileName = Regex.Replace(extension, @"[\\/""\s]+$", ""); // Remove trailing slashes, quotes, and spaces
+
+                if (sanitizedFileName != ".xlsx")
                 {
                     result.Success = false;
                     result.Errors.Add($"'{file.FileName}' is an *.xls* (Excel 97-2003) file. The system only accepts *.xlsx* workbooks (Excel 2007 or later).");
