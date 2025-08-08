@@ -2,11 +2,10 @@
 {
     public class OtherReturnDTO :CommonFormDTO
     {
-        public string FormName { get; set; }
-        public string FileUrl { get; set; }
-        public string SaccoId { get; set; }
-        public string SaccoType { get; set; }
-        public string SaccoName { get; set; }
-        public string ReturnId { get; set; }
+        public string FormName { get; set; } = string.Empty;
+        public string SaccoId { get; set; } = string.Empty;
+        public string SaccoType { get; set; } = string.Empty;
+        public string SaccoName { get; set; } = string.Empty;
+        public string ReturnId { get; set; } = string.Empty;
     }
 }

@@ -810,6 +810,9 @@ namespace Returns.Helpers
                         case FormCategory.InvestmentReturn:
                             detailsDto.InvestmentReturn = await MapInvestmentWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
+                        case FormCategory.Other:
+                            detailsDto.Other = await MapOtherWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
                     }
 
                     workflowState = await _workflowEngineService.GetCurrentStateAsync(null, null, submission.Id);
@@ -876,6 +879,9 @@ namespace Returns.Helpers
                                 break;
                             case FormCategory.Management:
                                 detailsDto.InvestmentReturn = await MapManagementWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                                break;
+                            case FormCategory.Other:
+                                detailsDto.Other = await MapOtherWithVersionsAsync(submission, saccoType, periodId, saccoId);
                                 break;
                         }
                     }
@@ -1142,6 +1148,37 @@ namespace Returns.Helpers
                 };
             }
         }
+
+
+        private async Task<object?> MapOtherWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        {
+            var result = MapOther(submission);
+            if (result is CommonFormDTO dto)
+            {
+                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                dto.AvailableVersions = versions;
+                dto.HasMultipleVersions = versions.Count > 1;
+            }
+            return result;
+        }
+
+        private object MapOther(ReturnSubmission submission)
+        {
+            var otherEntity = submission.OtherReturns.FirstOrDefault();
+            if (otherEntity == null) return null;
+
+            var other = new OtherReturnDTO
+            {
+                SubmissionId = submission.Id,
+                SaccoId = submission.SaccoId,
+                FileUrl = UrlHelper.BuildFullUrl(_configuration, otherEntity.FileUrl),
+                FormId = otherEntity.FormName ?? string.Empty,
+                RequiresResubmission = otherEntity.RequiresResubmission, // Assuming OtherReturn has this property; adjust if not
+                FormName = otherEntity.FormName.Trim(),
+            };
+            return other;
+        }
+
 
         private object MapInvestment(ReturnSubmission submission, string? saccoType)
         {

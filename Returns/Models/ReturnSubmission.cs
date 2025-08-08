@@ -43,6 +43,7 @@ namespace Returns.Models
         public virtual ICollection<AuditedComprehensiveIncome> AuditedComprehensiveIncomes { get; set; } = new List<AuditedComprehensiveIncome>();
         public virtual ICollection<AuditedRiskClassification> AuditedRiskClassifications { get; set; } = new List<AuditedRiskClassification>();
         public virtual ICollection<ManagementReturn> ManagementReturns { get; set; } = new List<ManagementReturn>();
+        public virtual ICollection<OtherReturn> OtherReturns { get; set; } = new List<OtherReturn>();
 
 
 

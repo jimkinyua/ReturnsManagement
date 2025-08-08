@@ -18,15 +18,18 @@ namespace Returns.Helpers
         private readonly IExcelParser _excelParser;
         private readonly IComplianceService _complianceService;
         private readonly IWorkflowEngineService _workflowEngineService;
+        private readonly IConfiguration _configuration;
+
         public AdhocReturnsService(
-                 ReturnsDbContext context,
-                 IEmailService emailService,
-                 ILogger<AmendmentService> logger,
-                 IReturnSubmissionService returnSubmissionService,
-                 IReturnAmendmentPolicy returnAmendmentPolicy,
-                 IComplianceService complianceService,
-                 IWorkflowEngineService workflowEngineService,
-                 IExcelParser excelParser)
+            ReturnsDbContext context,
+            IEmailService emailService,
+            ILogger<AmendmentService> logger,
+            IReturnSubmissionService returnSubmissionService,
+            IReturnAmendmentPolicy returnAmendmentPolicy,
+            IComplianceService complianceService,
+            IWorkflowEngineService workflowEngineService,
+            IExcelParser excelParser,
+            IConfiguration configuration)
         {
             _context = context;
             _emailService = emailService;
@@ -36,18 +39,18 @@ namespace Returns.Helpers
             _returnAmendmentPolicy = returnAmendmentPolicy;
             _excelParser = excelParser;
             _workflowEngineService = workflowEngineService;
+            _configuration = configuration;
         }
 
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetPendingAdHocReturnRequestsAsync(string? saccoId = null)
         {
+            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
             var query = _context.AdHocReturnRequests
                 .Where(r => r.Status == AdHocReturnRequestStatus.Pending);
-
             /* if (!string.IsNullOrEmpty(saccoId))
              {
                  query = query.Where(r => r.SaccoId == saccoId);
              }*/
-
             var rawData = await query
             .OrderByDescending(r => r.RequestedAt)
             .Select(r => new
@@ -61,7 +64,6 @@ namespace Returns.Helpers
                 r.Status
             })
             .ToListAsync();
-
             var requests = rawData.Select(r => new PendingAdHocReturnRequestDTO
             {
                 Id = r.Id,
@@ -71,15 +73,15 @@ namespace Returns.Helpers
                 Description = r.Description,
                 AttachmentUrls = string.IsNullOrEmpty(r.AttachmentUrlsJson)
          ? new List<string>()
-         : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!,
+         : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!
+             .Select(url => $"{baseUrl}{url}").ToList(),
                 Status = r.Status.ToString()
             }).ToList();
-
             return requests;
         }
+
         public async Task<AdHocReturnRequest> CreateAdHocReturnRequestAsync(AdHocReturnRequestDTO dto, LoggedInEntity admin)
         {
-
             long LongsaccoId = long.Parse(dto.SaccoId);
             var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
             if (sacco == null)
@@ -87,9 +89,7 @@ namespace Returns.Helpers
                 _logger.LogWarning("SACCO {SaccoId} not found.", dto.SaccoId);
                 throw new InvalidOperationException("SACCO not found.");
             }
-
             List<string> attachmentUrls = new List<string>();
-
             foreach (var item in dto?.AttachmentFiles)
             {
                 var attachmentUrl = await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
@@ -100,7 +100,6 @@ namespace Returns.Helpers
                 }
                 attachmentUrls.Add(attachmentUrl);
             }
-
             // Create new ad hoc return request
             var newRequest = new AdHocReturnRequest
             {
@@ -111,25 +110,23 @@ namespace Returns.Helpers
                 AttachmentUrlsJson = JsonSerializer.Serialize(attachmentUrls),
                 Status = AdHocReturnRequestStatus.Pending,
             };
-
             await _context.AdHocReturnRequests.AddAsync(newRequest);
             await _context.SaveChangesAsync();
-
             // Notify SACCO
             return newRequest;
         }
+
         public async Task<AdHocReturnRequestDetailsDTO> GetAdHocReturnRequestDetailsAsync(string requestId, LoggedInEntity admin)
         {
+            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
             var request = await _context.AdHocReturnRequests
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == requestId);
-
             if (request == null)
             {
                 _logger.LogWarning("Ad hoc return request {RequestId} not found.", requestId);
                 throw new InvalidOperationException("Ad hoc return request not found.");
             }
-
             List<string> attachmentUrls = new List<string>();
             List<string> responseFileUrls = new List<string>();
             try
@@ -148,7 +145,8 @@ namespace Returns.Helpers
                 _logger.LogError(ex, "Failed to deserialize JSON for ad hoc return request {RequestId}", requestId);
                 throw new InvalidOperationException("Failed to deserialize request contents.");
             }
-
+            attachmentUrls = attachmentUrls.Select(url => $"{baseUrl}{url}").ToList();
+            responseFileUrls = responseFileUrls.Select(url => $"{baseUrl}{url}").ToList();
             return new AdHocReturnRequestDetailsDTO
             {
                 Id = request.Id,
@@ -164,30 +162,26 @@ namespace Returns.Helpers
                 Status = request.Status.ToString()
             };
         }
+
         public async Task<AdHocReturnRequest> RespondToAdHocReturnRequestAsync(AdHocReturnResponseDTO dto, LoggedInEntity loggedInEntity)
         {
             if (dto == null)
             {
                 throw new ArgumentNullException(nameof(dto));
             }
-
             var request = await _context.AdHocReturnRequests
                 .FirstOrDefaultAsync(r => r.Id == dto.RequestId && r.Status == AdHocReturnRequestStatus.Pending);
-
             if (request == null)
             {
                 _logger.LogWarning("Ad hoc return request {RequestId} not found or not pending.", dto.RequestId);
                 throw new InvalidOperationException("Ad hoc return request not found or not pending.");
             }
-
             if (loggedInEntity.SaccoId != request.SaccoId)
             {
                 _logger.LogWarning("Unauthorized attempt to respond to ad hoc request {RequestId} by SACCO {SaccoId}", dto.RequestId, loggedInEntity.SaccoId);
                 throw new UnauthorizedAccessException("You do not have permission to respond to this request.");
             }
-
             List<string> attachmentUrls = new List<string>();
-
             foreach (var item in dto.ResponseFiles)
             {
                 var attachmentUrl = await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
@@ -197,50 +191,44 @@ namespace Returns.Helpers
                 }
                 attachmentUrls.Add(attachmentUrl);
             }
-
             // Update request
             request.ResponseDescription = dto.ResponseDescription.Trim();
             request.ResponseFileUrlsJson = JsonSerializer.Serialize(attachmentUrls);
             request.RespondedById = loggedInEntity.UserId;
             request.RespondedAt = DateTime.UtcNow;
             request.Status = AdHocReturnRequestStatus.Responded;
-
             await _context.SaveChangesAsync();
-
             return request;
         }
+
         private async Task<ReturnSubmission> GetSubmissionAsync(string submissionId, string saccoId)
         {
             var submission = await _context.ReturnSubmissions
                 .Include(s => s.ExpectedReturn)
                 .ThenInclude(er => er.ReturnForm)
                 .FirstOrDefaultAsync(s => s.Id == submissionId);
-
             if (submission == null)
             {
                 _logger.LogWarning("Return submission {SubmissionId} not found.", submissionId);
                 throw new InvalidOperationException("Return submission not found.");
             }
-
             if (saccoId != submission.SaccoId)
             {
                 _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
                 throw new UnauthorizedAccessException("You do not have permission to access this submission.");
             }
-
             return submission;
         }
 
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetCompletedAdHocReturnRequestsAsync(string? saccoId = null)
         {
+            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
             var query = _context.AdHocReturnRequests
                           .Where(r => r.Status == AdHocReturnRequestStatus.Completed);
-
             if (!string.IsNullOrEmpty(saccoId))
             {
                 query = query.Where(r => r.SaccoId == saccoId);
             }
-
             var rawData = await query
             .OrderByDescending(r => r.RequestedAt)
             .Select(r => new
@@ -254,7 +242,6 @@ namespace Returns.Helpers
                 r.Status
             })
             .ToListAsync();
-
             var requests = rawData.Select(r => new PendingAdHocReturnRequestDTO
             {
                 Id = r.Id,
@@ -264,24 +251,22 @@ namespace Returns.Helpers
                 Description = r.Description,
                 AttachmentUrls = string.IsNullOrEmpty(r.AttachmentUrlsJson)
          ? new List<string>()
-         : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!,
+         : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!
+             .Select(url => $"{baseUrl}{url}").ToList(),
                 Status = r.Status.ToString()
             }).ToList();
-
             return requests;
         }
 
-
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetRespondedAdHocReturnRequestsAsync(string? saccoId = null)
         {
+            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
             var query = _context.AdHocReturnRequests
                           .Where(r => r.Status == AdHocReturnRequestStatus.Responded);
-
             if (!string.IsNullOrEmpty(saccoId))
             {
                 query = query.Where(r => r.SaccoId == saccoId);
             }
-
             var rawData = await query
             .OrderByDescending(r => r.RequestedAt)
             .Select(r => new
@@ -295,7 +280,6 @@ namespace Returns.Helpers
                 r.Status
             })
             .ToListAsync();
-
             var requests = rawData.Select(r => new PendingAdHocReturnRequestDTO
             {
                 Id = r.Id,
@@ -305,10 +289,10 @@ namespace Returns.Helpers
                 Description = r.Description,
                 AttachmentUrls = string.IsNullOrEmpty(r.AttachmentUrlsJson)
          ? new List<string>()
-         : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!,
+         : JsonSerializer.Deserialize<List<string>>(r.AttachmentUrlsJson)!
+             .Select(url => $"{baseUrl}{url}").ToList(),
                 Status = r.Status.ToString()
             }).ToList();
-
             return requests;
         }
 
@@ -316,7 +300,6 @@ namespace Returns.Helpers
         {
             var request = await _context.AdHocReturnRequests
                 .FirstOrDefaultAsync(r => r.Id == RequestId);
-
             if (request == null)
             {
                 _logger.LogWarning("Ad hoc return request {RequestId} not found or not pending.", RequestId);

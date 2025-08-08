@@ -34,6 +34,7 @@ namespace Returns.DTOs.Returns_Submission
         public object? ComprehensiveIncome { get; set; }
         public object? InvestmentReturn { get; set; }
         public object? Management { get; set; }
+        public object? Other { get; set; }
         public List<ReturnAnalysisHelper.ValidationError> ConsistencyErrors { get; internal set; } = new List<ReturnAnalysisHelper.ValidationError>();
         public WorkflowStateDto? WorkflowState { get; set; }
         public SingleCAELSDTO Ratings { get; set; } = new SingleCAELSDTO();

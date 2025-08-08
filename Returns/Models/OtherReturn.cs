@@ -10,9 +10,9 @@ namespace Returns.Models
         public string SaccoId { get; set; } = null!;
         public string SaccoType { get; set; } = null!;
         public string SaccoName { get; set; } = "";
-        [ForeignKey("ReturnId")]
-        public string ReturnId { get; set; } = null!;
-        public virtual Return Return { get; set; } = null!;
+        [ForeignKey("ReturnSubmission")]
+        public string ReturnSubmissionId { get; set; } = null!;
+        public virtual ReturnSubmission ReturnSubmission { get; set; } = null!;
 
     }
 }

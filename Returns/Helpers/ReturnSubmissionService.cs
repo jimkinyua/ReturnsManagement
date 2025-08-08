@@ -58,18 +58,15 @@ namespace Returns.Helpers
 
         }
 
-        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco, Boolean IsAmendment = false, Boolean NeedFileToSave=true, string SavedFileUrl="")
+        public async Task<IList<SubmissionResultDto>> UploadDraftAsync(NewReturnDTO dto, LoggedInEntity loggedInSacco, Boolean IsAmendment = false, Boolean NeedFileToSave = true, string SavedFileUrl = "")
         {
             var results = new List<SubmissionResultDto>();
-
             foreach (var item in dto.FormUploads)
             {
                 var res = new SubmissionResultDto();
                 res.FormFileName = item.formFile?.FileName ?? "Unknown";
                 string? savedUrl = null;
-
                 await using var trx = await _context.Database.BeginTransactionAsync();
-
                 try
                 {
                     if (item.formFile == null || item.formFile.Length == 0)
@@ -79,12 +76,10 @@ namespace Returns.Helpers
                         results.Add(res);
                         continue;
                     }
-
                     // Get expected return and validate
                     var expected = await _context.ExpectedReturns
                         .Include(er => er.ReturnForm)
                         .FirstOrDefaultAsync(er => er.Id == item.ExpectedReturnId);
-
                     if (expected == null || expected.ReturnForm.SaccoTypeId != loggedInSacco.SaccoType)
                     {
                         res.Status = SubmissionStatus.Failed;
@@ -92,14 +87,12 @@ namespace Returns.Helpers
                         results.Add(res);
                         continue;
                     }
-
                     // Find the current latest submission (if any) for this return
                     var previous = await _context.ReturnSubmissions
                         .Where(s => s.ExpectedReturnId == item.ExpectedReturnId
                                     && s.SaccoId == loggedInSacco.SaccoId
                                     && s.IsLatest)
                         .SingleOrDefaultAsync();
-
                     // If IsAmendment is true but no previous submission exists, treat as error or fallback to Draft
                     if (IsAmendment && previous == null)
                     {
@@ -108,7 +101,6 @@ namespace Returns.Helpers
                         results.Add(res);
                         continue;
                     }
-
                     if (NeedFileToSave)
                     {
                         // Save file (non-DB: we'll delete on rollback if needed)
@@ -125,25 +117,22 @@ namespace Returns.Helpers
                     {
                         savedUrl = SavedFileUrl;
                     }
-                   
 
                     // Determine the status for the new submission
                     string newStatus = IsAmendment ? previous!.Status : SubmissionStatus.Draft.ToString();
-
                     // Create the new submission (version = prev.Version + 1)
                     var submission = new ReturnSubmission
                     {
                         ExpectedReturnId = item.ExpectedReturnId,
                         SaccoId = loggedInSacco.SaccoId,
                         Status = newStatus,
-                        SubmittedAt = DateTime.Now,
+                        SubmittedAt = DateTime.UtcNow,
                         IsLatest = true,
                         IsActive = true,
                         FileUrl = savedUrl,
                         Version = (previous?.Version ?? 0) + 1,
                         AmendsSubmissionId = previous?.Id
                     };
-
                     if (previous != null)
                     {
                         previous.IsLatest = false;
@@ -152,40 +141,47 @@ namespace Returns.Helpers
                         _context.ReturnSubmissions.Entry(previous).State = EntityState.Modified;
                         _context.ReturnSubmissions.Update(previous);
                     }
-
                     await _context.ReturnSubmissions.AddAsync(submission);
-                    await _context.SaveChangesAsync();  // Save submission inside transaction
-
+                    await _context.SaveChangesAsync(); // Save submission inside transaction
                     res.SubmissionId = submission.Id;
-
                     FormCategory Category = (FormCategory)expected.ReturnForm.Category;
-
-                    // Parse the Excel file
-                    var parse = await _excelParser.ParseAsync(item.formFile, Category, loggedInSacco.SaccoType);
-
-                    if (!parse.Success)
+                    if (Category != FormCategory.Other)
                     {
-                        res.Status = SubmissionStatus.Failed;
-                        res.Messages.AddRange(parse.Errors);
-                        throw new Exception("Parsing failed");  // Trigger rollback
+                        // Parse the Excel file
+                        var parse = await _excelParser.ParseAsync(item.formFile, Category, loggedInSacco.SaccoType);
+                        if (!parse.Success)
+                        {
+                            res.Status = SubmissionStatus.Failed;
+                            res.Messages.AddRange(parse.Errors);
+                            throw new Exception("Parsing failed"); // Trigger rollback
+                        }
+                        // Process parsed rows and save entities
+                        foreach (var row in parse.Rows)
+                        {
+                            row.ReturnSubmissionId = submission.Id;
+                            var entity = row.ToEntity();
+                            await AddEntityToSubmission(submission, entity);
+                        }
                     }
-
-                    // Process parsed rows and save entities
-                    foreach (var row in parse.Rows)
+                    else
                     {
-                        row.ReturnSubmissionId = submission.Id;
-                        var entity = row.ToEntity();
-                        await AddEntityToSubmission(submission, entity);
+                        // Handle "Other" category: No parsing, just create and add OtherReturn entity
+                        var otherReturn = new OtherReturn
+                        {
+                            FormName = expected.ReturnForm.FormName ?? res.FormFileName,
+                            FileUrl = savedUrl ?? throw new Exception("File URL is required for Other returns"),
+                            SaccoId = loggedInSacco.SaccoId,
+                            SaccoType = loggedInSacco.SaccoType,  // Assuming SaccoType is a string; adjust if it's an enum
+                            SaccoName = loggedInSacco.SaccoName ?? "",
+                            ReturnSubmissionId = submission.Id
+                        };
+                        await AddEntityToSubmission(submission, otherReturn);
                     }
-
                     // Update children status (mark as current/inactive based on amendment status)
                     await UpdateChildrenStatusAsync(submission, IsAmendment);
-
-                    await _context.SaveChangesAsync();  // Save entities inside transaction
-
-                    await trx.CommitAsync();  // Commit if all succeeds
-
-                    res.Status = Enum.Parse<SubmissionStatus>(newStatus);  // Assuming SubmissionStatus enum matches the string values
+                    await _context.SaveChangesAsync(); // Save entities inside transaction
+                    await trx.CommitAsync(); // Commit if all succeeds
+                    res.Status = Enum.Parse<SubmissionStatus>(newStatus); // Assuming SubmissionStatus enum matches the string values
                     res.Messages.Add(previous == null
                                      ? $"Saved as {newStatus.ToLower()}."
                                      : $"Saved as {newStatus.ToLower()} – supersedes v{previous.Version}.");
@@ -193,21 +189,18 @@ namespace Returns.Helpers
                 }
                 catch (Exception ex)
                 {
-                    await trx.RollbackAsync();  // Rollback DB changes
-
-                    // Manual file rollback
+                    await trx.RollbackAsync(); // Rollback DB changes
+                                               // Manual file rollback
                     if (!string.IsNullOrEmpty(savedUrl))
                     {
-                        //FormsHelper.DeleteFile(savedUrl); 
+                        //FormsHelper.DeleteFile(savedUrl);
                     }
-
                     _logger.LogError(ex, $"Error processing form {item.FormId}");
                     res.Status = SubmissionStatus.Failed;
                     res.Messages.Add($"Error processing form: {ex.Message}");
                     results.Add(res);
                 }
             }
-
             return results;
         }
 
@@ -220,6 +213,12 @@ namespace Returns.Helpers
                     capitalAdequacy.IsCurrent = true;
                     capitalAdequacy.IsAmended = false;
                     submission.DTCapitalAdequacyReturns.Add(capitalAdequacy);
+                    break;
+
+                case OtherReturn otherReturn:
+                    otherReturn.IsCurrent = true;
+                    otherReturn.IsAmended = false;
+                    submission.OtherReturns.Add(otherReturn);
                     break;
 
                 case AuditedComprehensiveIncome auditedComprehensiveIncome:
@@ -499,6 +498,10 @@ namespace Returns.Helpers
                 await _context.Database.ExecuteSqlRawAsync(
                     "UPDATE DTCapitalAdequacyReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
                     previousSubmissionId);
+
+                await _context.Database.ExecuteSqlRawAsync(
+                "UPDATE OtherReturns SET IsCurrent = 0, IsAmended = 1 WHERE ReturnSubmissionId = {0}",
+                previousSubmissionId);
 
                 // Update Audited Risk Classifications
                 await _context.Database.ExecuteSqlRawAsync(

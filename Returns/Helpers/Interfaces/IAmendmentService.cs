@@ -8,6 +8,7 @@ namespace Returns.Helpers.Interfaces
 {
     public interface IAmendmentService
     {
+        Task<ReturnSubmission?> GetSubmittedSubmissionsUsingExpectedIdAsync(string submissionId, string saccoId, Boolean Filing = false);
         Task<ReturnSubmission> GetSubmissionUsingReturnIdAsync(string submissionId, string saccoId);
         Task<ReturnSubmission> GetSubmissionUsingExpectedIdAsync(string submissionId, string saccoId, Boolean Filing = false);
         Task<AmendmentRequest> CreateAmendRequestForSacco(AmendmentRequestDTO dto, LoggedInEntity loggedInEntity);

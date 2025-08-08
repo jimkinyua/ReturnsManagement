@@ -448,7 +448,7 @@ namespace Returns.Controllers
                 // Check all forms for existing submissions first
                 foreach (var item in dto.FormUploads)
                 {
-                    var existing = await _amendmentService.GetSubmissionUsingExpectedIdAsync(item.ExpectedReturnId, loggedInSacco.SaccoId, true);
+                    var existing = await _amendmentService.GetSubmittedSubmissionsUsingExpectedIdAsync(item.ExpectedReturnId, loggedInSacco.SaccoId, true);
                     if (existing != null && !_returnAmendmentPolicy.CanAutoAmend(today))
                     {
                         checkErrors.Add($"A submission already exists for ExpectedReturnId {item.ExpectedReturnId}. Please use the amendment request option.");

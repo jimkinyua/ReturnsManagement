@@ -42,12 +42,39 @@ namespace Returns.Helpers
             _returnAmendmentPolicy = returnAmendmentPolicy;
             _excelParser = excelParser;
         }
+        public async Task<ReturnSubmission?> GetSubmittedSubmissionsUsingExpectedIdAsync(string submissionId, string saccoId, Boolean Filing = false)
+        {
+            var submission = await _context.ReturnSubmissions
+                .Include(s => s.ExpectedReturn)
+                    .ThenInclude(er => er.ReturnForm)
+                .Where(s => s.Status == SubmissionStatus.Submitted.ToString())
+                .FirstOrDefaultAsync(s => s.ExpectedReturnId == submissionId);
+
+            if (submission == null)
+            {
+                _logger.LogWarning("Return submission {SubmissionId} not found.", submissionId);
+                if (Filing == true)
+                {
+                    return null;
+                }
+                throw new InvalidOperationException("Return submission not found.");
+            }
+
+            /* if (saccoId != submission.SaccoId)
+             {
+                 _logger.LogWarning("Unauthorized attempt to access submission {SubmissionId} by SACCO {SaccoId}", submissionId, saccoId);
+                 throw new UnauthorizedAccessException("You do not have permission to access this submission.");
+             }*/
+
+            return submission;
+        }
+
 
         public async Task<ReturnSubmission?> GetSubmissionUsingExpectedIdAsync(string submissionId, string saccoId, Boolean Filing = false)
         {
             var submission = await _context.ReturnSubmissions
                 .Include(s => s.ExpectedReturn)
-                .ThenInclude(er => er.ReturnForm)
+                    .ThenInclude(er => er.ReturnForm)
                 .FirstOrDefaultAsync(s => s.ExpectedReturnId == submissionId);
 
             if (submission == null)
