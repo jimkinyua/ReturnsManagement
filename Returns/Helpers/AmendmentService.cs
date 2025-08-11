@@ -530,7 +530,6 @@ namespace Returns.Helpers
                             var riskData = await _context.DTRiskClassificationReturns
                                 .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
                                 .OrderByDescending(r => r.CreatedAt)
-                                .Take(1)
                                 .ToListAsync();
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(riskData, new JsonSerializerOptions
@@ -545,7 +544,6 @@ namespace Returns.Helpers
                             var nwdtRiskData = await _context.NWDTRiskClassificationReturns
                                 .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
                                 .OrderByDescending(r => r.CreatedAt)
-                                .Take(1)
                                 .ToListAsync();
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtRiskData, new JsonSerializerOptions
@@ -663,7 +661,6 @@ namespace Returns.Helpers
                                 .Include(r => r.ReturnSubmission)
                                 .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
                                 .OrderByDescending(r => r.CreatedAt)
-                                .Take(1)
                                 .ToListAsync();
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(depositData, new JsonSerializerOptions
@@ -679,7 +676,6 @@ namespace Returns.Helpers
                                 .Include(r => r.ReturnSubmission)
                                 .Where(r => r.ReturnSubmission.SaccoId == returnSubmission.SaccoId && r.IsCurrent)
                                 .OrderByDescending(r => r.CreatedAt)
-                                .Take(1)
                                 .ToListAsync();
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtDepositData, new JsonSerializerOptions

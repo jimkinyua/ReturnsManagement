@@ -5,7 +5,8 @@ namespace Returns.Models
 {
     public class InsiderLoan:FormBase
     {
-        
+        public DateTime EndDate { get; set; }
+        public DateTime StartDate { get; set; }
         public string NameOfBorrower { get; set; }=null!;
         public string LoanCategory { get; set; } = null!;
         public string MemberNumber { get; set; }   =null!;    

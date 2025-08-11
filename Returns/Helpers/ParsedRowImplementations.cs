@@ -1762,6 +1762,8 @@ namespace Returns.Helpers
                 var insiderLoan = new InsiderLoan
                 {
                     ReturnSubmissionId = ReturnSubmissionId,
+                    StartDate = header.StartDate,
+                    EndDate = header.EndDate,
                     NameOfBorrower = loan.NameOfBorrower,
                     LoanCategory = loan.LoanCategory,
                     MemberNumber = loan.MemberNumber,

@@ -1,4 +1,6 @@
-﻿namespace Returns.DTOs.AdditionalInfo
+﻿using Returns.Helpers.Enums;
+
+namespace Returns.DTOs.AdditionalInfo
 {
     public class AdditionalInformationRequestDto
     {
@@ -9,6 +11,7 @@
         public DateTime CreatedAt { get; set; }
         public DateTime? RespondedAt { get; set; }
         public bool IsResponded { get; set; }
+        public FormCategory? ReturnType { get; set; }
         public List<AdditionalInfoResponseDto> Responses { get; set; } = new List<AdditionalInfoResponseDto>();
 
     }
