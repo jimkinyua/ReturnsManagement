@@ -49,6 +49,9 @@ namespace Returns.Controllers
                 var requests = await _context.AdditionalInformationRequests
                     .AsNoTracking()
                     .Include(r => r.ReturnReponses).ThenInclude(resp => resp.ResponseAttachements)
+                    .Include(r => r.ReturnSubmission)
+                        .ThenInclude(rs => rs.ExpectedReturn)
+                            .ThenInclude(er => er.ReturnForm)
                     .Where(x => x.SaccoId == loggedInSacco.SaccoId)
                     .OrderBy(r => r.CreatedAt)
                     .ToListAsync();
@@ -62,6 +65,10 @@ namespace Returns.Controllers
                     IsResponded = request.IsResponded,
                     CreatedAt = request.CreatedAt,
                     RespondedAt = request.RespondedAt,
+                    SaccoId = request.SaccoId,
+                    SaccoName = loggedInSacco.SaccoName ?? "Unknown",
+                    ReturnSubmissionId = request.ReturnSubmissionId,
+                    ReturnType = request.ReturnSubmission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
                     Responses = request.ReturnReponses.Select(response => new AdditionalInfoResponseDto
                     {
                         Id = response.Id,
@@ -84,6 +91,23 @@ namespace Returns.Controllers
             }
         }
 
+        private async Task<string> GetSaccoNameAsync(string saccoId)
+        {
+            try
+            {
+                if (long.TryParse(saccoId, out long saccoIdLong))
+                {
+                    var sacco = await _complianceService.GetSaccoByIdAsync(saccoIdLong);
+                    return sacco?.SaccoName ?? "Unknown";
+                }
+                return "Unknown";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get SACCO name for ID {SaccoId}", saccoId);
+                return "Unknown";
+            }
+        }
         [HttpGet("AdditionalInformationRequestsForReturnSubmission/{ReturnSubmissionId}")]
         public async Task<ActionResult<IEnumerable<AdditionalInformationRequestDto>>> AdditionalInformationRequestsForReturnSubmission(string ReturnSubmissionId)
         {
@@ -96,32 +120,43 @@ namespace Returns.Controllers
                 var requests = await _context.AdditionalInformationRequests
                     .AsNoTracking()
                     .Include(r => r.ReturnReponses).ThenInclude(resp => resp.ResponseAttachements)
+                    .Include(r => r.ReturnSubmission)
+                        .ThenInclude(rs => rs.ExpectedReturn)
+                            .ThenInclude(er => er.ReturnForm)
                     .Where(x => x.ReturnSubmissionId == ReturnSubmissionId)
                     .OrderBy(r => r.CreatedAt)
                     .ToListAsync();
 
-                var resultDtos = requests.Select(request => new AdditionalInformationRequestDto
+                var resultDtos = new List<AdditionalInformationRequestDto>();
+                foreach (var request in requests)
                 {
-                    Id = request.Id,
-                    Description = request.Description,
-                    RequestedBy = request.RequestedBy,
-                    Status = request.RequestStatus,
-                    IsResponded = request.IsResponded,
-                    CreatedAt = request.CreatedAt,
-                    RespondedAt = request.RespondedAt,
-                    Responses = request.ReturnReponses.Select(response => new AdditionalInfoResponseDto
+                    resultDtos.Add(new AdditionalInformationRequestDto
                     {
-                        Id = response.Id,
-                        RespondedBy = response.RespondedBy,
-                        ResponseMessage = response.ReponseMessage,
-                        RespondedAt = response.CreatedAt,
-                        Attachments = response.ResponseAttachements?.Select(a => new AdditionalInfoAttachmentDto
+                        Id = request.Id,
+                        Description = request.Description,
+                        RequestedBy = request.RequestedBy,
+                        Status = request.RequestStatus,
+                        IsResponded = request.IsResponded,
+                        CreatedAt = request.CreatedAt,
+                        RespondedAt = request.RespondedAt,
+                        SaccoId = request.SaccoId,
+                        SaccoName = await GetSaccoNameAsync(request.SaccoId),
+                        ReturnSubmissionId = request.ReturnSubmissionId,
+                        ReturnType = request.ReturnSubmission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
+                        Responses = request.ReturnReponses.Select(response => new AdditionalInfoResponseDto
                         {
-                            FileUrl = a.FileUrl,
-                            Name = a.FileName
-                        }).ToList() ?? new List<AdditionalInfoAttachmentDto>()
-                    }).ToList()
-                }).ToList();
+                            Id = response.Id,
+                            RespondedBy = response.RespondedBy,
+                            ResponseMessage = response.ReponseMessage,
+                            RespondedAt = response.CreatedAt,
+                            Attachments = response.ResponseAttachements?.Select(a => new AdditionalInfoAttachmentDto
+                            {
+                                FileUrl = a.FileUrl,
+                                Name = a.FileName
+                            }).ToList() ?? new List<AdditionalInfoAttachmentDto>()
+                        }).ToList()
+                    });
+                }
 
                 return Ok(resultDtos);
             }
@@ -132,6 +167,7 @@ namespace Returns.Controllers
             }
         }
 
+
         [HttpGet("AdditionalInformationRequestDetails/{id}")]
         public async Task<ActionResult<AdditionalInformationRequestDto>> GetAdditionalInformationRequestDetails(string Id)
         {
@@ -140,6 +176,9 @@ namespace Returns.Controllers
                 var request = await _context.AdditionalInformationRequests
                     .AsNoTracking()
                     .Include(r => r.ReturnReponses).ThenInclude(resp => resp.ResponseAttachements)
+                    .Include(r => r.ReturnSubmission)
+                        .ThenInclude(rs => rs.ExpectedReturn)
+                            .ThenInclude(er => er.ReturnForm)
                     .FirstOrDefaultAsync(r => r.Id == Id);
 
                 if (request == null)
@@ -156,6 +195,10 @@ namespace Returns.Controllers
                     IsResponded = request.IsResponded,
                     CreatedAt = request.CreatedAt,
                     RespondedAt = request.RespondedAt,
+                    SaccoId = request.SaccoId,
+                    SaccoName = await GetSaccoNameAsync(request.SaccoId),
+                    ReturnSubmissionId = request.ReturnSubmissionId,
+                    ReturnType = request.ReturnSubmission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
                     Responses = request.ReturnReponses.Select(response => new AdditionalInfoResponseDto
                     {
                         Id = response.Id,

@@ -23,7 +23,10 @@ namespace Returns.Helpers
         }
         public async Task<AdditionalInformationRequestDto> RequestAdditionalInformationAsync(CreateAdditionalInformationRequestDto createAdditionalInformationRequestDto, string RequestedBy)
         {
-            var submissionDetails = await _context.ReturnSubmissions.FirstOrDefaultAsync(rs => rs.Id == createAdditionalInformationRequestDto.ReturnSubmissionId);
+            var submissionDetails = await _context.ReturnSubmissions
+                .Include(rs => rs.ExpectedReturn)
+                    .ThenInclude(er => er.ReturnForm)
+                .FirstOrDefaultAsync(rs => rs.Id == createAdditionalInformationRequestDto.ReturnSubmissionId);
             if (submissionDetails == null)
                 throw new KeyNotFoundException("Return submission not found");
 
@@ -35,9 +38,25 @@ namespace Returns.Helpers
                 SaccoId = submissionDetails.SaccoId,
             };
 
-
             _context.AdditionalInformationRequests.Add(entity);
             await _context.SaveChangesAsync();
+
+            // Get proper SACCO name from compliance service
+            string saccoName = "Unknown";
+            try
+            {
+                if (long.TryParse(submissionDetails.SaccoId, out long saccoId))
+                {
+                    var sacco = await _complianceService.GetSaccoByIdAsync(saccoId);
+                    saccoName = sacco?.SaccoName ?? "Unknown";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to get SACCO name for ID {SaccoId}, using fallback", submissionDetails.SaccoId);
+                saccoName = submissionDetails.ExpectedReturn?.ReturnForm?.SaccoTypeId == "0" ? "DT" : "NWDT";
+            }
+
             return new AdditionalInformationRequestDto
             {
                 Id = entity.Id,
@@ -46,6 +65,10 @@ namespace Returns.Helpers
                 Status = entity.RequestStatus,
                 IsResponded = entity.IsResponded,
                 CreatedAt = entity.CreatedAt,
+                SaccoId = entity.SaccoId,
+                SaccoName = saccoName,
+                ReturnSubmissionId = entity.ReturnSubmissionId,
+                ReturnType = submissionDetails.ExpectedReturn?.ReturnForm?.Category.ToString(),
                 Responses = new List<AdditionalInfoResponseDto>()
             };
         }
@@ -74,7 +97,10 @@ namespace Returns.Helpers
                 request.IsResponded = true;
                 request.RequestStatus = AdditionalInfoRequestStatus.Responded.ToString();
                 request.RespondedAt = DateTime.Now;
-                _context.AdditionalInformationRequests.Update(request);
+
+                // Explicitly tell Entity Framework that the entity has been modified
+                _context.Entry(request).State = EntityState.Modified;
+
                 await _context.SaveChangesAsync();
 
                 // Handle attachments if any

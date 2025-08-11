@@ -398,7 +398,7 @@ namespace Returns.Helpers
             return pendingReturns;
         }
 
-        public async Task<WorkflowStateDto> GetCurrentStateAsync(string? periodId, string? saccoId, string? returnSubmissionId)
+        public async Task<WorkflowStateDto?> GetCurrentStateAsync(string? periodId, string? saccoId, string? returnSubmissionId)
         {
             // 1. Validate inputs
             if ((string.IsNullOrEmpty(periodId) || string.IsNullOrEmpty(saccoId)) && string.IsNullOrEmpty(returnSubmissionId))
@@ -415,19 +415,22 @@ namespace Returns.Helpers
                 // Non-Q return
                 instance = await _db.WorkflowInstances
                     .Include(w => w.CurrentStep)
-                    .FirstOrDefaultAsync(w => w.ReturnSubmissionId == returnSubmissionId && w.Type == "Standalone")
-                    ?? throw new InvalidOperationException($"Workflow not found for return submission {returnSubmissionId}.");
+                    .FirstOrDefaultAsync(w => w.ReturnSubmissionId == returnSubmissionId && w.Type == "Standalone");
             }
             else
             {
                 // Q group
                 instance = await _db.WorkflowInstances
                     .Include(w => w.CurrentStep)
-                    .FirstOrDefaultAsync(w => w.PeriodId == periodId && w.SaccoId == saccoId && w.Type == "QGroup")
-                    ?? throw new InvalidOperationException($"Workflow not found for Q group (Period: {periodId}, SACCO: {saccoId}).");
+                    .FirstOrDefaultAsync(w => w.PeriodId == periodId && w.SaccoId == saccoId && w.Type == "QGroup");
 
                 var period = await _db.ReturnPeriods.FindAsync(periodId);
                 isQuarterly = period?.FrequencyId == 5; // QTR
+            }
+
+            if (instance == null)
+            {
+                return null;
             }
 
             // 3. Fetch all steps for the workflow template

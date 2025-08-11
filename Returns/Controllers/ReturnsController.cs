@@ -3180,5 +3180,24 @@ namespace Returns.Controllers
                 .ToListAsync();
         }
 
+        [HttpGet("sacco/AmendmentRequests")]
+        public async Task<IActionResult> GetSaccoAmendmentRequestsAsync()
+        {
+            try
+            {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return StatusCode(401);
+                }
+                var amendmentRequests = await _amendmentService.GetSaccoAmendmentRequestsAsync(loggedInSacco.SaccoId);
+                return Ok(amendmentRequests);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving amendment requests for SACCO");
+                return StatusCode(500, "An error occurred while retrieving amendment requests");
+            }
+        }
     }
 }

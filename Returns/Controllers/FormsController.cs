@@ -635,7 +635,11 @@ namespace Returns.Controllers
             try
             {
                 var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
-
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return Unauthorized("Unauthorized access. Invalid Sacco details.");
+                }
                 // Validate input
                 if (month < 1 || month > 12)
                 {
@@ -671,7 +675,7 @@ namespace Returns.Controllers
 
                 // Get submission statuses efficiently using the service
                 var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
-                var submissionData = await _returnSubmissionService.GetSubmissionStatusesAsync(expectedReturnIds);
+                var submissionData = await _returnSubmissionService.GetSubmissionStatusesAsync(expectedReturnIds, loggedInSacco.SaccoId);
 
                 // Group by frequency with optimized submission status determination
                 var groupedData = expectedReturns
@@ -714,81 +718,7 @@ namespace Returns.Controllers
         /// </summary>
         /// <param name="year">The year (e.g., 2024)</param>
         /// <param name="saccoTypeId">Optional: Filter by sacco type</param>
-        [HttpGet("GetFormsDueByYearGrouped")]
-        public async Task<ActionResult<FormsDueGroupedResponseDTO>> GetFormsDueByYearGrouped(
-            [FromQuery] int year,
-            [FromQuery] string? saccoTypeId = null)
-        {
-            try
-            {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
-
-                // Get the first and last day of the year
-                var firstDayOfYear = new DateTime(year, 1, 1);
-                var lastDayOfYear = new DateTime(year, 12, 31);
-
-                // Find all expected returns where the filing deadline falls within this year
-                var expectedReturnsQuery = _context.ExpectedReturns
-                    .Include(er => er.ReturnForm)
-                    .Include(er => er.Period)
-                        .ThenInclude(p => p.FrequencyCatalog)
-                    .Include(er => er.Period)
-                        .ThenInclude(p => p.ReportingYear)
-                    .Where(er => er.FilingDeadline >= firstDayOfYear.Date &&
-                                er.FilingDeadline <= lastDayOfYear.Date &&
-                                er.IsActive);
-
-                // Filter by sacco type if provided
-                if (!string.IsNullOrEmpty(saccoTypeId))
-                {
-                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == saccoTypeId);
-                }
-
-                var expectedReturns = await expectedReturnsQuery.ToListAsync();
-                var currentDate = DateTime.Now;
-
-                // Get submission statuses efficiently using the service
-                var expectedReturnIds = expectedReturns.Select(er => er.Id).ToList();
-                var submissionData = await _returnSubmissionService.GetSubmissionStatusesAsync(expectedReturnIds);
-
-                // Group by frequency with optimized submission status determination
-                var groupedData = expectedReturns
-                    .GroupBy(er => new { er.Period.FrequencyCatalog.Code, er.Period.FrequencyCatalog.Name })
-                    .Select(g => new GroupedFormsDueDTO
-                    {
-                        FrequencyCode = g.Key.Code,
-                        FrequencyName = g.Key.Name,
-                        TotalFormsInGroup = g.Count(),
-                        //FiledCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
-                        //DueCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
-                        //LateCount = g.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
-                        Forms = g.Select(er => CreateFormDueDTO(er, baseUrl, currentDate, submissionData.GetValueOrDefault(er.Id)))
-                            .OrderBy(f => f.FilingDeadline)
-                            .ThenBy(f => f.FormName)
-                            .ToList()
-                    })
-                    .OrderBy(g => GetFrequencyOrder(g.FrequencyCode))
-                    .ToList();
-
-                var response = new FormsDueGroupedResponseDTO
-                {
-                    TotalExpectedReturns = expectedReturns.Count,
-                    //TotalFiled = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.Submitted),
-                    //TotalDue = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline >= currentDate),
-                    //TotalLate = expectedReturns.Count(er => submissionData.GetValueOrDefault(er.Id).Status == Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted && er.FilingDeadline < currentDate),
-                    //TotalWaived = 0, // No waivers allowed
-                    Frequency = groupedData
-                };
-
-                return Ok(response);
-            }
-            catch (Exception ex)
-            {
-                CustomErrorHandler.LogException(ex);
-                return StatusCode(500, CustomErrorHandler.HandleException(ex));
-            }
-        }
-
+        
         /// <summary>
         /// Helper method to order frequencies logically
         /// </summary>
@@ -809,7 +739,7 @@ namespace Returns.Controllers
         /// <summary>
         /// Create FormDueDTO with optimized status determination
         /// </summary>
-        private FormsDueByMonthDTO CreateFormDueDTO(ExpectedReturn er, string baseUrl, DateTime currentDate, (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt, string? FileUrl) submissionData)
+        private FormsDueByMonthDTO CreateFormDueDTO(ExpectedReturn er, string baseUrl, DateTime currentDate, (SubmissionStatus Status, bool HasBeenSubmitted, string? SubmissionId, DateTime? SubmittedAt, string? FileUrl) submissionData)
         {
             var isSubmitted = submissionData.Status != Returns.DTOs.Returns.Returns_Submission.SubmissionStatus.NotSubmitted;
             var isLate = _returnSubmissionService.IsFormLate(er.FilingDeadline, submissionData.Status);
@@ -830,7 +760,7 @@ namespace Returns.Controllers
                 SaccoTypeId = er.ReturnForm.SaccoTypeId,
                 //IsSubmitted = isSubmitted,
                 SubmissionId = submissionData.SubmissionId,
-                SubmissionStatus = submissionData.Status,
+                SubmissionStatus = submissionData.Status.ToString(),
                 SubmittedAt = submissionData.SubmittedAt,
                 UploadUrl = $"{baseUrl}{submissionData.FileUrl}"
 

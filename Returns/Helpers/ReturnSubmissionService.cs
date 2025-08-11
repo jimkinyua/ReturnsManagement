@@ -655,14 +655,13 @@ namespace Returns.Helpers
         /// </summary>
         /// <param name="expectedReturnIds">List of expected return IDs</param>
         /// <returns>Dictionary mapping expected return ID to submission data</returns>
-        public async Task<Dictionary<string, (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt, string? FileUrl)>> GetSubmissionStatusesAsync(List<string> expectedReturnIds, Boolean useCache = true)
+
+        public async Task<Dictionary<string, (SubmissionStatus Status, bool HasBeenSubmitted, string? SubmissionId, DateTime? SubmittedAt, string? FileUrl)>> GetSubmissionStatusesAsync(List<string> expectedReturnIds, string SaccoId, bool useCache = false)
         {
             if (!expectedReturnIds.Any())
-                return new Dictionary<string, (SubmissionStatus, string?, DateTime?, string?)>();
-
-            var result = new Dictionary<string, (SubmissionStatus, string?, DateTime?, string?)>();
+                return new Dictionary<string, (SubmissionStatus, bool, string?, DateTime?, string?)>();
+            var result = new Dictionary<string, (SubmissionStatus, bool, string?, DateTime?, string?)>();
             var uncachedIds = new List<string>();
-
             // Check cache first if useCache is true
             if (useCache)
             {
@@ -671,7 +670,7 @@ namespace Returns.Helpers
                     var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
                     if (_cache.TryGetValue(cacheKey, out var cachedData))
                     {
-                        result[expectedReturnId] = ((SubmissionStatus, string?, DateTime?, string?))cachedData;
+                        result[expectedReturnId] = ((SubmissionStatus, bool, string?, DateTime?, string?))cachedData;
                     }
                     else
                     {
@@ -683,14 +682,16 @@ namespace Returns.Helpers
             {
                 uncachedIds.AddRange(expectedReturnIds); // Bypass cache if useCache is false
             }
-
             // If all data was cached and useCache is true, return immediately
             if (!uncachedIds.Any() && useCache)
                 return result;
-
             // Fetch uncached data from database
             var submissions = await _context.ReturnSubmissions
-                .Where(rs => uncachedIds.Contains(rs.ExpectedReturnId) && rs.IsActive && rs.IsLatest)
+                .Where(rs => uncachedIds.Contains(rs.ExpectedReturnId)
+                && rs.IsActive
+                && rs.IsLatest
+                && rs.SaccoId == SaccoId
+                )
                 .Select(rs => new
                 {
                     rs.ExpectedReturnId,
@@ -714,7 +715,6 @@ namespace Returns.Helpers
                               rs.NWDTRiskClassificationReturns.Any()
                 })
                 .ToListAsync();
-
             // Process uncached data
             foreach (var expectedReturnId in uncachedIds)
             {
@@ -722,47 +722,43 @@ namespace Returns.Helpers
                     .Where(s => s.ExpectedReturnId == expectedReturnId)
                     .OrderByDescending(s => s.SubmittedAt)
                     .FirstOrDefault();
-
-                (SubmissionStatus Status, string? SubmissionId, DateTime? SubmittedAt, string? FileUrl) submissionData;
-
+                (SubmissionStatus Status, bool HasBeenSubmitted, string? SubmissionId, DateTime? SubmittedAt, string? FileUrl) submissionData;
                 if (latestSubmission == null)
                 {
-                    submissionData = (SubmissionStatus.NotSubmitted, null, null, null);
+                    submissionData = (SubmissionStatus.NotSubmitted, false, null, null, null);
                 }
                 else
                 {
                     SubmissionStatus status;
-                    // Parse the status from the string field
-                    if (Enum.TryParse<ExpectedStatus>(latestSubmission.Status, out var parsedStatus))
+                    // Parse the status from the string field directly to SubmissionStatus
+                    if (Enum.TryParse<SubmissionStatus>(latestSubmission.Status, true, out var parsedStatus))
                     {
-                        status = parsedStatus switch
-                        {
-                            ExpectedStatus.Filed => SubmissionStatus.Submitted,
-                            ExpectedStatus.Draft => SubmissionStatus.Draft,
-                            _ => SubmissionStatus.NotSubmitted
-                        };
+                        status = parsedStatus;
                     }
                     else
                     {
                         // Fallback: check if submission has data to determine if it's a draft
                         status = latestSubmission.HasData ? SubmissionStatus.Draft : SubmissionStatus.NotSubmitted;
                     }
-
-                    submissionData = (status, latestSubmission.Id, latestSubmission.SubmittedAt, latestSubmission.FileUrl);
+                    bool hasBeenSubmitted = status == SubmissionStatus.Submitted;
+                    // Only include SubmissionId, SubmittedAt, and FileUrl if submitted (null them out otherwise)
+                    string? submissionId = hasBeenSubmitted ? latestSubmission.Id : null;
+                    DateTime? submittedAt = hasBeenSubmitted ? latestSubmission.SubmittedAt : null;
+                    string? fileUrl = hasBeenSubmitted ? latestSubmission.FileUrl : null;
+                    submissionData = (status, hasBeenSubmitted, submissionId, submittedAt, fileUrl);
                 }
-
                 // Cache the result only if useCache is true
                 if (useCache)
                 {
                     var cacheKey = $"{SubmissionStatusCacheKey}{expectedReturnId}";
                     _cache.Set(cacheKey, submissionData, TimeSpan.FromSeconds(10));
                 }
-
                 result[expectedReturnId] = submissionData;
             }
-
             return result;
         }
+
+
         /// <summary>
         /// Check if a form is late based on filing deadline
         /// </summary>
@@ -809,7 +805,7 @@ namespace Returns.Helpers
                 }
 
                 var ids = expectedReturns.Select(er => er.Id).ToList();
-                var sts = await GetSubmissionStatusesAsync(ids, useCache: false);
+                var sts = await GetSubmissionStatusesAsync(ids, saccoId,useCache: false);
 
                 var drafts = expectedReturns.Where(er =>
                                sts.GetValueOrDefault(er.Id).Status == SubmissionStatus.Draft)

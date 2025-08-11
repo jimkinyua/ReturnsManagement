@@ -13,7 +13,7 @@ namespace Returns.DTOs.Forms
         public List<FormsDueByMonthDTO> Forms { get; set; } = new List<FormsDueByMonthDTO>();
 
         // Bulk submission guidance
-        public int DraftCount => Forms.Count(f => f.SubmissionStatus == SubmissionStatusEnum.Draft);
+        public int DraftCount => Forms.Count(f => f.SubmissionStatus == SubmissionStatusEnum.Draft.ToString());
         public bool IsIncomplete => TotalFormsInGroup != DraftCount;
 
     }

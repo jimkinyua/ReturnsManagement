@@ -19,6 +19,6 @@ namespace Returns.Helpers.Interfaces
         Task<IList<PendingAmendmentRequestDTO>> GetAdminInitiatedAmendmentRequestsAsync();
         Task<AmendmentRequestDetailsDTO> GetAmendmentRequestDetailsAsync(string requestId, LoggedInEntity admin);
         Task ReviewAmendmentRequest(string requestId, bool approve, string reviewerId);
-
+        Task<IList<PendingAmendmentRequestDTO>> GetSaccoAmendmentRequestsAsync(string saccoId);
     }
 }

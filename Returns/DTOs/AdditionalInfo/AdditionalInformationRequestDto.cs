@@ -11,8 +11,10 @@ namespace Returns.DTOs.AdditionalInfo
         public DateTime CreatedAt { get; set; }
         public DateTime? RespondedAt { get; set; }
         public bool IsResponded { get; set; }
-        public FormCategory? ReturnType { get; set; }
+        public string SaccoId { get; set; } = null!;
+        public string SaccoName { get; set; } = null!;
+        public string ReturnSubmissionId { get; set; } = null!;
+        public string? ReturnType { get; set; }
         public List<AdditionalInfoResponseDto> Responses { get; set; } = new List<AdditionalInfoResponseDto>();
-
     }
 }

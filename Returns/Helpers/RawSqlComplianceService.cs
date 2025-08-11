@@ -744,7 +744,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/saccos/{saccoId}");
+                var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();

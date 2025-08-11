@@ -324,7 +324,7 @@ namespace Returns.Helpers
         }
         public async Task<IList<PendingAmendmentRequestDTO>> GetAmendmentRequestsPendingSaccoResponseAsync()
         {
-            
+
             var requests = await _context.AmendmentRequests
             .Include(r => r.ReturnSubmission)
                 .ThenInclude(rs => rs.ExpectedReturn)
@@ -787,9 +787,13 @@ namespace Returns.Helpers
 
             _logger.LogInformation("Reviewing amendment request {RequestId}. Current status: {CurrentStatus}", requestId, request.Status);
 
+            // Update the amendment request
             request.ReviewedById = reviewerId;
             request.ReviewedAt = DateTime.UtcNow;
             request.Status = approve ? AmendmentStatus.Approved : AmendmentStatus.Rejected;
+
+            // Explicitly tell Entity Framework that the entity has been modified
+            _context.Entry(request).State = EntityState.Modified;
 
             if (approve)
             {
@@ -807,13 +811,13 @@ namespace Returns.Helpers
                 var dto = new NewReturnDTO
                 {
                     FormUploads = new List<ReturnFormUploadDTO>
-            {
-                new ReturnFormUploadDTO
                 {
-                    ExpectedReturnId = request.ExpectedReturnId,
-                    formFile = await FormsHelper.GetFileFromUrlAsync(request.FileUrl)
+                    new ReturnFormUploadDTO
+                    {
+                        ExpectedReturnId = request.ExpectedReturnId,
+                        formFile = await FormsHelper.GetFileFromUrlAsync(request.FileUrl)
+                    }
                 }
-            }
                 };
 
                 var sacco = new LoggedInEntity
@@ -828,6 +832,7 @@ namespace Returns.Helpers
                 {
                     _logger.LogWarning("Failed to process approved amendment request {RequestId}: {Errors}", requestId, string.Join(", ", result.SelectMany(r => r.Messages)));
                     request.Status = AmendmentStatus.PendingAdminApproval; // Revert to Pending on failure
+                    _context.Entry(request).State = EntityState.Modified; // Mark as modified again after status change
                     await _context.SaveChangesAsync(); // Save the revert immediately
                     throw new InvalidOperationException($"Failed to process approved submission: {string.Join(", ", result.SelectMany(r => r.Messages))}");
                 }
@@ -921,6 +926,61 @@ namespace Returns.Helpers
             }
 
             return adminRequests;
+        }
+
+        /// <summary>
+        /// Gets all amendment requests for a specific SACCO (including past approved/rejected ones)
+        /// </summary>
+        public async Task<IList<PendingAmendmentRequestDTO>> GetSaccoAmendmentRequestsAsync(string saccoId)
+        {
+            var requests = await _context.AmendmentRequests
+                .Include(r => r.ReturnSubmission)
+                    .ThenInclude(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                .Include(r => r.ReturnSubmission)
+                    .ThenInclude(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                            .ThenInclude(p => p.ReportingYear)
+                .Where(r => r.SaccoId == saccoId)
+                .OrderByDescending(r => r.RequestedAt)
+                .ToListAsync();
+
+            var saccoRequests = new List<PendingAmendmentRequestDTO>();
+
+            foreach (var r in requests)
+            {
+                var Year = r.ReturnSubmission.ExpectedReturn.Period.ReportingYear.Year;
+                var Period = r.ReturnSubmission.ExpectedReturn.Period.Name;
+                var PeriodStart = r.ReturnSubmission.ExpectedReturn.Period.StartDate.ToLongDateString();
+                var PeriodEnd = r.ReturnSubmission.ExpectedReturn.Period.EndDate.ToLongDateString();
+                var OriginalSubmittedAt = r.ReturnSubmission.CreatedAt.ToLongDateString();
+
+                var dto = new PendingAmendmentRequestDTO
+                {
+                    Id = r.Id,
+                    ExpectedReturnId = r.ExpectedReturnId,
+                    ReturnSubmissionId = r.ReturnSubmissionId,
+                    SaccoId = r.SaccoId,
+                    SaccoType = r.SaccoType,
+                    SaccoName = r.SaccoName,
+                    RequestedById = r.RequestedById,
+                    RequestedAt = r.RequestedAt.ToLongDateString(),
+                    Reason = r.Reason,
+                    Status = r.Status,
+                    ReturnType = r.ReturnSubmission.ExpectedReturn.ReturnForm != null
+                        ? r.ReturnSubmission.ExpectedReturn.ReturnForm.Category.ToString()
+                        : null,
+                    OriginalYear = Year.ToString(),
+                    OriginalPeriod = Period,
+                    PeriodStart = PeriodStart,
+                    PeriodEnd = PeriodEnd,
+                    OriginalSubmittedAt = OriginalSubmittedAt
+                };
+
+                saccoRequests.Add(dto);
+            }
+
+            return saccoRequests;
         }
     }
 }
