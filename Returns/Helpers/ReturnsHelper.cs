@@ -511,14 +511,14 @@ namespace Returns.Helpers
         {
             int count = 0;
 
-            if (returnItem.CapitalAdequencies.Any()) count++;
+            /*      if (returnItem.CapitalAdequencies.Any()) count++;
             if (returnItem.LiquidityReturns.Any()) count++;
             if (returnItem.RiskClassifications.Any()) count++;
             if (returnItem.InvestmentReturns.Any()) count++;
             if (returnItem.StatementOfFinancialPositionReturns.Any()) count++;
             if (returnItem.StatementOfComprehensiveIncomeReturns.Any()) count++;
             if (returnItem.DepositReturns.Any()) count++;
-            if (returnItem.OtherReturns.Any()) count++;
+            if (returnItem.OtherReturns.Any()) count++;*/
 
             return count;
         }
@@ -541,14 +541,14 @@ namespace Returns.Helpers
         {
             int count = 0;
 
-            if (returnItem.NDWTCapitalAdequacyReturns.Any()) count++;
+        /*    if (returnItem.NDWTCapitalAdequacyReturns.Any()) count++;
             if (returnItem.NWDTLiquidityReturns.Any()) count++;
             if (returnItem.NWDTRiskClassificationReturns.Any()) count++;
             if (returnItem.NWDTInvestmentReturns.Any()) count++;
             if (returnItem.NWDTFinancialPositionReturns.Any()) count++;
             if (returnItem.NWDTComprehensiveIncomeReturns.Any()) count++;
             if (returnItem.NWDTDepositReturns.Any()) count++;
-            if (returnItem.OtherReturns.Any()) count++;
+            if (returnItem.OtherReturns.Any()) count++;*/
 
             return count;
         }
@@ -592,7 +592,7 @@ namespace Returns.Helpers
 
             return (isCapitalAdequacyLate, isLiquidityReturnLate, isRiskClassificationLate, isInvestmentReturnLate, isStatementOfFinancialPositionLate, isStatementOfComprehensiveIncomeLate, isSaccoAnalysisLate, isDepositReturnLate);
         }*/
-        public (int CapitalAdequacyDaysLate, int LiquidityReturnDaysLate, int RiskClassificationDaysLate, int InvestmentReturnDaysLate, int StatementOfFinancialPositionDaysLate, int StatementOfComprehensiveIncomeDaysLate, int SaccoAnalysisDaysLate, int DepositReturnDaysLate) CalculateDaysLateForChildren(Return returnItem)
+       /* public (int CapitalAdequacyDaysLate, int LiquidityReturnDaysLate, int RiskClassificationDaysLate, int InvestmentReturnDaysLate, int StatementOfFinancialPositionDaysLate, int StatementOfComprehensiveIncomeDaysLate, int SaccoAnalysisDaysLate, int DepositReturnDaysLate) CalculateDaysLateForChildren(Return returnItem)
         {
             int capitalAdequacyDaysLate = returnItem.CapitalAdequencies.Any() ? HowLate(returnItem.CapitalAdequencies.First().CreatedAt, returnItem.ReturnFor) : 0;
             int liquidityReturnDaysLate = returnItem.LiquidityReturns.Any() ? HowLate(returnItem.LiquidityReturns.First().CreatedAt, returnItem.ReturnFor) : 0;
@@ -604,7 +604,7 @@ namespace Returns.Helpers
             int depositReturnDaysLate = returnItem.DepositReturns.Any() ? HowLate(returnItem.DepositReturns.First().CreatedAt, returnItem.ReturnFor) : 0;
 
             return (capitalAdequacyDaysLate, liquidityReturnDaysLate, riskClassificationDaysLate, investmentReturnDaysLate, statementOfFinancialPositionDaysLate, statementOfComprehensiveIncomeDaysLate, saccoAnalysisDaysLate, depositReturnDaysLate);
-        }
+        }*/
 
 
         public int HowLate(DateTime submittedAt, DateTime returnFor)

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250811173223_AddSpecificUserToStepIfNeedBe")]
+    partial class AddSpecificUserToStepIfNeedBe
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -430,9 +433,6 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -670,9 +670,6 @@ namespace Returns.Migrations
                     b.Property<decimal>("RetirementBenefitsLiability")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -776,9 +773,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1106,9 +1100,6 @@ namespace Returns.Migrations
                     b.Property<decimal>("RetainedEarningsAccumulatedLosses")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -1242,9 +1233,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1384,9 +1372,6 @@ namespace Returns.Migrations
                     b.Property<decimal>("RetirementBenefitsLiability")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -1503,9 +1488,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1627,9 +1609,6 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -1721,9 +1700,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1832,12 +1808,9 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SACCOName")
                         .IsRequired()
@@ -1881,7 +1854,7 @@ namespace Returns.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ReturnId");
+                    b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("DailyLiquidityReturns");
                 });
@@ -1926,9 +1899,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2023,9 +1993,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2242,9 +2209,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2471,12 +2435,9 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SaccoCsNumber")
                         .HasColumnType("nvarchar(max)");
@@ -2490,7 +2451,7 @@ namespace Returns.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ReturnId");
+                    b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("ManagementReturns");
                 });
@@ -2605,9 +2566,6 @@ namespace Returns.Migrations
 
                     b.Property<decimal>("RetainedEarningsAndDisclosedReservesToCoreCapitalExcessDeficiency")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2755,9 +2713,6 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -2872,9 +2827,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3015,9 +2967,6 @@ namespace Returns.Migrations
 
                     b.Property<decimal>("RetirementBenefitsLiability")
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3168,9 +3117,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3329,9 +3275,6 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -3411,9 +3354,6 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -3462,9 +3402,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -4091,9 +4028,6 @@ namespace Returns.Migrations
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -4485,7 +4419,9 @@ namespace Returns.Migrations
                 {
                     b.HasOne("Returns.Models.ReturnSubmission", "Return")
                         .WithMany()
-                        .HasForeignKey("ReturnId");
+                        .HasForeignKey("ReturnSubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Return");
                 });
@@ -4572,7 +4508,9 @@ namespace Returns.Migrations
                 {
                     b.HasOne("Returns.Models.ReturnSubmission", "Return")
                         .WithMany("ManagementReturns")
-                        .HasForeignKey("ReturnId");
+                        .HasForeignKey("ReturnSubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Return");
                 });

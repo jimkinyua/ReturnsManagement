@@ -1,7 +1,9 @@
 ﻿
 using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.WorkFlowTemplate;
+using Returns.DTOs.Returns.Admin;
 using Returns.Models;
+using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Helpers
 {
@@ -15,5 +17,7 @@ namespace Returns.Helpers
         Task<List<CommentDetails>> GetComments(string periodId, string saccoId, string? returnSubmissionId);
         Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId, string loggedInUserToken);
         Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest dto, string userId);
+        Task<List<TLWorkflowOverviewDTO>> GetTLWorkflowOverviewAsync(string teamLeadId);
+        Task<WorkflowReassignmentResultDTO> ReassignWorkflowAsync(WorkflowReassignmentRequestDTO request, LoggedInEntity loggedInEntity);
     }
 }

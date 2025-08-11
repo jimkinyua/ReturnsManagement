@@ -6,6 +6,7 @@ namespace Returns.Helpers.Interfaces.WorkFlow
     public interface IWorkflowTemplateAdminService
     {
         Task<WorkflowTemplateDTO> CreateWorkflowTemplate(CreateWorkflowTemplateDTO dto);
+        Task<StepAssigneeDTO> StepAssigneeDetailsAsync(string stepId);
         Task<WorkflowTemplateDTO> UpdateWorkflowTemplate(UpdateWorkflowTemplateDTO dto);
         Task<bool> DeleteWorkflowTemplate(string templateId);
         Task<bool> PublishWorkflowTemplate(string templateId);

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Returns.DTOs.WorkFlowTemplate;
+using Returns.Helpers;
 using Returns.Helpers.Interfaces.WorkFlow;
 
 namespace Returns.Controllers
@@ -49,6 +50,21 @@ namespace Returns.Controllers
             {
                 _logger.LogError(ex, "Error fetching workflow template details");
                 return StatusCode(500, ex.Message);
+            }
+        }
+
+        [HttpGet("PreviewStepAssignee/{stepId}")]
+        public async Task<ActionResult<StepAssigneeDTO>> PreviewStepAssignee(string stepId, [FromQuery] string? saccoId = null)
+        {
+            try
+            {
+                var preview = await _adminService.StepAssigneeDetailsAsync(stepId);
+                return Ok(preview);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error previewing step assignee");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
 

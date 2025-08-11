@@ -4,6 +4,7 @@ using Returns.Helpers.Interfaces;
 using Returns.Helpers.Interfaces.WorkFlow;
 using Returns.Models;
 using Returns.Models.Data;
+using static Returns.DTOs.WorkFlowTemplate.WorkflowStepDTO;
 
 namespace Returns.Helpers
 {
@@ -108,7 +109,7 @@ namespace Returns.Helpers
 
         public async Task<List<WorkflowTemplateDTO>> GetAllWorkflowTemplates(bool includeUnpublished = false)
         {
-            var query = _context.WorkFlowTemplates .Include(t => t.WorkFlowSteps) .AsQueryable();
+            var query = _context.WorkFlowTemplates.Include(t => t.WorkFlowSteps).AsQueryable();
 
             if (!includeUnpublished)
             {
@@ -120,7 +121,14 @@ namespace Returns.Helpers
             {
                 return new List<WorkflowTemplateDTO>();
             }
-            return templates.Select(t => ConvertToTemplateDto(t)).ToList();
+
+            var result = new List<WorkflowTemplateDTO>();
+            foreach (var template in templates)
+            {
+                result.Add(await ConvertToTemplateDto(template));
+            }
+
+            return result;
         }
 
 
@@ -269,11 +277,76 @@ namespace Returns.Helpers
                 throw new Exception("Workflow template not found");
             }
 
-            return ConvertToTemplateDto(template);
+            return await ConvertToTemplateDto(template);
         }
 
-        private WorkflowTemplateDTO ConvertToTemplateDto(WorkFlowTemplate template)
+        private async Task<WorkflowTemplateDTO> ConvertToTemplateDto(WorkFlowTemplate template)
         {
+            var steps = new List<WorkflowStepDTO>();
+
+            foreach (var s in template.WorkFlowSteps.OrderBy(x => x.Sequence))
+            {
+                var dto = new WorkflowStepDTO
+                {
+                    StepId = s.Id,
+                    Sequence = s.Sequence,
+                    RoleId = s.RoleId,
+                    RoleName = s.RoleName,
+                    TemplateId = s.WorkFlowTemplateId,
+
+                    AssigneeType = s.AssigneeType.ToString(),
+                    SpecificUserId = s.SpecificUserId
+                };
+
+                switch (s.AssigneeType)
+                {
+                    case StepAssignee.SpecificUser:
+                        if (string.IsNullOrWhiteSpace(s.SpecificUserId))
+                        {
+                            dto.AssigneeResolved = false;
+                            dto.AssigneeMessage = "Specific user not set for this step.";
+                        }
+                        else
+                        {
+                            var user = await _complianceService.GetUserDetailsAsync(s.SpecificUserId);
+                            if (user == null)
+                            {
+                                dto.AssigneeResolved = false;
+                                dto.AssigneeMessage = "Selected user not found.";
+                            }
+                            else
+                            {
+                                dto.AssigneeResolved = true;
+                                dto.Assignee = new AssigneeDTO
+                                {
+                                    UserId = user.UserId,
+                                    FullName = user.FullName,
+                                    Email = user.Email,
+                                    RoleName = user.RoleName
+                                };
+                            }
+                        }
+                        break;
+
+                    case StepAssignee.Officer:
+                        dto.AssigneeResolved = false;
+                        dto.AssigneeMessage = "System-determined: Compliance Officer assigned to the SACCO.";
+                        break;
+
+                    case StepAssignee.TeamLead:
+                        dto.AssigneeResolved = false;
+                        dto.AssigneeMessage = "System-determined: Team Lead for the SACCO’s team.";
+                        break;
+
+                    default:
+                        dto.AssigneeResolved = false;
+                        dto.AssigneeMessage = "Unknown assignee type.";
+                        break;
+                }
+
+                steps.Add(dto);
+            }
+
             return new WorkflowTemplateDTO
             {
                 TemplateId = template.Id,
@@ -281,17 +354,57 @@ namespace Returns.Helpers
                 Description = template.Description,
                 IsPublished = template.IsPublished,
                 CreatedAt = template.CreatedAt,
-                Steps = template.WorkFlowSteps.Select(s => new WorkflowStepDTO
-                {
-                    StepId = s.Id,
-                    Sequence = s.Sequence,
-                    RoleId = s.RoleId,
-                    RoleName = s.RoleName,
-                    TemplateId = s.WorkFlowTemplateId,
-                }).OrderBy(s => s.Sequence).ToList()
+                Steps = steps
             };
         }
 
-      
+
+        public async Task<StepAssigneeDTO> StepAssigneeDetailsAsync(string stepId)
+        {
+            var step = await _context.WorkFlowSteps
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == stepId)
+                ?? throw new InvalidOperationException("Workflow step not found.");
+
+            var result = new StepAssigneeDTO
+            {
+                StepId = step.Id,
+                AssigneeType = step.AssigneeType
+            };
+
+            if (!string.IsNullOrWhiteSpace(step.SpecificUserId))
+            {
+                var user = await _complianceService.GetUserDetailsAsync(step.SpecificUserId);
+                if (user != null)
+                {
+                    result.IsResolved = true;
+                    result.Assignees.Add(new AssigneeDTO
+                    {
+                        UserId = user.UserId,
+                        FullName = user.FullName,
+                        Email = user.Email,
+                        RoleName = user.RoleName ?? string.Empty
+                    });
+                    return result;
+                }
+
+                result.IsResolved = false;
+                result.Message = "Specified user not found.";
+                return result;
+            }
+
+            result.IsResolved = false;
+            result.Message = step.AssigneeType switch
+            {
+                StepAssignee.Officer => "System-determined: Compliance Officer will be resolved at runtime.",
+                StepAssignee.TeamLead => "System-determined: Team Lead will be resolved at runtime.",
+                StepAssignee.SpecificUser => "Specific user not set for this step.",
+                _ => "Unknown assignee type."
+            };
+            return result;
+        }
+
+
+
     }
 }

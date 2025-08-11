@@ -23,5 +23,7 @@ namespace Returns.Models
         public virtual WorkFlowStep CurrentStep { get; set; } = null!;
         public bool IsComplete { get; internal set; } = false;
         public string? IncompletenessNotes { get; internal set; }
+        public DateTime UpdatedAt { get; internal set; }
+        public string? UpdatedBy { get; internal set; }  = string.Empty; // User who last updated the instance
     }
 }

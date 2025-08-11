@@ -16,7 +16,7 @@ namespace Returns.DTOs.WorkFlowTemplate
         public List<ValidationError> ConsistencyErrors { get; set; } = new();
         public int? Rating { get; set; }
         public string CurrentRole { get; set; } = null!;
-        public int CurrentStep { get; set; }
+        public string CurrentStep { get; set; }
         public string Status { get; set; } = null!;
         public string Type { get; set; } = null!;
         //public bool CanBeSeen { get; set; }

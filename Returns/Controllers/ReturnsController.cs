@@ -36,6 +36,16 @@ using Hangfire;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using Returns.DTOs.Compliance;
 using Returns.DTOs;
+using DocumentFormat.OpenXml.Bibliography;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Returns.DTOs;
+using Returns.DTOs.Returns.Admin;
+using Returns.Models;
+using Returns.Models.CamelSetup;
+using Returns.Models.Data;
+using System.Globalization;
+using System.Linq;
 
 namespace Returns.Controllers
 {
@@ -2485,18 +2495,8 @@ namespace Returns.Controllers
         {
             try
             {
-                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
-                {
-                    return StatusCode(401, "Unauthorized");
-                }
-
                 var versions = await _adminReturnService.GetAvailableVersionsAsync(periodId, saccoId, expectedReturnId);
                 return Ok(versions);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
             }
             catch (Exception ex)
             {
@@ -3197,6 +3197,57 @@ namespace Returns.Controllers
             {
                 _logger.LogError(ex, "Error retrieving amendment requests for SACCO");
                 return StatusCode(500, "An error occurred while retrieving amendment requests");
+            }
+        }
+
+
+
+        [HttpPost("admin/reassign-workflow")]
+        public async Task<ActionResult<WorkflowReassignmentResultDTO>> ReassignWorkflow([FromBody] WorkflowReassignmentRequestDTO request)
+        {
+            try
+            {
+                var loggedInUser = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInUser == null || string.IsNullOrEmpty(loggedInUser.UserId))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var result = await _workflowService.ReassignWorkflowAsync(request, loggedInUser);
+               if (result.Success)
+                {
+                    return Ok(result.Message);
+                }
+                else
+                {
+                    return BadRequest(result.Message);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reassigning workflow: {@Request}", request);
+                return StatusCode(500, "Error reassigning workflow");
+            }
+        }
+
+        [HttpGet("admin/tl-workflow-overview")]
+        public async Task<ActionResult<List<TLWorkflowOverviewDTO>>> GetTLWorkflowOverview()
+        {
+            try
+            {
+                var loggedInUser = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInUser == null || string.IsNullOrEmpty(loggedInUser.UserId))
+                {
+                    return StatusCode(401, "Unauthorized");
+                }
+
+                var overview = await _workflowService.GetTLWorkflowOverviewAsync(loggedInUser.UserId);
+                return Ok(overview);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting TL workflow overview");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
     }

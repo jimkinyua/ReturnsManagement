@@ -60,11 +60,11 @@ namespace Returns.Helpers
                 // Apply filters based on DUE DATES (period end dates) instead of submission dates
                 if (filter.Year.HasValue)
                 {
-                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.EndDate.Year == filter.Year.Value);
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.FilingDeadline.Year == filter.Year.Value);
                 }
                 if (filter.Month.HasValue)
                 {
-                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.EndDate.Month == filter.Month.Value);
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.FilingDeadline.Month == filter.Month.Value);
                 }
                 if (!string.IsNullOrEmpty(filter.Frequency))
                 {
@@ -762,9 +762,9 @@ namespace Returns.Helpers
 
                 // Get all available versions for this period and sacco
                 var allVersions = await GetAvailableVersionsAsync(periodId, saccoId);
-               /* detailsDto.AvailableVersions = allVersions;
-                detailsDto.HasMultipleVersions = allVersions.Count > 1;
-*/
+                /* detailsDto.AvailableVersions = allVersions;
+                 detailsDto.HasMultipleVersions = allVersions.Count > 1;
+ */
                 if (groupId == "standalone")
                 {
                     var submissionsR = await _context.ReturnSubmissions

@@ -8,6 +8,6 @@
         public string? SaccoCsNumber { get; set; } = null!;
         public string? FormId { get; set; } = null!;
         public Boolean RequiresResubmission { get; set; } = false;
-
+        public string? ReturnId { get; set; }
     }
 }

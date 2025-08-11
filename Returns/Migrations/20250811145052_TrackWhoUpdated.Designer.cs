@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Returns.Models.Data;
 
@@ -11,9 +12,11 @@ using Returns.Models.Data;
 namespace Returns.Migrations
 {
     [DbContext(typeof(ReturnsDbContext))]
-    partial class ReturnsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250811145052_TrackWhoUpdated")]
+    partial class TrackWhoUpdated
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -233,6 +236,10 @@ namespace Returns.Migrations
                     b.Property<string>("PeriodId")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ReturnId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ReturnSubmissionId")
                         .HasColumnType("nvarchar(max)");
 
@@ -429,9 +436,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -670,9 +674,6 @@ namespace Returns.Migrations
                     b.Property<decimal>("RetirementBenefitsLiability")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -776,9 +777,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1107,7 +1105,7 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1147,6 +1145,8 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -1244,7 +1244,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1267,6 +1267,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -1385,7 +1387,7 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1423,6 +1425,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -1505,7 +1509,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1528,6 +1532,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -1628,7 +1634,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1669,6 +1675,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -1723,7 +1731,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1740,6 +1748,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -1837,7 +1847,7 @@ namespace Returns.Migrations
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SACCOName")
                         .IsRequired()
@@ -1882,6 +1892,8 @@ namespace Returns.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ReturnId");
+
+                    b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("DailyLiquidityReturns");
                 });
@@ -1928,7 +1940,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -1945,6 +1957,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -2023,9 +2037,6 @@ namespace Returns.Migrations
 
                     b.Property<bool>("RequiresResubmission")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2244,7 +2255,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2264,6 +2275,8 @@ namespace Returns.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -2476,7 +2489,7 @@ namespace Returns.Migrations
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SaccoCsNumber")
                         .HasColumnType("nvarchar(max)");
@@ -2491,6 +2504,8 @@ namespace Returns.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ReturnId");
+
+                    b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("ManagementReturns");
                 });
@@ -2607,7 +2622,7 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2647,6 +2662,8 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -2756,7 +2773,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2824,6 +2841,8 @@ namespace Returns.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ReturnId");
+
                     b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("NWDTComprehensiveIncomeReturns");
@@ -2874,7 +2893,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -2887,6 +2906,8 @@ namespace Returns.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -3017,7 +3038,7 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3098,6 +3119,8 @@ namespace Returns.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ReturnId");
+
                     b.HasIndex("ReturnSubmissionId");
 
                     b.ToTable("NWDTFinancialPositionReturns");
@@ -3170,7 +3193,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3244,6 +3267,8 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -3330,7 +3355,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3358,6 +3383,8 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -3412,7 +3439,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3425,6 +3452,8 @@ namespace Returns.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -3464,7 +3493,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -3486,6 +3515,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -3635,7 +3666,7 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PreviousVersionId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("ReturnFor")
                         .HasColumnType("datetime2");
@@ -3663,6 +3694,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PreviousVersionId");
 
                     b.ToTable("Returns");
                 });
@@ -3942,6 +3975,9 @@ namespace Returns.Migrations
                     b.Property<int>("OverallRating")
                         .HasColumnType("int");
 
+                    b.Property<string>("ReturnId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<decimal>("ReturnOnAssets")
                         .HasColumnType("decimal(18,2)");
 
@@ -3966,6 +4002,8 @@ namespace Returns.Migrations
                         .HasColumnType("decimal(18,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId1");
 
@@ -4092,7 +4130,7 @@ namespace Returns.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("ReturnId")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ReturnSubmissionId")
                         .IsRequired()
@@ -4120,6 +4158,8 @@ namespace Returns.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ReturnId");
 
                     b.HasIndex("ReturnSubmissionId");
 
@@ -4160,9 +4200,6 @@ namespace Returns.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("AssigneeType")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -4175,9 +4212,6 @@ namespace Returns.Migrations
 
                     b.Property<int>("Sequence")
                         .HasColumnType("int");
-
-                    b.Property<string>("SpecificUserId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("WorkFlowTemplateId")
                         .IsRequired()
@@ -4247,6 +4281,9 @@ namespace Returns.Migrations
                     b.Property<int?>("Rating")
                         .HasColumnType("int");
 
+                    b.Property<string>("ReturnId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("ReturnSubmissionId")
                         .HasColumnType("nvarchar(max)");
 
@@ -4287,6 +4324,8 @@ namespace Returns.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CurrentStepId");
+
+                    b.HasIndex("ReturnId");
 
                     b.ToTable("WorkflowInstances");
                 });
@@ -4417,6 +4456,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.DTCapitalAdequacyReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("CapitalAdequencies")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("DTCapitalAdequacyReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4428,6 +4471,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.DTComprehensiveIncomeReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("StatementOfComprehensiveIncomeReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("DTComprehensiveIncomeReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4439,6 +4486,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.DTFinancialPositionReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("StatementOfFinancialPositionReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("DTFinancialPositionReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4450,6 +4501,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.DTInvestmentReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("InvestmentReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("DTInvestmentReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4461,6 +4516,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.DTLiquidityReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("LiquidityReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("DTLiquidityReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4472,6 +4531,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.DTRiskClassificationReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("RiskClassifications")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("DTRiskClassificationReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4483,15 +4546,25 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.DailyLiquidityReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("DailyLiquidityReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "Return")
                         .WithMany()
-                        .HasForeignKey("ReturnId");
+                        .HasForeignKey("ReturnSubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Return");
                 });
 
             modelBuilder.Entity("Returns.Models.DepositReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("DepositReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("DepositReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4548,6 +4621,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.InsiderLendingHeader", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("InsiderLendingHeaders")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "Return")
                         .WithMany()
                         .HasForeignKey("ReturnSubmissionId")
@@ -4570,15 +4647,25 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.ManagementReturn", b =>
                 {
-                    b.HasOne("Returns.Models.ReturnSubmission", "Return")
+                    b.HasOne("Returns.Models.Return", null)
                         .WithMany("ManagementReturns")
                         .HasForeignKey("ReturnId");
+
+                    b.HasOne("Returns.Models.ReturnSubmission", "Return")
+                        .WithMany("ManagementReturns")
+                        .HasForeignKey("ReturnSubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Return");
                 });
 
             modelBuilder.Entity("Returns.Models.NWDTCapitalAdequacyReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("NDWTCapitalAdequacyReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("NWDTCapitalAdequacyReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4590,6 +4677,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.NWDTComprehensiveIncomeReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("NWDTComprehensiveIncomeReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("NWDTComprehensiveIncomeReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4601,6 +4692,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.NWDTDepositReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("NWDTDepositReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("NWDTDepositReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4612,6 +4707,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.NWDTFinancialPositionReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("NWDTFinancialPositionReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("NWDTFinancialPositionReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4623,6 +4722,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.NWDTInvestmentReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("NWDTInvestmentReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("NWDTInvestmentReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4634,6 +4737,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.NWDTLiquidityReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("NWDTLiquidityReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("NWDTLiquidityReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4645,6 +4752,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.NWDTRiskClassificationReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("NWDTRiskClassificationReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("NWDTRiskClassificationReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4656,6 +4767,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.OtherReturn", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("OtherReturns")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany("OtherReturns")
                         .HasForeignKey("ReturnSubmissionId")
@@ -4685,6 +4800,15 @@ namespace Returns.Migrations
                         .IsRequired();
 
                     b.Navigation("AdditionalInfoReponse");
+                });
+
+            modelBuilder.Entity("Returns.Models.Return", b =>
+                {
+                    b.HasOne("Returns.Models.Return", "PreviousVersion")
+                        .WithMany()
+                        .HasForeignKey("PreviousVersionId");
+
+                    b.Navigation("PreviousVersion");
                 });
 
             modelBuilder.Entity("Returns.Models.ReturnForm", b =>
@@ -4727,7 +4851,7 @@ namespace Returns.Migrations
             modelBuilder.Entity("Returns.Models.ReturnsAssigment", b =>
                 {
                     b.HasOne("Returns.Models.Return", "Return")
-                        .WithMany()
+                        .WithMany("ReturnsAssigments")
                         .HasForeignKey("ReturnId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -4737,6 +4861,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.SaccoAnalysis", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("SaccoAnalysis")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany()
                         .HasForeignKey("ReturnSubmissionId1")
@@ -4748,6 +4876,10 @@ namespace Returns.Migrations
 
             modelBuilder.Entity("Returns.Models.SectoralLendingReport", b =>
                 {
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("SectoralLendingReports")
+                        .HasForeignKey("ReturnId");
+
                     b.HasOne("Returns.Models.ReturnSubmission", "ReturnSubmission")
                         .WithMany()
                         .HasForeignKey("ReturnSubmissionId")
@@ -4786,6 +4918,10 @@ namespace Returns.Migrations
                         .HasForeignKey("CurrentStepId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Returns.Models.Return", null)
+                        .WithMany("WorkflowInstances")
+                        .HasForeignKey("ReturnId");
 
                     b.Navigation("CurrentStep");
                 });
@@ -4843,6 +4979,53 @@ namespace Returns.Migrations
             modelBuilder.Entity("Returns.Models.ReportingYear", b =>
                 {
                     b.Navigation("Periods");
+                });
+
+            modelBuilder.Entity("Returns.Models.Return", b =>
+                {
+                    b.Navigation("CapitalAdequencies");
+
+                    b.Navigation("DailyLiquidityReturns");
+
+                    b.Navigation("DepositReturns");
+
+                    b.Navigation("InsiderLendingHeaders");
+
+                    b.Navigation("InvestmentReturns");
+
+                    b.Navigation("LiquidityReturns");
+
+                    b.Navigation("ManagementReturns");
+
+                    b.Navigation("NDWTCapitalAdequacyReturns");
+
+                    b.Navigation("NWDTComprehensiveIncomeReturns");
+
+                    b.Navigation("NWDTDepositReturns");
+
+                    b.Navigation("NWDTFinancialPositionReturns");
+
+                    b.Navigation("NWDTInvestmentReturns");
+
+                    b.Navigation("NWDTLiquidityReturns");
+
+                    b.Navigation("NWDTRiskClassificationReturns");
+
+                    b.Navigation("OtherReturns");
+
+                    b.Navigation("ReturnsAssigments");
+
+                    b.Navigation("RiskClassifications");
+
+                    b.Navigation("SaccoAnalysis");
+
+                    b.Navigation("SectoralLendingReports");
+
+                    b.Navigation("StatementOfComprehensiveIncomeReturns");
+
+                    b.Navigation("StatementOfFinancialPositionReturns");
+
+                    b.Navigation("WorkflowInstances");
                 });
 
             modelBuilder.Entity("Returns.Models.ReturnPeriods", b =>

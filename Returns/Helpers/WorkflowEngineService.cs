@@ -3,6 +3,7 @@ using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Returns.DTOs.Compliance;
 using Returns.DTOs.Enforcement;
+using Returns.DTOs.Returns.Admin;
 using Returns.DTOs.WorkFlow_Engine;
 using Returns.DTOs.WorkFlowTemplate;
 using Returns.Helpers.Enums;
@@ -13,6 +14,7 @@ using System.ComponentModel;
 using System.Reflection;
 using System.Text.Json;
 using static Returns.Helpers.ReturnAnalysisHelper;
+using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Helpers
 {
@@ -23,6 +25,7 @@ namespace Returns.Helpers
         private readonly IEmailService _emailService;
         private readonly IEnforcementService _enforcementService;
         private readonly ICamelsAnalysisService _camelsAnalysisService;
+        private readonly ISaccoAssignmentService _saccoAssignmentService;
         private readonly ILogger<WorkflowEngineService> _logger;
 
 
@@ -51,7 +54,7 @@ namespace Returns.Helpers
             return attr?.Description ?? value.ToString();
         }
 
-        public WorkflowEngineService(ReturnsDbContext db, ILogger<WorkflowEngineService> logger, ICamelsAnalysisService camelsAnalysisService, IComplianceService complianceService, IEmailService emailService, IEnforcementService enforcementService)
+        public WorkflowEngineService(ReturnsDbContext db, ISaccoAssignmentService saccoAssignmentService, ILogger<WorkflowEngineService> logger, ICamelsAnalysisService camelsAnalysisService, IComplianceService complianceService, IEmailService emailService, IEnforcementService enforcementService)
         {
             _db = db;
             _logger = logger;
@@ -59,6 +62,7 @@ namespace Returns.Helpers
             _emailService = emailService;
             _enforcementService = enforcementService;
             _camelsAnalysisService = camelsAnalysisService;
+            _saccoAssignmentService = saccoAssignmentService;
         }
 
         public async Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId, string loggedInUserToken)
@@ -66,59 +70,45 @@ namespace Returns.Helpers
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // 1. Fetch workflow instance
                 var instance = await _db.WorkflowInstances
                     .Include(w => w.CurrentStep)
                     .FirstOrDefaultAsync(w => w.Id == dto.WorkFlowInstanceId)
                     ?? throw new InvalidOperationException("Workflow instance not found.");
 
-                // 2. Validate user is the current assignee
                 if (instance.UserId != userId)
-                {
                     throw new UnauthorizedAccessException("User is not assigned to this step.");
-                }
 
-                // 3. Fetch consistency check and CAELS rating for context
-                string comment = dto.Reason?.Trim() ?? "";
+                var comment = dto.Reason?.Trim() ?? "";
 
-
-                // 4. Log enforcement recommendation
                 _db.ApprovalActions.Add(new ApprovalAction
                 {
                     WorkFlowStepId = instance.CurrentStepId,
                     PeriodId = instance.PeriodId,
                     SaccoId = instance.SaccoId,
-                    ReturnSubmissionId = instance.ReturnSubmissionId, // Null for Q groups
+                    ReturnSubmissionId = instance.ReturnSubmissionId,
                     UserId = userId,
                     Comment = comment,
                     Status = ApprovalStatus.RecommendedForEnForcement.ToString(),
                     CreatedAt = DateTime.UtcNow
                 });
 
-
-
-                // 6. Check if last step
-                bool isLastStep = false;
+                // Check if current step is the last in template
                 var lastSeq = await _db.WorkFlowSteps
                     .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId)
                     .MaxAsync(s => s.Sequence);
 
-                if (instance.CurrentStep.Sequence >= lastSeq)
-                {
-                    isLastStep = true;
-                }
+                var isLastStep = instance.CurrentStep?.Sequence >= lastSeq;
 
                 if (isLastStep)
                 {
-                    // 7a. Final step: Hand off to enforcement
+                    // Finalize → Enforcement case
                     instance.CurrentStepId = null;
                     instance.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
-                    instance.CanBeSeen = false; // Hide after enforcement
+                    instance.CanBeSeen = false;
 
-                    var sac = instance.SaccoId;
-                    long LongsaccoId = long.Parse(sac);
+                    long longSaccoId = long.Parse(instance.SaccoId);
+                    var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
 
-                    var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
                     var caseDto = new EnforcementCaseRequestDTO
                     {
                         Title = $"Enforcement Case for {(instance.Type == "QGroup" ? "Quarterly Return" : "Return")}",
@@ -136,143 +126,44 @@ namespace Returns.Helpers
                     await _enforcementService.SubmitCaseAsync(caseDto, loggedInUserToken);
                     await transaction.CommitAsync();
 
-                    // Notify SACCO
                     BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type, comment));
                 }
                 else
                 {
-                    // 7b. Hand over to next approver
                     var nextStep = await GetNextStepIdAsync(instance, bypassRating: true)
-                        ?? throw new InvalidOperationException("Template expects another step but none was found.");
+                                   ?? throw new InvalidOperationException("Template expects another step but none was found.");
 
-                    // Check if current user is team lead and this was initial step
-                    var teamLead = await _complianceService.GetTeamLeaderAsync(instance.TeamId);
-                    bool isTeamLead = teamLead != null && teamLead.UserId == userId;
-                    bool isInitialStep = instance.CurrentStep?.Sequence == 0;
+                    var (assigneeUserId, _, assigneeEmail) =
+                        await ResolveAssigneeAsync(nextStep, instance.SaccoId, instance.TeamId);
 
-                    var nextApprover = await GetApproverForStep(nextStep, instance.TeamId, instance.SaccoId)
-                        ?? throw new InvalidOperationException($"No approver found for next step '{nextStep.Id}'.");
+                    instance.CurrentStepId = nextStep.Id;
+                    instance.UserId = assigneeUserId;
+                    instance.Status = ApprovalStatus.Pending.ToString();
+                    instance.CanBeSeen = true;
 
-                    if (isTeamLead && isInitialStep && nextApprover.UserId == userId && nextStep.RoleName == "Assistant Manager")
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    // Notify next assignee
+                    try
                     {
-                        // Auto-recommend for the Assistant Manager step
-                        _db.ApprovalActions.Add(new ApprovalAction
-                        {
-                            WorkFlowStepId = nextStep.Id,
-                            PeriodId = instance.PeriodId,
-                            SaccoId = instance.SaccoId,
-                            ReturnSubmissionId = instance.ReturnSubmissionId,
-                            UserId = userId,
-                            Status = ApprovalStatus.RecommendedForEnForcement.ToString(),
-                            Comment = "Auto-recommended for enforcement as team lead already reviewed initial step",
-                            CreatedAt = DateTime.UtcNow
-                        });
-
-                        // Advance to the step after next
-                        var tempInstance = new WorkflowInstance
-                        {
-                            WorkflowTemplateId = instance.WorkflowTemplateId,
-                            Rating = instance.Rating,
-                            CurrentStepId = nextStep.Id
-                        };
-                        var stepAfterNext = await GetNextStepIdAsync(tempInstance, bypassRating: true);
-
-                        if (stepAfterNext == null)
-                        {
-                            // Workflow complete after auto-recommend (hand off to enforcement)
-                            instance.CurrentStepId = null;
-                            instance.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
-                            instance.CanBeSeen = false; // Hide after enforcement
-
-                            long LongsaccoId = long.Parse(instance.SaccoId);
-                            var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
-                            var caseDto = new EnforcementCaseRequestDTO
-                            {
-                                Title = $"Enforcement Case for {(instance.Type == "QGroup" ? "Quarterly Return" : "Return")}",
-                                Description = comment,
-                                SaccoId = instance.SaccoId,
-                                SaccoName = sacco?.SaccoName ?? "Unknown SACCO",
-                                Source = "Returns Module",
-                                SourceReferenceNo = instance.Id,
-                                Classification = dto.Classification ?? "Minor",
-                                DateRequested = DateTime.UtcNow,
-                                Remarks = comment
-                            };
-
-                            await _db.SaveChangesAsync();
-                            await _enforcementService.SubmitCaseAsync(caseDto, loggedInUserToken);
-                            await transaction.CommitAsync();
-
-                            // Notify SACCO
-                            BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type, comment));
-                        }
-                        else
-                        {
-                            var afterApprover = await GetApproverForStep(stepAfterNext, instance.TeamId, instance.SaccoId)
-                                ?? throw new InvalidOperationException($"No approver found for step after next '{stepAfterNext.Id}'.");
-
-                            instance.CurrentStepId = stepAfterNext.Id;
-                            instance.UserId = afterApprover.UserId;
-                            instance.Status = ApprovalStatus.Pending.ToString();
-                            instance.CanBeSeen = true;
-
-                            await _db.SaveChangesAsync();
-                            await transaction.CommitAsync();
-
-                            // Notify the approver after next
-                            try
-                            {
-
-                                var sac = instance.SaccoId;
-                                long LongsaccoId = long.Parse(sac);
-
-                                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
-                                await _emailService.SendEmailAsync(
-                                    afterApprover.Email,
-                                    "Return Recommended for Enforcement",
-                                    $"A {(instance.Type == "QGroup" ? "quarterly return group" : "return")} for SACCO {sacco?.SaccoName ?? instance.SaccoId} (Period: {instance.PeriodId}) has been recommended for enforcement. Reason: {comment}");
-                            }
-                            catch (Exception ex)
-                            {
-                                // Log email failure but don't fail the operation
-                                Console.WriteLine($"Failed to send notification email: {ex.Message}");
-                            }
-                        }
+                        long longSaccoId = long.Parse(instance.SaccoId);
+                        var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
+                        await _emailService.SendEmailAsync(
+                            assigneeEmail,
+                            "Return Recommended for Enforcement",
+                            $"A {(instance.Type == "QGroup" ? "quarterly return group" : "return")} for SACCO {sacco?.SaccoName ?? instance.SaccoId} " +
+                            $"(Period: {instance.PeriodId}) has been recommended for enforcement. Reason: {comment}");
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        // Normal advance
-                        instance.CurrentStepId = nextStep.Id;
-                        instance.UserId = nextApprover.UserId;
-                        instance.Status = ApprovalStatus.Pending.ToString(); // Reset to Pending for next step
-                        instance.CanBeSeen = true;
-
-                        await _db.SaveChangesAsync();
-                        await transaction.CommitAsync();
-
-                        // Notify next approver
-                        try
-                        {
-
-                            var sac = instance.SaccoId;
-                            long LongsaccoId = long.Parse(sac);
-                            var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
-                            await _emailService.SendEmailAsync(
-                                nextApprover.Email,
-                                "Return Recommended for Enforcement",
-                                $"A {(instance.Type == "QGroup" ? "quarterly return group" : "return")} for SACCO {sacco?.SaccoName ?? instance.SaccoId} (Period: {instance.PeriodId}) has been recommended for enforcement. Reason: {comment}");
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log email failure but don't fail the operation
-                            Console.WriteLine($"Failed to send notification email: {ex.Message}");
-                        }
+                        _logger.LogWarning(ex, "Failed to send enforcement email for workflow {WorkflowInstanceId}", instance.Id);
                     }
                 }
 
                 return ConvertToDto(instance);
             }
-            catch (Exception)
+            catch
             {
                 await transaction.RollbackAsync();
                 throw;
@@ -281,86 +172,73 @@ namespace Returns.Helpers
 
 
 
+
         public async Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId)
         {
-            /*var mySaccoIds = (await _complianceService.GetSaccosAssignedToOfficerAsync(userId))
-                .Select(s => s.Id)
-                .ToHashSet();*/
-            var mySaccoIds = _db.SaccoAssignments
-                .Where(sa => sa.AssignedUserId == userId)
-                .Select(sa => sa.SaccoId)
-                .ToHashSet();
-
-            /* // Visible statuses
-             var visibleStatuses = new[]
-             {
-                 ApprovalStatus.Pending.ToString(),
-                 ApprovalStatus.RecommendForApproval.ToString(),
-                 ApprovalStatus.RecommendedForEnForcement.ToString(),
-                 ApprovalStatus.ReturnedWithReservations.ToString(),
-                 ApprovalStatus.PendingEnforcement.ToString()
-             };*/
-
             var workflowInstances = await _db.WorkflowInstances
                 .Include(w => w.CurrentStep)
-                .Where(w => w.CanBeSeen &&
-                            //visibleStatuses.Contains(w.Status) &&
-                            (w.UserId == userId
-                            //|| mySaccoIds.Contains(w.SaccoId)
-                            ))
+                .Where(w => w.CanBeSeen && w.UserId == userId)
                 .OrderBy(w => w.CreatedAt)
+                .AsNoTracking()
                 .ToListAsync();
 
             var pendingReturns = new List<PendingReturnDto>();
 
             foreach (var instance in workflowInstances)
             {
-                // Fetch period and SACCO details
+                // Period
                 var period = await _db.ReturnPeriods.FindAsync(instance.PeriodId)
-                    ?? throw new InvalidOperationException("Period not found");
-                var sac = instance.SaccoId;
-                long LongsaccoId = long.Parse(sac);
-                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
+                             ?? throw new InvalidOperationException("Period not found");
 
-                // Default values
+                // SACCO (convert id safely)
+                var saccoIdText = instance.SaccoId;
+                long saccoIdLong = 0;
+                _ = long.TryParse(saccoIdText, out saccoIdLong);
+                var sacco = saccoIdLong > 0 ? await _complianceService.GetSaccoByIdAsync(saccoIdLong) : null;
+
+                // Defaults
                 bool isConsistent = true;
-                List<ValidationError> consistencyErrors = new();
+                var consistencyErrors = new List<ValidationError>();
                 int? rating = instance.Rating;
                 DateTime submittedDate = DateTime.MinValue;
-                List<string> formSubmissionIds = new();
+                var formSubmissionIds = new List<string>();
 
-                // Fetch consistency check
+                // Consistency check (latest)
                 var consistencyCheck = await _db.ConsistencyCheckResults
                     .Where(cc => cc.SaccoId == instance.SaccoId && cc.PeriodId == instance.PeriodId)
                     .OrderByDescending(cc => cc.CheckedAt)
+                    .AsNoTracking()
                     .FirstOrDefaultAsync();
 
                 if (consistencyCheck != null)
                 {
                     isConsistent = consistencyCheck.IsValid;
-                    consistencyErrors = JsonSerializer.Deserialize<List<ValidationError>>(consistencyCheck.ErrorsJson) ?? new List<ValidationError>();
+                    consistencyErrors = JsonSerializer.Deserialize<List<ValidationError>>(consistencyCheck.ErrorsJson)
+                                       ?? new List<ValidationError>();
                 }
 
-                // Fetch CAELS rating
+                // CAELS rating (latest)
                 var caelsRating = await _db.CAELSRatings
                     .Where(r => r.SaccoId == instance.SaccoId && r.PeriodId == instance.PeriodId)
                     .OrderByDescending(r => r.CreatedAt)
+                    .AsNoTracking()
                     .FirstOrDefaultAsync();
 
                 if (caelsRating != null)
                 {
-                    rating = (int?)caelsRating.OverallRating;  // Adjust based on your rating field
+                    rating = (int?)caelsRating.OverallRating; 
                 }
 
-                // Handle Q groups vs standalone
-                if (instance.Type == "QGroup")
+                // Submissions (QGroup vs single)
+                if (string.Equals(instance.Type, "QGroup", StringComparison.OrdinalIgnoreCase))
                 {
                     var submissions = await _db.ReturnSubmissions
                         .Where(rs => rs.SaccoId == instance.SaccoId && rs.ExpectedReturn.PeriodId == instance.PeriodId)
+                        .AsNoTracking()
                         .ToListAsync();
 
                     formSubmissionIds = submissions.Select(rs => rs.Id).ToList();
-                    submittedDate = submissions.Any() ? submissions.Max(rs => rs.SubmittedAt) : DateTime.MinValue;
+                    submittedDate = submissions.Count > 0 ? submissions.Max(rs => rs.SubmittedAt) : DateTime.MinValue;
                 }
                 else
                 {
@@ -372,6 +250,13 @@ namespace Returns.Helpers
                     }
                 }
 
+                // Build "CurrentStep" display safely
+                var stepSeq = instance.CurrentStep?.Sequence;
+                var stepRole = instance.CurrentStep?.RoleName;
+                var currentStepText = (stepSeq.HasValue || !string.IsNullOrWhiteSpace(stepRole))
+                    ? $"Step {(stepSeq.GetValueOrDefault() + 1)}{(string.IsNullOrWhiteSpace(stepRole) ? "" : $" ({stepRole})")}"
+                    : "No Step";
+
                 pendingReturns.Add(new PendingReturnDto
                 {
                     WorkflowInstanceId = instance.Id,
@@ -379,17 +264,16 @@ namespace Returns.Helpers
                     ReturnSubmissionId = instance.ReturnSubmissionId,
                     SaccoId = instance.SaccoId,
                     SaccoName = sacco?.SaccoName ?? "Unknown SACCO",
-                    SaccoType = sacco?.SaccoType.ToString() ?? "Unknown",
+                    SaccoType = sacco?.SaccoType?.ToString() ?? "Unknown",
                     Period = period.Name,
                     SubmittedDate = submittedDate,
                     IsConsistent = isConsistent,
                     ConsistencyErrors = consistencyErrors,
                     Rating = rating,
-                    CurrentRole = instance.CurrentStep?.RoleName ?? "",
-                    CurrentStep = instance.CurrentStep?.Sequence ?? 0,
+                    CurrentRole = instance.CurrentStep?.RoleName ?? string.Empty,
+                    CurrentStep = currentStepText,
                     Status = instance.Status,
                     Type = instance.Type,
-                    //CanBeSeen = instance.CanBeSeen,
                     CanTakeAction = instance.UserId == userId,
                     FormSubmissionIds = formSubmissionIds
                 });
@@ -568,115 +452,179 @@ namespace Returns.Helpers
 
         public async Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest req, string userId)
         {
-            using var transaction = await _db.Database.BeginTransactionAsync();
+            await using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // 1. Fetch workflow instance
+                // 1) Load instance
                 var instance = await _db.WorkflowInstances
                     .Include(w => w.CurrentStep)
                     .FirstOrDefaultAsync(w => w.Id == req.WorkFlowInstanceId)
                     ?? throw new InvalidOperationException("Workflow instance not found.");
 
-                // 2. Validate user is the current assignee
+                // 2) Must be current assignee
                 if (instance.UserId != userId)
-                {
                     throw new UnauthorizedAccessException("User is not assigned to this step.");
-                }
 
-                // 3. Fetch consistency check for context (optional, to include in comment)
-                string comment = req.Comment?.Trim() ?? "";
+                var comment = req.Comment?.Trim() ?? string.Empty;
 
+                var currentSeq = instance.CurrentStep != null ? instance.CurrentStep.Sequence : int.MaxValue;
+                var hasReturnSubmission = !string.IsNullOrEmpty(instance.ReturnSubmissionId);
+                var returnSubmissionId = instance.ReturnSubmissionId;
+                var pendingStatus = ApprovalStatus.Pending.ToString();
 
-                // 4. Get approval history to find previous step
-                var approvalHistory = await _db.ApprovalActions
-                    .Where(a => a.PeriodId == instance.PeriodId && a.SaccoId == instance.SaccoId &&
-                                a.Status != ApprovalStatus.Pending.ToString())
-                    .OrderByDescending(a => a.CreatedAt)
-                    .ToListAsync();
+                // 3) Get previous approver action (strictly before current step in sequence)
+                // 
+                var prevActionQ = from a in _db.ApprovalActions
+                    join s in _db.WorkFlowSteps on a.WorkFlowStepId equals s.Id
+                    where a.PeriodId == instance.PeriodId
+                       && a.SaccoId == instance.SaccoId
+                       && (hasReturnSubmission ? a.ReturnSubmissionId == returnSubmissionId
+                                               : a.ReturnSubmissionId == null)
+                       && a.Status != pendingStatus
+                       && s.WorkFlowTemplateId == instance.WorkflowTemplateId
+                       && s.Sequence < currentSeq
+                    orderby a.CreatedAt descending
+                    select new { Action = a, Step = s };
 
-                WorkFlowStep? stepToRevertTo = null;
-                CommonFieldForUser? prevApprover = null;
+                var lastPrev = await prevActionQ.FirstOrDefaultAsync();
 
-                if (approvalHistory.Any())
-                {
-                    var lastActionTaken = approvalHistory.First();
-                    stepToRevertTo = await _db.WorkFlowSteps
-                        .FirstOrDefaultAsync(s => s.Id == lastActionTaken.WorkFlowStepId)
-                        ?? throw new InvalidOperationException("Previous step not found.");
-
-                    prevApprover = await GetApproverForStep(stepToRevertTo, instance.TeamId, instance.SaccoId)
-                        ?? throw new InvalidOperationException("Previous approver not found.");
-                }
-                else
-                {
-                    throw new InvalidOperationException("No previous approver found.");
-
-                    /*                    // No prior action: Revert to SACCO for resubmission
-                    // Use step 0 (first step) or handle as resubmission
-                    stepToRevertTo = await _db.WorkFlowSteps
-                        .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId && s.Sequence == 0)
-                        .FirstOrDefaultAsync()
-                        ?? throw new InvalidOperationException("No first step found for resubmission.");
-
-                    prevApprover = await GetApproverForStep(stepToRevertTo, instance.TeamId, instance.SaccoId)
-                        ?? throw new InvalidOperationException("No initial approver found.");*/
-                }
-
-                // 5. Log the current action
+                // 4) Log the return action for current step
                 _db.ApprovalActions.Add(new ApprovalAction
                 {
                     WorkFlowStepId = instance.CurrentStepId,
                     PeriodId = instance.PeriodId,
                     SaccoId = instance.SaccoId,
-                    ReturnSubmissionId = instance.ReturnSubmissionId, // Null for Q groups
+                    ReturnSubmissionId = instance.ReturnSubmissionId,
                     UserId = userId,
                     Comment = comment,
                     Status = ApprovalStatus.ReturnedWithReservations.ToString(),
                     CreatedAt = DateTime.UtcNow
                 });
 
+                WorkFlowStep targetStep;
+                string targetUserId;
+                string? targetEmail = null;
 
-                // 7. Update workflow instance
-                instance.CurrentStepId = stepToRevertTo.Id;
-                instance.UserId = prevApprover.UserId;
+                if (lastPrev != null)
+                {
+                    // 5a) Go back to the actual previous approver (user-specific)
+                    targetStep = lastPrev.Step;
+
+                    targetUserId = lastPrev.Action.UserId; // real person who acted previously
+                    var user = await _complianceService.GetUserDetailsAsync(targetUserId);
+                    targetEmail = user?.Email;
+                }
+                else
+                {
+                    // 5b) Fallback: no previous approver — send to first step's assignee
+                    var firstStep = await _db.WorkFlowSteps
+                        .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId)
+                        .OrderBy(s => s.Sequence)
+                        .FirstOrDefaultAsync()
+                        ?? throw new InvalidOperationException("No steps found for this workflow template.");
+
+                    var (assigneeUserId, _, assigneeEmail) =
+                        await ResolveAssigneeAsync(firstStep, instance.SaccoId, instance.TeamId);
+
+                    targetStep = firstStep;
+                    targetUserId = assigneeUserId;
+                    targetEmail = assigneeEmail;
+                }
+
+                // 6) Update instance
+                instance.CurrentStepId = targetStep.Id;
+                instance.UserId = targetUserId;
                 instance.Status = ApprovalStatus.ReturnedWithReservations.ToString();
-                instance.CanBeSeen = true; // Ensure visible to new assignee
+                instance.CanBeSeen = true;
 
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                // 8. Notify previous approver or SACCO
-                if (approvalHistory.Any())
+                // 7) Notify target
+                try
                 {
-                    // Notify previous approver
-                    try
+                    if (!string.IsNullOrWhiteSpace(targetEmail))
                     {
-                        var sac = instance.SaccoId;
-                        long LongsaccoId = long.Parse(sac);
-                        var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
+                        long longSaccoId = long.Parse(instance.SaccoId);
+                        var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
                         await _emailService.SendEmailAsync(
-                            prevApprover.Email,
+                            targetEmail,
                             "Return Sent Back with Reservations",
-                            $"A {(instance.Type == "QGroup" ? "quarterly return" : "return")} for SACCO {sacco?.SaccoName ?? instance.SaccoId} (Period: {instance.PeriodId}) has been sent back to you for further review. Reason: {comment}");
-                    }
-                    catch (Exception ex)
-                    {
-                        // Log email failure but don't fail the operation
-                        Console.WriteLine($"Failed to send notification email: {ex.Message}");
+                            $"A {(instance.Type == "QGroup" ? "quarterly return group" : "return")} for " +
+                            $"SACCO {sacco?.SaccoName ?? instance.SaccoId} (Period: {instance.PeriodId}) " +
+                            $"has been sent back to you for further review. Reason: {comment}");
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    // Notify SACCO for resubmission
-                    BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type, comment));
+                    _logger.LogWarning(ex, "Failed to send return-with-reservations email for workflow {WorkflowInstanceId}", instance.Id);
                 }
 
                 return ConvertToDto(instance);
             }
-            catch (Exception)
+            catch
             {
                 await transaction.RollbackAsync();
                 throw;
+            }
+        }
+
+
+
+
+        public async Task<WorkflowReassignmentResultDTO> ReassignWorkflowAsync(WorkflowReassignmentRequestDTO request, LoggedInEntity loggedInEntity)
+        {
+            try
+            {
+                var workflowInstance = await _db.WorkflowInstances
+                    .FirstOrDefaultAsync(wi => wi.Id == request.WorkflowInstanceId);
+
+                if (workflowInstance == null)
+                {
+                    return new WorkflowReassignmentResultDTO
+                    {
+                        Success = false,
+                        Message = "Workflow instance not found"
+                    };
+                }
+                var NewGuyDetails = await _complianceService.GetUserDetailsAsync(request.NewAssigneeId);
+                if (NewGuyDetails is null)
+                {
+                    return new WorkflowReassignmentResultDTO
+                    {
+                        Success = false,
+                        Message = "Assignee Does Not Exist"
+                    };
+                }
+                var previousAssigneeId = workflowInstance.UserId;
+
+                // Update the assignee
+                workflowInstance.UserId = request.NewAssigneeId;
+                workflowInstance.UpdatedAt = DateTime.UtcNow;
+                workflowInstance.UpdatedBy = loggedInEntity.UserId;
+                workflowInstance.RoleName = NewGuyDetails.RoleName;
+
+                _db.WorkflowInstances.Entry(workflowInstance).State = EntityState.Modified;
+                _db.WorkflowInstances.Update(workflowInstance);
+                await _db.SaveChangesAsync();
+
+                return new WorkflowReassignmentResultDTO
+                {
+                    Success = true,
+                    Message = "Workflow reassigned successfully",
+                    PreviousAssigneeId = previousAssigneeId,
+                    NewAssigneeId = request.NewAssigneeId,
+                    ReassignedAt = DateTime.UtcNow
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reassigning workflow {WorkflowInstanceId}", request.WorkflowInstanceId);
+                return new WorkflowReassignmentResultDTO
+                {
+                    Success = false,
+                    Message = $"Error reassigning workflow: {ex.Message}"
+                };
             }
         }
 
@@ -688,19 +636,22 @@ namespace Returns.Helpers
                 if (string.IsNullOrWhiteSpace(periodId) || string.IsNullOrWhiteSpace(saccoId))
                     throw new ArgumentException("PeriodId and SaccoId are required.");
 
-                // 1. Load template
+                // 1) Load published template (with steps)
                 var template = await _db.WorkFlowTemplates
-                                 .Include(t => t.WorkFlowSteps)
-                                 .FirstOrDefaultAsync(t => t.IsPublished)
-                                 ?? throw new InvalidOperationException("No published workflow template found.");
+                    .Include(t => t.WorkFlowSteps)
+                    .FirstOrDefaultAsync(t => t.IsPublished)
+                    ?? throw new InvalidOperationException("No published workflow template found.");
 
-                // 2. Period info
+                if (template.WorkFlowSteps == null || !template.WorkFlowSteps.Any())
+                    throw new InvalidOperationException("Workflow template has no steps.");
+
+                // 2) Period info
                 var period = await _db.ReturnPeriods.FindAsync(periodId)
-                                 ?? throw new InvalidOperationException("Period not found.");
+                             ?? throw new InvalidOperationException("Period not found.");
                 bool isQuarterly = period.FrequencyId == 5;
-                string wfType = isQuarterly ? "QGroup" : "standalone";
+                string wfType = isQuarterly ? "QGroup" : "Standalone"; // <- keep consistent across codebase
 
-                // 3. CAELS rating & completeness checks (quarterly only) - now optional, with flags
+                // 3) CAELS & completeness (quarterly)
                 decimal ratingScore = 0;
                 string? riskBand = null;
                 bool hasCAELS = false;
@@ -725,11 +676,8 @@ namespace Returns.Helpers
                         _logger.LogWarning("No CAELS rating found for quarterly return: SaccoId {SaccoId}, PeriodId {PeriodId}", saccoId, periodId);
                     }
 
-                    // ReturnCompleteness for completeness info
                     var completeness = await _db.ReturnCompleteness
-                        .FirstOrDefaultAsync(
-                        rc => rc.PeriodId == periodId
-                        && rc.SaccoId == saccoId);
+                        .FirstOrDefaultAsync(rc => rc.PeriodId == periodId && rc.SaccoId == saccoId);
 
                     if (completeness != null)
                     {
@@ -737,14 +685,15 @@ namespace Returns.Helpers
                         missingFormsJson = completeness.MissingForms;
                         if (!isPeriodComplete)
                         {
-                            _logger.LogWarning("Incomplete quarterly return group: SaccoId {SaccoId}, PeriodId {PeriodId}. Expected {ExpectedCount}, Submitted {SubmittedCount}, Missing: {MissingForms}", saccoId, periodId, completeness.ExpectedReturnCount, completeness.ActualReturnCount, missingFormsJson);
+                            _logger.LogWarning(
+                                "Incomplete quarterly return group: SaccoId {SaccoId}, PeriodId {PeriodId}. Expected {ExpectedCount}, Submitted {SubmittedCount}, Missing: {MissingForms}",
+                                saccoId, periodId, completeness.ExpectedReturnCount, completeness.ActualReturnCount, missingFormsJson);
                         }
                     }
                     else
                     {
                         _logger.LogWarning("No ReturnCompleteness record found for SaccoId {SaccoId}, PeriodId {PeriodId}. Falling back to manual check.", saccoId, periodId);
 
-                        // Fallback to manual count if no record
                         var expected = await _db.ExpectedReturns
                             .Where(er => er.PeriodId == periodId)
                             .Select(er => er.Id)
@@ -758,7 +707,9 @@ namespace Returns.Helpers
                         isPeriodComplete = expected.Count == submitted.Count;
                         if (!isPeriodComplete)
                         {
-                            _logger.LogWarning("Incomplete quarterly return group (fallback): SaccoId {SaccoId}, PeriodId {PeriodId}. Expected {ExpectedCount}, Submitted {SubmittedCount}", saccoId, periodId, expected.Count, submitted.Count);
+                            _logger.LogWarning(
+                                "Incomplete quarterly return group (fallback): SaccoId {SaccoId}, PeriodId {PeriodId}. Expected {ExpectedCount}, Submitted {SubmittedCount}",
+                                saccoId, periodId, expected.Count, submitted.Count);
                         }
                     }
                 }
@@ -767,7 +718,7 @@ namespace Returns.Helpers
                     throw new ArgumentException("ReturnSubmissionId is required for non-quarterly returns.");
                 }
 
-                // Determine completeness status based on flags (for quarterly only;)
+                // 4) Completeness flags summary
                 bool isComplete = !isQuarterly || (hasCAELS && isPeriodComplete);
                 string incompletenessNotes = string.Empty;
                 if (!isComplete)
@@ -776,47 +727,34 @@ namespace Returns.Helpers
                     if (!hasCAELS) notes.Add("Missing CAELS rating");
                     if (!isPeriodComplete)
                     {
-                        string missingDetails = string.IsNullOrEmpty(missingFormsJson) ? "Incomplete return submissions" : $"Incomplete return submissions (Missing: {missingFormsJson.Replace("[", "").Replace("]", "").Replace("\"", "")})";
+                        string missingDetails = string.IsNullOrEmpty(missingFormsJson)
+                            ? "Incomplete return submissions"
+                            : $"Incomplete return submissions (Missing: {missingFormsJson.Replace("[", "").Replace("]", "").Replace("\"", "")})";
                         notes.Add(missingDetails);
                     }
                     incompletenessNotes = string.Join("; ", notes);
                 }
 
-                // 4. Resolve assignee
-                var assigneeId = await _db.SaccoAssignments
-                                    .Where(a => a.SaccoId == saccoId)
-                                    .Select(a => a.AssignedUserId)
-                                    .FirstOrDefaultAsync();
+                // 5) Upsert workflow instance (by QGroup or Standalone key)
+                WorkflowInstance? instance =
+                    isQuarterly
+                        ? await _db.WorkflowInstances
+                            .FirstOrDefaultAsync(w => w.PeriodId == periodId && w.SaccoId == saccoId && w.Type == "QGroup")
+                        : await _db.WorkflowInstances
+                            .FirstOrDefaultAsync(w => w.ReturnSubmissionId == returnSubmissionId && w.Type == "Standalone");
 
-                if (assigneeId == null) // SACCO NOT ASSIGNED SO TEAM LEAD HANDLES
-                {
-                    var teamId = await _complianceService.GetTeamIdForSaccoAsync(saccoId)
-                                   ?? throw new InvalidOperationException("No team assigned.");
-                    var teamLead = await _complianceService.GetTeamLeaderAsync(teamId)
-                                   ?? throw new InvalidOperationException("No team lead found.");
-                    assigneeId = teamLead.UserId;
-                }
+                // 6) Determine first step and resolve concrete assignee (user-specific)
+                var firstStep = template.WorkFlowSteps.OrderBy(s => s.Sequence).First();
 
-                var assignee = await _complianceService.GetUserDetailsAsync(assigneeId)
-                              ?? throw new InvalidOperationException("Assignee user not found.");
+                // TeamId is derived from SACCO assignment
+                var teamId = await _complianceService.GetTeamIdForSaccoAsync(saccoId)
+                             ?? throw new InvalidOperationException("No team assigned for this SACCO.");
 
-                // 5. Upsert workflow instance
-                WorkflowInstance? instance;
-                if (isQuarterly)
-                {
-                    instance = await _db.WorkflowInstances
-                        .FirstOrDefaultAsync(w => w.PeriodId == periodId &&
-                                                  w.SaccoId == saccoId &&
-                                                  w.Type == "QGroup");
-                }
-                else
-                {
-                    instance = await _db.WorkflowInstances
-                        .FirstOrDefaultAsync(w => w.ReturnSubmissionId == returnSubmissionId &&
-                                                  w.Type == "Standalone");
-                }
+                var (assigneeUserId, assigneeName, assigneeEmail) = await ResolveAssigneeAsync(firstStep, saccoId, teamId); // <- user-specific resolver per new model
 
-                var firstStepId = template.WorkFlowSteps.OrderBy(s => s.Sequence).First().Id;
+                // get assignee role (for display)
+                var assigneeDetails = await _complianceService.GetUserDetailsAsync(assigneeUserId)
+                                      ?? throw new InvalidOperationException("Assignee user not found.");
 
                 if (instance == null)
                 {
@@ -826,16 +764,14 @@ namespace Returns.Helpers
                         ReturnSubmissionId = returnSubmissionId,
                         SaccoId = saccoId,
                         WorkflowTemplateId = template.Id,
-                        TeamId = assignee.TeamId!,
-                        UserId = assigneeId,
-                        RoleName = assignee.RoleName,
+                        TeamId = teamId,
+                        UserId = assigneeUserId,                 // user-specific assignment
+                        RoleName = assigneeDetails.RoleName,     // optional label
                         Rating = (int)ratingScore,
-                        //RiskCategory = riskBand,
-                        CurrentStepId = firstStepId,
+                        CurrentStepId = firstStep.Id,
                         Status = ApprovalStatus.Pending.ToString(),
                         Type = wfType,
                         CanBeSeen = true,
-                        // New fields (assume added to entity):
                         IsComplete = isComplete,
                         IncompletenessNotes = incompletenessNotes
                     };
@@ -843,13 +779,13 @@ namespace Returns.Helpers
                 }
                 else
                 {
-                    instance.UserId = assigneeId;
-                    instance.RoleName = assignee.RoleName;
+                    instance.UserId = assigneeUserId;               // reassign to resolved user
+                    instance.RoleName = assigneeDetails.RoleName;
                     instance.Status = ApprovalStatus.Pending.ToString();
                     instance.Rating = (int)ratingScore;
-                    //instance.RiskCategory = riskBand;
-                    instance.CurrentStepId = firstStepId;
+                    instance.CurrentStepId = firstStep.Id;
                     instance.CanBeSeen = true;
+                    instance.TeamId = teamId;                       // ensure set
                     instance.IsComplete = isComplete;
                     instance.IncompletenessNotes = incompletenessNotes;
                     _db.WorkflowInstances.Update(instance);
@@ -858,22 +794,29 @@ namespace Returns.Helpers
                 await _db.SaveChangesAsync();
                 await tx.CommitAsync();
 
-                // 6. Notify assignee (fire-and-forget), including incompleteness info
+                // 7) Notify assignee (fire-and-forget), include incompleteness
                 _ = Task.Run(async () =>
                 {
-                    long LongsaccoId = long.Parse(saccoId);
-                    var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
-                    var emailBody = $"A new {(isQuarterly ? "quarterly" : "")} return " +
-                                    $"for SACCO {sacco?.SaccoName ?? saccoId} (Period: {period.Name}) " +
-                                    $"has been submitted.";
-                    if (!isComplete)
+                    try
                     {
-                        emailBody += $" Note: This submission is incomplete: {incompletenessNotes}.";
+                        long longSaccoId = long.Parse(saccoId);
+                        var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
+                        var emailBody =
+                            $"A new {(isQuarterly ? "quarterly " : "")}return for SACCO {sacco?.SaccoName ?? saccoId} (Period: {period.Name}) has been submitted.";
+                        if (!isComplete)
+                        {
+                            emailBody += $" Note: This submission is incomplete: {incompletenessNotes}.";
+                        }
+
+                        await _emailService.SendEmailAsync(
+                            assigneeEmail,
+                            "New Return Submitted for Review",
+                            emailBody);
                     }
-                    await _emailService.SendEmailAsync(
-                        assignee.Email,
-                        "New Return Submitted for Review",
-                        emailBody);
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to send start-workflow email for workflow {WorkflowInstanceId}", instance.Id);
+                    }
                 });
 
                 return ConvertToDto(instance);
@@ -892,177 +835,88 @@ namespace Returns.Helpers
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
-                // 1. Fetch workflow instance
                 var instance = await _db.WorkflowInstances
                     .Include(i => i.CurrentStep)
                     .FirstOrDefaultAsync(i => i.Id == request.WorkFlowInstanceId)
                     ?? throw new InvalidOperationException($"Workflow instance '{request.WorkFlowInstanceId}' not found.");
 
-                // 2. Validate user is the current assignee
                 if (instance.UserId != userId)
-                {
                     throw new UnauthorizedAccessException("User is not assigned to approve this step.");
-                }
 
-                // 3. Check if already approved
+                // Prevent duplicate approvals by same user on same step
                 var alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
                     a.WorkFlowStepId == instance.CurrentStepId &&
-                    /* a.PeriodId == instance.PeriodId &&
-                     a.SaccoId == instance.SaccoId &&*/
                     a.UserId == userId &&
                     a.Status == ApprovalStatus.RecommendForApproval.ToString());
 
                 if (alreadyApproved)
-                {
                     return ConvertToDto(instance);
-                }
 
-
-
-                // 5. Log approval action
                 _db.ApprovalActions.Add(new ApprovalAction
                 {
                     WorkFlowStepId = instance.CurrentStepId,
                     PeriodId = instance.PeriodId,
                     SaccoId = instance.SaccoId,
-                    ReturnSubmissionId = instance.ReturnSubmissionId, // Null for Q groups
+                    ReturnSubmissionId = instance.ReturnSubmissionId,
                     UserId = userId,
                     Status = ApprovalStatus.RecommendForApproval.ToString(),
                     Comment = request.Comment?.Trim() ?? "",
                     CreatedAt = DateTime.UtcNow
                 });
 
-
-                // 7. Determine next step
                 var nextStep = await GetNextStepIdAsync(instance);
                 if (nextStep == null)
                 {
-                    // Workflow complete
+                    // Complete
                     instance.Status = ApprovalStatus.RecommendForApproval.ToString();
-                    instance.CanBeSeen = false; // Hide after completion
+                    instance.CanBeSeen = false;
                     instance.CurrentStepId = null;
-
 
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    // Notify SACCO
                     BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type));
                 }
                 else
                 {
-                    // Check if current user is team lead and this was initial step
-                    var teamLead = await _complianceService.GetTeamLeaderAsync(instance.TeamId);
-                    bool isTeamLead = teamLead != null && teamLead.UserId == userId;
-                    bool isInitialStep = instance.CurrentStep?.Sequence == 0;
 
-                    var nextApprover = await GetApproverForStep(nextStep, instance.TeamId, instance.SaccoId)
-                        ?? throw new InvalidOperationException($"No approver found for next step '{nextStep.Id}'.");
+                    var (assigneeUserId, _, assigneeEmail) = await ResolveAssigneeAsync(nextStep, instance.SaccoId, instance.TeamId);
 
-                    if (isTeamLead && isInitialStep && nextApprover.UserId == userId && nextStep.RoleName == "Assistant Manager")
+                    instance.CurrentStepId = nextStep.Id;
+                    instance.UserId = assigneeUserId;
+                    instance.Status = ApprovalStatus.Pending.ToString();
+                    instance.CanBeSeen = true;
+
+                    await _db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    // Notify next assignee
+                    try
                     {
-                        // Auto-approve the Assistant Manager step since lead already approved initial
-                        _db.ApprovalActions.Add(new ApprovalAction
-                        {
-                            WorkFlowStepId = nextStep.Id,
-                            PeriodId = instance.PeriodId,
-                            SaccoId = instance.SaccoId,
-                            ReturnSubmissionId = instance.ReturnSubmissionId,
-                            UserId = userId,
-                            Status = ApprovalStatus.RecommendForApproval.ToString(),
-                            Comment = "Auto-approved as team lead already reviewed initial step",
-                            CreatedAt = DateTime.UtcNow
-                        });
-
-                        // Advance to the step after next
-                        var tempInstance = new WorkflowInstance
-                        {
-                            WorkflowTemplateId = instance.WorkflowTemplateId,
-                            Rating = instance.Rating,
-                            CurrentStepId = nextStep.Id
-                        };
-                        var stepAfterNext = await GetNextStepIdAsync(tempInstance);
-
-                        if (stepAfterNext == null)
-                        {
-                            // Workflow complete after auto-approve
-                            instance.Status = ApprovalStatus.RecommendForApproval.ToString();
-                            instance.CanBeSeen = false;
-                            instance.CurrentStepId = null;
-
-                            await _db.SaveChangesAsync();
-                            await transaction.CommitAsync();
-
-                            // Notify SACCO
-                            BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type));
-                            BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type));
-                        }
-                        else
-                        {
-                            var afterApprover = await GetApproverForStep(stepAfterNext, instance.TeamId, instance.SaccoId)
-                                ?? throw new InvalidOperationException($"No approver found for step after next '{stepAfterNext.Id}'.");
-
-                            instance.CurrentStepId = stepAfterNext.Id;
-                            instance.UserId = afterApprover.UserId;
-                            instance.Status = ApprovalStatus.Pending.ToString();
-                            instance.CanBeSeen = true;
-
-                            await _db.SaveChangesAsync();
-                            await transaction.CommitAsync();
-
-                            // Notify the approver after next
-                            try
-                            {
-                                long LongsaccoId = long.Parse(instance.SaccoId);
-                                var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
-                                await _emailService.SendEmailAsync(
-                                    afterApprover.Email,
-                                    "New Approval Request",
-                                    $"You have a new approval request for SACCO {sacco?.SaccoName ?? instance.SaccoId} ({(instance.Type == "QGroup" ? "Quarterly Group" : "Return")}) for period {instance.PeriodId}.");
-                            }
-                            catch (Exception ex)
-                            {
-                                // Log email failure but don't fail the operation
-                                Console.WriteLine($"Failed to send notification email: {ex.Message}");
-                            }
-                        }
+                        long longSaccoId = long.Parse(instance.SaccoId);
+                        var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
+                        await _emailService.SendEmailAsync(
+                            assigneeEmail,
+                            "New Approval Request",
+                            $"You have a new approval request for SACCO {sacco?.SaccoName ?? instance.SaccoId} " +
+                            $"({(instance.Type == "QGroup" ? "Quarterly Group" : "Return")}) for period {instance.PeriodId}.");
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        // Normal advance
-                        instance.CurrentStepId = nextStep.Id;
-                        instance.UserId = nextApprover.UserId;
-                        instance.Status = ApprovalStatus.Pending.ToString();
-                        instance.CanBeSeen = true;
-
-                        await _db.SaveChangesAsync();
-                        await transaction.CommitAsync();
-
-                        try
-                        {
-                            long LongsaccoId = long.Parse(instance.SaccoId);
-                            var sacco = await _complianceService.GetSaccoByIdAsync(LongsaccoId);
-                            await _emailService.SendEmailAsync(
-                                nextApprover.Email,
-                                "New Approval Request",
-                                $"You have a new approval request for SACCO {sacco?.SaccoName ?? instance.SaccoId} ({(instance.Type == "QGroup" ? "Quarterly Group" : "Return")}) for period {instance.PeriodId}.");
-                        }
-                        catch (Exception ex)
-                        {
-                            // Log email failure but don't fail the operation
-                            Console.WriteLine($"Failed to send notification email: {ex.Message}");
-                        }
+                        _logger.LogWarning(ex, "Failed to send approval email for workflow {WorkflowInstanceId}", instance.Id);
                     }
                 }
 
                 return ConvertToDto(instance);
             }
-            catch (Exception)
+            catch
             {
                 await transaction.RollbackAsync();
                 throw;
             }
         }
+
+
 
         private async Task NotifySaccoAsync(string saccoId, string periodId, string type)
         {
@@ -1164,10 +1018,7 @@ namespace Returns.Helpers
                 var approvers = await _complianceService.GetUsersByRole(stepdetails.RoleId);
                 if (approvers == null || !approvers.Any())
                 {
-                    commonFieldForUser.FullName = "";
-                    commonFieldForUser.Email = "";
-                    commonFieldForUser.RoleId = "";
-                    commonFieldForUser.UserId = "";
+                    return null;
                 }
                 else
                 {
@@ -1263,22 +1114,117 @@ namespace Returns.Helpers
             };
         }
 
-        /*    public async Task<string> GetReturnStatus(string returnId)
+        public async Task<List<TLWorkflowOverviewDTO>> GetTLWorkflowOverviewAsync(string teamLeadId)
+        {
+            var saccos = await _saccoAssignmentService.GetAssignableSaccosAsync(teamLeadId);
+            if (saccos == null || !saccos.Any())
             {
-                var instance = await _db.WorkflowInstances
-                    .AsNoTracking()
-                    .Include(w => w.CurrentStep)
-                    .FirstOrDefaultAsync(w => w.ReturnId == returnId);
+                return new List<TLWorkflowOverviewDTO>();
+            }
+            var saccoIds = saccos.Select(s => s.SaccoId).ToList();
+            var workflowInstances = await _db.WorkflowInstances
+                .Where(wi => saccoIds.Contains(wi.SaccoId))
+                .OrderByDescending(wi => wi.CreatedAt)
+                .ToListAsync();
+            var overview = new List<TLWorkflowOverviewDTO>();
+            foreach (var instance in workflowInstances)
+            {
+                var Sacco = await _complianceService.GetSaccoByIdAsync(long.Parse(instance.SaccoId));
+                if (Sacco == null)
+                {
+                    continue; // Skip if Sacco not found
+                }
+                var Assignee = await _complianceService.GetUserDetailsAsync(instance.UserId);
+                if (Assignee == null)
+                {
+                    continue; // Skip if Assignee not found
+                }
+                var Period = await _db.ReturnPeriods
+                    .FirstOrDefaultAsync(p => p.Id == instance.PeriodId);
 
-                if (instance == null)
-                    return "WorkflowNotFound";          
+                var dto = new TLWorkflowOverviewDTO
+                {
+                    WorkflowInstanceId = instance.Id,
+                    ReturnSubmissionId = instance.ReturnSubmissionId ?? string.Empty,
+                    SaccoId = instance.SaccoId,
+                    SaccoName = Sacco.SaccoName,
+                    PeriodId = instance.PeriodId,
+                    PeriodName = Period?.Name ?? string.Empty,
+                    SubmittedAt = instance?.CreatedAt ?? DateTime.MinValue,
+                    CurrentAssigneeId = Assignee.UserId,
+                    CurrentAssigneeName = Assignee.FullName,
+                    WorkflowStatus = instance.Status.ToString(),
+                    AssignedAt = instance.CreatedAt,
+                    CanReassign = true
+                };
 
-                if (!int.TryParse(instance.Status, out var code))
-                    return instance.Status;             
+                // Get previous comments/actions
+                var comments = await _db.ApprovalActions
+                    .Where(c => c.WorkFlowStepId == instance.CurrentStepId &&
+                                c.PeriodId == instance.PeriodId &&
+                                c.SaccoId == instance.SaccoId)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .Select(c => new WorkflowCommentDTO
+                    {
+                        Comment = c.Comment,
+                        CommentedBy = c.UserId,
+                        CommentedAt = c.CreatedAt,
+                        Action = c.Status
+                    })
+                    .ToListAsync();
+                dto.PreviousComments = comments;
+                overview.Add(dto);
+            }
+            return overview;
+        }
 
-                var statusEnum = (ApprovalStatus)code;
-                return GetDescription(statusEnum);    
-            }*/
+
+        private async Task<(string userId, string displayName, string email)>  ResolveAssigneeAsync( WorkFlowStep step, string saccoId, string teamId)
+        {
+            switch (step.AssigneeType)
+            {
+                case StepAssignee.Officer:
+                    {
+                     var officer =   await _db.SaccoAssignments
+                                    .Where(a => a.SaccoId == saccoId)
+                                    .FirstOrDefaultAsync();
+                        if (officer != null)
+                        {
+                            var userDetails = await _complianceService.GetUserDetailsAsync(officer.AssignedUserId);
+                            if (userDetails == null)
+                                throw new InvalidOperationException("Assigned officer user not found.");
+                            return (userDetails.UserId, userDetails.FullName, userDetails.Email);
+                        }
+                        else
+                        {
+                            throw new InvalidOperationException("No officer assigned to this SACCO.");
+                        }
+
+                    }
+
+                case StepAssignee.TeamLead:
+                    {
+                        var tl = await _complianceService.GetTeamLeaderAsync(teamId)
+                                 ?? throw new InvalidOperationException("No team lead found for this team.");
+                        return (tl.UserId, tl.FullName, tl.Email);
+                    }
+
+                case StepAssignee.SpecificUser:
+                    {
+                        if (string.IsNullOrWhiteSpace(step.SpecificUserId))
+                            throw new InvalidOperationException("SpecificUserId is required for SpecificUser assignee type.");
+
+                        var user = await _complianceService.GetUserDetailsAsync(step.SpecificUserId)
+                                   ?? throw new InvalidOperationException("Specific user not found.");
+                        return (user.UserId, user.FullName, user.Email);
+                    }
+
+                default:
+                    throw new InvalidOperationException("Unknown assignee type.");
+            }
+        }
+
+
 
     }
 }
