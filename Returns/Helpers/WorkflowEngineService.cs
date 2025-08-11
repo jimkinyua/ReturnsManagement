@@ -846,6 +846,7 @@ namespace Returns.Helpers
                 // Prevent duplicate approvals by same user on same step
                 var alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
                     a.WorkFlowStepId == instance.CurrentStepId &&
+                    a.PeriodId == instance.PeriodId &&
                     a.UserId == userId &&
                     a.Status == ApprovalStatus.RecommendForApproval.ToString());
 
