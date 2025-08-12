@@ -2440,7 +2440,27 @@ namespace Returns.Controllers
             }
         }
 
+        // Admin Grouped Returns Methods
+        [HttpGet("sacco/grouped-returns")]
+        public async Task<ActionResult<List<AdminGroupedReturnDTO>>> GetSaccoGroupedReturns([FromQuery] SaccoReturnFilterDTO filter)
+        {
+            try
+            {
+                LoggedInEntity loggedInAdmin = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInAdmin == null || string.IsNullOrEmpty(loggedInAdmin.UserId))
+                {
+                    return Unauthorized();
+                }
 
+                var results = await _adminReturnService.GetSaccoGroupedReturnsAsync(filter, loggedInAdmin);
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting admin grouped returns");
+                return StatusCode(500, new { error = "An error occurred while fetching grouped returns", details = ex.Message });
+            }
+        }
 
 
         // Admin Grouped Returns Methods

@@ -16,6 +16,7 @@ using Returns.Models;
 using Returns.Models.Data;
 using System.Text.Json;
 using static Returns.Helpers.ReturnAnalysisHelper;
+using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Helpers
 {
@@ -37,6 +38,166 @@ namespace Returns.Helpers
             _configuration = configuration;
             _workflowEngineService = workflowEngineService;
         }
+
+        public async Task<List<AdminGroupedReturnDTO>> GetSaccoGroupedReturnsAsync(SaccoReturnFilterDTO filter, LoggedInEntity loggedInSacco)
+        {
+            try
+            {
+                var results = new List<AdminGroupedReturnDTO>();
+
+                // Fetch all relevant submissions
+                var submissionsQuery = _context.ReturnSubmissions
+                    .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                            .ThenInclude(p => p.FrequencyCatalog)
+                    .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.Period)
+                            .ThenInclude(p => p.ReportingYear)
+                    .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                    .Where(rs => rs.Status == SubmissionStatus.Submitted.ToString()
+                    && rs.SaccoId == loggedInSacco.SaccoId)
+                    .AsQueryable();
+
+                // Apply filters based on DUE DATES (period end dates) instead of submission dates
+                if (filter.Year.HasValue)
+                {
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.FilingDeadline.Year == filter.Year.Value);
+                }
+                if (filter.Month.HasValue)
+                {
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.FilingDeadline.Month == filter.Month.Value);
+                }
+                if (!string.IsNullOrEmpty(filter.Frequency))
+                {
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.FrequencyCatalog.Name == filter.Frequency);
+                }
+                if (!string.IsNullOrEmpty(filter.PeriodId))
+                {
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.PeriodId == filter.PeriodId);
+                }
+          
+                var allSubmissions = await submissionsQuery.ToListAsync();
+
+                // Group by period
+                var periodGroups = allSubmissions.GroupBy(s => s.ExpectedReturn.PeriodId);
+
+                foreach (var periodGroup in periodGroups)
+                {
+                    var period = periodGroup.First().ExpectedReturn.Period;
+                    bool isQuarterly = period.FrequencyCatalog.Id == 5;  // QTR
+
+                    if (isQuarterly)
+                    {
+                        // Quarterly: Group all forms by SACCO
+                        var saccoGroups = periodGroup.GroupBy(s => s.SaccoId);
+
+                        foreach (var saccoGroup in saccoGroups)
+                        {
+                            var saccoSubmissions = saccoGroup.ToList();
+                            var saccoDetails = await GetSaccoDetailsAsync(saccoGroup.Key);
+                            string saccoType = saccoDetails?.SaccoType ?? "0";
+
+                            // Get all expected Q forms for this period/SACCO type
+                            var expectedQForms = await _context.ExpectedReturns
+                                .Where(er => er.PeriodId == period.Id && er.ReturnForm.SaccoTypeId == saccoType)
+                                .Select(er => er.ReturnForm.Code)
+                                .ToHashSetAsync();
+
+                            var filedCodes = saccoSubmissions
+                                .Select(s => s.ExpectedReturn.ReturnForm.Code)
+                                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                            // Fetch CAELS rating definition to validate group (optional, for naming)
+                            var ratingDef = await _context.RatingDefinations
+                                .FirstOrDefaultAsync(rd => rd.RatingName.Contains("CAELS") && rd.SaccoType == saccoType);
+
+                            // Calculate lateness statistics
+                            var (hasLateSubmissions, totalDaysLate, lateFormsCount) = CalculateLatenessStats(saccoSubmissions, period);
+
+                            results.Add(new AdminGroupedReturnDTO
+                            {
+                                GroupId = ratingDef?.Id ?? period.Id,  // Use rating ID or period ID
+                                SaccoId = saccoGroup.Key,
+                                SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                                PeriodId = period.Id,
+                                PeriodName = period.Name,
+                                Year = period.ReportingYear.Year,
+                                Frequency = period.FrequencyCatalog.Name,
+                                StartDate = period.StartDate,
+                                EndDate = period.EndDate,
+                                SubmittedAt = saccoSubmissions.Max(s => s.SubmittedAt),
+                                Status = GetGroupStatus(saccoSubmissions),
+                                IsComplete = expectedQForms.SetEquals(filedCodes),  // All expected Q forms filed
+                                SubmittedForms = filedCodes.Count,  // Counts all Q forms (e.g., 7)
+                                Forms = await BuildFormListAsync(saccoSubmissions, expectedQForms.ToList(), period),
+                                GroupType = ReturnGroupType.Grouped,
+                                GroupName = $"{period.Name} {period.ReportingYear.Year} Returns - {saccoDetails?.SaccoName ?? "Unknown SACCO"}",
+                                HasLateSubmissions = hasLateSubmissions,
+                                TotalDaysLate = totalDaysLate,
+                                LateFormsCount = lateFormsCount
+                            });
+                        }
+                    }
+                    else
+                    {
+                        // Non-quarterly: Standalone per form/SACCO/period
+                        var saccoFormGroups = periodGroup.GroupBy(s => new { s.SaccoId, s.ExpectedReturn.ReturnFormId });
+
+                        foreach (var saccoFormGroup in saccoFormGroups)
+                        {
+                            var saccoSubmissions = saccoFormGroup.ToList();
+                            var saccoDetails = await GetSaccoDetailsAsync(saccoFormGroup.Key.SaccoId);
+                            var form = saccoSubmissions.First().ExpectedReturn.ReturnForm;
+
+                            // Calculate lateness statistics
+                            var (hasLateSubmissions, totalDaysLate, lateFormsCount) = CalculateLatenessStats(saccoSubmissions, period);
+
+                            results.Add(new AdminGroupedReturnDTO
+                            {
+                                GroupId = "standalone",
+                                SaccoId = saccoFormGroup.Key.SaccoId,
+                                SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                                PeriodId = period.Id,
+                                PeriodName = period.Name,
+                                Year = period.ReportingYear.Year,
+                                Frequency = period.FrequencyCatalog.Name,
+                                StartDate = period.StartDate,
+                                EndDate = period.EndDate,
+                                SubmittedAt = saccoSubmissions.Max(s => s.SubmittedAt),
+                                Status = GetGroupStatus(saccoSubmissions),
+                                IsComplete = saccoSubmissions.Any(),
+                                SubmittedForms = 1,  // One form per standalone
+                                Forms = await BuildStandaloneFormListAsync(saccoSubmissions, period),
+                                GroupType = ReturnGroupType.Standalone,
+                                GroupName = $"{period.Name} {period.ReportingYear.Year} {form.FormName} - {saccoDetails?.SaccoName ?? "Unknown SACCO"}",
+                                HasLateSubmissions = hasLateSubmissions,
+                                TotalDaysLate = totalDaysLate,
+                                LateFormsCount = lateFormsCount
+                            });
+                        }
+                    }
+                }
+
+                // Apply completion filter
+                if (filter.IsComplete.HasValue)
+                {
+                    results = results.Where(r => r.IsComplete == filter.IsComplete.Value).ToList();
+                }
+
+                // Apply pagination
+                var skip = (filter.Page - 1) * filter.PageSize;
+                results = results.Skip(skip).Take(filter.PageSize).ToList();
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting grouped returns");
+                throw;
+            }
+        }
+
 
         public async Task<List<AdminGroupedReturnDTO>> GetGroupedReturnsAsync(AdminReturnFilterDTO filter)
         {
@@ -885,8 +1046,19 @@ namespace Returns.Helpers
                                 break;
                         }
                     }
+                    
                     workflowState = await _workflowEngineService.GetCurrentStateAsync(periodId, saccoId, null);
                     comments = await _workflowEngineService.GetComments(periodId, saccoId, null);
+                }
+
+                var ReportReadniness = await _context.ReportReadniess
+                        .Where(rr => rr.SaccoId == saccoId && rr.PeriodId == periodId)
+                        .OrderByDescending(rr => rr.CreatedAt)
+                        .FirstOrDefaultAsync();
+                
+                if (ReportReadniness != null)
+                {
+                    detailsDto.CanReportBeViewed = ReportReadniness.IsApproved;
                 }
 
                 detailsDto.WorkflowState = workflowState;

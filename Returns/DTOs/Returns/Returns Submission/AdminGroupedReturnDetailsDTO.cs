@@ -23,6 +23,7 @@ namespace Returns.DTOs.Returns_Submission
         public DateTime SubmittedAt { get; set; }
         public string Status { get; set; } = null!;
         public bool IsComplete { get; set; }
+        public bool CanReportBeViewed { get; set; } = false;
         public int SubmittedForms { get; set; }
         public ReturnGroupType GroupType { get; set; }
 

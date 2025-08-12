@@ -48,6 +48,68 @@ namespace Returns.DTOs.Returns_Submission
         public int DaysLate { get; set; }
     }
 
+    public class SaccoReturnFilterDTO
+    {
+        private int? _year;
+        private int? _month;
+        private bool _hasAnyFilter = false;
+
+        /// <summary>
+        /// Filter by the year when returns were DUE (period end date), not when they were submitted
+        /// </summary>
+        public int? Year
+        {
+            get => _hasAnyFilter ? _year : (_year ?? DateTime.Now.Year);
+            set
+            {
+                _year = value;
+                _hasAnyFilter = true;
+            }
+        }
+
+        /// <summary>
+        /// Filter by the month when returns were DUE (period end date), not when they were submitted
+        /// </summary>
+        public int? Month
+        {
+            get;// _hasAnyFilter ? _month : (_month ?? DateTime.Now.Month);
+            set;
+            /*{
+                *//*_month = value;
+                _hasAnyFilter = true;*//*
+            }*/
+        }
+
+        public string? SaccoType
+        {
+            get;
+            set;
+        }
+
+        public string? Frequency { get; set; } // Monthly, Quarterly, etc.
+        public string? PeriodId { get; set; }
+        public string? RatingDefinitionId { get; set; }
+        public bool? IsComplete { get; set; }
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+
+        // Constructor to set default values only when no filters are provided
+        public SaccoReturnFilterDTO()
+        {
+            // Only set defaults if no other filters are provided
+            if (string.IsNullOrEmpty(SaccoType) &&
+                string.IsNullOrEmpty(Frequency) &&
+                string.IsNullOrEmpty(PeriodId) &&
+                string.IsNullOrEmpty(RatingDefinitionId) &&
+                !IsComplete.HasValue)
+            {
+                _year = DateTime.Now.Year;
+                _month = DateTime.Now.Month;
+            }
+        }
+    }
+
+
     public class AdminReturnFilterDTO
     {
         private int? _year;

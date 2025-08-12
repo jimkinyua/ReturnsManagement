@@ -87,6 +87,7 @@ namespace Returns.Models.Data
         public DbSet<AuditedFinancialPosition> AuditedFinancialPositions { get; set; }
         public DbSet<AuditedComprehensiveIncome> AuditedComprehensiveIncomes { get; set; }
         public DbSet<AuditedRiskClassification> AuditedRiskClassifications { get; set; }
+        public DbSet<ReportReadniess> ReportReadniess { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

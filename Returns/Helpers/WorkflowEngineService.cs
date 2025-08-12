@@ -284,21 +284,19 @@ namespace Returns.Helpers
 
         public async Task<WorkflowStateDto?> GetCurrentStateAsync(string? periodId, string? saccoId, string? returnSubmissionId)
         {
-            // 1. Validate inputs
+            // 1) Validate inputs
             if ((string.IsNullOrEmpty(periodId) || string.IsNullOrEmpty(saccoId)) && string.IsNullOrEmpty(returnSubmissionId))
-            {
                 throw new ArgumentException("Either PeriodId and SaccoId (for Q groups) or ReturnSubmissionId (for non-Q) must be provided.");
-            }
 
-            // 2. Fetch workflow instance
+            // 2) Fetch workflow instance
             WorkflowInstance? instance = null;
-            bool isQuarterly = false;
 
             if (!string.IsNullOrEmpty(returnSubmissionId))
             {
-                // Non-Q return
+                // Non-Q
                 instance = await _db.WorkflowInstances
                     .Include(w => w.CurrentStep)
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(w => w.ReturnSubmissionId == returnSubmissionId && w.Type == "Standalone");
             }
             else
@@ -306,77 +304,68 @@ namespace Returns.Helpers
                 // Q group
                 instance = await _db.WorkflowInstances
                     .Include(w => w.CurrentStep)
+                    .AsNoTracking()
                     .FirstOrDefaultAsync(w => w.PeriodId == periodId && w.SaccoId == saccoId && w.Type == "QGroup");
-
-                var period = await _db.ReturnPeriods.FindAsync(periodId);
-                isQuarterly = period?.FrequencyId == 5; // QTR
             }
 
-            if (instance == null)
-            {
-                return null;
-            }
+            if (instance == null) return null;
 
-            // 3. Fetch all steps for the workflow template
+            // 3) Fetch all steps for the template (in memory)
             var allSteps = await _db.WorkFlowSteps
                 .Where(s => s.WorkFlowTemplateId == instance.WorkflowTemplateId)
                 .OrderBy(s => s.Sequence)
+                .AsNoTracking()
                 .ToListAsync();
+
+            if (allSteps.Count == 0) return new WorkflowStateDto
+            {
+                WorkflowInstanceId = instance.Id,
+                PeriodId = instance.PeriodId,
+                ReturnSubmissionId = instance.ReturnSubmissionId,
+                SaccoId = instance.SaccoId,
+                CurrentStepId = instance.CurrentStep?.RoleName ?? "",
+                CurrentApproverId = instance.UserId,
+                Status = instance.Status,
+                IsFirst = false,
+                IsLast = true,
+                NextSteps = new List<WorkflowStepDto>()
+            };
 
             var firstSeq = allSteps.First().Sequence;
             var lastSeq = allSteps.Last().Sequence;
+            var currentSeq = instance.CurrentStep?.Sequence ?? -1;
 
-            // 4. Fetch next steps
-            var nextSteps = allSteps
-                .Where(s => s.Sequence > (instance.CurrentStep?.Sequence ?? -1))
-                .ToList();
-
+            // 4) Build next steps (user-specific assignment)
+            var nextSteps = allSteps.Where(s => s.Sequence > currentSeq).ToList();
             var nextStepDtos = new List<WorkflowStepDto>();
+
             foreach (var step in nextSteps)
             {
-                var approver = await GetApproverForStep(step, instance.TeamId, instance.SaccoId)
-                    ?? throw new InvalidOperationException($"No approver found for step {step.Id}.");
+                string? approverUserId = null;
+                string? approverName = null;
+                try
+                {
+                    var (uid, name, email) = await ResolveAssigneeAsync(step, instance.SaccoId, instance.TeamId);
+                    approverUserId = uid;
+                    approverName = name;
+                }
+                catch
+                {
+                    // leave approverUserId = null when it cannot be resolved at this point
+                }
 
                 nextStepDtos.Add(new WorkflowStepDto
                 {
                     StepId = step.Id,
                     ApproverRole = step.RoleName,
-                    ApproverUserId = approver.UserId,
+                    Approver= approverName,
+                    ApproverUserId = approverUserId,
                     IsFirst = step.Sequence == firstSeq,
                     IsLast = step.Sequence == lastSeq
                 });
             }
 
-            /* // 5. Fetch CAELS rating and consistency check (for Q groups)
-             decimal? rating = instance.Rating;
-             bool isConsistent = true;
-             List<ValidationError> consistencyErrors = new();
- */
-            /* if (instance.Type == "QGroup")
-             {
-                 var caelsRating = await _db.CAELSRatings
-                     .Where(r => r.SaccoId == instance.SaccoId && r.PeriodId == instance.PeriodId)
-                     .OrderByDescending(r => r.CreatedAt)
-                     .FirstOrDefaultAsync();
-
-                 if (caelsRating != null)
-                 {
-                     rating = caelsRating.OverallRating;
-                 }
-
-                 var consistencyCheck = await _db.ConsistencyCheckResults
-                     .Where(cc => cc.SaccoId == instance.SaccoId && cc.PeriodId == instance.PeriodId)
-                     .OrderByDescending(cc => cc.CheckedAt)
-                     .FirstOrDefaultAsync();
-
-                 if (consistencyCheck != null)
-                 {
-                     isConsistent = consistencyCheck.IsValid;
-                     consistencyErrors = JsonSerializer.Deserialize<List<ValidationError>>(consistencyCheck.ErrorsJson) ?? new();
-                 }
-             }*/
-
-            // 6. Build DTO
+            // 5) Build DTO
             return new WorkflowStateDto
             {
                 WorkflowInstanceId = instance.Id,
@@ -386,16 +375,12 @@ namespace Returns.Helpers
                 CurrentStepId = instance.CurrentStep?.RoleName ?? "",
                 CurrentApproverId = instance.UserId,
                 Status = instance.Status,
-                //Rating = (int)rating.Value,
-                //Type = instance.Type,
-                //CanBeSeen = instance.CanBeSeen,
                 IsFirst = instance.CurrentStep?.Sequence == firstSeq,
                 IsLast = instance.CurrentStep == null || instance.CurrentStep.Sequence == lastSeq,
-                NextSteps = nextStepDtos,
-                //IsConsistent = isConsistent,
-                //ConsistencyErrors = consistencyErrors
+                NextSteps = nextStepDtos
             };
         }
+
 
         public async Task<List<CommentDetails>> GetComments(string periodId, string saccoId, string? returnSubmissionId)
         {
@@ -660,6 +645,29 @@ namespace Returns.Helpers
 
                 if (isQuarterly)
                 {
+
+
+                    var reportReadiness = await _db.ReportReadniess
+                    .FirstOrDefaultAsync(rr => rr.PeriodId == periodId && rr.SaccoId == saccoId);
+
+                    if (reportReadiness == null)
+                    {
+                        reportReadiness = new ReportReadniess
+                        {
+                            PeriodId = periodId,
+                            SaccoId = saccoId,
+                            IsApproved = false
+                        };
+                        await _db.ReportReadniess.AddAsync(reportReadiness);
+                    }
+                    else
+                    {
+                        reportReadiness.IsApproved = false;
+                        _db.ReportReadniess.Update(reportReadiness);
+                    }
+                    await _db.SaveChangesAsync();
+
+
                     var ratingRow = await _db.CAELSRatings
                         .Where(r => r.SaccoId == saccoId && r.PeriodId == periodId)
                         .OrderByDescending(r => r.CreatedAt)
@@ -868,6 +876,28 @@ namespace Returns.Helpers
                 var nextStep = await GetNextStepIdAsync(instance);
                 if (nextStep == null)
                 {
+
+                    if (instance.Type == "QGroup")
+                    {
+                        var reportReadiness = await _db.ReportReadniess
+                            .FirstOrDefaultAsync(rr => rr.PeriodId == instance.PeriodId && rr.SaccoId == instance.SaccoId);
+                        if (reportReadiness == null)
+                        {
+                            reportReadiness = new ReportReadniess
+                            {
+                                PeriodId = instance.PeriodId,
+                                SaccoId = instance.SaccoId,
+                                IsApproved = true
+                            };
+                            await _db.ReportReadniess.AddAsync(reportReadiness);
+                        }
+                        else
+                        {
+                            reportReadiness.IsApproved = true;
+                            _db.ReportReadniess.Update(reportReadiness);
+                        }
+                    }
+
                     // Complete
                     instance.Status = ApprovalStatus.RecommendForApproval.ToString();
                     instance.CanBeSeen = false;

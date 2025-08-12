@@ -25,10 +25,10 @@ namespace Returns.DTOs.WorkFlow_Engine
 
     public class WorkflowStepDto
     {
-        public string StepId { get; set; }
-        public string Approver { get; set; }
-        public string ApproverRole { get; set; }
-        public string ApproverUserId { get; set; }
+        public string StepId { get; set; } = string.Empty;
+        public string Approver { get; set; } = string.Empty;
+        public string ApproverRole { get; set; } = string.Empty;
+        public string ApproverUserId { get; set; } = string.Empty;
         public Boolean IsFirst { get; set; } = false;
         public Boolean IsLast { get; set; } = false;
     }
