@@ -19,7 +19,7 @@ namespace Returns.Helpers
             _context = context;
         }
 
-        public async Task<List<WorkflowStepDTO>> AddStepToWorkflowTemplate( List<CreateWorkflowStepDTO> dtos)
+        public async Task<List<WorkflowStepDTO>> AddStepToWorkflowTemplate(List<CreateWorkflowStepDTO> dtos)
         {
             if (dtos is null || dtos.Count == 0)
                 throw new ArgumentException("No steps supplied.", nameof(dtos));
@@ -27,34 +27,54 @@ namespace Returns.Helpers
             // All steps belong to the same template, so use the first item
             var templateId = dtos[0].WorkTemplateId;
             var template = await _context.WorkFlowTemplates.FindAsync(templateId);
-
             if (template is null)
                 throw new InvalidOperationException("Workflow template not found.");
             if (template.IsPublished)
                 throw new InvalidOperationException("Cannot modify a published template.");
 
-            var results = new List<WorkflowStepDTO>();
-
-            foreach (var dto in dtos)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                var role = await _complianceService.GetRoleDetails(dto.RoleId);
-                if (role is null)
+                // Delete existing steps for the template
+                var existingSteps = await _context.WorkFlowSteps
+                    .Where(s => s.WorkFlowTemplateId == templateId)
+                    .ToListAsync();
+                _context.WorkFlowSteps.RemoveRange(existingSteps);
+
+                // Prepare new steps
+                var newSteps = new List<WorkFlowStep>();
+                foreach (var dto in dtos)
                 {
-                    throw new InvalidOperationException($"Role not assigned to step (RoleId: {dto.RoleId}).");
+                    if (dto.WorkTemplateId != templateId)
+                        throw new InvalidOperationException("All steps must belong to the same template.");
+
+                    var role = await _complianceService.GetRoleDetails(dto.RoleId);
+                    if (role is null)
+                    {
+                        throw new InvalidOperationException($"Role not assigned to step (RoleId: {dto.RoleId}).");
+                    }
+
+                    var step = new WorkFlowStep
+                    {
+                        Sequence = dto.Sequence,
+                        RoleId = dto.RoleId,
+                        RoleName = role.RoleName,
+                        WorkFlowTemplateId = dto.WorkTemplateId,
+                        CreatedAt = DateTime.UtcNow,
+                        SpecificUserId = dto.SpecificUserId,
+                        AssigneeType = dto.AssigneeType 
+                    };
+                    newSteps.Add(step);
                 }
 
-                var step = new WorkFlowStep
-                {
-                    Sequence = dto.Sequence,
-                    RoleId = dto.RoleId,
-                    RoleName = role.RoleName,
-                    WorkFlowTemplateId = dto.WorkTemplateId,
-                    CreatedAt = DateTime.UtcNow
-                };
+                // Add new steps
+                await _context.WorkFlowSteps.AddRangeAsync(newSteps);
 
-                await _context.WorkFlowSteps.AddAsync(step);
+                // Save changes
+                await _context.SaveChangesAsync();
 
-                results.Add(new WorkflowStepDTO
+                // Create results after save to ensure IDs are set
+                var results = newSteps.Select(step => new WorkflowStepDTO
                 {
                     StepId = step.Id,
                     Sequence = step.Sequence,
@@ -62,11 +82,16 @@ namespace Returns.Helpers
                     RoleName = step.RoleName,
                     TemplateId = step.WorkFlowTemplateId,
                     CreatedAt = step.CreatedAt
-                });
-            }
+                }).ToList();
 
-            await _context.SaveChangesAsync();
-            return results;
+                await transaction.CommitAsync();
+                return results;
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
 
@@ -194,46 +219,62 @@ namespace Returns.Helpers
             return await _context.SaveChangesAsync() > 0;
         }
 
-        public async Task<List<WorkflowStepDTO>> UpdateStepInWorkflowTemplate( List<UpdateWorkflowStepDTO> dtos)
+        public async Task<List<WorkflowStepDTO>> UpdateStepInWorkflowTemplate(List<UpdateWorkflowStepDTO> dtos)
         {
             if (dtos is null || dtos.Count == 0)
-            {
                 throw new ArgumentException("No update payload supplied.", nameof(dtos));
-            }
 
             // All updates refer to the same template
             var templateId = dtos[0].WorkTemplateId;
-
             var template = await _context.WorkFlowTemplates.FindAsync(templateId);
             if (template is null)
                 throw new InvalidOperationException("Workflow template not found.");
             if (template.IsPublished)
                 throw new InvalidOperationException("Cannot modify a published template.");
 
-            var stepDict = await _context.WorkFlowSteps
-                .Where(s => s.WorkFlowTemplateId == templateId)
-                .ToDictionaryAsync(s => s.Id);
-
-            var results = new List<WorkflowStepDTO>();
-
-            foreach (var dto in dtos)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
             {
-                if (!stepDict.TryGetValue(dto.StepId, out var step))
+                // Delete existing steps for the template
+                var existingSteps = await _context.WorkFlowSteps
+                    .Where(s => s.WorkFlowTemplateId == templateId)
+                    .ToListAsync();
+                _context.WorkFlowSteps.RemoveRange(existingSteps);
+
+                // Prepare new steps
+                var newSteps = new List<WorkFlowStep>();
+                foreach (var dto in dtos)
                 {
-                    throw new InvalidOperationException($"Step {dto.StepId} not found in template {templateId}.");
+                    if (dto.WorkTemplateId != templateId)
+                        throw new InvalidOperationException("All steps must belong to the same template.");
+
+                    var role = await _complianceService.GetRoleDetails(dto.RoleId);
+                    if (role is null)
+                    {
+                        throw new InvalidOperationException($"Role not assigned to step (RoleId: {dto.RoleId}).");
+                    }
+
+                    var step = new WorkFlowStep
+                    {
+                        Sequence = dto.Sequence,
+                        RoleId = dto.RoleId,
+                        RoleName = role.RoleName,
+                        WorkFlowTemplateId = dto.WorkTemplateId,
+                        CreatedAt = DateTime.UtcNow,
+                        SpecificUserId = dto.SpecificUserId,
+                        AssigneeType = dto.AssigneeType,
+                    };
+                    newSteps.Add(step);
                 }
 
-                var role = await _complianceService.GetRoleDetails(dto.RoleId);
-                if (role is null)
-                {
-                    throw new InvalidOperationException($"Role not assigned to step (RoleId: {dto.RoleId}).");
-                }
+                // Add new steps
+                await _context.WorkFlowSteps.AddRangeAsync(newSteps);
 
-                step.Sequence = dto.Sequence;
-                step.RoleId = dto.RoleId;
-                step.RoleName = role.RoleName;
+                // Save changes
+                await _context.SaveChangesAsync();
 
-                results.Add(new WorkflowStepDTO
+                // Create results after save to ensure IDs are set
+                var results = newSteps.Select(step => new WorkflowStepDTO
                 {
                     StepId = step.Id,
                     Sequence = step.Sequence,
@@ -241,13 +282,17 @@ namespace Returns.Helpers
                     RoleName = step.RoleName,
                     TemplateId = step.WorkFlowTemplateId,
                     CreatedAt = step.CreatedAt
-                });
+                }).ToList();
+
+                await transaction.CommitAsync();
+                return results;
             }
-
-            await _context.SaveChangesAsync();
-            return results;
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
-
 
         public async Task<WorkflowTemplateDTO> UpdateWorkflowTemplate(UpdateWorkflowTemplateDTO dto)
         {
