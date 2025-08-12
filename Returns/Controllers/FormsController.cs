@@ -11,6 +11,7 @@ using static Returns.Helpers.TokenHelper;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 using Microsoft.Extensions.Configuration;
 using Returns.Helpers.Interfaces;
+using Returns.Helpers.Enums;
 
 namespace Returns.Controllers
 {
@@ -41,66 +42,58 @@ namespace Returns.Controllers
         {
             try
             {
-                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value?.TrimEnd('/') ?? "";
+                if (!ModelState.IsValid)
                 {
-                    if (!ModelState.IsValid)
-                    {
-                        return BadRequest(ModelState);
-                    }
-
-                    // Check if form of this type already exists
-                    await FormsHelper.ValidateFormTypeUniqueness(createFormDTO, _context);
-                    var templatePath = "";
-                    if (createFormDTO.Category != Helpers.Enums.FormCategory.Other)
-                    {
-                        // we need it to be an excel file
-                        if (!FormsHelper.IsValidExcelFile(createFormDTO.Template))
-                        {
-                            return StatusCode(500, "Only Excel files with .xlsx extension are allowed. Please ensure you're uploading a modern Excel file, not a legacy format.");
-                        }
-                        templatePath = await FormsHelper.SaveFileAsync(createFormDTO.Template, "Templates", createFormDTO.DisplayName);
-                        if (templatePath == null)
-                        {
-                            return StatusCode(500, "Failed to save template file.");
-                        }
-                    }
-                    else
-                    {
-                        createFormDTO.Template = null;
-                        templatePath = "";
-                    }
-
-                    var form = new ReturnForm
-                    {
-                        FormName = createFormDTO.Name,
-                        Code = createFormDTO.DisplayName,
-                        SaccoTypeId = createFormDTO.SaccoTypeId,
-                        Category = createFormDTO.Category,
-                        TemplateUrl = templatePath,
-                        IsActive = true
-                    };
-
-                    _context.ReturnForms.Add(form);
-                    await _context.SaveChangesAsync();
-                    var m = new FormDTO
-                    {
-                        Id = form.Id,
-                        Name = form.FormName,
-                        DisplayName = form.Code,
-                        SaccoTypeId = form.SaccoTypeId,
-                        Category = form.Category,
-                        IsActive = form.IsActive,
-                        TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
-                    };
-
-                    return Ok();
+                    return BadRequest(ModelState);
                 }
+
+                // Check if form of this type already exists
+                await FormsHelper.ValidateFormTypeUniqueness(createFormDTO, _context);
+
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value?.TrimEnd('/') ?? "";
+
+                string? templatePath = "NONE";
+                if (createFormDTO.Template != null)
+                {
+                    templatePath = await FormsHelper.SaveFileAsync(createFormDTO.Template, "Templates", createFormDTO.DisplayName);
+                    if (templatePath == null)
+                    {
+                        return StatusCode(500, "Failed to save template file.");
+                    }
+                }
+
+                var form = new ReturnForm
+                {
+                    FormName = createFormDTO.Name,
+                    Code = createFormDTO.DisplayName,
+                    SaccoTypeId = createFormDTO.SaccoTypeId,
+                    Category = createFormDTO.Category,
+                    TemplateUrl = templatePath,
+                    IsActive = true
+                };
+
+                _context.ReturnForms.Add(form);
+                await _context.SaveChangesAsync();
+
+                var formDto = new FormDTO
+                {
+                    Id = form.Id,
+                    Name = form.FormName,
+                    DisplayName = form.Code,
+                    SaccoTypeId = form.SaccoTypeId,
+                    Category = form.Category,
+                    IsActive = form.IsActive,
+                    TemplateUrl = form.Category == FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
+                };
+
+                return Ok(formDto);
             }
             catch (Exception ex)
             {
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
+
         // delete form
         [HttpDelete("DeleteForm/{formId}")]
         public async Task<ActionResult> DeleteFormAsync(string formId)

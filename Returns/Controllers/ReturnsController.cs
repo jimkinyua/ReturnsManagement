@@ -1522,9 +1522,10 @@ namespace Returns.Controllers
                 // Get rating definition for DT saccos
                 // Use provided ratingName or default to CAMELS
                 var requestedRating = string.IsNullOrWhiteSpace(ratingName) ? "CAELS" : ratingName.ToUpperInvariant();
+                
                 var ratingDef = await _context.RatingDefinations
                     .Include(rd => rd.RatingForms)
-                    .FirstOrDefaultAsync(rd => rd.SaccoType == "0" && rd.RatingName == requestedRating);
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "0" && rd.RatingName == "CAELS");
 
                 if (ratingDef == null)
                 {
@@ -1532,7 +1533,7 @@ namespace Returns.Controllers
                 }
 
                 // Extract selector from rating name (CAMEL, CAELS, CAMELS, CAEL)
-                string selector = ratingDef.RatingName.ToUpperInvariant();
+                string selector = requestedRating.ToUpperInvariant();
 
                 // Add prudential standards
                 report.PrudentialStandards.Add("CoreCapital", "≥10M");
@@ -2013,9 +2014,10 @@ namespace Returns.Controllers
                 // Get rating definition for NWDT saccos
                 // Use provided ratingName or default to CAMELS
                 var requestedRating = string.IsNullOrWhiteSpace(ratingName) ? "CAMELS" : ratingName.ToUpperInvariant();
+                
                 var ratingDef = await _context.RatingDefinations
                     .Include(rd => rd.RatingForms)
-                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == requestedRating);
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == "CAMELS");
 
                 if (ratingDef == null)
                 {
@@ -2023,7 +2025,7 @@ namespace Returns.Controllers
                 }
 
                 // Extract selector from rating name (CAMEL, CAELS, CAMELS, CAEL)
-                string selector = ratingDef.RatingName.ToUpperInvariant();
+                string selector = requestedRating.ToUpperInvariant();
                 report.PrudentialStandards.Add("CoreCapital", "≥5M");
                 report.PrudentialStandards.Add("CoreCapita/Total Assets", "≥8%");
                 report.PrudentialStandards.Add("InstitutionalCapitalToTotalAssets", ">5%");

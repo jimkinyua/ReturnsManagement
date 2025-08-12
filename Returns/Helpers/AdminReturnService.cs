@@ -708,6 +708,7 @@ namespace Returns.Helpers
                         .Include(rs => rs.DTInvestmentReturns)
                         .Include(rs => rs.DTFinancialPositionReturns)
                         .Include(rs => rs.DTComprehensiveIncomeReturns)
+                        .Include(rs => rs.OtherReturns)
                         .Include(rs => rs.ManagementReturns)
                         .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
                         .ToListAsync();
@@ -792,6 +793,9 @@ namespace Returns.Helpers
                                 break;
                             case FormCategory.Management:
                                 detailsDto.Management = MapManagement(submission, saccoType);
+                                break;
+                            case FormCategory.Other:
+                                detailsDto.Other = await MapOtherWithVersionsAsync(submission, saccoType, periodId, saccoId);
                                 break;
                         }
                     }
