@@ -15,7 +15,7 @@ namespace Returns.Helpers
         public static async Task ValidateFormTypeUniqueness(CreateFormDTO createFormDTO, ReturnsDbContext context)
         {
             // Check if a form with the same category already exists for this Sacco type
-            bool existingForm = await context.ReturnForms.AnyAsync(f =>
+            var existingForm = await context.ReturnForms.FirstOrDefaultAsync(f =>
                 f.Category == createFormDTO.Category &&
                 f.SaccoTypeId == createFormDTO.SaccoTypeId &&
                 f.IsActive);

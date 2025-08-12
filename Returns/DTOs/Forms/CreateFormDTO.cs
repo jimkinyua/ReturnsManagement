@@ -22,7 +22,7 @@ namespace Returns.DTOs.Forms
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {
-            if (Category != FormCategory.Other && Template == null)
+            if (Template == null)
             {
                 yield return new ValidationResult("Template is required unless the form category is 'Other'.", new[] { nameof(Template) });
             }
