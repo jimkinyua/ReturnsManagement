@@ -99,6 +99,7 @@ namespace Returns.Controllers
             _returnAmendmentPolicy = returnAmendmentPolicy;
             this.complianceService = complianceService;
         }
+
         [HttpPost("CheckConsistency")]
         public async Task<IActionResult> CheckConsistency([FromBody] CheckConsistencyDTO dto)
         {
@@ -108,13 +109,11 @@ namespace Returns.Controllers
                 {
                     return BadRequest("PeriodId is required.");
                 }
-
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
                 if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
                 {
                     return Unauthorized("Unauthorized access. Invalid Sacco details.");
                 }
-
                 var sac = loggedInSacco.SaccoId;
                 long saccoId = long.Parse(sac);
                 var saccoDetails = await complianceService.GetSaccoByIdAsync(saccoId);
@@ -122,7 +121,6 @@ namespace Returns.Controllers
                 {
                     return NotFound("Sacco not found.");
                 }
-
                 // Fetch the period details (assume Periods table exists with Id and PeriodName)
                 var period = await _context.ReturnPeriods.FirstOrDefaultAsync(p => p.Id == dto.PeriodId);
                 if (period == null)
@@ -130,29 +128,27 @@ namespace Returns.Controllers
                     return NotFound("Period not found.");
                 }
                 string commonPeriod = period.Name ?? dto.PeriodId; // Use PeriodName if available, else Id
-
                 var ratingToUse = await _context.RatingDefinations
                     .Where(r => r.RatingName == "Consistency Check Forms DT" && r.SaccoType == loggedInSacco.SaccoType)
+                    .Include(r => r.RatingForms)
                     .OrderByDescending(r => r.CreatedAt)
                     .FirstOrDefaultAsync();
                 if (ratingToUse == null)
                 {
                     return NotFound("No CAMEL rating definition found for this SACCO type.");
                 }
-
                 // Fetch all ExpectedReturns for this period
                 var expectedReturns = await _context.ExpectedReturns
                     .Where(er => er.PeriodId == dto.PeriodId)
                     .Include(er => er.ReturnForm)
                     .ToListAsync();
-
                 if (!expectedReturns.Any())
                 {
                     return BadRequest("No expected returns found for this period.");
                 }
-
                 // Build FormUploads by fetching latest draft files
                 var formUploads = new List<ReturnFormUploadDTO>();
+                var submittedFormCodes = new HashSet<string>();
                 foreach (var expected in expectedReturns)
                 {
                     // Get the latest submission (IsLatest=true, order by Version desc for safety)
@@ -163,12 +159,10 @@ namespace Returns.Controllers
                                     && s.Status == SubmissionStatus.Draft.ToString()) // Ensure it's a draft
                         .OrderByDescending(s => s.Version)
                         .FirstOrDefaultAsync();
-
                     if (latestSubmission == null || string.IsNullOrEmpty(latestSubmission.FileUrl))
                     {
                         continue; // Skip if no draft submission or no file
                     }
-
                     var file = await FormsHelper.GetFileFromUrlAsync(latestSubmission.FileUrl);
                     if (file == null)
                     {
@@ -176,26 +170,35 @@ namespace Returns.Controllers
                         _logger.LogWarning($"Failed to fetch file for ExpectedReturnId {expected.Id}: {latestSubmission.FileUrl}");
                         continue;
                     }
-
                     formUploads.Add(new ReturnFormUploadDTO
                     {
                         formFile = file,
                         ExpectedReturnId = expected.Id,
                         FormId = expected.ReturnForm?.Id // Assuming ReturnForm.Id is string; adjust if Guid
                     });
+                    if (expected.ReturnForm?.Code != null)
+                    {
+                        submittedFormCodes.Add(expected.ReturnForm.Code);
+                    }
                 }
-
                 if (!formUploads.Any())
                 {
                     return BadRequest("No draft submissions with files found for this period.");
                 }
 
+                // Check if all required forms from ratingToUse.RatingForms are present in submittedFormCodes
+                var requiredFormCodes = ratingToUse.RatingForms.Select(rf => rf.FormCode).ToHashSet();
+                var missingFormCodes = requiredFormCodes.Except(submittedFormCodes).ToList();
+                if (missingFormCodes.Any())
+                {
+                    var missingFormsMessage = string.Join(", ", missingFormCodes);
+                    return BadRequest($"The returns are not complete to do a consistency check. Missing forms: {missingFormsMessage}");
+                }
+
                 // Build DTO for service
                 var createFormDTO = new NewReturnDTO { FormUploads = formUploads };
-
                 // Call service
                 var (isValid, processingSummary, consistencyErrors, hasChecked, formData, _) = await _consistencyCheckService.CheckConsistencyAsync(createFormDTO, ratingToUse.RatingName, loggedInSacco);
-
                 if (!isValid)
                 {
                     BackgroundJob.Enqueue<IConsistencyCheckService>(
@@ -204,7 +207,6 @@ namespace Returns.Controllers
                             consistencyErrors,
                             commonPeriod // Use the fetched commonPeriod
                         ));
-
                     return BadRequest(consistencyErrors);
                 }
                 return Ok();
@@ -216,6 +218,7 @@ namespace Returns.Controllers
                 return StatusCode(500, errorsAsString);
             }
         }
+
 
         public sealed class FileProcessingException : Exception
         {

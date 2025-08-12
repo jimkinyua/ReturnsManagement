@@ -1005,6 +1005,7 @@ namespace Returns.Helpers
                         .Include(rs => rs.DTInvestmentReturns)
                         .Include(rs => rs.DTFinancialPositionReturns)
                         .Include(rs => rs.DTComprehensiveIncomeReturns)
+                        .Include(rs => rs.OtherReturns)
                         .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId && rs.Version == version.Value)
                         .ToListAsync();
 
@@ -1326,33 +1327,43 @@ namespace Returns.Helpers
         }
 
 
-        private async Task<object?> MapOtherWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
+        private async Task<List<object>?> MapOtherWithVersionsAsync(ReturnSubmission submission, string? saccoType, string periodId, string saccoId)
         {
-            var result = MapOther(submission);
-            if (result is CommonFormDTO dto)
+            var results = MapOther(submission);
+            foreach (var result in results)
             {
-                var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
-                dto.AvailableVersions = versions;
-                dto.HasMultipleVersions = versions.Count > 1;
+                if (result is CommonFormDTO dto)
+                {
+                    var versions = await GetAvailableFormVersionsAsync(periodId, saccoId, submission.ExpectedReturnId);
+                    dto.AvailableVersions = versions;
+                    dto.HasMultipleVersions = versions.Count > 1;
+                }
             }
-            return result;
+            
+            return results;
         }
 
-        private object MapOther(ReturnSubmission submission)
+        private List<object> MapOther(ReturnSubmission submission)
         {
-            var otherEntity = submission.OtherReturns.FirstOrDefault();
-            if (otherEntity == null) return null;
+            List<object> otherReturns = new List<object>();
+            var otherEntities = submission.OtherReturns.ToList();
+            if (otherEntities == null) return null;
 
-            var other = new OtherReturnDTO
+            foreach (var item in otherEntities)
             {
-                SubmissionId = submission.Id,
-                SaccoId = submission.SaccoId,
-                FileUrl = UrlHelper.BuildFullUrl(_configuration, otherEntity.FileUrl),
-                FormId = otherEntity.FormName ?? string.Empty,
-                RequiresResubmission = otherEntity.RequiresResubmission, // Assuming OtherReturn has this property; adjust if not
-                FormName = otherEntity.FormName.Trim(),
-            };
-            return other;
+                var other = new OtherReturnDTO
+                {
+                    SubmissionId = submission.Id,
+                    SaccoId = submission.SaccoId,
+                    FileUrl = UrlHelper.BuildFullUrl(_configuration, item.FileUrl),
+                    FormId = item.FormName ?? string.Empty,
+                    RequiresResubmission = item.RequiresResubmission, 
+                    FormName = item.FormName.Trim(),
+                };
+                otherReturns.Add(other);
+            }
+          
+            return otherReturns;
         }
 
 
