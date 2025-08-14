@@ -146,7 +146,7 @@ namespace Returns.Helpers
             }
         }
 
-        
+
         public Task<SasraUser?> GetTeamLead(string teamId)
         {
             try
@@ -175,7 +175,7 @@ namespace Returns.Helpers
                             {
                                 var officer = new SasraUser
                                 {
-                                    Id = reader["Id"]?.ToString()??string.Empty,
+                                    Id = reader["Id"]?.ToString() ?? string.Empty,
                                     FullName = reader["FullName"]?.ToString() ?? string.Empty,
                                     Email = reader["Email"]?.ToString() ?? string.Empty,
                                     TeamName = reader["TeamName"]?.ToString() ?? string.Empty,
@@ -229,7 +229,7 @@ namespace Returns.Helpers
                                     FullName = reader["FullName"]?.ToString() ?? string.Empty,
                                     Email = reader["Email"]?.ToString() ?? string.Empty,
                                     RoleId = reader["RoleId"]?.ToString() ?? string.Empty,
-                                    TeamName= reader["TeamName"]?.ToString() ?? string.Empty,
+                                    TeamName = reader["TeamName"]?.ToString() ?? string.Empty,
                                     TeamRole = reader["TeamRole"]?.ToString() ?? string.Empty,
                                 };
                                 return Task.FromResult<SasraUser?>(officer);
@@ -247,51 +247,51 @@ namespace Returns.Helpers
         }
 
 
-      /*  public Task<SasraUser?> GetUsersByRole(string RoleId)
-        {
-            try
-            {
-                using (var connection = new SqlConnection(_connectionString))
-                {
-                    connection.Open();
-                    string sql = @"  
-                       SELECT 
-                           U.FullName,
-                           U.Id,
-                           u.Email,
-                           r.Id AS RoleId,
-                           R.Name AS RoleName
-                        FROM AspNetUsers U
-                        INNER JOIN AspNetRoles R
-                           ON R.Id = CAST(U.Role AS NVARCHAR(450))
-                          AND R.Id = @RoleId ";
-                    using (var command = new SqlCommand(sql, connection))
-                    {
-                        command.Parameters.Add(new SqlParameter("@RoleId", SqlDbType.NVarChar) { Value = RoleId });
-                        using (var reader = command.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                var officer = new SasraUser
-                                {
-                                    Id = reader["Id"]?.ToString() ?? string.Empty,
-                                    FullName = reader["FullName"]?.ToString() ?? string.Empty,
-                                    Email = reader["Email"]?.ToString() ?? string.Empty,
-                                    RoleId = reader["RoleId"]?.ToString() ?? string.Empty,
-                                };
-                                return Task.FromResult<SasraUser?>(officer);
-                            }
-                            return Task.FromResult<SasraUser?>(null);
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving team lead for Team ID {TeamId}", RoleId);
-                return Task.FromResult<SasraUser?>(null);
-            }
-        }*/
+        /*  public Task<SasraUser?> GetUsersByRole(string RoleId)
+          {
+              try
+              {
+                  using (var connection = new SqlConnection(_connectionString))
+                  {
+                      connection.Open();
+                      string sql = @"  
+                         SELECT 
+                             U.FullName,
+                             U.Id,
+                             u.Email,
+                             r.Id AS RoleId,
+                             R.Name AS RoleName
+                          FROM AspNetUsers U
+                          INNER JOIN AspNetRoles R
+                             ON R.Id = CAST(U.Role AS NVARCHAR(450))
+                            AND R.Id = @RoleId ";
+                      using (var command = new SqlCommand(sql, connection))
+                      {
+                          command.Parameters.Add(new SqlParameter("@RoleId", SqlDbType.NVarChar) { Value = RoleId });
+                          using (var reader = command.ExecuteReader())
+                          {
+                              if (reader.Read())
+                              {
+                                  var officer = new SasraUser
+                                  {
+                                      Id = reader["Id"]?.ToString() ?? string.Empty,
+                                      FullName = reader["FullName"]?.ToString() ?? string.Empty,
+                                      Email = reader["Email"]?.ToString() ?? string.Empty,
+                                      RoleId = reader["RoleId"]?.ToString() ?? string.Empty,
+                                  };
+                                  return Task.FromResult<SasraUser?>(officer);
+                              }
+                              return Task.FromResult<SasraUser?>(null);
+                          }
+                      }
+                  }
+              }
+              catch (Exception ex)
+              {
+                  _logger.LogError(ex, "Error retrieving team lead for Team ID {TeamId}", RoleId);
+                  return Task.FromResult<SasraUser?>(null);
+              }
+          }*/
 
         public async Task<List<Sacco>> GetSaccosAssignedToOfficerAsync(string userId)
         {
@@ -415,7 +415,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/roles/{RoleId}");
+                var resp = await _httpClient.GetAsync($"/api/auth/roles/{RoleId}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -446,7 +446,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/users-by-role-id/{RoleId}");
+                var resp = await _httpClient.GetAsync($"/api/auth/users-by-role-id/{RoleId}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -529,7 +529,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var relativeUri = $"/gateway/api/auth/users/{tlUserId}/details";
+                var relativeUri = $"/api/auth/users/{tlUserId}/details";
                 var fullUri = new Uri(_httpClient.BaseAddress ?? throw new InvalidOperationException("BaseAddress not set"), relativeUri);
 
                 // Log the full URL (use your logging framework, e.g., ILogger)
@@ -573,7 +573,7 @@ namespace Returns.Helpers
             try
             {
                 // Call the gateway endpoint for this team’s sacco list
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/teams/{teamId}/saccos-list");
+                var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/saccos-list");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -683,7 +683,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/teams/{teamId}/team-lead");
+                var resp = await _httpClient.GetAsync($"/api/auth/teams/{teamId}/team-lead");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();
@@ -744,7 +744,7 @@ namespace Returns.Helpers
         {
             try
             {
-                var resp = await _httpClient.GetAsync($"/gateway/api/auth/saccos/{saccoId}");
+                var resp = await _httpClient.GetAsync($"/api/auth/saccos/{saccoId}");
                 if (!resp.IsSuccessStatusCode)
                 {
                     var errorContent = await resp.Content.ReadAsStringAsync();

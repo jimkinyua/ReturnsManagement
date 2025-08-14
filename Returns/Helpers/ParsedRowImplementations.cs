@@ -733,6 +733,45 @@ namespace Returns.Helpers
                     case "1.6":
                         entity.LandAndBuildings = row.Amount ?? 0;
                         break;
+                    case "2.0":
+                        entity.LandBuildingsToTotalAssetsRatio = row.Amount ?? 0;
+                        break;
+                    case "2.1":
+                        entity.MaxLandBuildingsToTotalAssetsRatio = row.Amount ?? 0;
+                        break;
+                    case "2.2":
+                        entity.LandBuildingsRatioExcessDeficiency = row.Amount ?? 0;
+                        break;
+
+                    case "3.0":
+                        entity.FinancialInvestmentsToCoreCapitalRatio = row.Amount ?? 0;
+                        break;
+                    case "3.1":
+                        entity.MaxFinancialInvestmentsToCoreCapitalRatio = row.Amount ?? 0;
+                        break;
+                    case "3.2":
+                        entity.FinancialInvestmentsToCoreCapitalExcessDeficiency = row.Amount ?? 0;
+                        break;
+
+                    case "4.0":
+                        entity.FinancialInvestmentsToDepositsRatio = row.Amount ?? 0;
+                        break;
+                    case "4.1":
+                        entity.MaxFinancialInvestmentsToDepositsRatio = row.Amount ?? 0;
+                        break;
+                    case "4.2":
+                        entity.FinancialInvestmentsToDepositsExcessDeficiency = row.Amount ?? 0;
+                        break;
+
+                    case "5.0":
+                        entity.NonEarningAssetsToTotalAssetsRatio = row.Amount ?? 0;
+                        break;
+                    case "5.1":
+                        entity.MaxNonEarningAssetsToTotalAssetsRatio = row.Amount ?? 0;
+                        break;
+                    case "5.2":
+                        entity.NonEarningAssetsRatioExcessDeficiency = row.Amount ?? 0;
+                        break;
                 }
             }
 
