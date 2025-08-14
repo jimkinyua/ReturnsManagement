@@ -120,6 +120,16 @@ namespace Returns.Helpers
 
         private async Task<(string FileUrl, bool ParseSuccess, string ContentsJson, string ParseErrorsJson)> ParseAndSaveFileAsync(IFormFile formFile, FormCategory category, string saccoTypeId, string submissionId)
         {
+            string fileUrl;
+            // If category is "Other", skip validation and parsing, just save any file (e.g., board minutes, PDFs, or other unstructured docs)
+            if (category == FormCategory.Other)
+            {
+                fileUrl = await FormsHelper.SaveFileAsync(formFile, "Drafts");
+                var FileUrlJson = JsonSerializer.Serialize(new { fileUrl });
+                return (fileUrl, true, FileUrlJson, null);
+            }
+
+            // For non-"Other" categories, validate as Excel and parse
             if (!FormsHelper.IsValidExcelFile(formFile))
             {
                 _logger.LogWarning("Invalid Excel file provided for submission {SubmissionId}.", submissionId);
@@ -127,22 +137,23 @@ namespace Returns.Helpers
             }
 
             var parseResult = await _excelParser.ParseAsync(formFile, category, saccoTypeId);
-            var fileUrl = await FormsHelper.SaveFileAsync(formFile, "Drafts");
+            fileUrl = await FormsHelper.SaveFileAsync(formFile, "Drafts");
             var parseSuccess = parseResult.Success;
-            var contentsJson = parseResult.Success ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity()), new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            }) : null;
+            var contentsJson = parseResult.Success
+                ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity()),
+                    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+                : null;
             var parseErrorsJson = JsonSerializer.Serialize(parseResult.Errors);
-
             if (!parseResult.Success)
             {
-                _logger.LogWarning("Failed to parse Excel file for submission {SubmissionId}: {Errors}", submissionId, string.Join(", ", parseResult.Errors));
+                _logger.LogWarning("Failed to parse Excel file for submission {SubmissionId}: {Errors}",
+                    submissionId, string.Join(", ", parseResult.Errors));
                 throw new InvalidOperationException($"Failed to parse Excel file: {string.Join(", ", parseResult.Errors)}");
             }
-
             return (fileUrl, parseSuccess, contentsJson, parseErrorsJson);
         }
+
+
 
         private async Task<AmendmentRequest?> CheckExistingAmendmentRequestAsync(string submissionId)
         {
@@ -176,11 +187,11 @@ namespace Returns.Helpers
                 }
             }
 
-            /* var today = DateTime.Now.Date;
-             if (_returnAmendmentPolicy.CanAutoAmend(today))
-             {
-                 throw new InvalidOperationException("Amendment requests are not allowed on or before the 15th. Use direct submission instead.");
-             }*/
+            var today = DateTime.Now.Date;
+            if (_returnAmendmentPolicy.CanAutoAmend(today))
+            {
+                throw new InvalidOperationException("Amendment requests are not allowed on or before the 15th. Use direct submission instead.");
+            }
 
             // Retrieve and validate submission
             var submission = await GetSubmissionUsingReturnIdAsync(dto.SubmissionId, loggedInEntity.SaccoId);
@@ -385,13 +396,11 @@ namespace Returns.Helpers
                 .ThenInclude(er => er.ReturnForm)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Id == requestId);
-
             if (request == null)
             {
                 _logger.LogWarning("Amendment request {RequestId} not found.", requestId);
                 throw new InvalidOperationException("Amendment request not found.");
             }
-
             List<string> parseErrors = new List<string>();
             List<object> rows = new List<object>();
             try
@@ -402,7 +411,22 @@ namespace Returns.Helpers
                 }
                 if (!string.IsNullOrEmpty(request.ContentsJson))
                 {
-                    rows = JsonSerializer.Deserialize<List<object>>(request.ContentsJson) ?? new List<object>();
+                    if (request.ParseSuccess)
+                    {
+                        if (request.ExpectedReturn.ReturnForm.Category == FormCategory.Other)
+                        {
+                            var contentsObj = JsonSerializer.Deserialize<Dictionary<string, string>>(request.ContentsJson);
+                            var fileUrl = contentsObj?.GetValueOrDefault("fileUrl");
+                            if (!string.IsNullOrEmpty(fileUrl))
+                            {
+                                rows.Add(new { FileUrl = fileUrl });
+                            }
+                        }
+                        else
+                        {
+                            rows = JsonSerializer.Deserialize<List<object>>(request.ContentsJson) ?? new List<object>();
+                        }
+                    }
                 }
             }
             catch (JsonException ex)
@@ -410,18 +434,26 @@ namespace Returns.Helpers
                 _logger.LogError(ex, "Failed to deserialize JSON for amendment request {RequestId}", requestId);
                 parseErrors.Add("Failed to deserialize amendment request contents.");
             }
-
             // Get current child data based on ReturnType
             List<object> currentData = new List<object>();
             var returnType = request.ReturnSubmission.ExpectedReturn.ReturnForm != null
                 ? (FormCategory?)request.ReturnSubmission.ExpectedReturn.ReturnForm.Category
                 : null;
-
             if (returnType.HasValue)
             {
-                currentData = await GetCurrentChildDataAsync(request.ReturnSubmission, returnType.Value);
+                if (returnType.Value == FormCategory.Other)
+                {
+                    var currentFileUrl = request.ReturnSubmission?.FileUrl;
+                    if (!string.IsNullOrEmpty(currentFileUrl))
+                    {
+                        currentData.Add(new { FileUrl = currentFileUrl });
+                    }
+                }
+                else
+                {
+                    currentData = await GetCurrentChildDataAsync(request.ReturnSubmission, returnType.Value);
+                }
             }
-
             var details = new AmendmentRequestDetailsDTO
             {
                 Id = request.Id,
@@ -440,7 +472,6 @@ namespace Returns.Helpers
                 CurrentData = currentData,
                 ReturnType = returnType
             };
-
             return details;
         }
 
