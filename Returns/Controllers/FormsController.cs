@@ -83,7 +83,7 @@ namespace Returns.Controllers
                     SaccoTypeId = form.SaccoTypeId,
                     Category = form.Category,
                     IsActive = form.IsActive,
-                    TemplateUrl = form.Category == FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
+                    TemplateUrl = $"{baseUrl}{form.TemplateUrl}"
                 };
 
                 return Ok(formDto);
@@ -204,7 +204,7 @@ namespace Returns.Controllers
                     SaccoTypeId = form.SaccoTypeId,
                     Category = form.Category,
                     IsActive = form.IsActive,
-                    TemplateUrl = form.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{form.TemplateUrl}"
+                    TemplateUrl = $"{baseUrl}{form.TemplateUrl}"
                 };
 
                 return Ok(responseDto);
@@ -275,7 +275,7 @@ namespace Returns.Controllers
                     PeriodEndDate = er.Period.EndDate,
                     FilingDeadline = er.FilingDeadline,
                     Status = er.Status,
-                    TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{DocumentsBaseUrl}{er.ReturnForm.TemplateUrl}",
+                    TemplateUrl = $"{DocumentsBaseUrl}{er.ReturnForm.TemplateUrl}",
                     SaccoTypeId = er.ReturnForm.SaccoTypeId
                 })
                 .OrderBy(f => f.FilingDeadline)
@@ -350,7 +350,7 @@ namespace Returns.Controllers
                         SaccoTypeId = f.SaccoTypeId,
                         Category = f.Category,
                         IsActive = f.IsActive,
-                        TemplateUrl = f.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{f.TemplateUrl}"
+                        TemplateUrl = $"{baseUrl}{f.TemplateUrl}"
                     })
                     .OrderBy(f => f.Name)
                     .ToListAsync();
@@ -413,7 +413,7 @@ namespace Returns.Controllers
                     PeriodEndDate = er.Period.EndDate,
                     FilingDeadline = er.FilingDeadline,
                     Status = er.Status,
-                    TemplateUrl = er.ReturnForm.Category == Helpers.Enums.FormCategory.Other ? null : $"{baseUrl}{er.ReturnForm.TemplateUrl}",
+                    TemplateUrl =  $"{baseUrl}{er.ReturnForm.TemplateUrl}",
                     SaccoTypeId = er.ReturnForm.SaccoTypeId
                 })
                 .OrderBy(f => f.FilingDeadline)
@@ -560,7 +560,7 @@ namespace Returns.Controllers
                         SaccoTypeId = f.SaccoTypeId,
                         Category = f.Category,
                         IsActive = f.IsActive,
-                        TemplateUrl = f.Category == Helpers.Enums.FormCategory.Other ? "" : $"{baseUrl}{f.TemplateUrl}"
+                        TemplateUrl =  $"{baseUrl}{f.TemplateUrl}"
                     })
                     .OrderBy(f => f.Name)
                     .ToListAsync();
