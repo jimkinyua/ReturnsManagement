@@ -413,7 +413,7 @@ namespace Returns.Helpers
                 {
                     if (request.ParseSuccess)
                     {
-                        if (request.ExpectedReturn.ReturnForm.Category == FormCategory.Other)
+                        if (request.ReturnSubmission.ExpectedReturn.ReturnForm.Category == FormCategory.Other)
                         {
                             var contentsObj = JsonSerializer.Deserialize<Dictionary<string, string>>(request.ContentsJson);
                             var fileUrl = contentsObj?.GetValueOrDefault("fileUrl");
