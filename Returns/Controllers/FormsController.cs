@@ -231,6 +231,12 @@ namespace Returns.Controllers
         {
             try
             {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+               
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                {
+                    return Unauthorized("Invalid credentials.");
+                }
                 var DocumentsBaseUrl = _configuration.GetSection("GatewayURLForDocuments:GatewayURL").Value;
 
                 // Validate input
@@ -255,10 +261,10 @@ namespace Returns.Controllers
                                 er.IsActive);
 
                 // Filter by sacco type if provided
-                if (!string.IsNullOrEmpty(saccoTypeId))
-                {
-                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == saccoTypeId);
-                }
+                /*if (!string.IsNullOrEmpty(saccoTypeId))
+                {*/
+                    expectedReturnsQuery = expectedReturnsQuery.Where(er => er.ReturnForm.SaccoTypeId == loggedInSacco.SaccoType.ToString());
+                /*}*/
 
                 var expectedReturns = await expectedReturnsQuery.ToListAsync();
 
