@@ -1396,7 +1396,13 @@ namespace Returns.Helpers
                         FinancialInvestmentsToCoreCapitalExcessDeficiency = investmentEntity.FinancialInvestmentsToCoreCapitalExcessDeficiency,
                         FinancialInvestmentsToDepositsRatio = investmentEntity.FinancialInvestmentsToDepositsRatio,
                         FinancialInvestmentsToDepositsExcessDeficiency = investmentEntity.FinancialInvestmentsToDepositsExcessDeficiency,
-                        //FilePath = investmentEntity.FilePath
+                        MaxLandBuildingsToTotalAssetsRatio = investmentEntity.MaxLandBuildingsToTotalAssetsRatio,
+                        MaxFinancialInvestmentsToCoreCapitalRatio = investmentEntity.MaxFinancialInvestmentsToCoreCapitalRatio,
+                        MaxFinancialInvestmentsToDepositsRatio = investmentEntity.MaxFinancialInvestmentsToDepositsRatio,
+                        MaxNonEarningAssetsToTotalAssetsRatio = investmentEntity.MaxNonEarningAssetsToTotalAssetsRatio,
+                      /*  Year = investmentEntity.Year,
+                        StartDate = investmentEntity.StartDate,
+                        EndDate = investmentEntity.EndDate*/
                     };
                 }
                 return investment;

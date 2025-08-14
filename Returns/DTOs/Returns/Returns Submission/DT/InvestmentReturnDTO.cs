@@ -25,5 +25,6 @@ namespace Returns.DTOs.Returns_Submission.DT
         public decimal FinancialInvestmentsToDepositsRatio { get; set; }
         public decimal FinancialInvestmentsToDepositsExcessDeficiency { get; set; }
         public string FilePath { get; set; } = string.Empty;
+        public decimal MaxNonEarningAssetsToTotalAssetsRatio { get; internal set; }
     }
 }
