@@ -226,7 +226,7 @@ namespace Returns.Helpers
 
                 if (caelsRating != null)
                 {
-                    rating = (int?)caelsRating.OverallRating; 
+                    rating = (int?)caelsRating.OverallRating;
                 }
 
                 // Submissions (QGroup vs single)
@@ -358,7 +358,7 @@ namespace Returns.Helpers
                 {
                     StepId = step.Id,
                     ApproverRole = step.RoleName,
-                    Approver= approverName,
+                    Approver = approverName,
                     ApproverUserId = approverUserId,
                     IsFirst = step.Sequence == firstSeq,
                     IsLast = step.Sequence == lastSeq
@@ -460,16 +460,16 @@ namespace Returns.Helpers
                 // 3) Get previous approver action (strictly before current step in sequence)
                 // 
                 var prevActionQ = from a in _db.ApprovalActions
-                    join s in _db.WorkFlowSteps on a.WorkFlowStepId equals s.Id
-                    where a.PeriodId == instance.PeriodId
-                       && a.SaccoId == instance.SaccoId
-                       && (hasReturnSubmission ? a.ReturnSubmissionId == returnSubmissionId
-                                               : a.ReturnSubmissionId == null)
-                       && a.Status != pendingStatus
-                       && s.WorkFlowTemplateId == instance.WorkflowTemplateId
-                       && s.Sequence < currentSeq
-                    orderby a.CreatedAt descending
-                    select new { Action = a, Step = s };
+                                  join s in _db.WorkFlowSteps on a.WorkFlowStepId equals s.Id
+                                  where a.PeriodId == instance.PeriodId
+                                     && a.SaccoId == instance.SaccoId
+                                     && (hasReturnSubmission ? a.ReturnSubmissionId == returnSubmissionId
+                                                             : a.ReturnSubmissionId == null)
+                                     && a.Status != pendingStatus
+                                     && s.WorkFlowTemplateId == instance.WorkflowTemplateId
+                                     && s.Sequence < currentSeq
+                                  orderby a.CreatedAt descending
+                                  select new { Action = a, Step = s };
 
                 var lastPrev = await prevActionQ.FirstOrDefaultAsync();
 
@@ -851,6 +851,8 @@ namespace Returns.Helpers
                 if (instance.UserId != userId)
                     throw new UnauthorizedAccessException("User is not assigned to approve this step.");
 
+                var Period = await _db.ReturnPeriods.FindAsync(instance.PeriodId) ?? throw new InvalidOperationException("Period not found.");
+
                 // Prevent duplicate approvals by same user on same step
                 var alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
                     a.WorkFlowStepId == instance.CurrentStepId &&
@@ -911,7 +913,7 @@ namespace Returns.Helpers
                 else
                 {
 
-                    var (assigneeUserId, _, assigneeEmail) = await ResolveAssigneeAsync(nextStep, instance.SaccoId, instance.TeamId);
+                    var (assigneeUserId, ApproverName, assigneeEmail) = await ResolveAssigneeAsync(nextStep, instance.SaccoId, instance.TeamId);
 
                     instance.CurrentStepId = nextStep.Id;
                     instance.UserId = assigneeUserId;
@@ -926,11 +928,39 @@ namespace Returns.Helpers
                     {
                         long longSaccoId = long.Parse(instance.SaccoId);
                         var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
-                        await _emailService.SendEmailAsync(
-                            assigneeEmail,
-                            "New Approval Request",
-                            $"You have a new approval request for SACCO {sacco?.SaccoName ?? instance.SaccoId} " +
-                            $"({(instance.Type == "QGroup" ? "Quarterly Group" : "Return")}) for period {instance.PeriodId}.");
+
+                        var emailSubject = $"🔔 New Approval Request - {sacco?.SaccoName ?? instance.SaccoId}";
+                        var returnType = instance.Type == "QGroup" ? "Quarterly Returns" : "Return";
+
+                        var emailBody = $@"
+                            Dear {ApproverName}
+
+                            You have received a new approval request that requires your attention.
+
+                            📋 **Request Details:**
+                            • **SACCO:** {sacco?.SaccoName ?? instance.SaccoId}
+                            • **Type:** {returnType}
+                            • **Period:** {Period.Name}
+                            • **Request ID:** {instance.Id}
+                            • **Submitted:** {DateTime.Now:dd/MM/yyyy HH:mm}
+
+                            ⚠️ **Action Required:** Please review and process this request at your earliest convenience.
+
+                            🔗 **Next Steps:**
+                            1. Log into the SASRA system
+                            2. Navigate to the approval queue
+                            3. Review the submitted documents
+                            4. Approve, reject, or request additional information as needed
+
+                            For any questions or technical support, please contact the system administrator.
+
+                            Best regards,
+                            SASRA Returns Management System
+
+                            ---
+                            *This is an automated notification. Please do not reply to this email.*";
+
+                        await _emailService.SendEmailAsync(assigneeEmail, emailSubject, emailBody);
                     }
                     catch (Exception ex)
                     {
@@ -966,12 +996,43 @@ namespace Returns.Helpers
                     .OrderByDescending(r => r.CreatedAt)
                     .FirstOrDefaultAsync();
 
-                var subject = "Compliance Report";
-                var message = type == "QGroup"
-                    ? $"Your quarterly returns for {period?.Name ?? periodId} has been approved. {(rating != null ? $"CAELS Rating: {rating.OverallRating} ({rating.RiskLevel})" : "Rating pending.")}"
-                    : $"Your return for {period?.Name ?? periodId} has been approved.";
+                var emailSubject = $"✅ Compliance Report Approved - {period?.Name ?? periodId}";
+                var returnType = type == "QGroup" ? "Quarterly Returns" : "Return";
 
-                await _emailService.SendEmailAsync(sacco.OfficialEmail, subject, message);
+                var emailBody = $@"
+                        Dear SACCO Management,
+
+                        We are pleased to inform you that your compliance submission has been successfully reviewed and approved.
+
+                        📋 **Approval Details:**
+                        • **SACCO:** {sacco?.SaccoName ?? saccoId}
+                        • **Submission Type:** {returnType}
+                        • **Reporting Period:** {period?.Name ?? periodId}
+                        • **Approval Date:** {DateTime.Now:dd/MM/yyyy HH:mm}
+                        • **Status:** ✅ APPROVED
+
+                        {(rating != null ? $@"
+                        📊 **CAELS Rating Results:**
+                        • **Overall Rating:** {rating.OverallRating}/5
+                        • **Risk Level:** {rating.RiskLevel}
+                        • **Assessment Date:** {rating.CreatedAt:dd/MM/yyyy}" : @"
+                        📊 **CAELS Rating:** Currently under review - will be communicated separately.")}
+
+                        🎯 **Next Steps:**
+                        • Your compliance status has been updated in our system
+                        • No further action is required for this period
+                        • Please ensure timely submission for future reporting periods
+
+                        📞 **Contact Information:**
+                        For any questions regarding this approval or future submissions, please contact your assigned compliance officer.
+
+                        Best regards,
+                        SASRA Compliance Team
+
+                        ---
+                        *This is an automated notification. Please do not reply to this email.*";
+
+                await _emailService.SendEmailAsync(sacco.OfficialEmail, emailSubject, emailBody);
             }
             catch (Exception ex)
             {
@@ -990,12 +1051,43 @@ namespace Returns.Helpers
                 }
 
                 var period = await _db.ReturnPeriods.FindAsync(periodId);
-                var subject = "Return Rejection Notification";
-                var message = type == "QGroup"
-                    ? $"Your quarterly return group for {period?.Name ?? periodId} has been rejected. Reason: {rejectionComment}"
-                    : $"Your return for {period?.Name ?? periodId} has been rejected. Reason: {rejectionComment}";
+                var emailSubject = $"⚠️ Return Submission Review Required - {period?.Name ?? periodId}";
+                var returnType = type == "QGroup" ? "Quarterly Returns" : "Return";
 
-                await _emailService.SendEmailAsync(sacco.OfficialEmail, subject, message);
+                var emailBody = $@"
+Dear SACCO Management,
+
+We regret to inform you that your compliance submission requires additional review before it can be approved.
+
+📋 **Submission Details:**
+• **SACCO:** {sacco?.SaccoName ?? saccoId}
+• **Submission Type:** {returnType}
+• **Reporting Period:** {period?.Name ?? periodId}
+• **Review Date:** {DateTime.Now:dd/MM/yyyy HH:mm}
+• **Status:** ⚠️ REQUIRES REVISION
+
+❌ **Rejection Reason:**
+{rejectionComment}
+
+🎯 **Required Actions:**
+• Please review the feedback provided above
+• Make necessary corrections to your submission
+• Resubmit the updated documents within the specified timeframe
+• Ensure all required information is complete and accurate
+
+📞 **Support Available:**
+If you need assistance understanding the feedback or have questions about the requirements, please contact your assigned compliance officer.
+
+⏰ **Timeline:**
+Please note that timely resubmission is crucial to maintain compliance with regulatory requirements.
+
+Best regards,
+SASRA Compliance Team
+
+---
+*This is an automated notification. Please do not reply to this email.*";
+
+                await _emailService.SendEmailAsync(sacco.OfficialEmail, emailSubject, emailBody);
             }
             catch (Exception ex)
             {
@@ -1210,16 +1302,16 @@ namespace Returns.Helpers
         }
 
 
-        private async Task<(string userId, string displayName, string email)>  ResolveAssigneeAsync( WorkFlowStep step, string saccoId, string teamId)
+        private async Task<(string userId, string displayName, string email)> ResolveAssigneeAsync(WorkFlowStep step, string saccoId, string teamId)
         {
             //return ("idHapa", "ApproverName Here", "Email Hapa");
             switch (step.AssigneeType)
             {
                 case StepAssignee.Officer:
                     {
-                     var officer =   await _db.SaccoAssignments
-                                    .Where(a => a.SaccoId == saccoId)
-                                    .FirstOrDefaultAsync();
+                        var officer = await _db.SaccoAssignments
+                                       .Where(a => a.SaccoId == saccoId)
+                                       .FirstOrDefaultAsync();
                         if (officer != null)
                         {
                             var userDetails = await _complianceService.GetUserDetailsAsync(officer.AssignedUserId);

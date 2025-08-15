@@ -11,6 +11,7 @@ using Returns.Helpers.Interfaces;
 using Returns.Models;
 using Returns.Models.Data;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using static Returns.Helpers.TokenHelper;
 
 namespace Returns.Helpers
@@ -125,7 +126,7 @@ namespace Returns.Helpers
             if (category == FormCategory.Other)
             {
                 fileUrl = await FormsHelper.SaveFileAsync(formFile, "Drafts");
-                var FileUrlJson = JsonSerializer.Serialize(new { fileUrl });
+                var FileUrlJson = JsonSerializer.Serialize(new { fileUrl }, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                 return (fileUrl, true, FileUrlJson, null);
             }
 
@@ -141,9 +142,16 @@ namespace Returns.Helpers
             var parseSuccess = parseResult.Success;
             var contentsJson = parseResult.Success
                 ? JsonSerializer.Serialize(parseResult.Rows.Select(row => row.ToEntity()),
-                    new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase })
+                    new JsonSerializerOptions
+                    {
+                        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                        ReferenceHandler = ReferenceHandler.Preserve
+                    })
                 : null;
-            var parseErrorsJson = JsonSerializer.Serialize(parseResult.Errors);
+            var parseErrorsJson = JsonSerializer.Serialize(parseResult.Errors, new JsonSerializerOptions
+            {
+                ReferenceHandler = ReferenceHandler.Preserve
+            });
             if (!parseResult.Success)
             {
                 _logger.LogWarning("Failed to parse Excel file for submission {SubmissionId}: {Errors}",
@@ -360,14 +368,22 @@ namespace Returns.Helpers
                 var PeriodEnd = r.ReturnSubmission.ExpectedReturn.Period.EndDate.ToLongDateString();
                 var OriginalSubmittedAt = r.ReturnSubmission.CreatedAt.ToLongDateString();
 
+                long saccoIdLong = long.Parse(r.ReturnSubmission.SaccoId);
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoIdLong);
+                if (saccoDetails == null)
+                {
+                    _logger.LogWarning("SACCO with ID {SaccoId} not found.", saccoIdLong);
+                    throw new InvalidOperationException($"SACCO with ID {saccoIdLong} not found.");
+                }
+
                 var dto = new PendingAmendmentRequestDTO
                 {
                     Id = r.Id,
                     ExpectedReturnId = r.ExpectedReturnId,
                     ReturnSubmissionId = r.ReturnSubmissionId,
-                    SaccoId = r.SaccoId,
-                    SaccoType = r.SaccoType,
-                    SaccoName = r.SaccoName,
+                    SaccoId = saccoIdLong.ToString(),
+                    SaccoType = saccoDetails.SaccoType,
+                    SaccoName = saccoDetails.SaccoName,
                     RequestedById = r.RequestedById,
                     RequestedAt = r.RequestedAt.ToLongDateString(),
                     Reason = r.Reason,
@@ -407,7 +423,7 @@ namespace Returns.Helpers
             {
                 if (!string.IsNullOrEmpty(request.ParseErrorsJson))
                 {
-                    parseErrors = JsonSerializer.Deserialize<List<string>>(request.ParseErrorsJson) ?? new List<string>();
+                    parseErrors = JsonSerializer.Deserialize<List<string>>(request.ParseErrorsJson, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve }) ?? new List<string>();
                 }
                 if (!string.IsNullOrEmpty(request.ContentsJson))
                 {
@@ -415,7 +431,7 @@ namespace Returns.Helpers
                     {
                         if (request.ReturnSubmission.ExpectedReturn.ReturnForm.Category == FormCategory.Other)
                         {
-                            var contentsObj = JsonSerializer.Deserialize<Dictionary<string, string>>(request.ContentsJson);
+                            var contentsObj = JsonSerializer.Deserialize<Dictionary<string, string>>(request.ContentsJson, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             var fileUrl = contentsObj?.GetValueOrDefault("fileUrl");
                             if (!string.IsNullOrEmpty(fileUrl))
                             {
@@ -424,7 +440,7 @@ namespace Returns.Helpers
                         }
                         else
                         {
-                            rows = JsonSerializer.Deserialize<List<object>>(request.ContentsJson) ?? new List<object>();
+                            rows = JsonSerializer.Deserialize<List<object>>(request.ContentsJson, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve }) ?? new List<object>();
                         }
                     }
                 }
@@ -500,9 +516,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(capitalAdequacyData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         else if (saccoType == "1") // NWDT Returns
@@ -515,9 +532,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtCapitalAdequacyData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         break;
@@ -533,9 +551,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(liquidityData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         else if (saccoType == "1") // NWDT Returns
@@ -548,9 +567,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtLiquidityData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         break;
@@ -565,9 +585,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(riskData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         else if (saccoType == "1") // NWDT Returns
@@ -579,9 +600,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtRiskData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         break;
@@ -596,9 +618,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(investmentData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         else if (saccoType == "1") // NWDT Returns
@@ -610,9 +633,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtInvestmentData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         break;
@@ -627,9 +651,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(financialPositionData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         else if (saccoType == "1") // NWDT Returns
@@ -643,9 +668,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtFinancialPositionData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         break;
@@ -662,9 +688,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(comprehensiveIncomeData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         else if (saccoType == "1") // NWDT Returns
@@ -678,9 +705,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtComprehensiveIncomeData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve  // Add this to handle cycles
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         break;
@@ -696,9 +724,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(depositData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         else if (saccoType == "1") // NWDT Returns
@@ -711,9 +740,10 @@ namespace Returns.Helpers
                             // Serialize with camelCase to match rows format
                             var serializedData = JsonSerializer.Serialize(nwdtDepositData, new JsonSerializerOptions
                             {
-                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                                ReferenceHandler = ReferenceHandler.Preserve
                             });
-                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData);
+                            var deserializedData = JsonSerializer.Deserialize<List<object>>(serializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                             currentData.AddRange(deserializedData ?? new List<object>());
                         }
                         break;
@@ -728,9 +758,10 @@ namespace Returns.Helpers
                         // Serialize with camelCase to match rows format
                         var managementSerializedData = JsonSerializer.Serialize(managementData, new JsonSerializerOptions
                         {
-                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            ReferenceHandler = ReferenceHandler.Preserve
                         });
-                        var managementDeserializedData = JsonSerializer.Deserialize<List<object>>(managementSerializedData);
+                        var managementDeserializedData = JsonSerializer.Deserialize<List<object>>(managementSerializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                         currentData.AddRange(managementDeserializedData ?? new List<object>());
                         break;
 
@@ -744,9 +775,10 @@ namespace Returns.Helpers
                         // Serialize with camelCase to match rows format
                         var dailyLiquiditySerializedData = JsonSerializer.Serialize(dailyLiquidityData, new JsonSerializerOptions
                         {
-                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            ReferenceHandler = ReferenceHandler.Preserve
                         });
-                        var dailyLiquidityDeserializedData = JsonSerializer.Deserialize<List<object>>(dailyLiquiditySerializedData);
+                        var dailyLiquidityDeserializedData = JsonSerializer.Deserialize<List<object>>(dailyLiquiditySerializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                         currentData.AddRange(dailyLiquidityDeserializedData ?? new List<object>());
                         break;
 
@@ -760,9 +792,10 @@ namespace Returns.Helpers
                         // Serialize with camelCase to match rows format
                         var sectoralLendingSerializedData = JsonSerializer.Serialize(sectoralLendingData, new JsonSerializerOptions
                         {
-                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            ReferenceHandler = ReferenceHandler.Preserve
                         });
-                        var sectoralLendingDeserializedData = JsonSerializer.Deserialize<List<object>>(sectoralLendingSerializedData);
+                        var sectoralLendingDeserializedData = JsonSerializer.Deserialize<List<object>>(sectoralLendingSerializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                         currentData.AddRange(sectoralLendingDeserializedData ?? new List<object>());
                         break;
 
@@ -776,9 +809,10 @@ namespace Returns.Helpers
                         // Serialize with camelCase to match rows format
                         var insiderLendingSerializedData = JsonSerializer.Serialize(insiderLendingData, new JsonSerializerOptions
                         {
-                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                            ReferenceHandler = ReferenceHandler.Preserve
                         });
-                        var insiderLendingDeserializedData = JsonSerializer.Deserialize<List<object>>(insiderLendingSerializedData);
+                        var insiderLendingDeserializedData = JsonSerializer.Deserialize<List<object>>(insiderLendingSerializedData, new JsonSerializerOptions { ReferenceHandler = ReferenceHandler.Preserve });
                         currentData.AddRange(insiderLendingDeserializedData ?? new List<object>());
                         break;
 
@@ -931,14 +965,22 @@ namespace Returns.Helpers
                 var PeriodEnd = r.ReturnSubmission.ExpectedReturn.Period.EndDate.ToLongDateString();
                 var OriginalSubmittedAt = r.ReturnSubmission.CreatedAt.ToLongDateString();
 
+                long saccoIdLong = long.Parse(r.ReturnSubmission.SaccoId);
+                var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoIdLong);
+                if (saccoDetails == null)
+                {
+                    _logger.LogWarning("SACCO with ID {SaccoId} not found.", saccoIdLong);
+                    throw new InvalidOperationException($"SACCO with ID {saccoIdLong} not found.");
+                }
+
                 var dto = new PendingAmendmentRequestDTO
                 {
                     Id = r.Id,
                     ExpectedReturnId = r.ExpectedReturnId,
                     ReturnSubmissionId = r.ReturnSubmissionId,
-                    SaccoId = r.SaccoId,
-                    SaccoType = r.SaccoType,
-                    SaccoName = r.SaccoName,
+                    SaccoId = saccoIdLong.ToString(),
+                    SaccoType = saccoDetails.SaccoType,
+                    SaccoName = saccoDetails.SaccoName,
                     RequestedById = r.RequestedById,
                     RequestedAt = r.RequestedAt.ToLongDateString(),
                     Reason = r.Reason,
@@ -964,6 +1006,7 @@ namespace Returns.Helpers
         /// </summary>
         public async Task<IList<PendingAmendmentRequestDTO>> GetSaccoAmendmentRequestsAsync(string saccoId)
         {
+
             var requests = await _context.AmendmentRequests
                 .Include(r => r.ReturnSubmission)
                     .ThenInclude(rs => rs.ExpectedReturn)
@@ -975,7 +1018,13 @@ namespace Returns.Helpers
                 .Where(r => r.SaccoId == saccoId)
                 .OrderByDescending(r => r.RequestedAt)
                 .ToListAsync();
-
+            long saccoIdLong = long.Parse(saccoId);
+            var saccoDetails = await _complianceService.GetSaccoByIdAsync(saccoIdLong);
+            if (saccoDetails == null)
+            {
+                _logger.LogWarning("SACCO with ID {SaccoId} not found.", saccoId);
+                throw new InvalidOperationException($"SACCO with ID {saccoId} not found.");
+            }
             var saccoRequests = new List<PendingAmendmentRequestDTO>();
 
             foreach (var r in requests)
@@ -991,9 +1040,9 @@ namespace Returns.Helpers
                     Id = r.Id,
                     ExpectedReturnId = r.ExpectedReturnId,
                     ReturnSubmissionId = r.ReturnSubmissionId,
-                    SaccoId = r.SaccoId,
-                    SaccoType = r.SaccoType,
-                    SaccoName = r.SaccoName,
+                    SaccoId = saccoId,
+                    SaccoType = saccoDetails.SaccoType,
+                    SaccoName = saccoDetails.SaccoName,
                     RequestedById = r.RequestedById,
                     RequestedAt = r.RequestedAt.ToLongDateString(),
                     Reason = r.Reason,

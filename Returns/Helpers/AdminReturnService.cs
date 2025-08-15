@@ -15,6 +15,7 @@ using Returns.Helpers.Interfaces;
 using Returns.Models;
 using Returns.Models.Data;
 using System.Text.Json;
+using static Returns.Helpers.Constants;
 using static Returns.Helpers.ReturnAnalysisHelper;
 using static Returns.Helpers.TokenHelper;
 
@@ -283,6 +284,7 @@ namespace Returns.Helpers
                                 GroupId = ratingDef?.Id ?? period.Id,  // Use rating ID or period ID
                                 SaccoId = saccoGroup.Key,
                                 SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                                SaccoType = saccoType,
                                 PeriodId = period.Id,
                                 PeriodName = period.Name,
                                 Year = period.ReportingYear.Year,
@@ -312,6 +314,7 @@ namespace Returns.Helpers
                             var saccoSubmissions = saccoFormGroup.ToList();
                             var saccoDetails = await GetSaccoDetailsAsync(saccoFormGroup.Key.SaccoId);
                             var form = saccoSubmissions.First().ExpectedReturn.ReturnForm;
+                            string saccoTpe = saccoDetails?.SaccoType ?? "0";
 
                             // Calculate lateness statistics
                             var (hasLateSubmissions, totalDaysLate, lateFormsCount) = CalculateLatenessStats(saccoSubmissions, period);
@@ -321,6 +324,7 @@ namespace Returns.Helpers
                                 GroupId = "standalone",
                                 SaccoId = saccoFormGroup.Key.SaccoId,
                                 SaccoName = saccoDetails?.SaccoName ?? "Unknown SACCO",
+                                SaccoType = saccoTpe,
                                 PeriodId = period.Id,
                                 PeriodName = period.Name,
                                 Year = period.ReportingYear.Year,
@@ -977,6 +981,9 @@ namespace Returns.Helpers
                             break;
                         case FormCategory.Other:
                             detailsDto.Other = await MapOtherWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            break;
+                        case FormCategory.Management:
+                            detailsDto.Management = await MapManagementWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                     }
 
