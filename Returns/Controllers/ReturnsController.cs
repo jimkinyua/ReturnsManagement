@@ -1963,10 +1963,10 @@ namespace Returns.Controllers
                 }
 
                 // Verify this is an NWDT SACCO
-                if (loggedInSacco.SaccoType != Constants.SaccoType.NWDT.ToString())
+               /* if (loggedInSacco.SaccoType != Constants.SaccoType.NWDT.ToString())
                 {
                     return BadRequest("This endpoint is only for NWDT SACCOs");
-                }
+                }*/
 
                 // Get the rating definition for NWDT
                 var GroupToUse = _context.RatingDefinations
@@ -2021,7 +2021,7 @@ namespace Returns.Controllers
                 
                 var ratingDef = await _context.RatingDefinations
                     .Include(rd => rd.RatingForms)
-                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == "CAMELS");
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == "CAELS");
 
                 if (ratingDef == null)
                 {
@@ -2840,7 +2840,7 @@ namespace Returns.Controllers
                 // Get rating definition for NWDT saccos (using CAMEL which includes Management forms)
                 var ratingDef = await _context.RatingDefinations
                     .Include(rd => rd.RatingForms)
-                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == "CAMEL Forms For NWDT");
+                    .FirstOrDefaultAsync(rd => rd.SaccoType == "1" && rd.RatingName == "CAELS");
 
                 if (ratingDef == null)
                 {
