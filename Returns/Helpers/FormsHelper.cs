@@ -248,12 +248,12 @@ namespace Returns.Helpers
             }
             catch (HttpRequestException ex)
             {
-                Console.WriteLine($"HTTP error retrieving file from URL {fileUrl}: {ex.Message}");
+                Console.WriteLine($"HTTP error retrieving file from URL {fullUrl}: {ex.Message}");
                 return null;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error retrieving file from URL {fileUrl}: {ex.Message}");
+                Console.WriteLine($"Error retrieving file from URL {fullUrl}: {ex.Message}");
                 return null;
             }
         }
