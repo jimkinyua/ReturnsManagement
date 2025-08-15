@@ -16,6 +16,7 @@ namespace Returns.Controllers
     public class AdditionalInformationController : ControllerBase
     {
         private readonly ReturnsDbContext _context;
+        private readonly IConfiguration _configuration;
         private readonly IAdditionalInformationRequestService _informationRequestService;
         private readonly IEmailService _emailSender;
         private readonly IComplianceService _complianceService;
@@ -33,11 +34,20 @@ namespace Returns.Controllers
             _emailSender = emailSender;
             _complianceService = complianceService;
             _logger = logger;
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+            _configuration = new ConfigurationBuilder()
+               .SetBasePath(Directory.GetCurrentDirectory())
+               .AddJsonFile("appsettings.json")
+            .AddJsonFile($"appsettings.{environment}.json", optional: true)
+               .AddEnvironmentVariables()
+               .Build();
         }
 
         [HttpGet("AdditionalInformationRequests")]
         public async Task<ActionResult<IEnumerable<AdditionalInformationRequestDto>>> GetAdditionalInformationRequests()
         {
+            var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
+
             try
             {
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
@@ -45,44 +55,74 @@ namespace Returns.Controllers
                 {
                     return StatusCode(401, "Unauthorized");
                 }
-
+                // Fetch the main list of requests without includes (using AsNoTracking for performance)
                 var requests = await _context.AdditionalInformationRequests
                     .AsNoTracking()
-                    .Include(r => r.ReturnReponses).ThenInclude(resp => resp.ResponseAttachements)
-                    .Include(r => r.ReturnSubmission)
-                        .ThenInclude(rs => rs.ExpectedReturn)
-                            .ThenInclude(er => er.ReturnForm)
                     .Where(x => x.SaccoId == loggedInSacco.SaccoId)
                     .OrderBy(r => r.CreatedAt)
                     .ToListAsync();
-
-                var resultDtos = requests.Select(request => new AdditionalInformationRequestDto
+                if (!requests.Any())
                 {
-                    Id = request.Id,
-                    Description = request.Description,
-                    RequestedBy = request.RequestedBy,
-                    Status = request.RequestStatus,
-                    IsResponded = request.IsResponded,
-                    CreatedAt = request.CreatedAt,
-                    RespondedAt = request.RespondedAt,
-                    SaccoId = request.SaccoId,
-                    SaccoName = loggedInSacco.SaccoName ?? "Unknown",
-                    ReturnSubmissionId = request.ReturnSubmissionId,
-                    ReturnType = request.ReturnSubmission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
-                    Responses = request.ReturnReponses.Select(response => new AdditionalInfoResponseDto
+                    return Ok(new List<AdditionalInformationRequestDto>());
+                }
+                var requestIds = requests.Select(r => r.Id).ToList();
+                // Fetch all responses and their attachments in one query for all requests
+                var allResponses = await _context.AdditionalInfoResponses
+                    .AsNoTracking()
+                    .Include(resp => resp.ResponseAttachements)
+                    .Where(resp => requestIds.Contains(resp.RequestId))
+                    .ToListAsync();
+                // Group responses by request ID
+                var responsesByRequest = allResponses
+                    .GroupBy(resp => resp.RequestId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+                // Get all unique submission IDs from requests
+                var submissionIds = requests
+                    .Select(r => r.ReturnSubmissionId)
+                    .Where(id => id != null) // Assuming nullable; adjust if not
+                    .Distinct()
+                    .ToList();
+                // Fetch all related submissions with their nested entities in one query
+                var allSubmissions = await _context.ReturnSubmissions
+                    .AsNoTracking()
+                    .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                    .Where(rs => submissionIds.Contains(rs.Id))
+                    .ToListAsync();
+                // Dictionary for quick lookup of submissions by ID
+                var submissionsById = allSubmissions.ToDictionary(rs => rs.Id, rs => rs);
+                // Map to DTOs
+                var resultDtos = requests.Select(request =>
+                {
+                    var submission = submissionsById.TryGetValue(request.ReturnSubmissionId ?? "", out var sub) ? sub : null;
+                    var responsesForRequest = responsesByRequest.TryGetValue(request.Id, out var resps) ? resps : new List<Returns.Models.AdditionalInfoResponse>();
+                    return new AdditionalInformationRequestDto
                     {
-                        Id = response.Id,
-                        RespondedBy = response.RespondedBy,
-                        ResponseMessage = response.ReponseMessage,
-                        RespondedAt = response.CreatedAt,
-                        Attachments = response.ResponseAttachements?.Select(a => new AdditionalInfoAttachmentDto
+                        Id = request.Id,
+                        Description = request.Description,
+                        RequestedBy = request.RequestedBy,
+                        Status = request.RequestStatus,
+                        IsResponded = request.IsResponded,
+                        CreatedAt = request.CreatedAt,
+                        RespondedAt = request.RespondedAt,
+                        SaccoId = request.SaccoId,
+                        SaccoName = loggedInSacco.SaccoName ?? "Unknown",
+                        ReturnSubmissionId = request.ReturnSubmissionId,
+                        ReturnType = submission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
+                        Responses = responsesForRequest.Select(response => new AdditionalInfoResponseDto
                         {
-                            FileUrl = a.FileUrl,
-                            Name = a.FileName
-                        }).ToList() ?? new List<AdditionalInfoAttachmentDto>()
-                    }).ToList()
+                            Id = response.Id,
+                            RespondedBy = response.RespondedBy,
+                            ResponseMessage = response.ReponseMessage,
+                            RespondedAt = response.CreatedAt,
+                            Attachments = response.ResponseAttachements?.Select(a => new AdditionalInfoAttachmentDto
+                            {
+                                FileUrl = $"{baseUrl}{a.FileUrl}",
+                                Name = a.FileName
+                            }).ToList() ?? new List<AdditionalInfoAttachmentDto>()
+                        }).ToList()
+                    };
                 }).ToList();
-
                 return Ok(resultDtos);
             }
             catch (Exception ex)
@@ -90,6 +130,7 @@ namespace Returns.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, CustomErrorHandler.HandleException(ex));
             }
         }
+
 
         private async Task<string> GetSaccoNameAsync(string saccoId)
         {
@@ -117,20 +158,59 @@ namespace Returns.Controllers
             }
             try
             {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
+
+                // Fetch the main list of requests without includes
                 var requests = await _context.AdditionalInformationRequests
                     .AsNoTracking()
-                    .Include(r => r.ReturnReponses).ThenInclude(resp => resp.ResponseAttachements)
-                    .Include(r => r.ReturnSubmission)
-                        .ThenInclude(rs => rs.ExpectedReturn)
-                            .ThenInclude(er => er.ReturnForm)
                     .Where(x => x.ReturnSubmissionId == ReturnSubmissionId)
                     .OrderBy(r => r.CreatedAt)
                     .ToListAsync();
 
-                var resultDtos = new List<AdditionalInformationRequestDto>();
-                foreach (var request in requests)
+                if (!requests.Any())
                 {
-                    resultDtos.Add(new AdditionalInformationRequestDto
+                    return Ok(new List<AdditionalInformationRequestDto>());
+                }
+
+                var requestIds = requests.Select(r => r.Id).ToList();
+
+                // Fetch all responses and their attachments in one query for all requests
+                var allResponses = await _context.AdditionalInfoResponses
+                    .AsNoTracking()
+                    .Include(resp => resp.ResponseAttachements)
+                    .Where(resp => requestIds.Contains(resp.RequestId))
+                    .ToListAsync();
+
+                // Group responses by request ID
+                var responsesByRequest = allResponses
+                    .GroupBy(resp => resp.RequestId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                // Get all unique submission IDs from requests
+                var submissionIds = requests
+                    .Select(r => r.ReturnSubmissionId)
+                    .Where(id => id != null)
+                    .Distinct()
+                    .ToList();
+
+                // Fetch all related submissions with their nested entities in one query
+                var allSubmissions = await _context.ReturnSubmissions
+                    .AsNoTracking()
+                    .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                    .Where(rs => submissionIds.Contains(rs.Id))
+                    .ToListAsync();
+
+                // Dictionary for quick lookup of submissions by ID
+                var submissionsById = allSubmissions.ToDictionary(rs => rs.Id, rs => rs);
+
+                // Map to DTOs
+                var resultDtos = requests.Select(request =>
+                {
+                    var submission = submissionsById.TryGetValue(request.ReturnSubmissionId ?? "", out var sub) ? sub : null;
+                    var responsesForRequest = responsesByRequest.TryGetValue(request.Id, out var resps) ? resps : new List<Returns.Models.AdditionalInfoResponse>();
+
+                    return new AdditionalInformationRequestDto
                     {
                         Id = request.Id,
                         Description = request.Description,
@@ -140,10 +220,10 @@ namespace Returns.Controllers
                         CreatedAt = request.CreatedAt,
                         RespondedAt = request.RespondedAt,
                         SaccoId = request.SaccoId,
-                        SaccoName = await GetSaccoNameAsync(request.SaccoId),
+                        SaccoName = GetSaccoNameAsync(request.SaccoId).Result,
                         ReturnSubmissionId = request.ReturnSubmissionId,
-                        ReturnType = request.ReturnSubmission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
-                        Responses = request.ReturnReponses.Select(response => new AdditionalInfoResponseDto
+                        ReturnType = submission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
+                        Responses = responsesForRequest.Select(response => new AdditionalInfoResponseDto
                         {
                             Id = response.Id,
                             RespondedBy = response.RespondedBy,
@@ -151,12 +231,12 @@ namespace Returns.Controllers
                             RespondedAt = response.CreatedAt,
                             Attachments = response.ResponseAttachements?.Select(a => new AdditionalInfoAttachmentDto
                             {
-                                FileUrl = a.FileUrl,
+                                FileUrl = $"{baseUrl}{a.FileUrl}",
                                 Name = a.FileName
                             }).ToList() ?? new List<AdditionalInfoAttachmentDto>()
                         }).ToList()
-                    });
-                }
+                    };
+                }).ToList();
 
                 return Ok(resultDtos);
             }
@@ -173,18 +253,30 @@ namespace Returns.Controllers
         {
             try
             {
+                var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
+
                 var request = await _context.AdditionalInformationRequests
                     .AsNoTracking()
-                    .Include(r => r.ReturnReponses).ThenInclude(resp => resp.ResponseAttachements)
-                    .Include(r => r.ReturnSubmission)
-                        .ThenInclude(rs => rs.ExpectedReturn)
-                            .ThenInclude(er => er.ReturnForm)
                     .FirstOrDefaultAsync(r => r.Id == Id);
 
                 if (request == null)
                 {
                     return NotFound("Additional information request not found.");
                 }
+
+                // Fetch responses and attachments
+                var responses = await _context.AdditionalInfoResponses
+                    .AsNoTracking()
+                    .Include(resp => resp.ResponseAttachements)
+                    .Where(resp => resp.RequestId == Id)
+                    .ToListAsync();
+
+                // Fetch submission details
+                var submission = await _context.ReturnSubmissions
+                    .AsNoTracking()
+                    .Include(rs => rs.ExpectedReturn)
+                        .ThenInclude(er => er.ReturnForm)
+                    .FirstOrDefaultAsync(rs => rs.Id == request.ReturnSubmissionId);
 
                 var requestDto = new AdditionalInformationRequestDto
                 {
@@ -198,8 +290,8 @@ namespace Returns.Controllers
                     SaccoId = request.SaccoId,
                     SaccoName = await GetSaccoNameAsync(request.SaccoId),
                     ReturnSubmissionId = request.ReturnSubmissionId,
-                    ReturnType = request.ReturnSubmission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
-                    Responses = request.ReturnReponses.Select(response => new AdditionalInfoResponseDto
+                    ReturnType = submission?.ExpectedReturn?.ReturnForm?.Category.ToString(),
+                    Responses = responses.Select(response => new AdditionalInfoResponseDto
                     {
                         Id = response.Id,
                         RespondedBy = response.RespondedBy,
@@ -207,7 +299,7 @@ namespace Returns.Controllers
                         RespondedAt = response.CreatedAt,
                         Attachments = response.ResponseAttachements?.Select(a => new AdditionalInfoAttachmentDto
                         {
-                            FileUrl = a.FileUrl,
+                            FileUrl = $"{baseUrl}{a.FileUrl}",
                             Name = a.FileName
                         }).ToList() ?? new List<AdditionalInfoAttachmentDto>()
                     }).ToList()

@@ -2370,6 +2370,7 @@ namespace Returns.Controllers
                     return StatusCode(401, "Unauthorized");
 
                 var rating = await _context.RatingDefinations
+                            .Include(x=>x.RatingForms)
                             .Where(r => r.RatingName == "CAELS" && r.SaccoType == logged.SaccoType)
                             .OrderByDescending(r => r.CreatedAt)
                             .FirstOrDefaultAsync();

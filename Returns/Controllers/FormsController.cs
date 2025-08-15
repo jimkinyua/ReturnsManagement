@@ -110,10 +110,10 @@ namespace Returns.Controllers
                 var hasExpectedReturns = await _context.ExpectedReturns
                     .AnyAsync(er => er.ReturnFormId == formId && er.IsActive);
 
-                if (hasExpectedReturns)
+                /*if (hasExpectedReturns)
                 {
                     return BadRequest("Cannot delete form that has expected returns. Please remove all expected returns first or disable the form instead.");
-                }
+                }*/
 
                 // Delete the file from the server if it exists
                 if (!string.IsNullOrEmpty(form.TemplateUrl))

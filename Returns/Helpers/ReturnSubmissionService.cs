@@ -896,7 +896,7 @@ namespace Returns.Helpers
                 .Include(rs => rs.ExpectedReturn.ReturnForm)
                 .Where(rs => rs.SaccoId == saccoId &&
                              rs.ExpectedReturn.PeriodId == periodId &&
-                             rs.Status == SubmissionStatus.Draft.ToString() &&
+                             rs.Status == SubmissionStatus.Submitted.ToString() &&
                              rs.IsLatest && rs.IsActive)
                 .ToListAsync();
 
