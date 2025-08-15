@@ -39,179 +39,230 @@ namespace Returns.Helpers
 
         public void SeedRatingDefinitionsForSaccoTypeDTSaccos(ReturnsDbContext context)
         {
-            // Check if any RatingDefinitions for SaccoTypeId = 0 already exist
-            if (!context.RatingDefinations.Any(r => r.SaccoType == "0"))
-            {
-                var currentDateTime = DateTime.Now;
-                var saccoTypeId = 0;
+            var currentDateTime = DateTime.Now;
+            var saccoTypeId = 0;
+            var saccoType = saccoTypeId.ToString();
 
-                // Define RatingDefinitions for SaccoTypeId = 0
-                var ratings = new[]
+            // Define desired RatingDefinitions for SaccoType = "0"
+            var desiredRatings = new[]
+            {
+                new RatingDefination
                 {
-                    new RatingDefination
+                    RatingName = "CAELS",
+                    Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 0",
+                    SaccoType = saccoType,
+                    CreatedAt = currentDateTime,
+                },
+                new RatingDefination
                     {
-                        RatingName = "CAMEL Forms For DT",
-                        Description = "Capital, Asset Quality, Management, Earnings, Liquidity Rating for SaccoType 0",
-                        SaccoType = saccoTypeId.ToString(),
-                        CreatedAt = currentDateTime,
-                    },
-                    new RatingDefination
-                    {
-                        RatingName = "CAELS Forms For DT",
-                        Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 0",
-                        SaccoType = saccoTypeId.ToString(),
-                        CreatedAt = currentDateTime,
-                    },
-                    new RatingDefination
-                    {
-                        RatingName = "CAEL Forms For DT",
-                        Description = "Capital, Asset Quality, Earnings, Liquidity Rating for SaccoType 0",
-                        SaccoType = saccoTypeId.ToString(),
-                        CreatedAt = currentDateTime,
-                    },
-                     new RatingDefination
-                    {
-                        RatingName = "Consistency Check Forms DT",
+                        RatingName = "Consistency",
                         Description = "Consistency Check Rating for DT Saccos",
-                        SaccoType = saccoTypeId.ToString(),
+                        SaccoType = saccoType,
                         CreatedAt = currentDateTime,
                     }
-                };
+             };
 
-                context.RatingDefinations.AddRange(ratings);
+            // Add or update RatingDefinitions
+            foreach (var desired in desiredRatings)
+            {
+                var existing = context.RatingDefinations
+                    .FirstOrDefault(r => r.RatingName == desired.RatingName && r.SaccoType == desired.SaccoType);
+
+                if (existing != null)
+                {
+                    // Update existing
+                    existing.Description = desired.Description;
+                }
+                else
+                {
+                    // Add new
+                    context.RatingDefinations.Add(desired);
+                }
+            }
+            context.SaveChanges();
+
+            // Fetch active return forms for SaccoType "0"
+            var returnForms = context.ReturnForms.Where(f => f.SaccoTypeId == "0" && f.IsActive).ToList();
+
+            // Define category mappings
+            var ratingCategoryMappings = new[]
+            {
+                new { RatingName = "CAELS", Categories = new[] {
+                    FormCategory.CapitalAdequacy,
+                    FormCategory.LiquidityStatement,
+                    FormCategory.Management,
+                    FormCategory.StatementOfComprehensiveIncome,
+                    FormCategory.DepositReturn,
+                    FormCategory.RiskClassification,
+                    FormCategory.FinancialPosition,
+                    FormCategory.InvestmentReturn,
+                } },
+                new { RatingName = "Consistency", Categories = new[] {
+                    FormCategory.CapitalAdequacy,
+                    FormCategory.LiquidityStatement,
+                    FormCategory.StatementOfComprehensiveIncome,
+                    FormCategory.DepositReturn,
+                    FormCategory.RiskClassification,
+                    FormCategory.FinancialPosition,
+                    FormCategory.InvestmentReturn,
+                } },
+            };
+
+            // Update RatingForms for each mapping
+            foreach (var mapping in ratingCategoryMappings)
+            {
+                var rating = context.RatingDefinations
+                    .FirstOrDefault(r => r.RatingName == mapping.RatingName && r.SaccoType == saccoType);
+
+                if (rating == null)
+                {
+                    Console.WriteLine($"RatingDefinition '{mapping.RatingName}' not found. Skipping form associations.");
+                    continue;
+                }
+
+                // Remove existing RatingForms for this RatingDefinition
+                var existingForms = context.RatingForms.Where(rf => rf.RatingDefinationId == rating.Id).ToList();
+                context.RatingForms.RemoveRange(existingForms);
                 context.SaveChanges();
 
-                var returnForms = context.ReturnForms.Where(f => f.SaccoTypeId == "0" && f.IsActive).ToList();
-                var ratingCategoryMappings = new[]
-                 {
-                    new { RatingName = "CAMEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Other } },
-                    new { RatingName = "CAELS Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
-                    new { RatingName = "CAEL Forms For DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
-                    new { RatingName = "Consistency Check Forms DT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome, FormCategory.RiskClassification, FormCategory.InvestmentReturn } }
-                };
-
-                foreach (var mapping in ratingCategoryMappings)
+                // Add new RatingForms
+                var requiredCategories = mapping.Categories;
+                foreach (var category in requiredCategories)
                 {
-                    var rating = ratings.First(r => r.RatingName == mapping.RatingName);
-                    var requiredCategories = mapping.Categories;
-
-                    foreach (var category in requiredCategories)
+                    var form = returnForms.FirstOrDefault(f => f.Category == category && f.SaccoTypeId == "0");
+                    if (form != null)
                     {
-                        var form = returnForms.FirstOrDefault(f => f.Category == (FormCategory)category && f.SaccoTypeId == "0");
-                        if (form != null)
+                        var newRatingForm = new RatingForm
                         {
-                            rating.RatingForms.Add(new RatingForm
-                            {
-                                FormCode = form.Code,
-                                RatingDefinationId = rating.Id,
-                                Calculation = rating,
-                                CreatedAt = currentDateTime,
-                            });
-                        }
-                        else
-                        {
-                            Console.WriteLine($"No active form found for category {category} in SaccoTypeId {saccoTypeId}.");
-                        }
+                            FormCode = form.Code,
+                            RatingDefinationId = rating.Id,
+                            CreatedAt = currentDateTime,
+                        };
+                        rating.RatingForms.Add(newRatingForm);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"No active form found for category {category} in SaccoTypeId {saccoTypeId}.");
                     }
                 }
-                context.SaveChanges();
-                Console.WriteLine("RatingDefinitions and RatingForms for SaccoTypeId 0 seeded successfully.");
             }
-            else
-            {
-                Console.WriteLine("RatingDefinitions for SaccoType DT saccos already contain data. Skipping seed operation.");
-            }
+            context.SaveChanges();
+            Console.WriteLine("RatingDefinitions and RatingForms for SaccoTypeId 0 seeded/updated successfully.");
         }
+
 
         public void SeedRatingDefinitionsForSaccoTypeNWDTSaccos(ReturnsDbContext context)
         {
-            // Check if any RatingDefinitions for SaccoTypeId = 1 already exist
-            if (!context.RatingDefinations.Any(r => r.SaccoType == "1"))
+            var currentDateTime = DateTime.Now;
+            var saccoTypeId = "1";
+            var saccoType = saccoTypeId;
+
+            // Define desired RatingDefinitions for SaccoType = "1"
+            var desiredRatings = new[]
             {
-                var currentDateTime = DateTime.Now; // 03:37 PM EAT on July 14, 2025
-                var saccoTypeId = "1";
+        new RatingDefination
+        {
+            RatingName = "CAELS",
+            Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 1",
+            SaccoType = saccoType,
+            CreatedAt = currentDateTime,
+        },
+        new RatingDefination
+        {
+            RatingName = "Consistency",
+            Description = "Consistency Check Rating for NWDT Saccos",
+            SaccoType = saccoType,
+            CreatedAt = currentDateTime,
+        }
+    };
 
-                // Define RatingDefinitions for SaccoTypeId = 1
-                var ratings = new[]
-                {
-                new RatingDefination
-                {
-                    RatingName = "CAMEL Forms For NWDT",
-                    Description = "Capital, Asset Quality, Management, Earnings, Liquidity Rating for SaccoType 1",
-                    SaccoType = saccoTypeId,
-                    CreatedAt = currentDateTime,
-                },
-                new RatingDefination
-                {
-                    RatingName = "CAELS Forms For NWDT",
-                    Description = "Capital, Asset Quality, Earnings, Liquidity, Structure Rating for SaccoType 1",
-                    SaccoType = saccoTypeId,
-                    CreatedAt = currentDateTime,
-                },
-                new RatingDefination
-                {
-                    RatingName = "CAEL Forms For NWDT",
-                    Description = "Capital, Asset Quality, Earnings, Liquidity Rating for SaccoType 1",
-                    SaccoType = saccoTypeId,
-                    CreatedAt = currentDateTime,
-                },
-                new RatingDefination
-                    {
-                        RatingName = "Consistency Check Forms NWDT",
-                        Description = "Consistency Check Rating for NWDT Saccos",
-                        SaccoType = saccoTypeId,
-                        CreatedAt = currentDateTime,
-                    }
-                };
+            // Add or update RatingDefinitions
+            foreach (var desired in desiredRatings)
+            {
+                var existing = context.RatingDefinations
+                    .FirstOrDefault(r => r.RatingName == desired.RatingName && r.SaccoType == desired.SaccoType);
 
-                context.RatingDefinations.AddRange(ratings);
-                context.SaveChanges();
-
-                var returnForms = context.ReturnForms
-                    .Where(f => f.SaccoTypeId == saccoTypeId && f.IsActive)
-                    .ToList();
-
-                // Define category mappings for each rating
-                var ratingCategoryMappings = new[]
+                if (existing != null)
                 {
-                    new { RatingName = "CAMEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.Management, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Other } },
-                    new { RatingName = "CAELS Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.FinancialPosition, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
-                    new { RatingName = "CAEL Forms For NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.StatementOfComprehensiveIncome, FormCategory.DepositReturn, FormCategory.RiskClassification, FormCategory.InvestmentReturn, FormCategory.Management } },
-                    new { RatingName = "Consistency Check Forms NWDT", Categories = new[] { FormCategory.CapitalAdequacy, FormCategory.LiquidityStatement, FormCategory.DepositReturn, FormCategory.FinancialPosition, FormCategory.StatementOfComprehensiveIncome, FormCategory.RiskClassification, FormCategory.InvestmentReturn } }
-                };
-
-                foreach (var mapping in ratingCategoryMappings)
+                    // Update existing
+                    existing.Description = desired.Description;
+                    // Note: Not updating CreatedAt to preserve original creation time
+                }
+                else
                 {
-                    var rating = ratings.First(r => r.RatingName == mapping.RatingName);
-                    var requiredCategories = mapping.Categories;
+                    // Add new
+                    context.RatingDefinations.Add(desired);
+                }
+            }
+            context.SaveChanges();
 
-                    foreach (var category in requiredCategories)
-                    {
-                        var form = returnForms.FirstOrDefault(f => (int)f.Category == (int)category);
-                        if (form != null)
-                        {
-                            rating.RatingForms.Add(new RatingForm
-                            {
-                                FormCode = form.Code,
-                                RatingDefinationId = rating.Id,
-                                Calculation = rating,
-                                CreatedAt = currentDateTime,
-                            });
-                        }
-                        else
-                        {
-                            Console.WriteLine($"No active form found for category {category} in SaccoTypeId {saccoTypeId} at {currentDateTime}.");
-                        }
-                    }
+            // Fetch active return forms for SaccoType "1"
+            var returnForms = context.ReturnForms.Where(f => f.SaccoTypeId == saccoTypeId && f.IsActive).ToList();
+
+            // Define category mappings
+            var ratingCategoryMappings = new[]
+            {
+        new { RatingName = "CAELS", Categories = new[] {
+            FormCategory.CapitalAdequacy,
+            FormCategory.LiquidityStatement,
+            FormCategory.Management,
+            FormCategory.StatementOfComprehensiveIncome,
+            FormCategory.DepositReturn,
+            FormCategory.RiskClassification,
+            FormCategory.FinancialPosition,
+            FormCategory.InvestmentReturn,
+        } },
+        new { RatingName = "Consistency", Categories = new[] {
+            FormCategory.CapitalAdequacy,
+            FormCategory.LiquidityStatement,
+            FormCategory.StatementOfComprehensiveIncome,
+            FormCategory.DepositReturn,
+            FormCategory.RiskClassification,
+            FormCategory.FinancialPosition,
+            FormCategory.InvestmentReturn,
+        } },
+    };
+
+            // Update RatingForms for each mapping
+            foreach (var mapping in ratingCategoryMappings)
+            {
+                var rating = context.RatingDefinations
+                    .FirstOrDefault(r => r.RatingName == mapping.RatingName && r.SaccoType == saccoType);
+
+                if (rating == null)
+                {
+                    Console.WriteLine($"RatingDefinition '{mapping.RatingName}' not found. Skipping form associations.");
+                    continue;
                 }
 
+                // Remove existing RatingForms for this RatingDefinition
+                var existingForms = context.RatingForms.Where(rf => rf.RatingDefinationId == rating.Id).ToList();
+                context.RatingForms.RemoveRange(existingForms);
                 context.SaveChanges();
-                Console.WriteLine("RatingDefinitions and RatingForms for SaccoTypeId 1 seeded successfully at {currentDateTime}.");
+
+                // Add new RatingForms
+                var requiredCategories = mapping.Categories;
+                foreach (var category in requiredCategories)
+                {
+                    var form = returnForms.FirstOrDefault(f => f.Category == category && f.SaccoTypeId == saccoTypeId);
+                    if (form != null)
+                    {
+                        var newRatingForm = new RatingForm
+                        {
+                            FormCode = form.Code,
+                            RatingDefinationId = rating.Id,
+                            CreatedAt = currentDateTime,
+                        };
+                        rating.RatingForms.Add(newRatingForm);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"No active form found for category {category} in SaccoTypeId {saccoTypeId}.");
+                    }
+                }
             }
-            else
-            {
-                Console.WriteLine("RatingDefinitions for SaccoType NWDT saccos already contain data. Skipping seed operation at {DateTime.Now}.");
-            }
+            context.SaveChanges();
+            Console.WriteLine("RatingDefinitions and RatingForms for SaccoTypeId 1 seeded/updated successfully.");
         }
 
         public void IntialiseCamelData(ReturnsDbContext context)

@@ -129,7 +129,8 @@ namespace Returns.Controllers
                 }
                 string commonPeriod = period.Name ?? dto.PeriodId; // Use PeriodName if available, else Id
                 var ratingToUse = await _context.RatingDefinations
-                    .Where(r => r.RatingName == "Consistency Check Forms DT" && r.SaccoType == loggedInSacco.SaccoType)
+                    .Where(r => r.RatingName == "Consistency"
+                    && r.SaccoType == loggedInSacco.SaccoType)
                     .Include(r => r.RatingForms)
                     .OrderByDescending(r => r.CreatedAt)
                     .FirstOrDefaultAsync();

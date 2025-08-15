@@ -858,6 +858,9 @@ namespace Returns.Helpers
 
                 await _context.SaveChangesAsync();
 
+  
+
+                await tx.CommitAsync();
                 // completeness check
                 var (isComplete, missCnt) = await UpdateReturnCompletenessAsync(
                                                 periodId, saccoId, saccoType);
@@ -867,8 +870,6 @@ namespace Returns.Helpers
                 result.SuccessfullySubmitted = drafts.Count;
                 result.IsPeriodComplete = isComplete;
                 result.MissingCount = missCnt;
-
-                await tx.CommitAsync();
                 return result;
             }
             catch (Exception ex)
@@ -883,51 +884,44 @@ namespace Returns.Helpers
         }
 
         // (isComplete, missingCount)
-        private async Task<(bool, int)> UpdateReturnCompletenessAsync(
-            string periodId, string saccoId, string saccoType)
+        private async Task<(bool, int)> UpdateReturnCompletenessAsync(string periodId, string saccoId, string saccoType)
         {
-            var expectedCodes = await _context.ExpectedReturns
-                .Where(er => er.PeriodId == periodId && er.ReturnForm.SaccoTypeId == saccoType)
-                .Select(er => er.ReturnForm.Code)
+            var expectedCodes = await _context.RatingDefinations
+                .Include(x => x.RatingForms)
+                .Where(er => er.RatingName == "CAELS" && er.SaccoType == saccoType)
+                .SelectMany(er => er.RatingForms.Select(rf => rf.FormCode))
                 .ToListAsync();
 
             var submitted = await _context.ReturnSubmissions
                 .Include(rs => rs.ExpectedReturn.ReturnForm)
                 .Where(rs => rs.SaccoId == saccoId &&
                              rs.ExpectedReturn.PeriodId == periodId &&
-                             rs.Status == SubmissionStatus.Submitted.ToString() &&
+                             rs.Status == SubmissionStatus.Draft.ToString() &&
                              rs.IsLatest && rs.IsActive)
                 .ToListAsync();
 
             var submittedCodes = submitted.Select(s => s.ExpectedReturn.ReturnForm.Code).ToList();
             var missing = expectedCodes.Except(submittedCodes).ToList();
             var complete = !missing.Any();
-
             var rc = await _context.ReturnCompleteness
                 .FirstOrDefaultAsync(x => x.PeriodId == periodId && x.SaccoId == saccoId);
-
             if (rc == null)
             {
                 rc = new ReturnCompleteness { PeriodId = periodId, SaccoId = saccoId };
                 await _context.ReturnCompleteness.AddAsync(rc);
             }
-
             rc.IsComplete = complete;
             rc.ExpectedReturnCount = expectedCodes.Count;
             rc.ActualReturnCount = submittedCodes.Count;
             rc.MissingForms = JsonSerializer.Serialize(missing);
             rc.LastUpdated = DateTime.UtcNow;
-
             await _context.SaveChangesAsync();
-
             if (!complete)
             {
                 BackgroundJob.Enqueue(
                     () => SendIncompleteSubmissionNotificationAsync(
                                 saccoId, periodId, missing.Count));
             }
-
-
             return (complete, missing.Count);
         }
 

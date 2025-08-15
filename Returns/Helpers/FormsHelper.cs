@@ -201,21 +201,27 @@ namespace Returns.Helpers
                     Console.WriteLine("File URL is empty or null.");
                     return null;
                 }
-
+                // Replace problematic host with local service URL
+                fileUrl = fileUrl.Replace("https://sasra-backend.sasra.go.ke", "http://identityservice:8039");
                 // Construct full URL if the input is a relative path (starts with /gateway)
-                string fullUrl = fileUrl.StartsWith("/gateway") ? _baseUrl + fileUrl : fileUrl;
-
-                // Make HTTP GET request to the full URL
+                string fullUrl;
+                if (fileUrl.StartsWith("/gateway"))
+                {
+                    // Remove /gateway to bypass it and go directly to the service
+                    string relativePath = fileUrl.Substring("/gateway".Length);
+                    fullUrl = _baseUrl + relativePath;
+                }
+                else
+                {
+                    fullUrl = fileUrl;
+                }
                 using var response = await _httpClient.GetAsync(fullUrl, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
-
-                // Get the content stream
                 using var contentStream = await response.Content.ReadAsStreamAsync();
                 var memoryStream = new MemoryStream();
                 await contentStream.CopyToAsync(memoryStream);
-                memoryStream.Position = 0; // Reset stream position
-
-                // Extract filename from the URL or Content-Disposition header
+                memoryStream.Position = 0;
+                // Extract filename
                 string fileName = Path.GetFileName(new Uri(fullUrl).AbsolutePath);
                 if (response.Content.Headers.ContentDisposition?.FileNameStar != null)
                 {
@@ -225,25 +231,19 @@ namespace Returns.Helpers
                 {
                     fileName = response.Content.Headers.ContentDisposition.FileName;
                 }
-
-                // Determine content type from response headers, fallback to XLSX if not provided
-                string contentType = response.Content.Headers.ContentType?.MediaType ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-
-                // Create FormFile
+                string contentType = response.Content.Headers.ContentType?.MediaType
+                    ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 var formFile = new FormFile(memoryStream, 0, memoryStream.Length, Path.GetFileNameWithoutExtension(fileName), fileName)
                 {
                     Headers = new HeaderDictionary(),
                     ContentType = contentType
                 };
-
-                // Validate Excel file if applicable
                 if (!IsValidExcelFile(formFile))
                 {
                     Console.WriteLine($"Invalid Excel file at URL: {fullUrl}");
                     memoryStream.Dispose();
                     return null;
                 }
-
                 return formFile;
             }
             catch (HttpRequestException ex)
@@ -257,6 +257,8 @@ namespace Returns.Helpers
                 return null;
             }
         }
+
+
         public static async Task<string?> SaveReportAsync(byte[] bytes, string folder, string? fileName = null, string extension = ".pdf", CancellationToken ct = default)
         {
             //return "SAVING FILES DISABLED";
