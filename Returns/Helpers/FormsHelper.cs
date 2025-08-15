@@ -194,6 +194,7 @@ namespace Returns.Helpers
         }
         public static async Task<IFormFile?> GetFileFromUrlAsync(string fileUrl)
         {
+            string fullUrl;
             try
             {
                 if (string.IsNullOrEmpty(fileUrl))
@@ -204,7 +205,6 @@ namespace Returns.Helpers
                 // Replace problematic host with local service URL
                 fileUrl = fileUrl.Replace("https://sasra-backend.sasra.go.ke", "http://returnsservice:8042");
                 // Construct full URL if the input is a relative path (starts with /gateway)
-                string fullUrl;
                 if (fileUrl.StartsWith("/gateway"))
                 {
                     // Remove /gateway to bypass it and go directly to the service
