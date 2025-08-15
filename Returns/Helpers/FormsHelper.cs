@@ -193,70 +193,78 @@ namespace Returns.Helpers
             }
         }
         public static async Task<IFormFile?> GetFileFromUrlAsync(string fileUrl)
+{
+    if (string.IsNullOrEmpty(fileUrl))
+    {
+        Console.WriteLine("File URL is empty or null.");
+        return null;
+    }
+
+    // Replace problematic host with local service URL
+    fileUrl = fileUrl.Replace("https://sasra-backend.sasra.go.ke", "http://returnsservice:8042");
+
+    // Construct full URL if the input is a relative path (starts with /gateway)
+    string fullUrl;
+    if (fileUrl.StartsWith("/gateway"))
+    {
+        // Remove /gateway to bypass it and go directly to the service
+        string relativePath = fileUrl.Substring("/gateway".Length);
+        fullUrl = _baseUrl + relativePath;
+    }
+    else
+    {
+        fullUrl = fileUrl;
+    }
+
+    try
+    {
+        using var response = await _httpClient.GetAsync(fullUrl, HttpCompletionOption.ResponseHeadersRead);
+        response.EnsureSuccessStatusCode();
+        using var contentStream = await response.Content.ReadAsStreamAsync();
+        var memoryStream = new MemoryStream();
+        await contentStream.CopyToAsync(memoryStream);
+        memoryStream.Position = 0;
+
+        // Extract filename
+        string fileName = Path.GetFileName(new Uri(fullUrl).AbsolutePath);
+        if (response.Content.Headers.ContentDisposition?.FileNameStar != null)
         {
-            string fullUrl;
-            try
-            {
-                if (string.IsNullOrEmpty(fileUrl))
-                {
-                    Console.WriteLine("File URL is empty or null.");
-                    return null;
-                }
-                // Replace problematic host with local service URL
-                fileUrl = fileUrl.Replace("https://sasra-backend.sasra.go.ke", "http://returnsservice:8042");
-                // Construct full URL if the input is a relative path (starts with /gateway)
-                if (fileUrl.StartsWith("/gateway"))
-                {
-                    // Remove /gateway to bypass it and go directly to the service
-                    string relativePath = fileUrl.Substring("/gateway".Length);
-                    fullUrl = _baseUrl + relativePath;
-                }
-                else
-                {
-                    fullUrl = fileUrl;
-                }
-                using var response = await _httpClient.GetAsync(fullUrl, HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
-                using var contentStream = await response.Content.ReadAsStreamAsync();
-                var memoryStream = new MemoryStream();
-                await contentStream.CopyToAsync(memoryStream);
-                memoryStream.Position = 0;
-                // Extract filename
-                string fileName = Path.GetFileName(new Uri(fullUrl).AbsolutePath);
-                if (response.Content.Headers.ContentDisposition?.FileNameStar != null)
-                {
-                    fileName = response.Content.Headers.ContentDisposition.FileNameStar;
-                }
-                else if (response.Content.Headers.ContentDisposition?.FileName != null)
-                {
-                    fileName = response.Content.Headers.ContentDisposition.FileName;
-                }
-                string contentType = response.Content.Headers.ContentType?.MediaType
-                    ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-                var formFile = new FormFile(memoryStream, 0, memoryStream.Length, Path.GetFileNameWithoutExtension(fileName), fileName)
-                {
-                    Headers = new HeaderDictionary(),
-                    ContentType = contentType
-                };
-                if (!IsValidExcelFile(formFile))
-                {
-                    Console.WriteLine($"Invalid Excel file at URL: {fullUrl}");
-                    memoryStream.Dispose();
-                    return null;
-                }
-                return formFile;
-            }
-            catch (HttpRequestException ex)
-            {
-                Console.WriteLine($"HTTP error retrieving file from URL {fullUrl}: {ex.Message}");
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error retrieving file from URL {fullUrl}: {ex.Message}");
-                return null;
-            }
+            fileName = response.Content.Headers.ContentDisposition.FileNameStar;
         }
+        else if (response.Content.Headers.ContentDisposition?.FileName != null)
+        {
+            fileName = response.Content.Headers.ContentDisposition.FileName;
+        }
+
+        string contentType = response.Content.Headers.ContentType?.MediaType
+            ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+        var formFile = new FormFile(memoryStream, 0, memoryStream.Length, Path.GetFileNameWithoutExtension(fileName), fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = contentType
+        };
+
+        if (!IsValidExcelFile(formFile))
+        {
+            Console.WriteLine($"Invalid Excel file at URL: {fullUrl}");
+            memoryStream.Dispose();
+            return null;
+        }
+
+        return formFile;
+    }
+    catch (HttpRequestException ex)
+    {
+        Console.WriteLine($"HTTP error retrieving file from URL {fullUrl}: {ex.Message}");
+        return null;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error retrieving file from URL {fullUrl}: {ex.Message}");
+        return null;
+    }
+}
 
 
         public static async Task<string?> SaveReportAsync(byte[] bytes, string folder, string? fileName = null, string extension = ".pdf", CancellationToken ct = default)
