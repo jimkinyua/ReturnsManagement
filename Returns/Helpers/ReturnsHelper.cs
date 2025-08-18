@@ -3429,7 +3429,7 @@ namespace Returns.Helpers
 
                         // Taxes and Donations
                         case "11":
-                            statement.Taxes = row.Amount ?? 0;
+                            statement.TaxesPayable = row.Amount ?? 0;
                             break;
                         case "13":
                             statement.Donations = row.Amount ?? 0;

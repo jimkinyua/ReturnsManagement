@@ -77,7 +77,7 @@ namespace Returns.Helpers
         }
     }
 
-     public class CapitalAdequacyParsedRow : IParsedRow
+    public class CapitalAdequacyParsedRow : IParsedRow
     {
         public string ReturnSubmissionId { get; set; } = string.Empty;
         public Form1Statement Data { get; set; } = null!;
@@ -324,11 +324,14 @@ namespace Returns.Helpers
                         liquidityStatement.TotalShortTermLiabilities = liquidityRow.Amount ?? 0;
                         break;
                     case "8.3":
-                        liquidityStatement.NetLiquidAssetsToShortTermLiabilities = liquidityRow.Amount ?? 0;
+                        liquidityStatement.LiquidityRatio = liquidityRow.Amount ?? 0;
                         liquidityStatement.NetLiquidAssetsToShortTermLiabilities = liquidityRow.Amount ?? 0;
                         break;
                     case "8.4":
                         liquidityStatement.MinimumLiquidityRequirement = liquidityRow.Amount ?? 0;
+                        break;
+                    case "8.5":
+                        liquidityStatement.LiquidityRatioExcessDeficit = liquidityRow.Amount ?? 0;
                         break;
                 }
             }
@@ -569,9 +572,9 @@ namespace Returns.Helpers
                     case "2.9":
                         entity.TotalAssetsPerBalanceSheet = row.Amount ?? 0;
                         break;
-                   /* case "3.0":
-                        entity.DifferenceInAssets = row.Amount ?? 0;
-                        break;*/
+                    /* case "3.0":
+                         entity.DifferenceInAssets = row.Amount ?? 0;
+                         break;*/
 
                     // Total Deposits
                     case "3":
@@ -641,8 +644,8 @@ namespace Returns.Helpers
                     ReturnSubmissionId = ReturnSubmissionId,
                     SaccoCsNumber = Data.SaccoCsNumber,
                     Year = Data.Period,
-                   /* StartDate = Data.StartDate,
-                    EndDate = Data.EndDate,*/
+                    /* StartDate = Data.StartDate,
+                     EndDate = Data.EndDate,*/
                     LoanType = row.LoanType,
                     Classification = row.Classification,
                     NumberOfAccounts = row.NumberOfAccounts,
@@ -959,6 +962,12 @@ namespace Returns.Helpers
             {
                 switch (row.RefNumber?.Trim())
                 {
+                    case "1":
+                        entity.TotalFinancialIncome = row.Amount ?? 0;
+                        break;
+                    case "2":
+                        entity.TotalFinancialIncomeFromLoans = row.Amount ?? 0;
+                        break;
                     // Financial Income from Loans Portfolio
                     case "2.1":
                         entity.InterestOnLoanPortfolio = row.Amount ?? 0;
@@ -967,6 +976,9 @@ namespace Returns.Helpers
                         entity.FeesAndCommissionOnLoanPortfolio = row.Amount ?? 0;
                         break;
 
+                    case "3":
+                        entity.TotalFinancialIncomeFromInvestments = row.Amount ?? 0;
+                        break;
                     // Financial Income from Investments
                     case "3.1":
                         entity.GovernmentSecurities = row.Amount ?? 0;
@@ -981,6 +993,9 @@ namespace Returns.Helpers
                         entity.OtherOperatingIncome = row.Amount ?? 0;
                         break;
 
+                    case "4":
+                        entity.TotalFinancialExpense = row.Amount ?? 0;
+                        break;
                     // Financial Expense
                     case "4.2":
                         entity.InterestExpenseOnDeposits = row.Amount ?? 0;
@@ -1001,6 +1016,10 @@ namespace Returns.Helpers
                         entity.OtherExpense = row.Amount ?? 0;
                         break;
 
+                    case "5":
+                        entity.NetFinancialIncomeOrLoss = row.Amount ?? 0;
+                        break;
+
                     // Allowance for Loan Loss
                     case "6.1":
                         entity.ProvisionForLoanLosses = row.Amount ?? 0;
@@ -1009,7 +1028,10 @@ namespace Returns.Helpers
                         entity.ValueOfLoansRecovered = row.Amount ?? 0;
                         break;
 
-                    // Operating Expenses
+                    case "7":
+                        entity.TotalOperatingExpenses = row.Amount ?? 0;
+                        break;
+
                     case "7.1":
                         entity.PersonnelExpenses = row.Amount ?? 0;
                         break;
@@ -1026,7 +1048,13 @@ namespace Returns.Helpers
                         entity.AdministrativeExpenses = row.Amount ?? 0;
                         break;
 
-                    // Non-Operating Income/Expense
+                    case "8":
+                        entity.NetOperatingIncome = row.Amount ?? 0;
+                        break;
+
+                    case "9":
+                        entity.NetNonOperatingIncome = row.Amount ?? 0;
+                        break;
                     case "9.1":
                         entity.NonOperatingIncome = row.Amount ?? 0;
                         break;
@@ -1034,13 +1062,27 @@ namespace Returns.Helpers
                         entity.NonOperatingExpense = row.Amount ?? 0;
                         break;
 
-                    // Taxes and Donations
-                    case "11":
-                        entity.Taxes = row.Amount ?? 0;
+                    case "10":
+                        entity.NetIncomeBeforeTaxesAndDonations = row.Amount ?? 0;
                         break;
+
+                    case "11":
+                        entity.TaxesPayable = row.Amount ?? 0;
+                        break;
+
+                    case "12":
+                        entity.NetIncomeAfterTaxes = row.Amount ?? 0;
+                        break;
+
                     case "13":
                         entity.Donations = row.Amount ?? 0;
                         break;
+
+                    case "14":
+                        entity.NetIncomeAfterTaxesAndDonations = row.Amount ?? 0;
+                        break;
+
+
                 }
             }
 

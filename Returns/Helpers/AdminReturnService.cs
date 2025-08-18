@@ -77,7 +77,7 @@ namespace Returns.Helpers
                 {
                     submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.PeriodId == filter.PeriodId);
                 }
-          
+
                 var allSubmissions = await submissionsQuery.ToListAsync();
 
                 // Group by period
@@ -1058,7 +1058,7 @@ namespace Returns.Helpers
                                 break;
                         }
                     }
-                    
+
                     workflowState = await _workflowEngineService.GetCurrentStateAsync(periodId, saccoId, null);
                     comments = await _workflowEngineService.GetComments(periodId, saccoId, null);
                 }
@@ -1067,7 +1067,7 @@ namespace Returns.Helpers
                         .Where(rr => rr.SaccoId == saccoId && rr.PeriodId == periodId)
                         .OrderByDescending(rr => rr.CreatedAt)
                         .FirstOrDefaultAsync();
-                
+
                 if (ReportReadniness != null)
                 {
                     detailsDto.CanReportBeViewed = ReportReadniness.IsApproved;
@@ -1346,7 +1346,7 @@ namespace Returns.Helpers
                     dto.HasMultipleVersions = versions.Count > 1;
                 }
             }
-            
+
             return results;
         }
 
@@ -1364,12 +1364,12 @@ namespace Returns.Helpers
                     SaccoId = submission.SaccoId,
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, item.FileUrl),
                     FormId = item.FormName ?? string.Empty,
-                    RequiresResubmission = item.RequiresResubmission, 
+                    RequiresResubmission = item.RequiresResubmission,
                     FormName = item.FormName.Trim(),
                 };
                 otherReturns.Add(other);
             }
-          
+
             return otherReturns;
         }
 
@@ -1407,9 +1407,9 @@ namespace Returns.Helpers
                         MaxFinancialInvestmentsToCoreCapitalRatio = investmentEntity.MaxFinancialInvestmentsToCoreCapitalRatio,
                         MaxFinancialInvestmentsToDepositsRatio = investmentEntity.MaxFinancialInvestmentsToDepositsRatio,
                         MaxNonEarningAssetsToTotalAssetsRatio = investmentEntity.MaxNonEarningAssetsToTotalAssetsRatio,
-                      /*  Year = investmentEntity.Year,
-                        StartDate = investmentEntity.StartDate,
-                        EndDate = investmentEntity.EndDate*/
+                        /*  Year = investmentEntity.Year,
+                          StartDate = investmentEntity.StartDate,
+                          EndDate = investmentEntity.EndDate*/
                     };
                 }
                 return investment;
@@ -1842,29 +1842,66 @@ namespace Returns.Helpers
                         FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
                         FormId = incomeEntity.FormId ?? string.Empty,
                         RequiresResubmission = incomeEntity.RequiresResubmission,
+
+                        // 1. Financial Income
+                        TotalFinancialIncome = incomeEntity.TotalFinancialIncome,
+
+                        // 2. Financial Income from Loans Portfolio
+                        TotalFinancialIncomeFromLoans = incomeEntity.TotalFinancialIncomeFromLoans,
                         InterestOnLoanPortfolio = incomeEntity.InterestOnLoanPortfolio,
                         FeesAndCommissionOnLoanPortfolio = incomeEntity.FeesAndCommissionOnLoanPortfolio,
+
+                        // 3. Financial Income from Investments
+                        TotalFinancialIncomeFromInvestments = incomeEntity.TotalFinancialIncomeFromInvestments,
                         GovernmentSecurities = incomeEntity.GovernmentSecurities,
                         DepositsWithBanks = incomeEntity.DepositsWithBanks,
                         OtherInvestments = incomeEntity.OtherInvestments,
                         OtherOperatingIncome = incomeEntity.OtherOperatingIncome,
+
+                        // 4. Financial Expense
+                        TotalFinancialExpense = incomeEntity.TotalFinancialExpense,
                         InterestExpenseOnDeposits = incomeEntity.InterestExpenseOnDeposits,
                         CostOfExternalBorrowings = incomeEntity.CostOfExternalBorrowings,
                         DividendExpenses = incomeEntity.DividendExpenses,
                         OtherFinancialExpense = incomeEntity.OtherFinancialExpense,
                         FeesAndCommissionExpense = incomeEntity.FeesAndCommissionExpense,
                         OtherExpense = incomeEntity.OtherExpense,
+
+                        // 5. Net Financial Income
+                        NetFinancialIncomeOrLoss = incomeEntity.NetFinancialIncomeOrLoss,
+
+                        // 6. Allowance for Loan Loss
                         ProvisionForLoanLosses = incomeEntity.ProvisionForLoanLosses,
                         ValueOfLoansRecovered = incomeEntity.ValueOfLoansRecovered,
+
+                        // 7. Operating Expenses
+                        TotalOperatingExpenses = incomeEntity.TotalOperatingExpenses,
                         PersonnelExpenses = incomeEntity.PersonnelExpenses,
                         GovernanceExpenses = incomeEntity.GovernanceExpenses,
                         MarketingExpenses = incomeEntity.MarketingExpenses,
                         DepreciationAndAmortization = incomeEntity.DepreciationAndAmortization,
                         AdministrativeExpenses = incomeEntity.AdministrativeExpenses,
+
+                        // 8. Net Operating Income
+                        NetOperatingIncome = incomeEntity.NetOperatingIncome,
+
+                        // 9. Non-Operating Income/Expense
+                        NetNonOperatingIncome = incomeEntity.NetNonOperatingIncome,
                         NonOperatingIncome = incomeEntity.NonOperatingIncome,
                         NonOperatingExpense = incomeEntity.NonOperatingExpense,
-                        Taxes = incomeEntity.Taxes,
+
+                        // 10. Net Income Before Taxes
+                        NetIncomeBeforeTaxesAndDonations = incomeEntity.NetIncomeBeforeTaxesAndDonations,
+
+                        // 11. Taxes
+                        TaxesPayable = incomeEntity.TaxesPayable,
+
+                        // 12. Net Income After Taxes
+                        NetIncomeAfterTaxes = incomeEntity.NetIncomeAfterTaxes,
+
+                        // 13 & 14. Donations and Final Net Income
                         Donations = incomeEntity.Donations,
+                        NetIncomeAfterTaxesAndDonations = incomeEntity.NetIncomeAfterTaxesAndDonations,
                     };
 
                     return incomeStatement;

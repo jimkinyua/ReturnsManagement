@@ -702,7 +702,7 @@ namespace Returns.Helpers
                     AdministrativeExpenses = incomeEntity.AdministrativeExpenses,
                     NonOperatingIncome = incomeEntity.NonOperatingIncome,
                     NonOperatingExpense = incomeEntity.NonOperatingExpense,
-                    Taxes = incomeEntity.Taxes,
+                    TaxesPayable = incomeEntity.TaxesPayable,
                     Donations = incomeEntity.Donations,
                     //FilePath = incomeEntity.FilePath
                 };

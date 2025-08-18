@@ -980,7 +980,7 @@ namespace Returns.Helpers
         }
 
 
-        public static decimal CalculateNonPerformingLoans(List<DTRiskClassificationReturn> riskClassificationData)
+        public static decimal CalculateNonPerformingLoans(List<DTRiskClassificationReturn> riskClassificationData, decimal grossloans)
         {
             decimal nonPerformingLoans = riskClassificationData
                 .Where(r => r.Classification == "Substandard" ||
@@ -988,7 +988,16 @@ namespace Returns.Helpers
                             r.Classification == "Loss")
                 .Sum(r => r.OutstandingLoanPortfolio ?? 0);
 
-            return nonPerformingLoans;
+            if (grossloans != 0)
+            {
+               return nonPerformingLoans / grossloans;
+            }
+            else
+            {
+                return 0;
+            }
+
+            //return nonPerformingLoans;
         }
 
         public static decimal CalculateNwdtNonPerformingLoans(List<NWDTRiskClassificationReturn> riskClassificationData)
@@ -1124,7 +1133,7 @@ namespace Returns.Helpers
 
             // Calculate ratios
             result.ROAValue = balanceSheet.TotalAssets != 0 ? incomeStatement.TotalFinancialIncome / balanceSheet.TotalAssets : 0;
-            result.CostToIncomeValue = incomeStatement.NetFinancialIncome != 0 ? incomeStatement.TotalOperatingExpenses / incomeStatement.NetFinancialIncome : 0;
+            result.CostToIncomeValue = incomeStatement.NetFinancialIncomeOrLoss != 0 ? incomeStatement.TotalOperatingExpenses / incomeStatement.NetFinancialIncomeOrLoss : 0;
             result.OEValue = balanceSheet.TotalAssets != 0 ? incomeStatement.TotalOperatingExpenses / balanceSheet.TotalAssets : 0;
 
 
@@ -1241,8 +1250,8 @@ namespace Returns.Helpers
             var result = new AssetQualityRatingDetails();
 
             // Calculate ratios
-            decimal npl30 = CalculateNonPerformingLoans(currentQuarterData);
             decimal totalLoans = CalculateTotalLoans(currentQuarterData);
+            decimal npl30 = CalculateNonPerformingLoans(currentQuarterData, totalLoans);
             result.NPL30Value = totalLoans > 0 ? (npl30 / totalLoans) : 0;
 
             decimal rescheduledLoans = CalculateRescheduledLoans(currentQuarterData);
