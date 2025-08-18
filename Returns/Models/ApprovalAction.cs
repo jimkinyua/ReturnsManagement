@@ -15,5 +15,6 @@ namespace Returns.Models
         public string? PeriodId { get; internal set; }
         public string SaccoId { get; internal set; } = null!;
         public string? ReturnSubmissionId { get; internal set; }
+        public int Version { get; set; }
     }
 }

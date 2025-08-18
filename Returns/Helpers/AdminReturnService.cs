@@ -69,9 +69,9 @@ namespace Returns.Helpers
                 {
                     submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.FilingDeadline.Month == filter.Month.Value);
                 }
-                if (!string.IsNullOrEmpty(filter.Frequency))
+                if (filter.Frequency > 0)
                 {
-                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.FrequencyCatalog.Name == filter.Frequency);
+                    submissionsQuery = submissionsQuery.Where(rs => rs.ExpectedReturn.Period.FrequencyCatalog.Id == filter.Frequency);
                 }
                 if (!string.IsNullOrEmpty(filter.PeriodId))
                 {

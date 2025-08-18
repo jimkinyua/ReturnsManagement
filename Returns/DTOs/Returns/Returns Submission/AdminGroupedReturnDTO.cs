@@ -86,7 +86,7 @@ namespace Returns.DTOs.Returns_Submission
             set;
         }
 
-        public string? Frequency { get; set; } // Monthly, Quarterly, etc.
+        public int? Frequency { get; set; } // Monthly, Quarterly, etc.
         public string? PeriodId { get; set; }
         public string? RatingDefinitionId { get; set; }
         public bool? IsComplete { get; set; }
@@ -98,7 +98,7 @@ namespace Returns.DTOs.Returns_Submission
         {
             // Only set defaults if no other filters are provided
             if (string.IsNullOrEmpty(SaccoType) &&
-                string.IsNullOrEmpty(Frequency) &&
+                Frequency > 0 &&
                 string.IsNullOrEmpty(PeriodId) &&
                 string.IsNullOrEmpty(RatingDefinitionId) &&
                 !IsComplete.HasValue)

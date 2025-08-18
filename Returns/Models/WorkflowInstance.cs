@@ -25,5 +25,6 @@ namespace Returns.Models
         public string? IncompletenessNotes { get; internal set; }
         public DateTime UpdatedAt { get; internal set; }
         public string? UpdatedBy { get; internal set; }  = string.Empty; // User who last updated the instance
+        public int Version { get; internal set; } = 1; // Versioning for optimistic concurrency
     }
 }

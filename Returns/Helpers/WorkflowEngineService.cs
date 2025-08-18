@@ -445,20 +445,20 @@ namespace Returns.Helpers
                     .Include(w => w.CurrentStep)
                     .FirstOrDefaultAsync(w => w.Id == req.WorkFlowInstanceId)
                     ?? throw new InvalidOperationException("Workflow instance not found.");
-
+               
                 // 2) Must be current assignee
                 if (instance.UserId != userId)
+                {
                     throw new UnauthorizedAccessException("User is not assigned to this step.");
+                }
 
                 var comment = req.Comment?.Trim() ?? string.Empty;
-
                 var currentSeq = instance.CurrentStep != null ? instance.CurrentStep.Sequence : int.MaxValue;
                 var hasReturnSubmission = !string.IsNullOrEmpty(instance.ReturnSubmissionId);
                 var returnSubmissionId = instance.ReturnSubmissionId;
                 var pendingStatus = ApprovalStatus.Pending.ToString();
 
-                // 3) Get previous approver action (strictly before current step in sequence)
-                // 
+                // 3) Get previous approver action (strictly before current step in sequence), scoped to current version
                 var prevActionQ = from a in _db.ApprovalActions
                                   join s in _db.WorkFlowSteps on a.WorkFlowStepId equals s.Id
                                   where a.PeriodId == instance.PeriodId
@@ -468,12 +468,12 @@ namespace Returns.Helpers
                                      && a.Status != pendingStatus
                                      && s.WorkFlowTemplateId == instance.WorkflowTemplateId
                                      && s.Sequence < currentSeq
+                                     && a.Version == instance.Version  // Added for versioning
                                   orderby a.CreatedAt descending
                                   select new { Action = a, Step = s };
 
                 var lastPrev = await prevActionQ.FirstOrDefaultAsync();
-
-                // 4) Log the return action for current step
+                // 4) Log the return action for current step, under current version
                 _db.ApprovalActions.Add(new ApprovalAction
                 {
                     WorkFlowStepId = instance.CurrentStepId,
@@ -483,18 +483,16 @@ namespace Returns.Helpers
                     UserId = userId,
                     Comment = comment,
                     Status = ApprovalStatus.ReturnedWithReservations.ToString(),
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    Version = instance.Version  // Added for versioning
                 });
-
                 WorkFlowStep targetStep;
                 string targetUserId;
                 string? targetEmail = null;
-
                 if (lastPrev != null)
                 {
                     // 5a) Go back to the actual previous approver (user-specific)
                     targetStep = lastPrev.Step;
-
                     targetUserId = lastPrev.Action.UserId; // real person who acted previously
                     var user = await _complianceService.GetUserDetailsAsync(targetUserId);
                     targetEmail = user?.Email;
@@ -507,24 +505,20 @@ namespace Returns.Helpers
                         .OrderBy(s => s.Sequence)
                         .FirstOrDefaultAsync()
                         ?? throw new InvalidOperationException("No steps found for this workflow template.");
-
                     var (assigneeUserId, _, assigneeEmail) =
                         await ResolveAssigneeAsync(firstStep, instance.SaccoId, instance.TeamId);
-
                     targetStep = firstStep;
                     targetUserId = assigneeUserId;
                     targetEmail = assigneeEmail;
                 }
-
                 // 6) Update instance
                 instance.CurrentStepId = targetStep.Id;
                 instance.UserId = targetUserId;
                 instance.Status = ApprovalStatus.ReturnedWithReservations.ToString();
                 instance.CanBeSeen = true;
-
+                instance.Version++;  // Added for versioning: increment after logging the return, to start new cycle
                 await _db.SaveChangesAsync();
                 await transaction.CommitAsync();
-
                 // 7) Notify target
                 try
                 {
@@ -544,7 +538,6 @@ namespace Returns.Helpers
                 {
                     _logger.LogWarning(ex, "Failed to send return-with-reservations email for workflow {WorkflowInstanceId}", instance.Id);
                 }
-
                 return ConvertToDto(instance);
             }
             catch
@@ -553,8 +546,6 @@ namespace Returns.Helpers
                 throw;
             }
         }
-
-
 
 
         public async Task<WorkflowReassignmentResultDTO> ReassignWorkflowAsync(WorkflowReassignmentRequestDTO request, LoggedInEntity loggedInEntity)
@@ -847,21 +838,22 @@ namespace Returns.Helpers
                     .Include(i => i.CurrentStep)
                     .FirstOrDefaultAsync(i => i.Id == request.WorkFlowInstanceId)
                     ?? throw new InvalidOperationException($"Workflow instance '{request.WorkFlowInstanceId}' not found.");
-
                 if (instance.UserId != userId)
                     throw new UnauthorizedAccessException("User is not assigned to approve this step.");
-
                 var Period = await _db.ReturnPeriods.FindAsync(instance.PeriodId) ?? throw new InvalidOperationException("Period not found.");
-
-                // Prevent duplicate approvals by same user on same step
+                
+                // Prevent duplicate approvals by same user on same step, scoped to current version
                 var alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
                     a.WorkFlowStepId == instance.CurrentStepId &&
                     a.PeriodId == instance.PeriodId &&
                     a.UserId == userId &&
+                    a.Version == instance.Version &&  // Added for versioning
                     a.Status == ApprovalStatus.RecommendForApproval.ToString());
 
                 if (alreadyApproved)
+                {
                     return ConvertToDto(instance);
+                }
 
                 _db.ApprovalActions.Add(new ApprovalAction
                 {
@@ -870,15 +862,21 @@ namespace Returns.Helpers
                     SaccoId = instance.SaccoId,
                     ReturnSubmissionId = instance.ReturnSubmissionId,
                     UserId = userId,
+                    Version = instance.Version,  
                     Status = ApprovalStatus.RecommendForApproval.ToString(),
                     Comment = request.Comment?.Trim() ?? "",
                     CreatedAt = DateTime.UtcNow
                 });
 
+                // If this approval is after a return (e.g., corrections made), transition status back to Pending if needed
+                //if (instance.Status == ApprovalStatus.ReturnedWithReservations.ToString())
+                //{
+                //    instance.Status = ApprovalStatus.Pending.ToString();
+                //}
+
                 var nextStep = await GetNextStepIdAsync(instance);
                 if (nextStep == null)
                 {
-
                     if (instance.Type == "QGroup")
                     {
                         var reportReadiness = await _db.ReportReadniess
@@ -899,27 +897,21 @@ namespace Returns.Helpers
                             _db.ReportReadniess.Update(reportReadiness);
                         }
                     }
-
                     // Complete
                     instance.Status = ApprovalStatus.RecommendForApproval.ToString();
                     instance.CanBeSeen = false;
                     instance.CurrentStepId = null;
-
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
-
                     BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type));
                 }
                 else
                 {
-
                     var (assigneeUserId, ApproverName, assigneeEmail) = await ResolveAssigneeAsync(nextStep, instance.SaccoId, instance.TeamId);
-
                     instance.CurrentStepId = nextStep.Id;
                     instance.UserId = assigneeUserId;
                     instance.Status = ApprovalStatus.Pending.ToString();
                     instance.CanBeSeen = true;
-
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
 
@@ -928,38 +920,28 @@ namespace Returns.Helpers
                     {
                         long longSaccoId = long.Parse(instance.SaccoId);
                         var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
-
                         var emailSubject = $"🔔 New Approval Request - {sacco?.SaccoName ?? instance.SaccoId}";
                         var returnType = instance.Type == "QGroup" ? "Quarterly Returns" : "Return";
-
                         var emailBody = $@"
-                            Dear {ApproverName}
-
-                            You have received a new approval request that requires your attention.
-
-                            📋 **Request Details:**
-                            • **SACCO:** {sacco?.SaccoName ?? instance.SaccoId}
-                            • **Type:** {returnType}
-                            • **Period:** {Period.Name}
-                            • **Request ID:** {instance.Id}
-                            • **Submitted:** {DateTime.Now:dd/MM/yyyy HH:mm}
-
-                            ⚠️ **Action Required:** Please review and process this request at your earliest convenience.
-
-                            🔗 **Next Steps:**
-                            1. Log into the SASRA system
-                            2. Navigate to the approval queue
-                            3. Review the submitted documents
-                            4. Approve, reject, or request additional information as needed
-
-                            For any questions or technical support, please contact the system administrator.
-
-                            Best regards,
-                            SASRA Returns Management System
-
-                            ---
-                            *This is an automated notification. Please do not reply to this email.*";
-
+                    Dear {ApproverName}
+                    You have received a new approval request that requires your attention.
+                    📋 **Request Details:**
+                    • **SACCO:** {sacco?.SaccoName ?? instance.SaccoId}
+                    • **Type:** {returnType}
+                    • **Period:** {Period.Name}
+                    • **Request ID:** {instance.Id}
+                    • **Submitted:** {DateTime.Now:dd/MM/yyyy HH:mm}
+                    ⚠️ **Action Required:** Please review and process this request at your earliest convenience.
+                    🔗 **Next Steps:**
+                    1. Log into the SASRA system
+                    2. Navigate to the approval queue
+                    3. Review the submitted documents
+                    4. Approve, reject, or request additional information as needed
+                    For any questions or technical support, please contact the system administrator.
+                    Best regards,
+                    SASRA Returns Management System
+                    ---
+                    *This is an automated notification. Please do not reply to this email.*";
                         await _emailService.SendEmailAsync(assigneeEmail, emailSubject, emailBody);
                     }
                     catch (Exception ex)
@@ -967,7 +949,6 @@ namespace Returns.Helpers
                         _logger.LogWarning(ex, "Failed to send approval email for workflow {WorkflowInstanceId}", instance.Id);
                     }
                 }
-
                 return ConvertToDto(instance);
             }
             catch
@@ -976,7 +957,6 @@ namespace Returns.Helpers
                 throw;
             }
         }
-
 
 
         private async Task NotifySaccoAsync(string saccoId, string periodId, string type)
