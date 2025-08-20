@@ -197,18 +197,9 @@ namespace Returns.Controllers
 
                 await _context.SaveChangesAsync();
 
-                var responseDto = new FormDTO
-                {
-                    Id = form.Id,
-                    Name = form.FormName,
-                    DisplayName = form.Code,
-                    SaccoTypeId = form.SaccoTypeId,
-                    Category = form.Category,
-                    IsActive = form.IsActive,
-                    TemplateUrl = $"{baseUrl}{form.TemplateUrl}"
-                };
+              
 
-                return Ok(responseDto);
+                return Ok();
             }
             catch (Exception ex)
             {
