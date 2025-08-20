@@ -155,7 +155,8 @@ namespace Returns.Controllers
                 form.Code = updateFormDTO.DisplayName;
                 form.SaccoTypeId = updateFormDTO.SaccoTypeId;
                 form.Category = updateFormDTO.Category;
-
+                _context.ReturnForms.Entry(form).State = EntityState.Modified;
+                _context.ReturnForms.Update(form);
                 // Handle template update if requested
                 if (updateFormDTO.UpdateTemplate && updateFormDTO.Category != Helpers.Enums.FormCategory.Other)
                 {
