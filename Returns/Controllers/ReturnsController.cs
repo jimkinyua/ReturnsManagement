@@ -1472,10 +1472,10 @@ namespace Returns.Controllers
             try
             {
                 LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
-                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
-                {
-                    return StatusCode(401, "Unauthorized");
-                }
+                //if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.SaccoId) || string.IsNullOrEmpty(loggedInSacco.SaccoType))
+                //{
+                //    return StatusCode(401, "Unauthorized");
+                //}
 
                 // Use the actual saccoId from parameter and saccoType from token
                 var GroupToUse = _context.RatingDefinations
