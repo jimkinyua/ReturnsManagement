@@ -633,12 +633,29 @@ namespace Returns.Helpers
                 if (groupId == "standalone")
                 {
                     var submissionsR = await _context.ReturnSubmissions
-                        .Include(rs => rs.ExpectedReturn)
-                        .ThenInclude(er => er.Period)
-                        .Include(rs => rs.ExpectedReturn)
-                        .ThenInclude(er => er.ReturnForm)
-                        .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
-                        .ToListAsync();
+                                   .Include(rs => rs.ExpectedReturn)
+                                   .ThenInclude(er => er.Period)
+                                   .Include(rs => rs.ExpectedReturn)
+                                   .ThenInclude(er => er.ReturnForm)
+                                   .Include(rs => rs.NWDTCapitalAdequacyReturns)
+                                   .Include(rs => rs.NWDTLiquidityReturns)
+                                   .Include(rs => rs.NWDTDepositReturns)
+                                   .Include(rs => rs.NWDTRiskClassificationReturns)
+                                   .Include(rs => rs.NWDTInvestmentReturns)
+                                   .Include(rs => rs.NWDTFinancialPositionReturns)
+                                   .Include(rs => rs.NWDTComprehensiveIncomeReturns)
+                                   .Include(rs => rs.DTCapitalAdequacyReturns)
+                                   .Include(rs => rs.DTLiquidityReturns)
+                                   .Include(rs => rs.DepositReturns)
+                                   .Include(rs => rs.DTRiskClassificationReturns)
+                                   .Include(rs => rs.DTInvestmentReturns)
+                                   .Include(rs => rs.DTFinancialPositionReturns)
+                                   .Include(rs => rs.DTComprehensiveIncomeReturns)
+                                   .Include(rs => rs.OtherReturns)
+                                   .Include(rs => rs.ManagementReturns)
+                                   .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
+                                   .ToListAsync();
+
 
                     if (!submissionsR.Any())
                         throw new ArgumentException("No submissions found for this SACCO and period");
@@ -1105,17 +1122,21 @@ namespace Returns.Helpers
 
         private string GetGroupStatus(List<ReturnSubmission> submissions)
         {
-            if (!submissions.Any())
+            if (submissions == null || submissions.Count == 0)
                 return "No Submissions";
 
-            var latestSubmission = submissions.Max(s => s.SubmittedAt);
-            var now = DateTime.Now;
+            DateTime? deadline = submissions[0].ExpectedReturn?.FilingDeadline
+                                 ?? submissions[0].ExpectedReturn?.Period?.FilingDeadline;
 
-            if (latestSubmission > now)
-                return "On Time";
-            else
-                return "Late";
+            if (!deadline.HasValue)
+                return "Unknown Deadline";
+
+            var latest = submissions.Max(s => s.SubmittedAt);
+
+            return latest <= deadline.Value ? "On Time" : "Late";
         }
+
+
 
         /// <summary>
         /// Calculates lateness statistics for a group of submissions

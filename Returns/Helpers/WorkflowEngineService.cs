@@ -1089,7 +1089,7 @@ SASRA Compliance Team
             {
                 throw new Exception("Role not assigned to this step.");
             }
-            var RoleAssignedThisStep = RoleDetails.RoleName;
+            var RoleAssignedThisStep = RoleDetails.NormalizedName;
             CommonFieldForUser commonFieldForUser = new CommonFieldForUser();
             if (RoleAssignedThisStep == "Assistant Manager")
             {

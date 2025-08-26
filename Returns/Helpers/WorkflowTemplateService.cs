@@ -58,7 +58,7 @@ namespace Returns.Helpers
                     {
                         Sequence = dto.Sequence,
                         RoleId = dto.RoleId,
-                        RoleName = role.RoleName,
+                        RoleName = role.NormalizedName,
                         WorkFlowTemplateId = dto.WorkTemplateId,
                         CreatedAt = DateTime.UtcNow,
                         SpecificUserId = dto.SpecificUserId,
@@ -258,7 +258,7 @@ namespace Returns.Helpers
                     {
                         Sequence = dto.Sequence,
                         RoleId = dto.RoleId,
-                        RoleName = role.RoleName,
+                        RoleName = role.NormalizedName,
                         WorkFlowTemplateId = dto.WorkTemplateId,
                         CreatedAt = DateTime.UtcNow,
                         SpecificUserId = dto.SpecificUserId,
@@ -331,6 +331,15 @@ namespace Returns.Helpers
 
             foreach (var s in template.WorkFlowSteps.OrderBy(x => x.Sequence))
             {
+                var RoleDetails = await _complianceService.GetRoleDetails(s.RoleId);
+                if (RoleDetails != null)
+                {
+                    s.RoleName = RoleDetails.NormalizedName;
+                }
+                else
+                {
+                    s.RoleName = "Role not found";
+                }
                 var dto = new WorkflowStepDTO
                 {
                     StepId = s.Id,

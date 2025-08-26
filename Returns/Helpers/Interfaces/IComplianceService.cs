@@ -87,7 +87,7 @@ namespace Returns.Helpers.Interfaces
         //Task<SasraUser?> GetUsersByRole(string RoleId);
         Task<List<MinSasraUser>> GetUsersByRole(string RoleId);
         Task<SasraUser?> GetUserById(string UserId);
-        Task<SasraRoleDetails?> GetRoleDetails(string RoleId);
+        Task<NormalisedRoleName?> GetRoleDetails(string RoleId);
         Task<List<Sacco>> GetAllSaccosAsync();
         Task<SaccoDTO> GetSaccoByIdAsync(long saccoId);
         Task<List<Sacco>> GetSaccosAssignedToOfficerAsync(string userId);
