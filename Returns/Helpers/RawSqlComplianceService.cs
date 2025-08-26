@@ -411,7 +411,7 @@ namespace Returns.Helpers
         }
 
 
-        public async Task<SasraRoleDetails?> GetRoleDetails(string RoleId)
+        public async Task<NormalisedRoleName?> GetRoleDetails(string RoleId)
         {
             try
             {
@@ -423,7 +423,7 @@ namespace Returns.Helpers
                 }
 
                 await using var stream = await resp.Content.ReadAsStreamAsync();
-                var roleDetails = await JsonSerializer.DeserializeAsync<SasraRoleDetails>(stream, _jsonOpts);
+                var roleDetails = await JsonSerializer.DeserializeAsync<NormalisedRoleName>(stream, _jsonOpts);
 
                 return roleDetails ?? throw new InvalidDataException($"Deserialized role details for {RoleId} is null.");
             }
