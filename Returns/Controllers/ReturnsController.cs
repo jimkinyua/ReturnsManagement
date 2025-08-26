@@ -2330,15 +2330,15 @@ namespace Returns.Controllers
 
                 // Get approval actions for the current period submissions
                 var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId.ToString(), requiredFormCodes);
-                if (currentPeriodSubmissions.Any())
-                {
-                    /* var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
+                //if (currentPeriodSubmissions.Any())
+                //{
                      var approvals = await _context.ApprovalActions
-                         .Where(a => submissionIds.Contains(a.ResubmissionRequestId))
+                         .Where(a => a.SaccoId == saccoId.ToString() && a.PeriodId == periodId)
                          .Include(a => a.WorkFlowStep)
-                         .ToListAsync();*/
-                    //report.approvalActions = approvals;
-                }
+                         .ToListAsync();
+
+                    report.ApprovalActions = approvals;
+                //}
 
                 var reportBytes = NWDTReportHelper.GenerateNwdtSaccoPerformancePdfReport(report, selector);
                 var base64String = Convert.ToBase64String(reportBytes);
@@ -3365,17 +3365,37 @@ namespace Returns.Controllers
                 report.Periods.Add(blank);
             }
 
-            // Optional: Get approval actions for the current period submissions (uncomment if needed)
-            // var currentPeriodSubmissions = await GetFiledSubmissionsForPeriod(currentPeriod.Id, saccoId.ToString(), requiredFormCodes);
-            // if (currentPeriodSubmissions.Any())
-            // {
-            //     var submissionIds = currentPeriodSubmissions.Select(s => s.Id).ToList();
-            //     var approvals = await _context.ApprovalActions
-            //         .Where(a => submissionIds.Contains(a.SubmissionId)) // Adjusted from ResubmissionRequestId
-            //         .Include(a => a.WorkFlowStep)
-            //         .ToListAsync();
-            //     report.ApprovalActions = approvals; // Assume DTO has this property
-            // }
+                var approvals = await _context.ApprovalActions
+                    .Where(a => a.SaccoId == saccoId.ToString() 
+                    && a.PeriodId == periodId )
+                    .Include(a => a.WorkFlowStep)
+                    .ToListAsync();
+
+            List<ApprovalActionDTO> approvalDTOs = new List<ApprovalActionDTO>();
+            foreach (var action in approvals)
+            {
+                var UserName = string.Empty;
+                var ApproverDetails = await complianceService.GetUserDetailsAsync(action.UserId);
+                if (ApproverDetails != null)
+                {
+                    UserName = $"{ApproverDetails.FullName}  ({ApproverDetails.Email})";
+                }
+               
+                var dto = new ApprovalActionDTO
+                {
+                    SaccoId = action.SaccoId,
+                    PeriodId = action.PeriodId,
+                    UserName = UserName,
+                    Comment = action.Comment,
+                    Status = action.Status,
+                    CreatedAt = action.CreatedAt
+                };
+
+                approvalDTOs.Add(dto);
+
+            }
+
+                report.ApprovalActions = approvalDTOs; 
 
             return report;
         }

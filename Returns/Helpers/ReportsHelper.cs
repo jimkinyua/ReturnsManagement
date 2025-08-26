@@ -426,7 +426,7 @@ namespace Returns.Helpers
          PdfFont boldFont, PdfFont italicFont, PdfFont regularFont)
         {
             // Only add the section if there are approval comments
-            if (report.approvalActions != null && report.approvalActions.Count > 0)
+            if (report.ApprovalActions != null && report.ApprovalActions.Count > 0)
             {
                 document.Add(new Paragraph().SetMarginTop(30));
 
@@ -446,9 +446,9 @@ namespace Returns.Helpers
                 Cell[] headerCells = new Cell[]
                 {
                     new Cell().Add(new Paragraph("Date").SetFont(boldFont)),
-                    new Cell().Add(new Paragraph("Step/Role").SetFont(boldFont)),
+                    new Cell().Add(new Paragraph("User").SetFont(boldFont)),
                     new Cell().Add(new Paragraph("Comment").SetFont(boldFont)),
-                    new Cell().Add(new Paragraph("Status").SetFont(boldFont))
+                    new Cell().Add(new Paragraph("Action").SetFont(boldFont))
                 };
 
                 foreach (var cell in headerCells)
@@ -460,7 +460,7 @@ namespace Returns.Helpers
                 }
 
                 // Add comments to table
-                foreach (var comment in report.approvalActions)
+                foreach (var comment in report.ApprovalActions)
                 {
                     // Date cell
                     commentsTable.AddCell(new Cell()
@@ -468,9 +468,11 @@ namespace Returns.Helpers
                         .SetFont(regularFont))
                         .SetPadding(8));
 
+                    
+
                     // Step/RoleName cell
                     commentsTable.AddCell(new Cell()
-                        .Add(new Paragraph(comment.WorkFlowStep.RoleName)
+                        .Add(new Paragraph(comment.UserName)
                         .SetFont(regularFont))
                         .SetPadding(8));
 

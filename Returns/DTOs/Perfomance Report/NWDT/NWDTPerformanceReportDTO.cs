@@ -2,6 +2,7 @@
 using DocumentFormat.OpenXml.Vml;
 using DocumentFormat.OpenXml.Vml.Office;
 using Microsoft.VisualBasic;
+using Returns.Models;
 
 namespace Returns.DTOs.Perfomance_Report.NWDT
 {
@@ -10,6 +11,7 @@ namespace Returns.DTOs.Perfomance_Report.NWDT
         public string SaccoName { get; set; }
         public DateTime ReportDate { get; set; }
         public List<NWDTPeriodData> Periods { get; set; } = new List<NWDTPeriodData>();
+        public List<ApprovalAction> ApprovalActions { get; set; } = new List<ApprovalAction>();
 
         public class NWDTPeriodData
         {

@@ -1,12 +1,26 @@
 ﻿using Returns.Models;
+using System.ComponentModel.DataAnnotations.Schema;
 namespace Returns.DTOs.Perfomance_Report
 {
+    public class ApprovalActionDTO
+    {
+        public string UserId { get; set; } = null!;
+        public string WorkFlowStepId { get; set; } = null!;
+        public string UserName { get; set; } = null!;
+        public string Comment { get; set; } = null!;
+        public string Status { get; set; } = null!;
+        public string? PeriodId { get; internal set; }
+        public string SaccoId { get; internal set; } = null!;
+        public DateTime CreatedAt { get; set; }
+
+        public string? ReturnSubmissionId { get; internal set; }
+    }
     public class SaccoPerformanceReportDTO
     {
         public string SaccoName { get; set; } = string.Empty;
         public DateTime ReportDate { get; set; }
         public List<PeriodData> Periods { get; set; } = new List<PeriodData>();
-        public List<ApprovalAction> approvalActions { get; set; } = new List<ApprovalAction>();
+        public List<ApprovalActionDTO> ApprovalActions { get; set; } = new List<ApprovalActionDTO>();
         public class PeriodData
         {
             // Basic info
