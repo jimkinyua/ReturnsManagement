@@ -6,6 +6,7 @@ namespace Returns.DTOs.Returns.Adhoc
     {
         public string Id { get; set; } = null!;
         public string SaccoId { get; set; } = null!;
+        public string SaccoName { get; set; } = null!;
         public string RequestedById { get; set; } = null!;
         public DateTime RequestedAt { get; set; }
         public string Description { get; set; } = null!;

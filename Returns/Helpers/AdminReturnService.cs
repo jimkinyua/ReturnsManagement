@@ -637,6 +637,7 @@ namespace Returns.Helpers
                                    .ThenInclude(er => er.Period)
                                    .Include(rs => rs.ExpectedReturn)
                                    .ThenInclude(er => er.ReturnForm)
+
                                    .Include(rs => rs.NWDTCapitalAdequacyReturns)
                                    .Include(rs => rs.NWDTLiquidityReturns)
                                    .Include(rs => rs.NWDTDepositReturns)
@@ -644,6 +645,7 @@ namespace Returns.Helpers
                                    .Include(rs => rs.NWDTInvestmentReturns)
                                    .Include(rs => rs.NWDTFinancialPositionReturns)
                                    .Include(rs => rs.NWDTComprehensiveIncomeReturns)
+
                                    .Include(rs => rs.DTCapitalAdequacyReturns)
                                    .Include(rs => rs.DTLiquidityReturns)
                                    .Include(rs => rs.DepositReturns)
@@ -651,6 +653,7 @@ namespace Returns.Helpers
                                    .Include(rs => rs.DTInvestmentReturns)
                                    .Include(rs => rs.DTFinancialPositionReturns)
                                    .Include(rs => rs.DTComprehensiveIncomeReturns)
+
                                    .Include(rs => rs.OtherReturns)
                                    .Include(rs => rs.ManagementReturns)
                                    .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
@@ -672,28 +675,31 @@ namespace Returns.Helpers
                     switch (form.Category)
                     {
                         case FormCategory.CapitalAdequacy:
-                            detailsDto.CapitalAdequacy = await MapCapitalAdequacyWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.CapitalAdequacy = MapCapitalAdequacy(submission, saccoType);
                             break;
                         case FormCategory.LiquidityStatement:
-                            detailsDto.Liquidity = await MapLiquidityWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.Liquidity = MapLiquidity(submission, saccoType);
                             break;
                         case FormCategory.RiskClassification:
-                            detailsDto.RiskClassification = await MapRiskClassificationWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.RiskClassification = MapRiskClassification(submission, saccoType);
                             break;
                         case FormCategory.DepositReturn:
-                            detailsDto.DepositReturn = await MapDepositReturnWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.DepositReturn = MapDepositReturn(submission, saccoType);
                             break;
                         case FormCategory.FinancialPosition:
-                            detailsDto.FinancialPosition = await MapFinancialPositionWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.FinancialPosition = MapFinancialPosition(submission, saccoType);
                             break;
                         case FormCategory.StatementOfComprehensiveIncome:
-                            detailsDto.ComprehensiveIncome = await MapComprehensiveIncomeWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.ComprehensiveIncome = MapComprehensiveIncome(submission, saccoType);
                             break;
                         case FormCategory.InvestmentReturn:
-                            detailsDto.InvestmentReturn = await MapInvestmentWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.InvestmentReturn = MapInvestment(submission, saccoType);
                             break;
                         case FormCategory.Management:
-                            detailsDto.Management = await MapManagementWithVersionsAsync(submission, saccoType, periodId, saccoId);
+                            detailsDto.Management = MapManagement(submission, saccoType);
+                            break;
+                        case FormCategory.Other:
+                            detailsDto.Other = await MapOtherWithVersionsAsync(submission, saccoType, periodId, saccoId);
                             break;
                     }
 
@@ -715,6 +721,7 @@ namespace Returns.Helpers
                         .ThenInclude(er => er.Period)
                         .Include(rs => rs.ExpectedReturn)
                         .ThenInclude(er => er.ReturnForm)
+
                         .Include(rs => rs.NWDTCapitalAdequacyReturns)
                         .Include(rs => rs.NWDTLiquidityReturns)
                         .Include(rs => rs.NWDTDepositReturns)
@@ -722,6 +729,7 @@ namespace Returns.Helpers
                         .Include(rs => rs.NWDTInvestmentReturns)
                         .Include(rs => rs.NWDTFinancialPositionReturns)
                         .Include(rs => rs.NWDTComprehensiveIncomeReturns)
+
                         .Include(rs => rs.DTCapitalAdequacyReturns)
                         .Include(rs => rs.DTLiquidityReturns)
                         .Include(rs => rs.DepositReturns)
@@ -729,8 +737,10 @@ namespace Returns.Helpers
                         .Include(rs => rs.DTInvestmentReturns)
                         .Include(rs => rs.DTFinancialPositionReturns)
                         .Include(rs => rs.DTComprehensiveIncomeReturns)
+
                         .Include(rs => rs.OtherReturns)
                         .Include(rs => rs.ManagementReturns)
+
                         .Where(rs => rs.ExpectedReturn.PeriodId == periodId && rs.SaccoId == saccoId)
                         .ToListAsync();
 

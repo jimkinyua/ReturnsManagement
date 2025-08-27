@@ -41,7 +41,6 @@ namespace Returns.Helpers
             _workflowEngineService = workflowEngineService;
             _configuration = configuration;
         }
-
         public async Task<IList<PendingAdHocReturnRequestDTO>> GetPendingAdHocReturnRequestsAsync(string? saccoId = null)
         {
             var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
@@ -68,6 +67,7 @@ namespace Returns.Helpers
             {
                 Id = r.Id,
                 SaccoId = r.SaccoId,
+                SaccoName = _complianceService.GetSaccoByIdAsync(long.Parse(r.SaccoId)).Result.SaccoName,
                 RequestedById = r.RequestedById,
                 RequestedAt = r.RequestedAt,
                 Description = r.Description,
@@ -151,6 +151,7 @@ namespace Returns.Helpers
             {
                 Id = request.Id,
                 SaccoId = request.SaccoId,
+                SaccoName = _complianceService.GetSaccoByIdAsync(long.Parse(request.SaccoId)).Result.SaccoName,
                 RequestedById = request.RequestedById,
                 RequestedAt = request.RequestedAt,
                 Description = request.Description,
@@ -184,7 +185,7 @@ namespace Returns.Helpers
             List<string> attachmentUrls = new List<string>();
             foreach (var item in dto.ResponseFiles)
             {
-                var attachmentUrl = "Ngori"; // await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
+                var attachmentUrl = await FormsHelper.SaveFileAsync(item, "AdHocReturnRequests");
                 if (attachmentUrl == null)
                 {
                     throw new InvalidOperationException("Failed to save attachment file.");
@@ -248,6 +249,7 @@ namespace Returns.Helpers
             {
                 Id = r.Id,
                 SaccoId = r.SaccoId,
+                SaccoName = _complianceService.GetSaccoByIdAsync(long.Parse(r.SaccoId)).Result.SaccoName,
                 RequestedById = r.RequestedById,
                 RequestedAt = r.RequestedAt,
                 Description = r.Description,
@@ -265,10 +267,10 @@ namespace Returns.Helpers
             var baseUrl = _configuration.GetSection("GateWayConfigs:GatewayURLForDocuments").Value;
             var query = _context.AdHocReturnRequests
                           .Where(r => r.Status == AdHocReturnRequestStatus.Responded);
-           /* if (!string.IsNullOrEmpty(saccoId))
-            {
-                query = query.Where(r => r.SaccoId == saccoId);
-            }*/
+            /* if (!string.IsNullOrEmpty(saccoId))
+             {
+                 query = query.Where(r => r.SaccoId == saccoId);
+             }*/
             var rawData = await query
             .OrderByDescending(r => r.RequestedAt)
             .Select(r => new
@@ -286,6 +288,7 @@ namespace Returns.Helpers
             {
                 Id = r.Id,
                 SaccoId = r.SaccoId,
+                SaccoName = _complianceService.GetSaccoByIdAsync(long.Parse(r.SaccoId)).Result.SaccoName,
                 RequestedById = r.RequestedById,
                 RequestedAt = r.RequestedAt,
                 Description = r.Description,
@@ -309,6 +312,8 @@ namespace Returns.Helpers
             }
             request.Status = AdHocReturnRequestStatus.Completed;
             request.RespondedById = admin.UserId;
+            _context.AdHocReturnRequests.Entry(request).State = EntityState.Modified;
+            _context.AdHocReturnRequests.Update(request);
             await _context.SaveChangesAsync();
             return request;
         }
