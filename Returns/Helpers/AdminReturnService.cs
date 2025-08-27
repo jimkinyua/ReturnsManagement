@@ -1721,24 +1721,32 @@ namespace Returns.Helpers
             }
             else // NWDT
             {
-                var deposits = submission.NWDTDepositReturns.ToList();
-                if (deposits.Count <= 0) return null;
                 NWDTDepositReturnDto? nwdtDepositReturn = null;
+
+                var deposits = submission.NWDTDepositReturns.ToList();
+                if (deposits == null || !deposits.Any())
+                {
+                    return null;
+                }
 
                 nwdtDepositReturn = new NWDTDepositReturnDto
                 {
-                    FormId = deposits[0].FormId ?? string.Empty,
-                    RequiresResubmission = deposits[0].RequiresResubmission,
+                    FormId = deposits.FirstOrDefault()?.FormId ?? string.Empty,
                     SubmissionId = submission.Id,
+                    RequiresResubmission = deposits.FirstOrDefault()?.RequiresResubmission ?? false,
                     FileUrl = UrlHelper.BuildFullUrl(_configuration, submission.FileUrl),
-                    DepositReturnData = deposits.Select(dr => new NWDTDepositReturnData
+                };
+
+                foreach (var dr in deposits)
+                {
+                    nwdtDepositReturn.DepositReturnData.Add(new NWDTDepositReturnData
                     {
                         RangeName = dr.RangeName ?? string.Empty,
                         DepositType = dr.DepositType ?? string.Empty,
                         NumberOfAccounts = dr.NumberOfAccounts,
-                        Amount = dr.AmountInKshs000,
-                    }).ToList()
-                };
+                        Amount = dr.AmountInKshs000
+                    });
+                }
 
                 return nwdtDepositReturn;
             }
