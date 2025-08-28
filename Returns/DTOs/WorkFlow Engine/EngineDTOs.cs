@@ -17,9 +17,9 @@ namespace Returns.DTOs.WorkFlow_Engine
         //public bool CanBeSeen { get; set; } = true;
         public bool IsFirst { get; set; } = false;
         public bool IsLast { get; set; } = false;
-        public bool IsConsistent { get; set; } = true; 
+        public bool IsConsistent { get; set; } = true;
         public List<WorkflowStepDto> NextSteps { get; set; } = new();
-        public List<ValidationError> ConsistencyErrors { get; set; } = new(); 
+        public List<ValidationError> ConsistencyErrors { get; set; } = new();
     }
 
 
@@ -33,7 +33,7 @@ namespace Returns.DTOs.WorkFlow_Engine
         public Boolean IsLast { get; set; } = false;
     }
 
-   
+
     public class CommentDetails
     {
         public string Comment { get; set; }
@@ -43,7 +43,7 @@ namespace Returns.DTOs.WorkFlow_Engine
         public DateTime CreatedAt { get; set; }
     }
 
-        public class ApproveStepRequest
+    public class ApproveStepRequest
     {
         public string Comment { get; set; }
     }
@@ -73,4 +73,45 @@ namespace Returns.DTOs.WorkFlow_Engine
         [Required] public string Comment { get; set; } = string.Empty;
     }
 
-}   
+    public sealed record RecommendForInspectionRequest
+    {
+        [Required] public string WorkFlowInstanceId { get; set; } = string.Empty;
+        [Required] public string Reason { get; init; } = string.Empty;
+        public string? Classification { get; init; }
+        public string? RiskLevel { get; init; }
+        public string? ComplaintsCount { get; init; }
+    }
+
+    public sealed record InspectionModuleRequest
+    {
+        public string reference { get; set; } = string.Empty;
+        public string saccoId { get; set; } = string.Empty;
+        public string saccoName { get; set; } = string.Empty;
+        public string rating { get; set; } = string.Empty;
+        public string tier { get; set; } = string.Empty;
+        public string reason { get; set; } = string.Empty;
+        public string source { get; set; } = string.Empty;
+    }
+
+    public sealed record InspectionRecommendationResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? InspectionCaseId { get; set; }
+        public DateTime RecommendedAt { get; set; }
+    }
+
+    public sealed record RatedSaccoForInspectionDto
+    {
+        public string WorkflowInstanceId { get; set; } = string.Empty;
+        public string SaccoId { get; set; } = string.Empty;
+        public string SaccoName { get; set; } = string.Empty;
+        public string PeriodId { get; set; } = string.Empty;
+        public string PeriodName { get; set; } = string.Empty;
+        public int Rating { get; set; }
+        public string RiskLevel { get; set; } = string.Empty;
+        public DateTime RatedAt { get; set; }
+        public DateTime WorkflowCompletedAt { get; set; }
+        public bool CanRecommendForInspection { get; set; } = true;
+    }
+}

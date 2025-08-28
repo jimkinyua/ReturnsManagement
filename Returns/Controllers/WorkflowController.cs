@@ -173,7 +173,7 @@ namespace Returns.Controllers
             }
         }
 
-      
+
 
 
         [HttpGet("CurrentState")]
@@ -209,5 +209,66 @@ namespace Returns.Controllers
                 return StatusCode(500, CustomErrorHandler.HandleException(ex));
             }
         }
+
+        [HttpGet("RatedSaccosForInspection")]
+        public async Task<ActionResult<List<RatedSaccoForInspectionDto>>> GetRatedSaccosForInspection()
+        {
+            try
+            {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
+                }
+
+                var results = await _workflowService.GetRatedSaccosForInspectionAsync();
+                return Ok(results);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to fetch rated saccos for inspection.");
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+        [HttpPost("RecommendForInspection")]
+        public async Task<ActionResult<InspectionRecommendationResult>> RecommendForInspection([FromBody] RecommendForInspectionRequest request)
+        {
+            try
+            {
+                LoggedInEntity loggedInSacco = TokenHelper.GetLoggedInSaccoFromCurrentRequest(Request);
+                if (loggedInSacco == null || string.IsNullOrEmpty(loggedInSacco.UserId))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing user authentication.");
+                }
+
+                var bearer = HttpContext.Request.Headers["Authorization"].FirstOrDefault();
+                if (string.IsNullOrWhiteSpace(bearer) || !bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(401, "Unauthorized: Invalid or missing bearer token.");
+                }
+
+                var accessToken = bearer["Bearer ".Length..].Trim();
+                var result = await _workflowService.RecommendForInspectionAsync(request, loggedInSacco.UserId, accessToken);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning(ex, "Unauthorized inspection recommendation for workflow {WorkflowId}.", request.WorkFlowInstanceId);
+                return StatusCode(403, ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Invalid operation for recommending inspection for workflow {WorkflowId}.", ex.Message);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to recommend inspection for workflow {WorkflowId}.", request.WorkFlowInstanceId);
+                return StatusCode(500, CustomErrorHandler.HandleException(ex));
+            }
+        }
+
+      
     }
 }

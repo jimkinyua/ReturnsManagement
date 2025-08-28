@@ -13,6 +13,8 @@ using Returns.Models.Data;
 using System.ComponentModel;
 using System.Reflection;
 using System.Text.Json;
+using System.Net.Http;
+using System.Text;
 using static Returns.Helpers.ReturnAnalysisHelper;
 using static Returns.Helpers.TokenHelper;
 
@@ -26,6 +28,7 @@ namespace Returns.Helpers
         private readonly IEnforcementService _enforcementService;
         private readonly ICamelsAnalysisService _camelsAnalysisService;
         private readonly ISaccoAssignmentService _saccoAssignmentService;
+        private readonly ISaccoTierCalculationService _tierCalculationService;
         private readonly ILogger<WorkflowEngineService> _logger;
 
 
@@ -54,7 +57,7 @@ namespace Returns.Helpers
             return attr?.Description ?? value.ToString();
         }
 
-        public WorkflowEngineService(ReturnsDbContext db, ISaccoAssignmentService saccoAssignmentService, ILogger<WorkflowEngineService> logger, ICamelsAnalysisService camelsAnalysisService, IComplianceService complianceService, IEmailService emailService, IEnforcementService enforcementService)
+        public WorkflowEngineService(ReturnsDbContext db, ISaccoAssignmentService saccoAssignmentService, ILogger<WorkflowEngineService> logger, ICamelsAnalysisService camelsAnalysisService, IComplianceService complianceService, IEmailService emailService, IEnforcementService enforcementService, ISaccoTierCalculationService tierCalculationService)
         {
             _db = db;
             _logger = logger;
@@ -63,6 +66,7 @@ namespace Returns.Helpers
             _enforcementService = enforcementService;
             _camelsAnalysisService = camelsAnalysisService;
             _saccoAssignmentService = saccoAssignmentService;
+            _tierCalculationService = tierCalculationService;
         }
 
         public async Task<WorkflowStateDto> RecommendForEnforcementAsync(RecommendStepRequest dto, string userId, string loggedInUserToken)
@@ -101,10 +105,35 @@ namespace Returns.Helpers
 
                 if (isLastStep)
                 {
-                    // Finalize → Enforcement case
+                    // Finalize → Enforcement case and complete workflow
                     instance.CurrentStepId = null;
                     instance.Status = ApprovalStatus.RecommendedForEnForcement.ToString();
                     instance.CanBeSeen = false;
+                    instance.IsWorkflowComplete = true;
+                    instance.IsComplete = true;
+                    instance.UpdatedAt = DateTime.UtcNow;
+
+                    // Update ReportReadiness for QGroup workflows
+                    if (instance.Type == "QGroup")
+                    {
+                        var reportReadiness = await _db.ReportReadniess
+                            .FirstOrDefaultAsync(rr => rr.PeriodId == instance.PeriodId && rr.SaccoId == instance.SaccoId);
+                        if (reportReadiness == null)
+                        {
+                            reportReadiness = new ReportReadniess
+                            {
+                                PeriodId = instance.PeriodId,
+                                SaccoId = instance.SaccoId,
+                                IsApproved = false // Not approved, sent to enforcement
+                            };
+                            await _db.ReportReadniess.AddAsync(reportReadiness);
+                        }
+                        else
+                        {
+                            reportReadiness.IsApproved = false; // Not approved, sent to enforcement
+                            _db.ReportReadniess.Update(reportReadiness);
+                        }
+                    }
 
                     long longSaccoId = long.Parse(instance.SaccoId);
                     var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
@@ -445,7 +474,7 @@ namespace Returns.Helpers
                     .Include(w => w.CurrentStep)
                     .FirstOrDefaultAsync(w => w.Id == req.WorkFlowInstanceId)
                     ?? throw new InvalidOperationException("Workflow instance not found.");
-               
+
                 // 2) Must be current assignee
                 if (instance.UserId != userId)
                 {
@@ -841,7 +870,7 @@ namespace Returns.Helpers
                 if (instance.UserId != userId)
                     throw new UnauthorizedAccessException("User is not assigned to approve this step.");
                 var Period = await _db.ReturnPeriods.FindAsync(instance.PeriodId) ?? throw new InvalidOperationException("Period not found.");
-                
+
                 // Prevent duplicate approvals by same user on same step, scoped to current version
                 var alreadyApproved = await _db.ApprovalActions.AnyAsync(a =>
                     a.WorkFlowStepId == instance.CurrentStepId &&
@@ -862,7 +891,7 @@ namespace Returns.Helpers
                     SaccoId = instance.SaccoId,
                     ReturnSubmissionId = instance.ReturnSubmissionId,
                     UserId = userId,
-                    Version = instance.Version,  
+                    Version = instance.Version,
                     Status = ApprovalStatus.RecommendForApproval.ToString(),
                     Comment = request.Comment?.Trim() ?? "",
                     CreatedAt = DateTime.UtcNow
@@ -877,8 +906,10 @@ namespace Returns.Helpers
                 var nextStep = await GetNextStepIdAsync(instance);
                 if (nextStep == null)
                 {
+                    // This is the final step - complete the workflow
                     if (instance.Type == "QGroup")
                     {
+                        // Update or create ReportReadiness record
                         var reportReadiness = await _db.ReportReadniess
                             .FirstOrDefaultAsync(rr => rr.PeriodId == instance.PeriodId && rr.SaccoId == instance.SaccoId);
                         if (reportReadiness == null)
@@ -897,12 +928,19 @@ namespace Returns.Helpers
                             _db.ReportReadniess.Update(reportReadiness);
                         }
                     }
-                    // Complete
+
+                    // Mark workflow as complete
                     instance.Status = ApprovalStatus.RecommendForApproval.ToString();
                     instance.CanBeSeen = false;
                     instance.CurrentStepId = null;
+                    instance.IsWorkflowComplete = true;
+                    instance.IsComplete = true;
+                    instance.UpdatedAt = DateTime.UtcNow;
+
                     await _db.SaveChangesAsync();
                     await transaction.CommitAsync();
+
+                    // Notify SACCO of completion
                     BackgroundJob.Enqueue(() => NotifySaccoAsync(instance.SaccoId, instance.PeriodId, instance.Type));
                 }
                 else
@@ -957,6 +995,7 @@ namespace Returns.Helpers
                 throw;
             }
         }
+
 
 
         private async Task NotifySaccoAsync(string saccoId, string periodId, string type)
@@ -1328,6 +1367,203 @@ SASRA Compliance Team
             }
         }
 
+        public async Task<List<RatedSaccoForInspectionDto>> GetRatedSaccosForInspectionAsync()
+        {
+            try
+            {
+                // Get all completed workflows that have ratings
+                var ratedWorkflows = await _db.WorkflowInstances
+                    .Where(wi => wi.IsWorkflowComplete && wi.Rating.HasValue)
+                    .OrderByDescending(wi => wi.UpdatedAt)
+                    .ToListAsync();
+
+                var result = new List<RatedSaccoForInspectionDto>();
+
+                foreach (var workflow in ratedWorkflows)
+                {
+                    // Get SACCO details
+                    long saccoIdLong = 0;
+                    _ = long.TryParse(workflow.SaccoId, out saccoIdLong);
+                    var sacco = saccoIdLong > 0 ? await _complianceService.GetSaccoByIdAsync(saccoIdLong) : null;
+
+                    // Get period details
+                    var period = await _db.ReturnPeriods.FindAsync(workflow.PeriodId);
+
+                    // Get latest CAELS rating for additional details
+                    var caelsRating = await _db.CAELSRatings
+                        .Where(r => r.SaccoId == workflow.SaccoId && r.PeriodId == workflow.PeriodId)
+                        .OrderByDescending(r => r.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    // Check if already recommended for inspection
+                    var alreadyRecommended = await _db.ApprovalActions
+                        .AnyAsync(a => a.WorkFlowStepId == workflow.CurrentStepId &&
+                                      a.PeriodId == workflow.PeriodId &&
+                                      a.SaccoId == workflow.SaccoId &&
+                                      a.Status == "RecommendedForInspection");
+
+                    var dto = new RatedSaccoForInspectionDto
+                    {
+                        WorkflowInstanceId = workflow.Id,
+                        SaccoId = workflow.SaccoId,
+                        SaccoName = sacco?.SaccoName ?? "Unknown SACCO",
+                        PeriodId = workflow.PeriodId,
+                        PeriodName = period?.Name ?? workflow.PeriodId,
+                        Rating = workflow.Rating ?? 0,
+                        RiskLevel = caelsRating?.RiskLevel ?? "Unknown",
+                        RatedAt = caelsRating?.CreatedAt ?? workflow.UpdatedAt,
+                        WorkflowCompletedAt = workflow.UpdatedAt,
+                        CanRecommendForInspection = !alreadyRecommended
+                    };
+
+                    result.Add(dto);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting rated saccos for inspection");
+                throw;
+            }
+        }
+
+        public async Task<InspectionRecommendationResult> RecommendForInspectionAsync(RecommendForInspectionRequest request, string userId, string loggedInUserToken)
+        {
+            using var transaction = await _db.Database.BeginTransactionAsync();
+            try
+            {
+                var instance = await _db.WorkflowInstances
+                    .Include(w => w.CurrentStep)
+                    .FirstOrDefaultAsync(w => w.Id == request.WorkFlowInstanceId)
+                    ?? throw new InvalidOperationException("Workflow instance not found.");
+
+                // Check if workflow is completed
+                if (!instance.IsWorkflowComplete)
+                    throw new InvalidOperationException("Cannot recommend for inspection: workflow is not completed.");
+
+                // Check if already recommended
+                var alreadyRecommended = await _db.ApprovalActions
+                    .AnyAsync(a => a.WorkFlowStepId == instance.CurrentStepId &&
+                                  a.PeriodId == instance.PeriodId &&
+                                  a.SaccoId == instance.SaccoId &&
+                                  a.Status == "RecommendedForInspection");
+
+                if (alreadyRecommended)
+                    throw new InvalidOperationException("This SACCO has already been recommended for inspection.");
+
+                var comment = request.Reason?.Trim() ?? "";
+
+                // Log the inspection recommendation action
+                _db.ApprovalActions.Add(new ApprovalAction
+                {
+                    WorkFlowStepId = instance.CurrentStepId,
+                    PeriodId = instance.PeriodId,
+                    SaccoId = instance.SaccoId,
+                    ReturnSubmissionId = instance.ReturnSubmissionId,
+                    UserId = userId,
+                    Comment = comment,
+                    Status = "RecommendedForInspection",
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                // Get SACCO details for the API call
+                long longSaccoId = long.Parse(instance.SaccoId);
+                var sacco = await _complianceService.GetSaccoByIdAsync(longSaccoId);
+
+                // Get latest CAELS rating for additional details
+                var caelsRating = await _db.CAELSRatings
+                    .Where(r => r.SaccoId == instance.SaccoId && r.PeriodId == instance.PeriodId)
+                    .OrderByDescending(r => r.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                var inspectionCaseId = await SubmitToInspectionModuleAsync(instance, sacco, request, loggedInUserToken);
+
+                await _db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return new InspectionRecommendationResult
+                {
+                    Success = true,
+                    Message = "Successfully recommended for inspection",
+                    InspectionCaseId = inspectionCaseId,
+                    RecommendedAt = DateTime.UtcNow
+                };
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+        private async Task<string?> SubmitToInspectionModuleAsync(WorkflowInstance instance, dynamic? sacco, RecommendForInspectionRequest request, string loggedInUserToken)
+        {
+            try
+            {
+                _logger.LogInformation(
+                    "Recommendation for inspection submitted: SACCO {SaccoId}, Period {PeriodId}, Reason: {Reason}",
+                    instance.SaccoId, instance.PeriodId, request.Reason);
+
+                // Create HTTP client
+                using var httpClient = new HttpClient();
+
+                // Set authorization header
+                httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", loggedInUserToken);
+
+                // Calculate SACCO tier using the dedicated service
+                var saccoTier = _tierCalculationService.CalculateTierFromWorkflow(instance, request.Classification, request.RiskLevel);
+
+                // Prepare the request payload using the new format
+                var inspectionRequest = new InspectionModuleRequest
+                {
+                    reference = instance.Id, // Use workflow instance ID as reference
+                    saccoId = instance.SaccoId,
+                    saccoName = sacco?.SaccoName ?? "Unknown SACCO",
+                    rating = (instance.Rating ?? 0).ToString(),
+                    tier = saccoTier,
+                    reason = request.Reason?.Trim() ?? "Not compliant",
+                    source = InspectionModuleConstants.SourceType
+                };
+
+                // Serialize the request
+                var jsonContent = JsonSerializer.Serialize(inspectionRequest);
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                // Make the API call to the inspection module
+                var response = await httpClient.PostAsync(
+                    InspectionModuleConstants.FullModulesRequestsUrl,
+                    content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation(
+                        "Successfully submitted to inspection module for SACCO {SaccoId}. Response: {Response}",
+                        instance.SaccoId, responseContent);
+
+                    // Try to extract inspection case ID from response if available
+                    // For now, return a generated ID based on the workflow instance
+                    return $"INSP_{instance.SaccoId}_{instance.PeriodId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError(
+                        "Failed to submit to inspection module for SACCO {SaccoId}. Status: {Status}, Error: {Error}",
+                        instance.SaccoId, response.StatusCode, errorContent);
+
+                    // Return null to indicate failure, but don't throw to avoid breaking the workflow
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to submit to inspection module for SACCO {SaccoId}", instance.SaccoId);
+                // Don't throw - this shouldn't fail the main workflow
+                return null;
+            }
+        }
 
 
     }

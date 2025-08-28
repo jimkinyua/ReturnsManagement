@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Returns.Models
 {
-    public class WorkflowInstance:CommonFields
+    public class WorkflowInstance : CommonFields
     {
         public string WorkflowTemplateId { get; set; } = null!;
         public string? ReturnSubmissionId { get; set; }  // Nullable for Q groups; links to individual submission for non-Q
@@ -22,9 +22,10 @@ namespace Returns.Models
         [ForeignKey("CurrentStepId")]
         public virtual WorkFlowStep CurrentStep { get; set; } = null!;
         public bool IsComplete { get; internal set; } = false;
+        public bool IsWorkflowComplete { get; internal set; } = false;
         public string? IncompletenessNotes { get; internal set; }
         public DateTime UpdatedAt { get; internal set; }
-        public string? UpdatedBy { get; internal set; }  = string.Empty; // User who last updated the instance
+        public string? UpdatedBy { get; internal set; } = string.Empty; // User who last updated the instance
         public int Version { get; internal set; } = 1; // Versioning for optimistic concurrency
     }
 }

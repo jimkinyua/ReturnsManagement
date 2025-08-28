@@ -80,6 +80,7 @@ builder.Services.AddTransient<IExcelParser, ExcelParserService>();
 builder.Services.AddTransient<ISaccoAssignmentService, SaccoAssignmentService>();
 builder.Services.AddTransient<IReturnSubmissionService, ReturnSubmissionService>();
 builder.Services.AddTransient<IAdhocReturnsService, AdhocReturnsService>();
+builder.Services.AddTransient<ISaccoTierCalculationService, SaccoTierCalculationService>();
 builder.Services.AddScoped<ReturnsReminderService>();
 builder.Services.AddLogging();
 

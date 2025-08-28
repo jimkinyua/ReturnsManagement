@@ -11,7 +11,7 @@ namespace Returns.Helpers
     {
         Task<WorkflowStateDto> StartWorkflowAsync(string periodId, string saccoId, string? returnSubmissionId);
         Task<WorkflowStateDto> ApproveStepAsync(ApproveStepRequestDTO approveStepRequestDTO, string userId);
-        //Task<WorkflowStateDto> RejectStepAsync(string workflowId, string userId, RejectStepRequest request);
+        //Task<WorkflowStateDto> RejectStepAsync(RejectStepRequest request, string userId);
         Task<WorkflowStateDto?> GetCurrentStateAsync(string? periodId, string? saccoId, string? returnSubmissionId);
         Task<List<PendingReturnDto>> GetPendingReturnsAsync(string userId);
         Task<List<CommentDetails>> GetComments(string periodId, string saccoId, string? returnSubmissionId);
@@ -19,5 +19,7 @@ namespace Returns.Helpers
         Task<WorkflowStateDto> ReturnWithReservationsAsync(ReturnWithReservationsRequest dto, string userId);
         Task<List<TLWorkflowOverviewDTO>> GetTLWorkflowOverviewAsync(string teamLeadId);
         Task<WorkflowReassignmentResultDTO> ReassignWorkflowAsync(WorkflowReassignmentRequestDTO request, LoggedInEntity loggedInEntity);
+        Task<List<RatedSaccoForInspectionDto>> GetRatedSaccosForInspectionAsync();
+        Task<InspectionRecommendationResult> RecommendForInspectionAsync(RecommendForInspectionRequest request, string userId, string loggedInUserToken);
     }
 }

@@ -211,8 +211,6 @@ namespace Returns.Controllers
 
         /// <summary>
         /// Get forms due for a specific year and month
-        /// Note: Daily returns (DAY frequency) are filtered to show only today's returns,
-        /// while other frequencies show returns due in the specified month
         /// </summary>
         /// <param name="year">The year (e.g., 2024)</param>
         /// <param name="month">The month (1-12)</param>
@@ -252,15 +250,10 @@ namespace Returns.Controllers
                         .ThenInclude(p => p.ReportingYear)
                     .Where(er => er.IsActive);
 
-                // Apply date filtering based on frequency type
+                // Find all expected returns where the filing deadline falls within this month
                 expectedReturnsQuery = expectedReturnsQuery.Where(er =>
-                    // For daily returns (DAY), only show today's returns
-                    (er.Period.FrequencyCatalog.Code == "DAY" &&
-                     er.FilingDeadline.Date == DateTime.Today) ||
-                    // For all other frequencies, show returns due in the specified month
-                    (er.Period.FrequencyCatalog.Code != "DAY" &&
-                     er.FilingDeadline.Date.Month >= firstDayOfMonth.Date.Month &&
-                     er.FilingDeadline.Date.Month <= lastDayOfMonth.Date.Month));
+                    er.FilingDeadline.Date.Month >= firstDayOfMonth.Date.Month &&
+                    er.FilingDeadline.Date.Month <= lastDayOfMonth.Date.Month);
 
                 // Filter by sacco type if provided
                 /*if (!string.IsNullOrEmpty(saccoTypeId))
@@ -623,8 +616,6 @@ namespace Returns.Controllers
         /// <summary>
         /// Get forms due for the current month, grouped by period, with clear submission statuses
         /// Optimized for performance with simplified queries and clear status tracking
-        /// Note: Daily returns (DAY frequency) are filtered to show only today's returns,
-        /// while other frequencies show returns due in the specified month
         /// </summary>
         /// <param name="year">The year (e.g., 2024)</param>
         /// <param name="month">The month (1-12)</param>
@@ -662,17 +653,11 @@ namespace Returns.Controllers
                     .Include(er => er.Period)
                         .ThenInclude(p => p.ReportingYear)
                     .Include(er => er.ReturnSubmissions.Where(rs => rs.IsActive))
-                      .Where(er => er.IsActive);
-
-                // Apply date filtering based on frequency type
-                expectedReturnsQuery = expectedReturnsQuery.Where(er =>
-                    // For daily returns (DAY), only show today's returns
-                    (er.Period.FrequencyCatalog.Code == "DAY" &&
-                     er.FilingDeadline.Date == DateTime.Today) ||
-                    // For all other frequencies, show returns due in the specified month
-                    (er.Period.FrequencyCatalog.Code != "DAY" &&
-                     er.FilingDeadline.Date >= firstDayOfMonth &&
-                     er.FilingDeadline.Date <= lastDayOfMonth));
+                      .Where(er =>
+                            er.FilingDeadline.Date >= firstDayOfMonth &&
+                            er.FilingDeadline.Date <= lastDayOfMonth &&
+                            er.IsActive
+                        );
 
                 // Filter by sacco type if provided
                 if (!string.IsNullOrEmpty(saccoTypeId))
